@@ -78,6 +78,7 @@ type commands struct {
 	MCP           plumcliconfig.Cmdparams `yaml:"mcp"`
 	Login         plumcliconfig.Cmdparams `yaml:"login"`
 	Logout        plumcliconfig.Cmdparams `yaml:"logout"`
+	Whoami        plumcliconfig.Cmdparams `yaml:"whoami"`
 	User          plumcliconfig.Cmdparams `yaml:"user"`
 	UserAdd       plumcliconfig.Cmdparams `yaml:"user-add"`
 	UserPerf      plumcliconfig.Cmdparams `yaml:"user-perf"`

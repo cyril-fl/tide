@@ -260,6 +260,32 @@ func TestLogin(t *testing.T) {
 	}
 }
 
+// whoami needs a session, then prints its account and server; an expired one gives the API's message.
+func TestWhoami(t *testing.T) {
+	ctx := setup(t)
+	if _, err := run(t, ctx, Whoami, ""); !errors.Is(err, apiclient.ErrNoSession) {
+		t.Errorf("no session: err = %v, want %v", err, apiclient.ErrNoSession)
+	}
+
+	name := account(t, ctx)
+	if _, err := run(t, ctx, AddUser, "a password\n", name); err != nil {
+		t.Fatal(err)
+	}
+	keys(t, name+"\r", "a password\r")
+	if _, err := run(t, ctx, Login, "", server); err != nil {
+		t.Fatal(err)
+	}
+	printed, err := run(t, ctx, Whoami, "")
+	if want := name + " on " + server + "\n"; err != nil || printed != want {
+		t.Errorf("printed %q, err = %v; want %q", printed, err, want)
+	}
+
+	t.Setenv("NOTES_SESSION", "expired")
+	if _, err := run(t, ctx, Whoami, ""); err == nil || err.Error() != readsession.ErrNoSession.Error() {
+		t.Errorf("unknown token: err = %v, want %v", err, readsession.ErrNoSession)
+	}
+}
+
 // The purge asks the account's name: a wrong one empties nothing, the right one every tag (and note, folder, image).
 func TestPurge(t *testing.T) {
 	ctx := setup(t)

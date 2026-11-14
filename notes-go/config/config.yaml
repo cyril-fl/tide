@@ -323,6 +323,9 @@ commands:
   logout:
     use: "logout"
     short: "Log the CLI out, on the server too"
+  whoami:
+    use: "whoami"
+    short: "Show the account and the server the CLI acts for"
   user:
     use: "user"
     short: "Manage the accounts (admin, on the server)"

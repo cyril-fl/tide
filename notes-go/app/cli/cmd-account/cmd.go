@@ -114,6 +114,24 @@ func Logout(cobra *cobra.Command, args []string) error {
 	return nil
 }
 
+// Whoami prints the account of the CLI's session and its server.
+func Whoami(cobra *cobra.Command, args []string) error {
+	session := apiclient.Read()
+	client, err := session.Client()
+	if err != nil {
+		return err
+	}
+	response, err := client.GetApiMeWithResponse(cobra.Context())
+	if err != nil {
+		return err
+	}
+	if response.JSON200 == nil {
+		return apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	fmt.Printf("%s on %s\n", response.JSON200.Name, session.URL)
+	return nil
+}
+
 // AddUser creates an account.
 func AddUser(cobra *cobra.Command, args []string) error {
 	password, err := newPassword(cobra)

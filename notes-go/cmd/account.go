@@ -22,6 +22,13 @@ var cmdLogout = &cobra.Command{
 	RunE:  cmdaccount.Logout,
 }
 
+var cmdWhoami = &cobra.Command{
+	Use:   cmd.Whoami.Use,
+	Short: cmd.Whoami.Short,
+	Args:  cobra.NoArgs,
+	RunE:  cmdaccount.Whoami,
+}
+
 var cmdUser = &cobra.Command{
 	Use:   cmd.User.Use,
 	Short: cmd.User.Short,
@@ -84,7 +91,7 @@ var cmdAccountPurge = &cobra.Command{
 var noAccount = map[*cobra.Command]bool{cmdUser: true, cmdUserAdd: true, cmdUserPerf: true, cmdResetPassword: true, cmdRotateSecret: true, cmdServe: true}
 
 // apiClients talk to the server through its API, never to the base.
-var apiClients = map[*cobra.Command]bool{cmdLogin: true, cmdLogout: true}
+var apiClients = map[*cobra.Command]bool{cmdLogin: true, cmdLogout: true, cmdWhoami: true}
 
 func init() {
 	plumcliutilsargs.Makeflags(cmdLogin, cmd.Login.Flags)
@@ -94,5 +101,5 @@ func init() {
 
 	cmdUser.AddCommand(cmdUserAdd, cmdUserPerf)
 	cmdAccount.AddCommand(cmdAccountPurge)
-	cmdRoot.AddCommand(cmdLogin, cmdLogout, cmdUser, cmdResetPassword, cmdRotateSecret, cmdAccount)
+	cmdRoot.AddCommand(cmdLogin, cmdLogout, cmdWhoami, cmdUser, cmdResetPassword, cmdRotateSecret, cmdAccount)
 }

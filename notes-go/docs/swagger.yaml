@@ -2273,7 +2273,8 @@ paths:
           description: OK
           headers:
             X-Total-Count:
-              description: every match, not only the page
+              description: 'the matches, not only the page: those read, and the notes
+                after them that may match'
               schema:
                 type: integer
         "400":
@@ -2321,7 +2322,8 @@ paths:
           description: OK
           headers:
             X-Total-Count:
-              description: every match, not only the page
+              description: 'the matches, not only the page: those read, and the notes
+                after them that may match'
               schema:
                 type: integer
         "404":

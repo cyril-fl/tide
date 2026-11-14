@@ -3,7 +3,6 @@ package searchnotes
 import (
 	"context"
 	"errors"
-	"slices"
 	"strings"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
@@ -32,22 +31,24 @@ type run struct {
 	plumprimitive.Process
 	cache
 
-	ctx  context.Context
-	db   bun.IDB // *bun.DB or bun.Tx: tests run inside a rolled-back transaction
-	text string
+	ctx    context.Context
+	db     bun.IDB // *bun.DB or bun.Tx: tests run inside a rolled-back transaction
+	text   string
+	limit  int // 0: every match
+	offset int
 }
 
 type cache struct {
 	text   string
-	rows   []row
+	tree   domain.Tree
+	ids    []string // the live notes that may hold the text, in the order of the result
 	result []Match
+	total  int
 }
 
-// row is what the query returns: the whole content, cut down to a snippet in makeMatches.
+// row is a note opened for the page: its whole content, cut down to a snippet.
 type row struct {
 	ID       string
-	Title    secret.Text
-	Path     string
 	Content  secret.Text
 	Readonly bool
 }
@@ -60,10 +61,16 @@ func Process(ctx context.Context, db bun.IDB, text string) *run {
 	}
 }
 
+// Page keeps limit matches from offset, in the same order; GetTotal still counts them.
+func (p *run) Page(limit, offset int) *run {
+	p.limit, p.offset = limit, offset
+	return p
+}
+
 func (p *run) Run() {
 	p.makeText()
-	p.searchNotes()
-	p.makeMatches()
+	p.loadCandidates()
+	p.loadMatches()
 }
 
 // Getters & Setters
@@ -71,6 +78,11 @@ func (p *run) Run() {
 // GetResult returns the matching notes: title matches first, then by path.
 func (p *run) GetResult() []Match {
 	return p.cache.result
+}
+
+// GetTotal counts the matches, and the notes after the page that may match: exact once the last page is read.
+func (p *run) GetTotal() int {
+	return p.cache.total
 }
 
 // Methods
@@ -82,9 +94,9 @@ func (p *run) makeText() {
 	}
 }
 
-// searchNotes loads the live notes holding every gram of the text, by path: the content is sealed, makeMatches
-// searches it once opened. Joining live keeps live notes only.
-func (p *run) searchNotes() {
+// loadCandidates reads the ids of the live notes holding every gram of the text, the ones with it in their title
+// first, then by path: titles and paths come from the tree, no note is opened.
+func (p *run) loadCandidates() {
 	if p.HasErr() {
 		return
 	}
@@ -94,45 +106,107 @@ func (p *run) searchNotes() {
 		p.SetErr(err)
 		return
 	}
-	p.SetErr(p.db.NewRaw(domain.LiveCTE+`
-		SELECT i.id, i.title, mn.content, mn.readonly
+	var ids []string
+	p.SetErr(p.db.NewRaw(`
+		SELECT i.id
 		FROM items AS i
 		JOIN metadata_notes AS mn ON mn.item_id = i.id
-		JOIN live ON live.id = i.id
-		WHERE i.kind = ?`+query,
+		WHERE i.user_id = ? AND i.kind = ? AND i.deleted_at IS NULL`+query,
 		append([]any{domain.UserID(p.ctx), domain.NOTE}, args...)...).
-		Scan(p.ctx, &p.cache.rows))
+		Scan(p.ctx, &ids))
 	if p.HasErr() {
 		return
 	}
 
-	paths, err := domain.Paths(p.ctx, p.db)
+	p.cache.tree, err = domain.LoadTree(p.ctx, p.db)
 	p.SetErr(err)
-	for i := range p.cache.rows {
-		p.cache.rows[i].Path = paths[p.cache.rows[i].ID]
-	}
-	domain.SortFold(p.cache.rows, func(r row) string { return r.Path }, nil)
-}
-
-// makeMatches keeps the notes holding the text whatever its case, those with it in their title first.
-func (p *run) makeMatches() {
-	if p.HasErr() {
-		return
-	}
-
 	text := strings.ToLower(p.cache.text)
-	inTitle := func(r row) bool { return strings.Contains(strings.ToLower(string(r.Title)), text) }
-	for _, r := range p.cache.rows {
-		if inTitle(r) || strings.Contains(strings.ToLower(string(r.Content)), text) {
-			p.cache.result = append(p.cache.result, Match{ID: r.ID, Title: string(r.Title), Path: r.Path, Snippet: Snippet(string(r.Content), p.cache.text), Readonly: r.Readonly})
-		}
+	inTitle := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		inTitle[id] = strings.Contains(strings.ToLower(p.cache.tree.Titles[id]), text)
 	}
-	slices.SortStableFunc(p.cache.result, func(a, b Match) int {
-		return boolOrder(strings.Contains(strings.ToLower(b.Title), text)) - boolOrder(strings.Contains(strings.ToLower(a.Title), text))
+	p.cache.ids = domain.Live(p.cache.tree, ids, func(id string) string { return id }, func(a, b string) int {
+		return boolOrder(inTitle[b]) - boolOrder(inTitle[a])
 	})
 }
 
+func (p *run) loadMatches() {
+	if p.HasErr() {
+		return
+	}
+
+	var err error
+	p.cache.result, p.cache.total, err = Matches(p.ctx, p.db, p.cache.tree, p.cache.ids, p.cache.text, p.limit, p.offset)
+	p.SetErr(err)
+}
+
 // Helpers
+
+// batch is how many notes Matches opens at once.
+const batch = 200
+
+// Matches opens the notes of ids, in their order, and keeps those holding text in their title or content whatever
+// its case: limit of them from offset, every one when limit is 0. No text: every note, none opened for its content.
+// The index gives a few notes that do not hold the text, so they are opened until the page is full, not all of them:
+// the total counts the matches met and the notes left unopened, and a page costs the ones before it.
+// TODO: the last pages of a search with tens of thousands of matches open them all (1 s at 50,000 notes), as every
+// page did; a cursor instead of an offset if they are ever read.
+func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, text string, limit, offset int) ([]Match, int, error) {
+	lower := strings.ToLower(text)
+	inTitle := func(id string) bool { return strings.Contains(strings.ToLower(tree.Titles[id]), lower) }
+	columns := "mn.item_id AS id, mn.readonly"
+	if text != "" {
+		columns += ", mn.content"
+	}
+	if limit <= 0 {
+		offset = 0
+	}
+	limit, offset = min(limit, len(ids)), min(offset, len(ids)) // huge numbers: offset+limit must not overflow
+
+	// The notes before the page whose title holds the text are counted unopened.
+	at := 0
+	for at < offset && at < len(ids) && inTitle(ids[at]) {
+		at++
+	}
+	found := at
+	var matches []Match
+	for at < len(ids) && (limit <= 0 || found < offset+limit) {
+		opened := ids[at:min(at+batch, len(ids))]
+		var rows []row
+		err := db.NewRaw(`
+			SELECT `+columns+`
+			FROM metadata_notes AS mn
+			JOIN items AS i ON i.id = mn.item_id
+			WHERE i.user_id = ? AND mn.item_id IN (?)`, domain.UserID(ctx), bun.In(opened)).
+			Scan(ctx, &rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		byID := make(map[string]row, len(rows))
+		for _, r := range rows {
+			byID[r.ID] = r
+		}
+		for _, id := range opened {
+			if limit > 0 && found == offset+limit {
+				break
+			}
+			at++
+			r, ok := byID[id]
+			if !ok || !inTitle(id) && !strings.Contains(strings.ToLower(string(r.Content)), lower) {
+				continue // trashed since, or one the index gave without the text
+			}
+			if found >= offset {
+				match := Match{ID: id, Title: tree.Titles[id], Path: tree.Paths[id], Readonly: r.Readonly}
+				if text != "" {
+					match.Snippet = Snippet(string(r.Content), text)
+				}
+				matches = append(matches, match)
+			}
+			found++
+		}
+	}
+	return matches, found + len(ids) - at, nil
+}
 
 // Candidates indexes the notes written since the last search, then gives the condition on mn (metadata_notes) that
 // keeps the notes holding every gram of text: a few more share them, the caller checks the text once opened.

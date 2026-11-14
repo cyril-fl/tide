@@ -118,5 +118,5 @@ func Page[T any](rows []T, limit, offset int) []T {
 		return rows
 	}
 	start := min(max(offset, 0), len(rows))
-	return rows[start:min(start+limit, len(rows))]
+	return rows[start : start+min(limit, len(rows)-start)] // limit may be huge: no start+limit
 }

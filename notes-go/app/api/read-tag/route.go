@@ -23,18 +23,19 @@ import (
 // @Router   /api/tags/{value} [get]
 func Handler(db bun.IDB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		process := readtag.Process(r.Context(), db, r.PathValue("value"))
+		limit, offset, ok := respond.Paging(w, r)
+		if !ok {
+			return
+		}
+		process := readtag.Process(r.Context(), db, r.PathValue("value")).Page(limit, offset)
 		process.Run()
 		if process.HasErr() {
 			respond.Error(w, process.GetErr())
 			return
 		}
 		tag := process.GetResult()
-		notes, ok := respond.Page(w, r, tag.Notes)
-		if !ok {
-			return
-		}
-		tag.Notes = append([]readtag.Note{}, notes...)
+		tag.Notes = append([]readtag.Note{}, tag.Notes...)
+		respond.Total(w, process.GetTotal())
 		respond.JSON(w, http.StatusOK, tag)
 	}
 }

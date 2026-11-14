@@ -7,7 +7,6 @@ import (
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/searchnotes"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/uptrace/bun"
 )
@@ -28,20 +27,15 @@ type run struct {
 	ctx    context.Context
 	db     bun.IDB // *bun.DB or bun.Tx: tests run inside a rolled-back transaction
 	search domain.SavedSearch
+	limit  int // 0: every match
+	offset int
 }
 
 type cache struct {
-	rows   []row
+	tree   domain.Tree
+	ids    []string // the live notes the SQL criteria keep, by path
 	result []Match
-}
-
-// row is what the SQL criteria give: already narrowed to what tags/dates/folders keep, before any text match.
-type row struct {
-	ID       string
-	Title    secret.Text
-	Path     string
-	Content  secret.Text
-	Readonly bool
+	total  int
 }
 
 func Process(ctx context.Context, db bun.IDB, search domain.SavedSearch) *run {
@@ -52,6 +46,12 @@ func Process(ctx context.Context, db bun.IDB, search domain.SavedSearch) *run {
 	}
 }
 
+// Page keeps limit matches from offset, in the same order; GetTotal still counts them.
+func (p *run) Page(limit, offset int) *run {
+	p.limit, p.offset = limit, offset
+	return p
+}
+
 func (p *run) Run() {
 	p.queryCandidates()
 	p.filterText()
@@ -59,22 +59,26 @@ func (p *run) Run() {
 
 // Getters & Setters
 
-// GetResult returns the matching notes, sorted by path, then by title match when a text criterion narrowed them.
+// GetResult returns the matching notes, sorted by path.
 func (p *run) GetResult() []Match {
 	return p.cache.result
+}
+
+// GetTotal counts the matches as searchnotes.Matches does: exact without a text criterion.
+func (p *run) GetTotal() int {
+	return p.cache.total
 }
 
 // Methods
 
 // queryCandidates runs every SQL-filterable criterion (tags, dates, folders), and the grams of the text criterion if
-// any: filterText then checks the text itself, once decrypted.
+// any, for the ids of the live notes: titles and paths come from the tree, no note is opened.
 func (p *run) queryCandidates() {
-	query := domain.LiveCTE + `
-		SELECT i.id, i.title, mn.content, mn.readonly
+	query := `
+		SELECT i.id
 		FROM items AS i
 		JOIN metadata_notes AS mn ON mn.item_id = i.id
-		JOIN live ON live.id = i.id
-		WHERE i.kind = ?`
+		WHERE i.user_id = ? AND i.kind = ? AND i.deleted_at IS NULL`
 	args := []any{domain.UserID(p.ctx), domain.NOTE}
 
 	if len(p.search.TagIDs) > 0 {
@@ -126,41 +130,28 @@ func (p *run) queryCandidates() {
 		args = append(args, gramArgs...)
 	}
 
-	p.SetErr(p.db.NewRaw(query, args...).Scan(p.ctx, &p.cache.rows))
+	var ids []string
+	p.SetErr(p.db.NewRaw(query, args...).Scan(p.ctx, &ids))
 	if p.HasErr() {
 		return
 	}
 
-	paths, err := domain.Paths(p.ctx, p.db)
+	var err error
+	p.cache.tree, err = domain.LoadTree(p.ctx, p.db)
 	p.SetErr(err)
-	for i := range p.cache.rows {
-		p.cache.rows[i].Path = paths[p.cache.rows[i].ID]
-	}
-	domain.SortFold(p.cache.rows, func(r row) string { return r.Path }, nil)
+	p.cache.ids = domain.Live(p.cache.tree, ids, func(id string) string { return id }, nil)
 }
 
-// filterText keeps every candidate when there is no text criterion: the SQL criteria already did the filtering.
+// filterText opens the page and checks the text itself; without a text criterion the SQL criteria already did the filtering.
 func (p *run) filterText() {
 	if p.HasErr() {
 		return
 	}
 
-	text := strings.TrimSpace(p.search.Text)
-	if text == "" {
-		for _, r := range p.cache.rows {
-			p.cache.result = append(p.cache.result, Match{ID: r.ID, Title: string(r.Title), Path: r.Path, Readonly: r.Readonly})
-		}
-		return
-	}
-
-	lower := strings.ToLower(text)
-	inTitle := func(r row) bool { return strings.Contains(strings.ToLower(string(r.Title)), lower) }
-	for _, r := range p.cache.rows {
-		if inTitle(r) || strings.Contains(strings.ToLower(string(r.Content)), lower) {
-			p.cache.result = append(p.cache.result, Match{
-				ID: r.ID, Title: string(r.Title), Path: r.Path, Readonly: r.Readonly,
-				Snippet: searchnotes.Snippet(string(r.Content), text),
-			})
-		}
+	matches, total, err := searchnotes.Matches(p.ctx, p.db, p.cache.tree, p.cache.ids, strings.TrimSpace(p.search.Text), p.limit, p.offset)
+	p.SetErr(err)
+	p.cache.total = total
+	for _, match := range matches {
+		p.cache.result = append(p.cache.result, Match(match))
 	}
 }

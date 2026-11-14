@@ -2328,7 +2328,7 @@ export interface paths {
                 /** @description OK */
                 200: {
                     headers: {
-                        /** @description every match, not only the page */
+                        /** @description the matches, not only the page: those read, and the notes after them that may match */
                         "X-Total-Count"?: number;
                         [name: string]: unknown;
                     };
@@ -2392,7 +2392,7 @@ export interface paths {
                 /** @description OK */
                 200: {
                     headers: {
-                        /** @description every match, not only the page */
+                        /** @description the matches, not only the page: those read, and the notes after them that may match */
                         "X-Total-Count"?: number;
                         [name: string]: unknown;
                     };

@@ -123,21 +123,21 @@ func List[T any](w http.ResponseWriter, status int, items []T) {
 	JSON(w, status, append([]T{}, items...))
 }
 
-// Page keeps the items of ?limit=&offset= (all of them without a limit) and counts them all in X-Total-Count.
+// Paging reads ?limit=&offset= for a process that lists by pages, 0 when left out (no limit: all of them).
 // On false the response is already written.
-func Page[T any](w http.ResponseWriter, r *http.Request, items []T) ([]T, bool) {
+func Paging(w http.ResponseWriter, r *http.Request) (limit, offset int, ok bool) {
 	limit, errLimit := number(r.URL.Query().Get("limit"))
 	offset, errOffset := number(r.URL.Query().Get("offset"))
 	if errLimit != nil || errOffset != nil || limit < 0 || offset < 0 {
 		fail(w, http.StatusBadRequest, "invalid limit or offset")
-		return nil, false
+		return 0, 0, false
 	}
-	w.Header().Set("X-Total-Count", strconv.Itoa(len(items)))
-	if limit == 0 {
-		return items, true
-	}
-	start := min(offset, len(items))
-	return items[start : start+min(limit, len(items)-start)], true
+	return limit, offset, true
+}
+
+// Total counts in X-Total-Count the whole list a page comes from. Before the body.
+func Total(w http.ResponseWriter, total int) {
+	w.Header().Set("X-Total-Count", strconv.Itoa(total))
 }
 
 // Error writes the status of a process error. An unknown error is a bug or an outage:

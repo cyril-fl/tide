@@ -97,6 +97,22 @@ func TestSearchNotes(t *testing.T) {
 	if got := search.GetResult()[1].Snippet; got != "has "+strings.ToUpper(word)+" inside" {
 		t.Errorf("snippet = %q, want the matching line", got)
 	}
+	// By pages: the second match alone, the three still counted.
+	page := Process(ctx, tx, word).Page(1, 1)
+	page.Run()
+	if page.HasErr() || len(page.GetResult()) != 1 || page.GetResult()[0].Title != "A in content" || page.GetTotal() != 3 {
+		t.Errorf("page = %+v of %d, %v; want A in content of 3", page.GetResult(), page.GetTotal(), page.GetErr())
+	}
+	// A note the index gave without the text is opened, dropped and not counted: the page is filled by the next one.
+	tree, err := domain.LoadTree(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidates := []string{ids["Percent"], ids["Z "+word], ids["A in content"]}
+	filled, total, err := Matches(ctx, tx, tree, candidates, "inside", 1, 0)
+	if err != nil || len(filled) != 1 || filled[0].ID != ids["A in content"] || total != 1 {
+		t.Errorf("matches = %+v of %d, %v; want A in content of 1", filled, total, err)
+	}
 	if _, err := tx.NewRaw("UPDATE metadata_notes SET readonly = true WHERE item_id = ?", ids["A in content"]).Exec(ctx); err != nil {
 		t.Fatal(err)
 	}

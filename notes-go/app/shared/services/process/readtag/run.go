@@ -36,14 +36,17 @@ type run struct {
 	plumprimitive.Process
 	cache
 
-	ctx   context.Context
-	db    bun.IDB // *bun.DB or bun.Tx: tests run inside a rolled-back transaction
-	value string
+	ctx    context.Context
+	db     bun.IDB // *bun.DB or bun.Tx: tests run inside a rolled-back transaction
+	value  string
+	limit  int // 0: every note
+	offset int
 }
 
 type cache struct {
 	value  string
 	result Result
+	total  int
 }
 
 func Process(ctx context.Context, db bun.IDB, value string) *run {
@@ -52,6 +55,12 @@ func Process(ctx context.Context, db bun.IDB, value string) *run {
 		db:    db,
 		value: value,
 	}
+}
+
+// Page keeps limit notes from offset, in the same order; GetTotal still counts them all.
+func (p *run) Page(limit, offset int) *run {
+	p.limit, p.offset = limit, offset
+	return p
 }
 
 func (p *run) Run() {
@@ -64,6 +73,10 @@ func (p *run) Run() {
 
 func (p *run) GetResult() Result {
 	return p.cache.result
+}
+
+func (p *run) GetTotal() int {
+	return p.cache.total
 }
 
 // Methods
@@ -96,27 +109,29 @@ func (p *run) loadTag() {
 	p.SetErr(err)
 }
 
-// loadNotes joins on live, which only holds live items: trashed notes drop out.
+// loadNotes reads the ids of the tag's notes, keeps the live ones by path and names only the page: titles and paths
+// come from the tree, no note is opened.
 func (p *run) loadNotes() {
 	if p.HasErr() {
 		return
 	}
 
-	p.SetErr(p.db.NewRaw(domain.LiveCTE+`
-		SELECT i.id, i.title
+	var ids []string
+	p.SetErr(p.db.NewRaw(`
+		SELECT i.id
 		FROM notes_on_tags AS nt
 		JOIN items AS i ON i.id = nt.note_id
-		JOIN live ON live.id = i.id
-		WHERE nt.tag_id = ?`, domain.UserID(p.ctx), p.cache.result.Tag.ID).
-		Scan(p.ctx, &p.cache.result.Notes))
+		WHERE nt.tag_id = ? AND i.user_id = ? AND i.deleted_at IS NULL`, p.cache.result.Tag.ID, domain.UserID(p.ctx)).
+		Scan(p.ctx, &ids))
 	if p.HasErr() {
 		return
 	}
 
-	paths, err := domain.Paths(p.ctx, p.db)
+	tree, err := domain.LoadTree(p.ctx, p.db)
 	p.SetErr(err)
-	for i := range p.cache.result.Notes {
-		p.cache.result.Notes[i].Path = paths[p.cache.result.Notes[i].ID]
+	ids = domain.Live(tree, ids, func(id string) string { return id }, nil)
+	p.cache.total = len(ids)
+	for _, id := range domain.Page(ids, p.limit, p.offset) {
+		p.cache.result.Notes = append(p.cache.result.Notes, Note{ID: id, Title: secret.Text(tree.Titles[id]), Path: tree.Paths[id]})
 	}
-	domain.SortFold(p.cache.result.Notes, func(n Note) string { return n.Path }, nil)
 }

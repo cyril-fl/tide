@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
+	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -122,7 +123,7 @@ func TestValidIDs(t *testing.T) {
 	}
 }
 
-func TestPage(t *testing.T) {
+func TestPaging(t *testing.T) {
 	items := []int{0, 1, 2, 3, 4}
 	tests := map[string]struct {
 		query  string
@@ -141,15 +142,24 @@ func TestPage(t *testing.T) {
 
 	for name, test := range tests {
 		w := httptest.NewRecorder()
-		result, ok := Page(w, httptest.NewRequest(http.MethodGet, "/"+test.query, nil), items)
-		if ok != test.ok || fmt.Sprint(result) != fmt.Sprint(test.result) {
-			t.Errorf("%s: %v, %v; want %v, %v", name, result, ok, test.result, test.ok)
+		limit, offset, ok := Paging(w, httptest.NewRequest(http.MethodGet, "/"+test.query, nil))
+		if ok != test.ok {
+			t.Errorf("%s: ok = %v, want %v", name, ok, test.ok)
 		}
-		if ok && w.Header().Get("X-Total-Count") != "5" {
-			t.Errorf("%s: X-Total-Count = %q, want 5", name, w.Header().Get("X-Total-Count"))
+		if !ok {
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("%s: status %d, want 400", name, w.Code)
+			}
+			continue
 		}
-		if !ok && w.Code != http.StatusBadRequest {
-			t.Errorf("%s: status %d, want 400", name, w.Code)
+		if result := domain.Page(items, limit, offset); fmt.Sprint(result) != fmt.Sprint(test.result) {
+			t.Errorf("%s: %v, want %v", name, result, test.result)
 		}
+	}
+
+	w := httptest.NewRecorder()
+	Total(w, 5)
+	if w.Header().Get("X-Total-Count") != "5" {
+		t.Errorf("X-Total-Count = %q, want 5", w.Header().Get("X-Total-Count"))
 	}
 }

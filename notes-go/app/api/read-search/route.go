@@ -10,7 +10,7 @@ import (
 )
 
 // Handler runs a saved search and lists the notes it matches: GET /api/searches/{id}?limit=&offset=, X-Total-Count
-// counting every match.
+// counting the matches.
 // @Summary  Run a saved search
 // @Tags     searches
 // @Produce  json
@@ -18,22 +18,23 @@ import (
 // @Param    limit  query integer false "matches in the page, all when left out or 0"
 // @Param    offset query integer false "matches skipped before the page"
 // @Success  200 {array} runsavedsearch.Match
-// @Header   200 {integer} X-Total-Count "every match, not only the page"
+// @Header   200 {integer} X-Total-Count "the matches, not only the page: those read, and the notes after them that may match"
 // @Failure  404 {object} respond.Failure
 // @Failure  500 {object} respond.Failure
 // @Router   /api/searches/{id} [get]
 func Handler(db bun.IDB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		process := readsavedsearch.Process(r.Context(), db, r.PathValue("id"))
+		limit, offset, ok := respond.Paging(w, r)
+		if !ok {
+			return
+		}
+		process := readsavedsearch.Process(r.Context(), db, r.PathValue("id")).Page(limit, offset)
 		process.Run()
 		if process.HasErr() {
 			respond.Error(w, process.GetErr())
 			return
 		}
-		matches, ok := respond.Page(w, r, process.GetResult())
-		if !ok {
-			return
-		}
-		respond.List(w, http.StatusOK, matches)
+		respond.Total(w, process.GetTotal())
+		respond.List(w, http.StatusOK, process.GetResult())
 	}
 }

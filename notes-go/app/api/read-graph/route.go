@@ -64,10 +64,12 @@ func Graph(db bun.IDB) http.HandlerFunc {
 	}
 }
 
-// List gives every live note, its id, title and path, for the [[ menu: GET /api/notes.
-// @Summary  List every note
+// List gives the live notes whose title or path holds q, their id, title and path, for the [[ menu: GET /api/notes?q=.
+// A few dozen at most: the whole list weighs 7 MB at 50,000 notes (#150).
+// @Summary  Find the notes by title or path
 // @Tags     notes
 // @Produce  json
+// @Param    q query string false "text of the title or the path"
 // @Success  200 {array} readgraph.Note
 // @Failure  500 {object} respond.Failure
 // @Router   /api/notes [get]
@@ -79,7 +81,7 @@ func List(db bun.IDB) http.HandlerFunc {
 			respond.Error(w, process.GetErr())
 			return
 		}
-		respond.List(w, http.StatusOK, process.GetResult().Notes)
+		respond.List(w, http.StatusOK, readgraph.Match(process.GetResult().Notes, r.URL.Query().Get("q"), 50))
 	}
 }
 

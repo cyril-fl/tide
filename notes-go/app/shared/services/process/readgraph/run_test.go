@@ -120,6 +120,38 @@ func TestGraph(t *testing.T) {
 	}
 }
 
+func TestMatch(t *testing.T) {
+	notes := []Note{
+		{ID: "1", Title: "Mon projet", Path: "/Projets/Mon projet"},
+		{ID: "2", Title: "Projet", Path: "/Projet"},
+		{ID: "3", Title: "Courses", Path: "/Projets/Courses"},
+		{ID: "4", Title: "", Path: "/Projet sans titre"},
+		{ID: "5", Title: "projet", Path: "/Archives/projet"},
+		{ID: "6", Title: "Projet ancien", Path: "/Projet ancien"},
+	}
+	ids := func(found []Note) (got []string) {
+		for _, note := range found {
+			got = append(got, note.ID)
+		}
+		return got
+	}
+	for _, c := range []struct {
+		q     string
+		limit int
+		want  []string
+	}{
+		{"projet", 50, []string{"2", "5", "6", "1", "3"}}, // named, then starting with, then holding it (path too)
+		{"/Projets/Courses", 50, []string{"3"}},
+		{"PROJET", 2, []string{"2", "5"}},
+		{"", 3, []string{"1", "2", "3"}}, // every named note
+		{"rien", 50, nil},
+	} {
+		if got := ids(Match(notes, c.q, c.limit)); !slices.Equal(got, c.want) {
+			t.Errorf("Match(%q, %d) = %v, want %v", c.q, c.limit, got, c.want)
+		}
+	}
+}
+
 // Helpers
 
 func hasNote(result Result, id string) bool {

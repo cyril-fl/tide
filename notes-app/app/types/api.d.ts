@@ -1562,10 +1562,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List every note */
+        /** Find the notes by title or path */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description text of the title or the path */
+                    q?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;

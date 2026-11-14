@@ -2,6 +2,8 @@ package readgraph
 
 import (
 	"context"
+	"slices"
+	"strings"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/forcelayout"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
@@ -178,6 +180,32 @@ func (p *run) loadLinks() {
 }
 
 // Helpers
+
+// Match keeps at most limit named notes whose title or path holds q whatever its case: the ones named q (title or path)
+// first, then the titles starting with it, in the order of notes between equals.
+func Match(notes []Note, q string, limit int) []Note {
+	q = strings.ToLower(q)
+	var ranks [3][]Note
+	for _, note := range notes {
+		title := strings.ToLower(string(note.Title))
+		rank := 2
+		switch {
+		case title == "":
+			continue
+		case title == q || strings.ToLower(note.Path) == q:
+			rank = 0
+		case strings.HasPrefix(title, q):
+			rank = 1
+		case !strings.Contains(title, q) && !strings.Contains(strings.ToLower(note.Path), q):
+			continue
+		}
+		if len(ranks[rank]) < limit {
+			ranks[rank] = append(ranks[rank], note)
+		}
+	}
+	found := slices.Concat(ranks[:]...)
+	return found[:min(limit, len(found))]
+}
 
 func (p *run) live(id string) bool {
 	_, ok := p.cache.paths[id]

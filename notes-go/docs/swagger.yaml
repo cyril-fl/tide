@@ -1789,6 +1789,12 @@ paths:
       - items
   /api/notes:
     get:
+      parameters:
+      - description: text of the title or the path
+        in: query
+        name: q
+        schema:
+          type: string
       responses:
         "200":
           content:
@@ -1804,7 +1810,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/respond.Failure'
           description: Internal Server Error
-      summary: List every note
+      summary: Find the notes by title or path
       tags:
       - notes
     post:

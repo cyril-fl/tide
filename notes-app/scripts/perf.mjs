@@ -68,9 +68,7 @@ async function visit(label, path, ready) {
   const start = Date.now();
   try {
     await page.goto(APP + path, { timeout: TIMEOUT });
-    await (ready
-      ? page.waitForSelector(ready, { timeout: TIMEOUT })
-      : page.waitForLoadState('networkidle', { timeout: TIMEOUT }));
+    await page.waitForSelector(ready, { timeout: TIMEOUT });
     const ms = Date.now() - start;
     rows.push([label, format(ms), `${await page.evaluate(() => document.getElementsByTagName('*').length)} nœuds DOM`]);
   } catch {
@@ -80,10 +78,12 @@ async function visit(label, path, ready) {
   await context.close();
 }
 
-await visit(`Le dossier Archives (${big.path})`, `/folders/${big.id}`);
-await visit(`Une note du tag #${tag.value} (${tag.notes} notes)`, `/notes/${note.id}`);
-await visit(`La page du tag #${tag.value}`, `/tags/${encodeURIComponent(tag.value)}`);
-await visit(`La recherche « ${word} »`, `/search?q=${word}`);
+// Timed until the content shows: networkidle adds 500 ms of quiet to every page (#166).
+const listed = 'main li a[href^="/notes/"]';
+await visit(`Le dossier Archives (${big.path})`, `/folders/${big.id}`, listed);
+await visit(`Une note du tag #${tag.value} (${tag.notes} notes)`, `/notes/${note.id}`, '.ProseMirror');
+await visit(`La page du tag #${tag.value}`, `/tags/${encodeURIComponent(tag.value)}`, listed);
+await visit(`La recherche « ${word} »`, `/search?q=${word}`, listed);
 // The server lays the graph out once per change of the account, then serves it to every device (#153).
 await visit('Le graphe, premier appareil (mise en page calculée si le compte a changé)', '/graph', '[data-settled]');
 await visit('Le graphe, un autre appareil (mise en page gardée par le serveur)', '/graph', '[data-settled]');

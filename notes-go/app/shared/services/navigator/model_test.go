@@ -14,7 +14,7 @@ var (
 	bTarget    = Target{Kind: KindNote, Key: "b"}
 	pages      = map[Target]Page{
 		tagsTarget: {Title: "Graph", Rows: []Row{{Cells: []string{"go", "2 notes"}, Target: goTarget}}},
-		goTarget:   {Title: "go", Rows: []Row{{Cells: []string{"A"}, Target: aTarget}, {Cells: []string{"B"}, Target: bTarget}}},
+		goTarget:   {Title: "go", Rows: []Row{{Cells: []string{"A"}, Target: aTarget}, {Cells: []string{"B"}, Tags: []string{"idea"}, Target: bTarget}}},
 		aTarget:    {Title: "A", Rows: []Row{{Cells: []string{"B", "/B"}, Target: bTarget}}},
 		bTarget:    {Title: "B", Empty: "alone"},
 	}
@@ -108,5 +108,16 @@ func TestFilter(t *testing.T) {
 	press(m, esc) // clears the filter, does not quit
 	if m.filter.Value() != "" || m.action != ActionQuit || len(m.visible()) != 2 {
 		t.Errorf("after esc: filter = %q, visible = %d", m.filter.Value(), len(m.visible()))
+	}
+}
+
+func TestFilterTags(t *testing.T) {
+	m := newModel(fakeLoad, Options{}, goTarget, pages[goTarget], nil, 0)
+
+	for _, query := range []string{"idea", "#IDEA"} {
+		m.filter.SetValue(query)
+		if rows := m.visible(); len(rows) != 1 || rows[0].Target != bTarget {
+			t.Errorf("%q: visible = %+v, want [B] by its tag", query, rows)
+		}
 	}
 }

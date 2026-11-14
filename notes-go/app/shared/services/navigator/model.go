@@ -28,9 +28,10 @@ type Target struct {
 	Key  string
 }
 
-// Row is one line of a page; Target is where ↳ goes.
+// Row is one line of a page; Target is where ↳ goes. Tags are matched by the filter, not shown.
 type Row struct {
 	Cells  []string
+	Tags   []string
 	Target Target
 }
 
@@ -221,7 +222,7 @@ func Render(p Page, rows []Row, cursor int, empty string) string {
 	return header + style.Table(cells, cursor, 0)
 }
 
-// visible is the page's rows matching the filter, case-insensitively, on any cell.
+// visible is the page's rows matching the filter, case-insensitively, on any cell or tag (#tag works too).
 func (m *model) visible() []Row {
 	query := strings.ToLower(strings.TrimSpace(m.filter.Value()))
 	if query == "" {
@@ -230,7 +231,7 @@ func (m *model) visible() []Row {
 
 	var matches []Row
 	for _, r := range m.page.Rows {
-		if strings.Contains(strings.ToLower(strings.Join(r.Cells, " ")), query) {
+		if strings.Contains(strings.ToLower(strings.Join(r.Cells, " ")+" #"+strings.Join(r.Tags, " #")), query) {
 			matches = append(matches, r)
 		}
 	}

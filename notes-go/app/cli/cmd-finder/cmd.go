@@ -19,6 +19,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listitems"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listnotetags"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/moveitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
@@ -33,14 +34,14 @@ func Finder(cobra *cobra.Command, args []string) error {
 	if len(args) == 1 {
 		id = args[0]
 	}
-	load := func(id string) (readitem.Result, error) { return loadFolder(ctx, id) }
+	load := func(id string) (page, error) { return loadFolder(ctx, id) }
 
 	folder, err := load(id)
 	if err != nil {
 		return err
 	}
 	if !term.IsTerminal(int(os.Stdout.Fd())) {
-		screen.Print(cmdreadfolder.Output(folder, folder.Children, -1, cmdreadfolder.EmptyFolder))
+		screen.Print(cmdreadfolder.Output(folder.Result, folder.Children, -1, cmdreadfolder.EmptyFolder))
 		return nil
 	}
 
@@ -136,7 +137,23 @@ func remove(ctx context.Context, item domain.Item) error {
 }
 
 // loadFolder reads a folder, or the root as a folder titled Notes at path /.
-func loadFolder(ctx context.Context, id string) (readitem.Result, error) {
+func loadFolder(ctx context.Context, id string) (page, error) {
+	folder, err := readFolder(ctx, id)
+	if err != nil {
+		return page{}, err
+	}
+
+	ids := make([]string, len(folder.Children))
+	for i, child := range folder.Children {
+		ids[i] = child.ID
+	}
+	process := listnotetags.Process(ctx, postgrey.GetDb(), ids)
+	process.Run()
+	return page{Result: folder, tags: process.GetResult()}, process.GetErr()
+}
+
+// readFolder reads a folder with its children; "" is the root.
+func readFolder(ctx context.Context, id string) (readitem.Result, error) {
 	if id != "" {
 		process := readitem.Process(ctx, postgrey.GetDb(), domain.FOLDER, id)
 		process.Run()

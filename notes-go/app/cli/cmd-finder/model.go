@@ -38,19 +38,25 @@ type action struct {
 	item domain.Item
 }
 
+// page is a folder with its children and their tags, which the filter matches too.
+type page struct {
+	readitem.Result
+	tags map[string][]string
+}
+
 // loader reads a folder with its children; "" is the root.
-type loader func(id string) (readitem.Result, error)
+type loader func(id string) (page, error)
 
 // loadedMsg carries a folder read in the background; selectID puts the cursor on that child.
 type loadedMsg struct {
-	folder   readitem.Result
+	folder   page
 	selectID string
 	err      error
 }
 
 type model struct {
 	load      loader
-	folder    readitem.Result
+	folder    page
 	cursor    int
 	offset    int
 	height    int
@@ -63,7 +69,7 @@ type model struct {
 	err       error
 }
 
-func newModel(load loader, folder readitem.Result, cursor int, clipboard *domain.Item, status string, failed bool) *model {
+func newModel(load loader, folder page, cursor int, clipboard *domain.Item, status string, failed bool) *model {
 	m := &model{load: load, folder: folder, clipboard: clipboard, status: status, failed: failed, filter: textinput.New()}
 	m.filter.Prompt = "/"
 	m.filter.SetStyles(style.Filter(m.filter.Styles()))
@@ -191,7 +197,7 @@ func (m *model) View() tea.View {
 	if m.filter.Value() != "" {
 		empty = "No match"
 	}
-	body := strings.TrimRight(cmdreadfolder.Output(m.folder, children[m.offset:end], m.cursor-m.offset, empty), "\n")
+	body := strings.TrimRight(cmdreadfolder.Output(m.folder.Result, children[m.offset:end], m.cursor-m.offset, empty), "\n")
 	if m.filtering || m.filter.Value() != "" {
 		body += "\n" + m.filter.View()
 	}
@@ -206,7 +212,7 @@ func (m *model) View() tea.View {
 
 // Helpers
 
-// visible is the folder's children matching the filter, case-insensitively.
+// visible is the folder's children whose title or a tag holds the filter, case-insensitively.
 func (m *model) visible() []domain.Item {
 	query := strings.ToLower(strings.TrimSpace(m.filter.Value()))
 	if query == "" {
@@ -215,7 +221,7 @@ func (m *model) visible() []domain.Item {
 
 	var matches []domain.Item
 	for _, child := range m.folder.Children {
-		if strings.Contains(strings.ToLower(string(child.Title)), query) {
+		if strings.Contains(strings.ToLower(string(child.Title)+" #"+strings.Join(m.folder.tags[child.ID], " #")), query) {
 			matches = append(matches, child)
 		}
 	}

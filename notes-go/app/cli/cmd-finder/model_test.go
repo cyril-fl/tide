@@ -15,11 +15,11 @@ var (
 	folderA   = domain.Item{ID: "a", Kind: domain.FOLDER, Title: "A"}
 	noteR     = domain.Item{ID: "r", Kind: domain.NOTE, Title: "Readme"}
 	noteN     = domain.Item{ID: "n", Kind: domain.NOTE, Title: "Notes", ParentID: &folderA.ID}
-	folderOfA = readitem.Result{Item: domain.Item{ID: "a", Kind: domain.FOLDER, Title: "A", ParentID: &rootID}, Path: "/A", Children: []domain.Item{noteN}}
-	root      = readitem.Result{Item: domain.Item{Kind: domain.FOLDER, Title: "Notes"}, Path: "/", Children: []domain.Item{folderA, noteR}}
+	folderOfA = page{Result: readitem.Result{Item: domain.Item{ID: "a", Kind: domain.FOLDER, Title: "A", ParentID: &rootID}, Path: "/A", Children: []domain.Item{noteN}}}
+	root      = page{Result: readitem.Result{Item: domain.Item{Kind: domain.FOLDER, Title: "Notes"}, Path: "/", Children: []domain.Item{folderA, noteR}}, tags: map[string][]string{"r": {"doc"}}}
 )
 
-func fakeLoad(id string) (readitem.Result, error) {
+func fakeLoad(id string) (page, error) {
 	if id == "a" {
 		return folderOfA, nil
 	}
@@ -130,8 +130,19 @@ func TestFilter(t *testing.T) {
 	}
 }
 
+func TestFilterTags(t *testing.T) {
+	m := newModel(fakeLoad, root, 0, nil, "", false)
+
+	for _, query := range []string{"doc", "#DOC"} {
+		m.filter.SetValue(query)
+		if got := m.visible(); len(got) != 1 || got[0].ID != noteR.ID {
+			t.Errorf("%q: visible = %+v, want [Readme] by its tag", query, got)
+		}
+	}
+}
+
 func TestScroll(t *testing.T) {
-	folder := readitem.Result{Path: "/"}
+	folder := page{Result: readitem.Result{Path: "/"}}
 	for i := 0; i < 20; i++ {
 		folder.Children = append(folder.Children, domain.Item{ID: string(rune('a' + i)), Kind: domain.NOTE, Title: secret.Text(rune('a' + i))})
 	}
@@ -149,7 +160,7 @@ func TestScroll(t *testing.T) {
 
 // Regression: down in an empty folder set the cursor to -1 and View panicked on children[-1:].
 func TestEmptyFolder(t *testing.T) {
-	m := newModel(fakeLoad, readitem.Result{Path: "/"}, 0, nil, "", false)
+	m := newModel(fakeLoad, page{Result: readitem.Result{Path: "/"}}, 0, nil, "", false)
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 12})
 
 	press(m, down)

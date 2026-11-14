@@ -10,6 +10,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/navigator"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listnotetags"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readgraph"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readneighbors"
 	"github.com/spf13/cobra"
@@ -59,6 +60,7 @@ func notesPage(ctx context.Context) (navigator.Page, error) {
 	for _, note := range result.Notes {
 		p.Rows = append(p.Rows, navigator.Row{
 			Cells:  []string{untitled(string(note.Title)), note.Path, count(linked[note.ID], "link") + " · " + count(len(note.Tags), "tag")},
+			Tags:   note.Tags,
 			Target: navigator.Target{Kind: navigator.KindNote, Key: note.ID},
 		})
 	}
@@ -70,7 +72,11 @@ func notePage(ctx context.Context, id string) (navigator.Page, error) {
 	process.Run()
 
 	result := process.GetResult()
-	rows := append(linkedRows(result.Links, "link"), linkedRows(result.Backlinks, "backlink")...)
+	tags, err := linkedTags(ctx, append(result.Links, result.Backlinks...))
+	if err != nil {
+		return navigator.Page{}, err
+	}
+	rows := append(linkedRows(result.Links, "link", tags), linkedRows(result.Backlinks, "backlink", tags)...)
 	info := []string{count(len(rows)+len(result.Neighbors), "linked note")}
 	if len(result.Note.Tags) > 0 {
 		info = append([]string{strings.Join(result.Note.Tags, " · ")}, info...)
@@ -85,18 +91,31 @@ func notePage(ctx context.Context, id string) (navigator.Page, error) {
 	for _, neighbor := range result.Neighbors {
 		p.Rows = append(p.Rows, navigator.Row{
 			Cells:  []string{untitled(string(neighbor.Title)), neighbor.Path, count(neighbor.Shared, "tag"), strings.Join(neighbor.Tags, " · ")},
+			Tags:   neighbor.Tags,
 			Target: navigator.Target{Kind: navigator.KindNote, Key: neighbor.ID},
 		})
 	}
 	return p, process.GetErr()
 }
 
+// linkedTags reads the tags of the linked notes: readneighbors gives them only to the neighbors.
+func linkedTags(ctx context.Context, notes []readneighbors.Linked) (map[string][]string, error) {
+	ids := make([]string, len(notes))
+	for i, note := range notes {
+		ids[i] = note.ID
+	}
+	process := listnotetags.Process(ctx, postgrey.GetDb(), ids)
+	process.Run()
+	return process.GetResult(), process.GetErr()
+}
+
 // linkedRows lists the notes at the other end of the [[links]], same columns as the neighbors.
-func linkedRows(notes []readneighbors.Linked, relation string) []navigator.Row {
+func linkedRows(notes []readneighbors.Linked, relation string, tags map[string][]string) []navigator.Row {
 	rows := make([]navigator.Row, 0, len(notes))
 	for _, note := range notes {
 		rows = append(rows, navigator.Row{
 			Cells:  []string{untitled(string(note.Title)), note.Path, relation, ""},
+			Tags:   tags[note.ID],
 			Target: navigator.Target{Kind: navigator.KindNote, Key: note.ID},
 		})
 	}

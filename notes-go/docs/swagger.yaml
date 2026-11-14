@@ -776,6 +776,31 @@ components:
       required:
       - content
       type: object
+    replacenotes.Input:
+      properties:
+        dry_run:
+          type: boolean
+        find:
+          type: string
+        replace:
+          type: string
+      required:
+      - find
+      - replace
+      type: object
+    replacenotes.Result:
+      properties:
+        locked:
+          type: integer
+        notes:
+          type: integer
+        occurrences:
+          type: integer
+      required:
+      - locked
+      - notes
+      - occurrences
+      type: object
     respond.Failure:
       properties:
         error:
@@ -2442,6 +2467,45 @@ paths:
       summary: List the last changed notes
       tags:
       - search
+  /api/replace:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/replacenotes.Input'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/replacenotes.Result'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Request Entity Too Large
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Replace a text in every note, or count it with dry_run
+      tags:
+      - notes
   /api/resolve:
     get:
       parameters:

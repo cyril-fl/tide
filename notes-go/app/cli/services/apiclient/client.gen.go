@@ -481,6 +481,20 @@ type ReadversionsBody struct {
 	Content string `json:"content"`
 }
 
+// ReplacenotesInput defines model for replacenotes.Input.
+type ReplacenotesInput struct {
+	DryRun  *bool  `json:"dry_run,omitempty"`
+	Find    string `json:"find"`
+	Replace string `json:"replace"`
+}
+
+// ReplacenotesResult defines model for replacenotes.Result.
+type ReplacenotesResult struct {
+	Locked      int `json:"locked"`
+	Notes       int `json:"notes"`
+	Occurrences int `json:"occurrences"`
+}
+
 // RespondFailure defines model for respond.Failure.
 type RespondFailure struct {
 	Error string `json:"error"`
@@ -686,6 +700,9 @@ type PatchApiNotesIdJSONRequestBody = EditnoteBody
 
 // PostApiNotesIdVersionsJSONRequestBody defines body for PostApiNotesIdVersions for application/json ContentType.
 type PostApiNotesIdVersionsJSONRequestBody = ReadversionsBody
+
+// PostApiReplaceJSONRequestBody defines body for PostApiReplace for application/json ContentType.
+type PostApiReplaceJSONRequestBody = ReplacenotesInput
 
 // PostApiRestoreJSONRequestBody defines body for PostApiRestore for application/json ContentType.
 type PostApiRestoreJSONRequestBody = RestoreBody
@@ -1106,6 +1123,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/recent (the `GetApiRecent` operationId).
 	GetApiRecent(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiReplaceWithBody Replace a text in every note, or count it with dry_run
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/replace (the `PostApiReplace` operationId).
+	PostApiReplaceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiReplace Replace a text in every note, or count it with dry_run
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/replace (the `PostApiReplace` operationId).
+	PostApiReplace(ctx context.Context, body PostApiReplaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiResolve Find the item at a path
 	//
@@ -2114,6 +2145,40 @@ func (c *Client) GetApiPinned(ctx context.Context, reqEditors ...RequestEditorFn
 // Corresponds with GET /api/recent (the `GetApiRecent` operationId).
 func (c *Client) GetApiRecent(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiRecentRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiReplaceWithBody Replace a text in every note, or count it with dry_run
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/replace (the `PostApiReplace` operationId).
+func (c *Client) PostApiReplaceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiReplaceRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiReplace Replace a text in every note, or count it with dry_run
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/replace (the `PostApiReplace` operationId).
+func (c *Client) PostApiReplace(ctx context.Context, body PostApiReplaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiReplaceRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4125,6 +4190,46 @@ func NewGetApiRecentRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewPostApiReplaceRequest calls the generic PostApiReplace builder with application/json body
+func NewPostApiReplaceRequest(server string, body PostApiReplaceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiReplaceRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiReplaceRequestWithBody constructs an http.Request for the PostApiReplace method, with any body, and a specified content type
+func NewPostApiReplaceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/replace")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetApiResolveRequest constructs an http.Request for the GetApiResolve method
 func NewGetApiResolveRequest(server string, params *GetApiResolveParams) (*http.Request, error) {
 	var err error
@@ -5313,6 +5418,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/recent (the `GetApiRecent` operationId).
 	GetApiRecentWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiRecentResponse, error)
+
+	// PostApiReplaceWithBodyWithResponse Replace a text in every note, or count it with dry_run
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/replace (the `PostApiReplace` operationId).
+	PostApiReplaceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiReplaceResponse, error)
+
+	// PostApiReplaceWithResponse Replace a text in every note, or count it with dry_run
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/replace (the `PostApiReplace` operationId).
+	PostApiReplaceWithResponse(ctx context.Context, body PostApiReplaceJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiReplaceResponse, error)
 
 	// GetApiResolveWithResponse Find the item at a path
 	//
@@ -7815,6 +7934,68 @@ func (r GetApiRecentResponse) ContentType() string {
 	return ""
 }
 
+type PostApiReplaceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReplacenotesResult
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostApiReplaceResponse) GetJSON200() *ReplacenotesResult {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostApiReplaceResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r PostApiReplaceResponse) GetJSON413() *RespondFailure {
+	return r.JSON413
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PostApiReplaceResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PostApiReplaceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiReplaceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiReplaceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiReplaceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetApiResolveResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -9630,6 +9811,32 @@ func (c *ClientWithResponses) GetApiRecentWithResponse(ctx context.Context, reqE
 		return nil, err
 	}
 	return ParseGetApiRecentResponse(rsp)
+}
+
+// PostApiReplaceWithBodyWithResponse Replace a text in every note, or count it with dry_run
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/replace (the `PostApiReplace` operationId).
+func (c *ClientWithResponses) PostApiReplaceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiReplaceResponse, error) {
+	rsp, err := c.PostApiReplaceWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiReplaceResponse(rsp)
+}
+
+// PostApiReplaceWithResponse Replace a text in every note, or count it with dry_run
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/replace (the `PostApiReplace` operationId).
+func (c *ClientWithResponses) PostApiReplaceWithResponse(ctx context.Context, body PostApiReplaceJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiReplaceResponse, error) {
+	rsp, err := c.PostApiReplace(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiReplaceResponse(rsp)
 }
 
 // GetApiResolveWithResponse Find the item at a path
@@ -11657,6 +11864,53 @@ func ParseGetApiRecentResponse(rsp *http.Response) (*GetApiRecentResponse, error
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiReplaceResponse parses an HTTP response from a PostApiReplaceWithResponse call
+func ParsePostApiReplaceResponse(rsp *http.Response) (*PostApiReplaceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiReplaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReplacenotesResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest RespondFailure

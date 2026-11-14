@@ -36,6 +36,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsavedsearch"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readtag"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/replacenotes"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resetpassword"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resolveitem"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/restoreitems"
@@ -69,6 +70,7 @@ var statuses = []struct {
 		readitem.ErrNoValue,
 		readtag.ErrNoValue,
 		restoreitems.ErrNoValue, restoreitems.ErrInvalidID,
+		replacenotes.ErrNoValue,
 		searchnotes.ErrNoValue,
 	}},
 	{http.StatusUnauthorized, []error{

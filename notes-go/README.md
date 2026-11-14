@@ -1,6 +1,6 @@
 # notes-go
 
-CLI de prise de notes en Go, avec dossiers, tags et corbeille. Les notes sont en markdown et stockées dans PostgreSQL.
+Prise de notes en Go, avec dossiers, tags et corbeille : le serveur `notes-server` (l'API, sur PostgreSQL et Silo) et la CLI `notes`, son client. Les notes sont en markdown.
 
 ## Prérequis
 
@@ -9,54 +9,47 @@ CLI de prise de notes en Go, avec dossiers, tags et corbeille. Les notes sont en
 
 ## Installation
 
+Deux binaires sortent de ce module :
+
+- `notes`, la CLI et le serveur MCP : un client de l'API, sans accès à Postgres ni à Silo, à installer sur le Mac ;
+- `notes-server`, le seul à parler à la base : l'API et l'app web (`serve`) et les commandes de l'admin. Il tourne dans l'image Docker (voir *Serveur* dans le README racine).
+
+```sh
+go install github.com/cyril-fl/notes/notes-go/cmd/notes@latest   # la dernière version de main
+notes login https://notes.example.ts.net
+```
+
+Dans le repo, pour développer :
+
 ```sh
 cp .env.example .env     # puis renseigne les mots de passe
 make up                  # démarre Colima, PostgreSQL, Silo et LibreDB Studio
-go build -o "$(go env GOPATH)/bin/notes" .
+make api                 # notes-server dans Docker, sur http://localhost:8080
+go build -o "$(go env GOPATH)/bin/notes" ./cmd/notes
+make connect TO=local    # notes login sur l'API de make api
 ```
 
-Sans le repo, par exemple sur le serveur : `go install github.com/cyril-fl/notes/notes-go@latest` installe la dernière version de `main` sous le nom `notes-go`, configurée par `~/.config/notes/.env` (ci-dessous).
-
-Le schéma est créé automatiquement à la première commande.
-
-### Utiliser `notes` depuis n'importe quel dossier
-
-Crée `~/.config/notes/.env` :
-
-```sh
-POSTGRES_USER=app
-POSTGRES_PASSWORD=...
-POSTGRES_DB=notes
-POSTGRES_HOST=localhost
-PORT=5432
-# Pour export et import, qui lisent et écrivent les images
-S3_ENDPOINT=localhost:9000
-S3_ACCESS_KEY=notes
-S3_SECRET_KEY=...
-S3_BUCKET=notes
-```
-
-- Ce fichier passe avant le `.env` du dossier courant. Sans lui, le `.env` d'un autre projet peut diriger la CLI vers une autre base, où elle créerait son schéma et lancerait sa purge.
-- N'y copie pas `CONFIG_FILE=config/config.yaml` : ce chemin est relatif et ne fonctionne que depuis le repo.
+`notes-server` crée le schéma avant chacune de ses commandes, et `serve` vide la corbeille au démarrage puis toutes les heures. La CLI, elle, ne touche jamais la base : une CLI d'une autre version que le serveur ne peut pas y créer son schéma.
 
 ## Utilisation
 
 ### Comptes
 
-Chaque note, dossier et tag appartient à un compte, et un compte ne voit jamais ceux des autres. Le premier compte de la base est admin : lui seul invite, liste et supprime les autres depuis l'app (voir *Serveur* dans le README racine). La CLI, elle, crée un compte quel que soit le mode du serveur :
+Chaque note, dossier et tag appartient à un compte, et un compte ne voit jamais ceux des autres. Le premier compte de la base est admin : lui seul invite, liste et supprime les autres depuis l'app (voir *Serveur* dans le README racine). `notes-server`, sur le serveur, crée un compte quel que soit le mode du serveur :
 
 ```sh
-notes user add cyril            # demande le mot de passe deux fois (8 caractères au moins)
+notes-server user add cyril     # demande le mot de passe deux fois (8 caractères au moins)
+notes-server user reset-password cyril  # mot de passe oublié : nouveau mot de passe, tous les appareils déconnectés
+notes-server rotate-secret      # rechiffre les clés des comptes par un nouveau NOTES_SECRET (voir Chiffrement)
 notes login https://notes.example.ts.net  # nom et mot de passe sur ce serveur, puis toutes les commandes agissent pour ce compte
 notes logout                    # coupe aussi la session sur le serveur
 notes whoami                    # le compte et le serveur pour lesquels la CLI agit
 make connect TO=fedora          # dans le repo : login sur NOTES_FEDORA_URL du .env, ou TO=local sur l'API de make api
-notes reset-password cyril      # mot de passe oublié : nouveau mot de passe, tous les appareils déconnectés
-notes rotate-secret             # rechiffre les clés des comptes par un nouveau NOTES_SECRET (voir Chiffrement)
 notes account purge             # vide le compte connecté (notes, dossiers, tags, images), après avoir tapé son nom
 ```
 
-- **Scripts :** `--password-stdin` lit le mot de passe sur l'entrée standard, pour `user add` et `reset-password`.
+- **Sur le serveur :** dans le conteneur, `docker exec -it note-api /notes-server user add cyril` (`-i` seul avec `--password-stdin`).
+- **Scripts :** `--password-stdin` lit le mot de passe sur l'entrée standard, pour `user add` et `user reset-password`.
 - **Admin :** le drapeau est posé par le premier compte créé dans une base vide, quelle que soit la façon. Pour le déplacer ou en ajouter un, il faut toucher la base : `UPDATE users SET admin = true WHERE name = '<nom>'`.
 - **Session de la CLI :** l'URL du serveur et le jeton sont gardés dans `~/.config/notes/session.json`, lisible par l'utilisateur seul. La session dure 30 jours, prolongés à chaque usage. `NOTES_URL` et `NOTES_SESSION`, si elles sont posées, passent avant ce fichier : `notes login <url> --print-token` crée une session à part et n'affiche que son jeton, pour un agent qui ne peut pas se connecter là où il tourne (voir `MCP.md`). `notes logout` avec la variable ne coupe que cette session. Le jeton ouvre le compte entier, il ne va dans aucun fichier versionné.
 
@@ -186,7 +179,7 @@ Un MCP ne se lit pas comme une API : on ne le lance pas à la main, c'est le cli
 
 ```sh
 make api                                     # dans Docker, avec WEB_ORIGIN défini dans .env
-notes serve --origin http://localhost:3000   # ou directement sur la machine
+go run ./cmd/notes-server serve --origin http://localhost:3000   # ou directement sur la machine
 ```
 
 `--addr` choisit l'adresse d'écoute (`127.0.0.1:8080` par défaut) et `--origin` l'origine de l'app web autorisée, `--web` un dossier de l'app générée (`bun run generate`) servi à la même adresse que l'API. `--add-user-mode` décide qui crée un compte depuis l'app : `invitation` (par défaut, sur lien d'un admin) ou `public` (n'importe qui). Sur une base sans aucun compte, `NOTES_HOST_NAME` et `NOTES_HOST_PASSWORD` en créent le premier au démarrage. Quand l'API n'est joignable que depuis la machine (`127.0.0.1`), elle prend l'adresse de chaque appareil dans le `X-Forwarded-For` du proxy (`tailscale serve`), pour que le délai après de mauvais mots de passe ne bloque que l'appareil fautif. Dans un conteneur, `--published` donne l'adresse publiée côté machine (`NOTES_LISTEN`), à la place de `--addr`.
@@ -234,15 +227,17 @@ Chaque requête doit venir d'un compte connecté. Garde quand même l'API sur `1
 
 Le texte et les titres des notes, les noms des dossiers, les tags, les snippets et les noms des images sont chiffrés dans la base, et les images dans Silo (AES-256-GCM). Chaque compte a sa propre clé, tirée au hasard à sa première connexion et rangée dans `users.data_key`, elle-même chiffrée par le secret du serveur `NOTES_SECRET`. Une base, une sauvegarde ou un disque volés restent illisibles sans ce secret. Un serveur compromis, lui, le détient : le chiffrement ne protège pas contre ça.
 
-- Génère la clé avec `openssl rand -base64 32` et mets la même dans `.env` (CLI) et `.env.docker` (API).
+- Génère la clé avec `openssl rand -base64 32` et mets la même dans `.env` (`notes-server` lancé par `go run`, les tests) et `.env.docker` (API).
 - **Garde une copie de la clé dans un gestionnaire de mots de passe, jamais dans une sauvegarde.** Si tu la perds, les notes deviennent illisibles, même avec une sauvegarde.
-- Un mot de passe oublié ne fait rien perdre : l’admin le réinitialise dans Réglages > Comptes (ou `notes reset-password` sur le serveur, seul recours pour son propre compte), car les clés ne dépendent pas du mot de passe.
-- Changer le secret : `make backup`, mets le nouveau dans `NOTES_SECRET` (`.env`), puis `NOTES_OLD_SECRET=<ancien> notes rotate-secret`. Seules les clés des comptes sont rechiffrées, pas les notes. Mets ensuite le nouveau secret dans `.env.docker` et lance `make api`. Un second passage ne fait rien.
+- Un mot de passe oublié ne fait rien perdre : l’admin le réinitialise dans Réglages > Comptes (ou `notes-server user reset-password` sur le serveur, seul recours pour son propre compte), car les clés ne dépendent pas du mot de passe.
+- Changer le secret : `make backup`, mets le nouveau dans `NOTES_SECRET` (`.env`), puis `NOTES_OLD_SECRET=<ancien> notes-server rotate-secret` (dans le conteneur : `docker exec -e NOTES_OLD_SECRET=<ancien> -e NOTES_SECRET=<nouveau> note-api /notes-server rotate-secret`). Seules les clés des comptes sont rechiffrées, pas les notes. Mets ensuite le nouveau secret dans `.env.docker` et lance `make api`. Un second passage ne fait rien.
 - `notes export` sort du texte en clair.
 - Pour retrouver un tag, un dossier ou une note par son nom, et garder ces noms uniques, la base garde une empreinte HMAC du nom en minuscules (`title_hash`, `value_hash`). Elle ne se lit pas, mais deux noms identiques ont la même empreinte. Les chemins, les tris et la recherche se font dans l'API, après déchiffrement.
 - Ne sont pas chiffrés : les dates et l'arborescence (quel élément est dans quel dossier).
 
 ## Configuration
+
+Ces variables sont celles de `notes-server` ; la CLI n'en a besoin d'aucune, sa session vient de `notes login`.
 
 | Variable | Rôle | Défaut |
 |---|---|---|

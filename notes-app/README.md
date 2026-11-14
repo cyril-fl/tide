@@ -21,7 +21,7 @@ cd ../notes-app && bun install && bun run dev   # http://localhost:3000
 
 Ouvre bien `localhost`, pas `127.0.0.1` : l'API compare l'origine exactement. `NUXT_PUBLIC_API_BASE` change l'adresse de l'API.
 
-L'app demande de se connecter. Sans session, elle ouvre la page de connexion, puis revient à la page demandée. Le compte vient d'un lien d'invitation envoyé par un admin, de la CLI (`notes user add <nom>`, voir le README de `notes-go`), ou de la page de création de compte quand le serveur l'ouvre à tous (`NOTES_ADD_USER_MODE=public`) : la page de connexion affiche alors un lien vers elle, et le cache sinon. Sur une base encore vide, la page de connexion mène droit à la création du premier compte, qui devient admin. L'avatar en bas de la barre latérale, réduite ou non, ouvre un menu : Compte, Réglages, Se déconnecter. La page Compte change l'avatar (une image du compte, les initiales sans elle), le nom et le mot de passe. Changer le mot de passe déconnecte les autres appareils.
+L'app demande de se connecter. Sans session, elle ouvre la page de connexion, puis revient à la page demandée. Le compte vient d'un lien d'invitation envoyé par un admin, du serveur (`notes-server user add <nom>`, voir le README de `notes-go`), ou de la page de création de compte quand le serveur l'ouvre à tous (`NOTES_ADD_USER_MODE=public`) : la page de connexion affiche alors un lien vers elle, et le cache sinon. Sur une base encore vide, la page de connexion mène droit à la création du premier compte, qui devient admin. L'avatar en bas de la barre latérale, réduite ou non, ouvre un menu : Compte, Réglages, Se déconnecter. La page Compte change l'avatar (une image du compte, les initiales sans elle), le nom et le mot de passe. Changer le mot de passe déconnecte les autres appareils.
 
 ## Images
 
@@ -69,7 +69,7 @@ La page Réglages (menu de l'avatar en bas de la barre latérale, ou la palette)
 ```sh
 bun run test        # file de sauvegarde, liens et disposition du graphe
 bun run e2e         # parcours dans Chrome, contre la stack lancée (make up) ; ou make e2e depuis la racine
-                    # se connecte avec le compte e2e (E2E_NAME, E2E_PASSWORD) : notes user add e2e, après le tien
+                    # se connecte avec le compte e2e (E2E_NAME, E2E_PASSWORD) : notes-server user add e2e, après le tien
                     # E2E_APP et E2E_API pointent les tests vers une autre stack
 bun run typecheck
 bun run types       # régénère app/types/api.d.ts depuis ../notes-go/docs/swagger.yaml

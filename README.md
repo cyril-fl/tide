@@ -32,7 +32,7 @@ Chaque tag `v*` publie l'image `ghcr.io/cyril-fl/notes` (API et app web sur la m
 
 ```sh
 docker compose -f compose.prod.yaml up -d                                    # Postgres, Silo, Notes et LibreDB Studio
-echo '<mot de passe>' | docker exec -i note-api /notes user add <nom> --password-stdin
+echo '<mot de passe>' | docker exec -i note-api /notes-server user add <nom> --password-stdin
 docker compose -f compose.prod.yaml pull && docker compose -f compose.prod.yaml up -d   # mise à jour
 ```
 
@@ -42,7 +42,9 @@ Le premier compte de la base est admin : lui seul invite, liste et supprime les 
 
 - la base est vide, on ouvre l'app : elle mène droit à la page de création de compte ;
 - `NOTES_HOST_NAME` et `NOTES_HOST_PASSWORD` dans le `.env` : Notes le crée au démarrage, puis ces deux lignes ne servent plus (à vider) ;
-- la commande `notes user add` ci-dessus, qui marche toujours.
+- la commande `notes-server user add` ci-dessus, qui marche toujours.
+
+L'image ne contient que `notes-server`, le seul binaire qui parle à Postgres et à Silo : l'API, l'app web, et les commandes de l'admin (`user add`, `user reset-password`, `rotate-secret`), lancées dans le conteneur par `docker exec`. La CLI `notes` est un client de l'API, installée sur le Mac (voir `notes-go/README.md`).
 
 Ensuite, `NOTES_ADD_USER_MODE` décide qui peut créer un compte :
 

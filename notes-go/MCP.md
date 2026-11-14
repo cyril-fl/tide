@@ -18,32 +18,31 @@ Conséquence : **on ne lance pas `notes mcp` à la main** pour s'en servir. C'es
 démarre, l'arrête et parle avec lui. Il faut donc seulement le déclarer chez le client, et le faire
 tourner là où le serveur est joignable (voir « Vérifier que ça marche » pour le tester sans client).
 
-### Le binaire s'appelle `notes-go`
+### Le binaire `notes`
 
-`go install github.com/cyril-fl/notes/notes-go@latest` l'installe sous le nom **`notes-go`**, dans
-`$(go env GOPATH)/bin`. Les exemples de ce document écrivent `notes` (le nom de la commande), mais
-chez un client MCP il faut le nom réel, de préférence en chemin absolu : un client lancé depuis le
-Finder n'a pas le `PATH` du shell.
+`go install github.com/cyril-fl/notes/notes-go/cmd/notes@latest` l'installe dans `$(go env GOPATH)/bin`.
+Chez un client MCP, donne-le en chemin absolu : un client lancé depuis le Finder n'a pas le `PATH` du
+shell.
 
 ```sh
-echo "$(go env GOPATH)/bin/notes-go"   # le chemin à donner au client
+echo "$(go env GOPATH)/bin/notes"   # le chemin à donner au client
 ```
 
 ### L'environnement : en général, n'en donner aucun
 
 `notes mcp` n'a besoin que de la session de `notes login` (section 2) : ni base, ni `NOTES_SECRET`, ni
-Silo de son côté, tout passe par le serveur. Si `notes-go whoami` répond dans un terminal, le MCP
+Silo de son côté, tout passe par le serveur. Si `notes whoami` répond dans un terminal, le MCP
 marchera **sans aucune variable** chez le client :
 
 ```sh
-claude mcp add notes -- "$(go env GOPATH)/bin/notes-go" mcp
+claude mcp add notes -- "$(go env GOPATH)/bin/notes" mcp
 ```
 
 Codex (`~/.codex/config.toml`) :
 
 ```toml
 [mcp_servers.notes]
-command = "/Users/<moi>/go/bin/notes-go"   # le chemin donné par la commande plus haut
+command = "/Users/<moi>/go/bin/notes"   # le chemin donné par la commande plus haut
 args = ["mcp"]
 ```
 
@@ -52,7 +51,7 @@ args = ["mcp"]
 ```json
 {
   "mcpServers": {
-    "notes": { "command": "/Users/<moi>/go/bin/notes-go", "args": ["mcp"] }
+    "notes": { "command": "/Users/<moi>/go/bin/notes", "args": ["mcp"] }
   }
 }
 ```
@@ -103,7 +102,7 @@ jeton n'est lié à aucune machine (la base n'en garde que le hash), il se donne
 environnement :
 
 ```sh
-NOTES_URL=https://notes.example.ts.net NOTES_SESSION='<le-jeton>' notes-go mcp
+NOTES_URL=https://notes.example.ts.net NOTES_SESSION='<le-jeton>' notes mcp
 ```
 
 - Elle vit comme les autres : **30 jours glissants**, relancée à chaque usage.
@@ -214,7 +213,7 @@ JSON en retour : il marche. Rien, ou une erreur : c'est la session ou le serveur
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}' \
   '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"recent_notes","arguments":{}}}'
-  sleep 3; } | notes-go mcp
+  sleep 3; } | notes mcp
 ```
 
 Le `sleep` garde l'entrée ouverte le temps des réponses : sans lui, le serveur s'arrête avant d'avoir
@@ -222,8 +221,8 @@ répondu.
 
 Quand il échoue, dans l'ordre :
 
-1. **La session** : `notes-go whoami` sous l'utilisateur Unix qui lance l'agent dit pour quel compte
-   et quel serveur il agit. Rien : `notes-go login <url>`, ou `NOTES_URL` et `NOTES_SESSION`.
+1. **La session** : `notes whoami` sous l'utilisateur Unix qui lance l'agent dit pour quel compte
+   et quel serveur il agit. Rien : `notes login <url>`, ou `NOTES_URL` et `NOTES_SESSION`.
 2. **Le client lui donne-t-il un bloc `env`** avec un `NOTES_URL` ou un `NOTES_SESSION` ? Ils gagnent
    sur le fichier : une valeur périmée masque une session valide (voir le piège, section 1).
 3. **Le serveur est-il joignable** depuis la machine de l'agent (Tailscale allumé, URL juste) ?

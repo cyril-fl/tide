@@ -35,6 +35,7 @@ import (
 	apirestore "github.com/cyril-fl/notes/notes-go/app/api/restore"
 	apisearch "github.com/cyril-fl/notes/notes-go/app/api/search"
 	"github.com/cyril-fl/notes/notes-go/app/api/services/auth"
+	"github.com/cyril-fl/notes/notes-go/app/api/services/compress"
 	"github.com/cyril-fl/notes/notes-go/app/api/services/guard"
 	apiusers "github.com/cyril-fl/notes/notes-go/app/api/users"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
@@ -111,5 +112,5 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("GET /api/files", apireadfiles.Handler(db))
 	mux.Handle("GET /api/files/{id}", apireadfile.Handler(db, store))
 
-	return guard.New(origin, auth.New(db, mux))
+	return guard.New(origin, auth.New(db, compress.New(mux)))
 }

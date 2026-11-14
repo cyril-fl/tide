@@ -5,7 +5,7 @@ export const settingsSections = [
   { id: 'editor', icon: 'snippet' },
   { id: 'data', icon: 'data' },
   { id: 'links', icon: 'linkBroken', feature: 'brokenLinks' },
-  { id: 'savedSearches', icon: 'search', feature: 'savedSearches' },
+  { id: 'savedSearches', icon: 'savedSearch', feature: 'savedSearches' },
   { id: 'pro', icon: 'pro' },
   { id: 'accounts', icon: 'accounts', admin: true },
 ] as const;

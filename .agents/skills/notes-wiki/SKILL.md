@@ -1,6 +1,8 @@
 ---
 name: notes-wiki
 description: Bring the GitHub wiki of Notes (../notes.wiki) up to the latest tag, catching up every version since the last one it knows - a Versions.md section, the current version on Home.md, the pages the change touches (Application-web, Titres-et-tags, Thème, Données), screenshots of a new screen, then commit and push the wiki. Use only when the user asks for it, never on your own after a fix or a tag: when the user says "wiki", "mets à jour le wiki", "doc utilisateur".
+context: fork
+model: sonnet
 ---
 
 # Update the wiki

@@ -21,7 +21,10 @@ const query = refDebounced(term, 200);
 const { data: matches, status } = useLazyAsyncData(
   'palette-search',
   () =>
-    query.value.trim() ? api<Match[]>('/api/search', { query: { q: query.value }, quiet: true }) : Promise.resolve([]),
+    // The first matches only: "all results" opens /search for the rest.
+    query.value.trim()
+      ? api<Match[]>('/api/search', { query: { q: query.value, limit: 20 }, quiet: true })
+      : Promise.resolve([]),
   { watch: [query], default: () => [] as Match[] },
 );
 const { data: recent } = useLazyAsyncData('recent', () => api<Recent[]>('/api/recent', { quiet: true }), {

@@ -2,8 +2,10 @@ package cmdfinder
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 
 	tea "charm.land/bubbletea/v2"
@@ -14,13 +16,9 @@ import (
 	cmdeditnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-note"
 	cmdreadfolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-folder"
 	cmdreadnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-note"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteitems"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listitems"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listnotetags"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/moveitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	"github.com/spf13/cobra"
@@ -76,11 +74,21 @@ func Finder(cobra *cobra.Command, args []string) error {
 	}
 }
 
-// move puts the item in the folder; moveitems refuses a folder going into itself or its subfolders.
+// move puts the item in the folder through POST /api/move, which refuses a folder going into itself or its
+// subfolders.
 func move(ctx context.Context, item domain.Item, folderID string) error {
-	process := moveitems.Process(ctx, postgrey.GetDb(), moveitems.Input{IDs: []string{item.ID}, ParentID: folderID})
-	process.Run()
-	return process.GetErr()
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	response, err := client.PostApiMoveWithResponse(ctx, apiclient.MoveitemsInput{Ids: []string{item.ID}, ParentId: &folderID})
+	if err != nil {
+		return err
+	}
+	if response.JSON200 == nil {
+		return apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	return nil
 }
 
 func do(ctx context.Context, action action, folderID string) error {
@@ -131,14 +139,38 @@ func remove(ctx context.Context, item domain.Item) error {
 		return err
 	}
 
-	process := deleteitems.Process(ctx, postgrey.GetDb(), item.Kind, []string{item.ID})
-	process.Run()
-	return process.GetErr()
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	var response *http.Response
+	var body []byte
+	if item.Kind == domain.FOLDER {
+		deleted, err := client.DeleteApiFoldersIdWithResponse(ctx, item.ID)
+		if err != nil {
+			return err
+		}
+		response, body = deleted.HTTPResponse, deleted.Body
+	} else {
+		deleted, err := client.DeleteApiNotesIdWithResponse(ctx, item.ID)
+		if err != nil {
+			return err
+		}
+		response, body = deleted.HTTPResponse, deleted.Body
+	}
+	// Already gone (removed elsewhere): nothing left to do, as deleteitems skipped it.
+	_, err = apiclient.Deleted(response, body)
+	return err
 }
 
-// loadFolder reads a folder, or the root as a folder titled Notes at path /.
+// loadFolder reads a folder, or the root as a folder titled Notes at path /, with the tags of its children through
+// POST /api/notes/tags.
 func loadFolder(ctx context.Context, id string) (page, error) {
-	folder, err := readFolder(ctx, id)
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return page{}, err
+	}
+	folder, err := readFolder(ctx, client, id)
 	if err != nil {
 		return page{}, err
 	}
@@ -147,21 +179,24 @@ func loadFolder(ctx context.Context, id string) (page, error) {
 	for i, child := range folder.Children {
 		ids[i] = child.ID
 	}
-	process := listnotetags.Process(ctx, postgrey.GetDb(), ids)
-	process.Run()
-	return page{Result: folder, tags: process.GetResult()}, process.GetErr()
+	tags, err := apiclient.NoteTags(ctx, client, ids)
+	return page{Result: folder, tags: tags}, err
 }
 
-// readFolder reads a folder with its children; "" is the root.
-func readFolder(ctx context.Context, id string) (readitem.Result, error) {
+// readFolder reads a folder with its children, as show folder does; "" is the root, its children read through
+// GET /api/items.
+func readFolder(ctx context.Context, client *apiclient.ClientWithResponses, id string) (readitem.Result, error) {
 	if id != "" {
-		process := readitem.Process(ctx, postgrey.GetDb(), domain.FOLDER, id)
-		process.Run()
-		return process.GetResult(), process.GetErr()
+		return cmdreadfolder.Fetch(ctx, client, id)
 	}
 
-	process := listitems.Process(ctx, postgrey.GetDb(), "", "")
-	process.Run()
-	root := readitem.Result{Item: domain.Item{Kind: domain.FOLDER, Title: "Notes"}, Path: "/", Children: process.GetResult()}
-	return root, process.GetErr()
+	root := readitem.Result{Item: domain.Item{Kind: domain.FOLDER, Title: "Notes"}, Path: "/"}
+	response, err := client.GetApiItemsWithResponse(ctx, &apiclient.GetApiItemsParams{})
+	if err != nil {
+		return root, err
+	}
+	if response.JSON200 == nil {
+		return root, apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	return root, json.Unmarshal(response.Body, &root.Children)
 }

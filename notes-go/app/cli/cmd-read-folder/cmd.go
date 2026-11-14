@@ -38,7 +38,7 @@ func Read(cobra *cobra.Command, args []string) error {
 	}
 
 	for {
-		folder, err := fetch(cobra.Context(), client, id)
+		folder, err := Fetch(cobra.Context(), client, id)
 		if err != nil {
 			return err
 		}
@@ -56,7 +56,7 @@ func Read(cobra *cobra.Command, args []string) error {
 
 // printJSON gives an empty folder "children": [], not null.
 func printJSON(ctx context.Context, client *apiclient.ClientWithResponses, id string) error {
-	folder, err := fetch(ctx, client, id)
+	folder, err := Fetch(ctx, client, id)
 	if err != nil {
 		return err
 	}
@@ -66,9 +66,9 @@ func printJSON(ctx context.Context, client *apiclient.ClientWithResponses, id st
 	return nil
 }
 
-// fetch reads the folder through GET /api/folders/{id}, which leaves its children out, then them through
+// Fetch reads the folder through GET /api/folders/{id}, which leaves its children out, then them through
 // GET /api/items. Decoded into the domain types, not the generated ones: the output stays that of readitem.
-func fetch(ctx context.Context, client *apiclient.ClientWithResponses, id string) (readitem.Result, error) {
+func Fetch(ctx context.Context, client *apiclient.ClientWithResponses, id string) (readitem.Result, error) {
 	var folder readitem.Result
 	response, err := client.GetApiFoldersIdWithResponse(ctx, id)
 	if err != nil {

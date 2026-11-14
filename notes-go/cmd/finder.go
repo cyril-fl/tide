@@ -2,7 +2,7 @@ package cmd
 
 import (
 	cmdfinder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-finder"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/spf13/cobra"
 )
 
@@ -12,7 +12,7 @@ var cmdFinder = &cobra.Command{
 	Long:    cmd.ShowFinder.Long,
 	Example: cmd.ShowFinder.Example,
 	Args:    cobra.MaximumNArgs(1),
-	RunE:    resolved(domain.FOLDER, cmdfinder.Finder),
+	RunE:    apiResolved(apiclient.FOLDER, cmdfinder.Finder),
 }
 
 func init() {

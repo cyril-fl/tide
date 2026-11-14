@@ -695,13 +695,20 @@ components:
       type: object
     readtag.Note:
       properties:
+        created_at:
+          type: string
         id:
           type: string
         path:
           type: string
+        readonly:
+          type: boolean
         title:
           type: string
+        updated_at:
+          type: string
       required:
+      - created_at
       - id
       - path
       - title

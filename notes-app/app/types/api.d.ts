@@ -3484,9 +3484,12 @@ export interface components {
             note: components["schemas"]["readitem.Result"];
         };
         "readtag.Note": {
+            created_at: string;
             id: string;
             path: string;
+            readonly?: boolean;
             title: string;
+            updated_at?: string;
         };
         "readtag.Result": {
             notes: components["schemas"]["readtag.Note"][];

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 
@@ -19,11 +20,14 @@ var (
 	ErrNotFound = errors.New("tag not found")
 )
 
-// Note is a note carrying the tag, with its path.
+// Note is a note carrying the tag, with its path, its dates and its lock as a folder lists them.
 type Note struct {
-	ID    string      `json:"id"`
-	Title secret.Text `json:"title" swaggertype:"string"`
-	Path  string      `json:"path"`
+	ID        string      `json:"id"`
+	Title     secret.Text `json:"title" swaggertype:"string"`
+	Path      string      `json:"path"`
+	CreatedAt time.Time   `json:"created_at"`
+	UpdatedAt time.Time   `json:"updated_at,omitzero" binding:"optional"`
+	Readonly  bool        `json:"readonly,omitempty" binding:"optional"`
 }
 
 // Result is the tag and its live notes, by path.
@@ -109,29 +113,31 @@ func (p *run) loadTag() {
 	p.SetErr(err)
 }
 
-// loadNotes reads the ids of the tag's notes, keeps the live ones by path and names only the page: titles and paths
+// loadNotes reads the tag's notes (dates, lock), keeps the live ones by path and names only the page: titles and paths
 // come from the tree, no note is opened.
 func (p *run) loadNotes() {
 	if p.HasErr() {
 		return
 	}
 
-	var ids []string
+	var notes []Note
 	p.SetErr(p.db.NewRaw(`
-		SELECT i.id
+		SELECT i.id, i.created_at, i.updated_at,
+			COALESCE((SELECT mn.readonly FROM metadata_notes AS mn WHERE mn.item_id = i.id), false) AS readonly
 		FROM notes_on_tags AS nt
 		JOIN items AS i ON i.id = nt.note_id
 		WHERE nt.tag_id = ? AND i.user_id = ? AND i.deleted_at IS NULL`, p.cache.result.Tag.ID, domain.UserID(p.ctx)).
-		Scan(p.ctx, &ids))
+		Scan(p.ctx, &notes))
 	if p.HasErr() {
 		return
 	}
 
 	tree, err := domain.LoadTree(p.ctx, p.db)
 	p.SetErr(err)
-	ids = domain.Live(tree, ids, func(id string) string { return id }, nil)
-	p.cache.total = len(ids)
-	for _, id := range domain.Page(ids, p.limit, p.offset) {
-		p.cache.result.Notes = append(p.cache.result.Notes, Note{ID: id, Title: secret.Text(tree.Titles[id]), Path: tree.Paths[id]})
+	notes = domain.Live(tree, notes, func(note Note) string { return note.ID }, nil)
+	p.cache.total = len(notes)
+	for _, note := range domain.Page(notes, p.limit, p.offset) {
+		note.Title, note.Path = secret.Text(tree.Titles[note.ID]), tree.Paths[note.ID]
+		p.cache.result.Notes = append(p.cache.result.Notes, note)
 	}
 }

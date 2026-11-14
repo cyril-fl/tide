@@ -1,23 +1,35 @@
 <script setup lang="ts">
-type Note = { id: string; title: string; path: string; snippet?: string; readonly?: boolean };
+import type { Item } from '~/types/items';
+
+type Note = {
+  id: string;
+  title: string;
+  path: string;
+  snippet?: string;
+  readonly?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
 
 const props = defineProps<{
   // A hole stands for a note of a page not read yet.
   notes: (Note | undefined)[];
   grid?: boolean;
+  /** The notes carry their dates (a tag's): tiles as a folder shows them. */
+  dated?: boolean;
   /** Reads the notes from one index to another: a list read by pages renders only the rows in sight. */
   load?: (from: number, to: number) => void;
 }>();
 
 const { icons } = useIcons();
 
-// A row is py-2, a text-sm line and a text-xs one; a tile has one text-xs line under its square.
+// A row is py-2, a text-sm line and a text-xs one; a tile has one text-xs line under its square, two when dated.
 const list = useTemplateRef('list');
 const rows = useVirtualRows(
   list,
   () => (props.load ? props.notes.length : 0),
   () => !!props.grid,
-  { row: 52, caption: 16 },
+  { row: 52, caption: props.dated ? 32 : 16 },
 );
 const visible = computed(() => {
   // Not paged, as the related notes in their own scroll box: short, rendered whole.
@@ -36,8 +48,9 @@ watchEffect(() => props.load?.(visible.value.start, visible.value.start + visibl
     <li v-for="(note, index) in visible.items" :key="note?.id ?? visible.start + index" class="min-w-0">
       <template v-if="!note">
         <!-- A tile is a square, then gap-2 and its line of text. -->
-        <USkeleton :class="grid ? 'mb-6 aspect-square' : 'h-13'" />
+        <USkeleton :class="grid ? `${dated ? 'mb-10' : 'mb-6'} aspect-square` : 'h-13'" />
       </template>
+      <ItemRow v-else-if="grid && dated" :item="{ ...note, kind: 'note' } as Item" grid />
       <NuxtLink v-else-if="grid" :to="`/notes/${note.id}`" class="group flex flex-col gap-2">
         <div class="tile relative items-start justify-start text-muted">
           <p class="line-clamp-6">{{ note.snippet ?? note.path }}</p>

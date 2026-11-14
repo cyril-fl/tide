@@ -46,7 +46,7 @@ useHead({ title: `#${value}` });
         />
       </UTooltip>
     </PageHeader>
-    <NoteList v-if="notes.length" :notes="notes" :grid="view === 'grid'" :load="load" />
+    <NoteList v-if="notes.length" :notes="notes" :grid="view === 'grid'" dated :load="load" />
     <UEmpty
       v-else-if="error"
       :icon="icons.tag"

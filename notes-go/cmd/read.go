@@ -23,7 +23,7 @@ var cmdReadNote = &cobra.Command{
 	Long:    cmd.ReadNote.Long,
 	Example: cmd.ReadNote.Example,
 	Args:    cobra.ExactArgs(1),
-	RunE:    resolved(domain.NOTE, cmdreadnote.Read),
+	RunE:    cmdreadnote.Read,
 }
 
 var cmdReadFloder = &cobra.Command{

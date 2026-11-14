@@ -9,9 +9,7 @@ import (
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	cmdeditnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-note"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
 	"github.com/spf13/cobra"
@@ -20,10 +18,20 @@ import (
 
 // Read shows the note path, then its content rendered as markdown; ctrl+e edits it, then shows it again.
 func Read(cobra *cobra.Command, args []string) error {
-	return View(cobra.Context(), args[0])
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	id, err := apiclient.Resolve(cobra.Context(), client, apiclient.NOTE, args[0])
+	if err != nil {
+		return err
+	}
+	return View(cobra.Context(), id)
 }
 
-// View is the show note screen: ctrl+e edits the note, then shows it again, until the user quits.
+// View is the show note screen: ctrl+e edits the note, then shows it again, until the user quits. The note comes from
+// the API.
+// TODO: ctrl+e still edits in the base, move it to PATCH /api/notes/{id} with edit note (#148).
 func View(ctx context.Context, id string) error {
 	for {
 		output, err := load(ctx, id)
@@ -43,14 +51,24 @@ func View(ctx context.Context, id string) error {
 }
 
 func load(ctx context.Context, id string) (string, error) {
-	process := readitem.Process(ctx, postgrey.GetDb(), domain.NOTE, id)
-	process.Run()
-	if process.HasErr() {
-		return "", process.GetErr()
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return "", err
+	}
+	response, err := client.GetApiNotesIdWithResponse(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	note := response.JSON200
+	if note == nil {
+		return "", apiclient.Fail(response.HTTPResponse, response.Body)
 	}
 
-	note := process.GetResult()
-	content, err := render(note.Content)
+	var markdown string
+	if note.Content != nil {
+		markdown = *note.Content
+	}
+	content, err := render(markdown)
 	if err != nil {
 		return "", err
 	}

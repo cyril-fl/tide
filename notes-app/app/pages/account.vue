@@ -13,6 +13,8 @@ const baseURL = useRuntimeConfig().public.apiBase;
 const input = useTemplateRef('input');
 
 const { data: me } = useMe();
+// The advanced mode's settings nav leads back on its own: the plain settings page needs this link.
+const { has } = usePro();
 
 const avatarSrc = computed(() => me.value?.avatar && imageSrc(`/api/files/${me.value.avatar}`, baseURL));
 const uploading = ref(false);
@@ -157,6 +159,16 @@ function day(at: string) {
 
 <template>
   <div class="p-8">
+    <UButton
+      v-if="!has('settingsNav')"
+      :label="$t('common.settings')"
+      :icon="icons.back"
+      to="/settings"
+      color="neutral"
+      variant="ghost"
+      size="sm"
+      class="mb-2 -ms-2.5"
+    />
     <PageHeader :title="$t('account.title')" />
 
     <section class="mb-8">

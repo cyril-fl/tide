@@ -493,20 +493,26 @@ test('the Pro mode opens the / commands on a right click', async ({ page }) => {
 test('the settings follow the Pro mode, one page or a page per section', async ({ page }) => {
   try {
     await box.api.patch('/api/me', { data: { plan: 'base' } });
-    await page.goto('/settings/pro');
+    await page.goto('/settings/general');
     await expect(page).toHaveURL(/\/settings$/);
+    await expect(page.getByText('Connecté en tant que')).toBeVisible();
 
     await page.getByRole('tab', { name: 'Avancé' }).click();
-    await expect(page).toHaveURL(/\/settings\/pro$/);
+    await expect(page).toHaveURL(/\/settings\/general$/);
+    // The settings nav links to the account: the general section no longer does.
+    await expect(page.getByText('Connecté en tant que')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Retour aux notes' })).toBeVisible();
     await page.goto('/settings/nope');
     await expect(page).toHaveURL(/\/settings\/general$/);
 
-    await page.goto('/settings/pro');
     await page.getByRole('tab', { name: 'Standard' }).click();
     await expect(page).toHaveURL(/\/settings$/);
     await expect(page.getByRole('heading', { name: 'Réglages', level: 1 })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Retour aux notes' })).toHaveCount(0);
+    // Without the settings nav, the account page links back to the settings.
+    await page.getByRole('link', { name: 'Gérer le compte' }).click();
+    await page.getByRole('link', { name: 'Réglages' }).click();
+    await expect(page).toHaveURL(/\/settings$/);
   } finally {
     await box.api.patch('/api/me', { data: { plan: 'base' } });
   }

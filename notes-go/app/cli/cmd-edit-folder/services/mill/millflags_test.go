@@ -1,12 +1,11 @@
 package millflagseditfolder
 
 import (
-	"context"
-	"errors"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
+	"strings"
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 	"github.com/cyril-fl/notes/notes-go/config"
@@ -15,18 +14,11 @@ import (
 )
 
 func TestResolve(t *testing.T) {
-	ctx := context.Background()
-	env := postgrey.NewEnvironment()
-	env.ReadEnv()
-	db := env.Connect()
-	defer db.Close()
-
-	tx, err := db.BeginTx(ctx, nil)
+	ctx, tx := apitest.Serve(t)
+	client, err := apiclient.Read().Client()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
-	ctx, tx = testaccount.New(t, ctx, tx)
 
 	seed := createfolder.Process(ctx, tx, createfolder.Input{Title: "Old"})
 	seed.Run()
@@ -40,15 +32,15 @@ func TestResolve(t *testing.T) {
 		t.Fatalf("ParseFlags() error = %v", err)
 	}
 
-	resolver := New(Template{Ctx: ctx, Db: tx, Flags: cmd.Flags(), ID: seed.GetResult().ID})
+	resolver := New(Template{Ctx: ctx, Client: client, Flags: cmd.Flags(), ID: seed.GetResult().ID})
 	if input := resolver.Resolve(); resolver.HasErr() || input.Title != "New" || input.ID != seed.GetResult().ID {
 		t.Errorf("input = %+v, err = %v; want New", input, resolver.GetErr())
 	}
 
 	// Last: an unknown id fails before any form.
-	missing := New(Template{Ctx: ctx, Db: tx, Flags: cmd.Flags(), ID: "00000000-0000-0000-0000-000000000000"})
+	missing := New(Template{Ctx: ctx, Client: client, Flags: cmd.Flags(), ID: "00000000-0000-0000-0000-000000000000"})
 	missing.Resolve()
-	if !errors.Is(missing.GetErr(), readitem.ErrNotFound) {
+	if missing.GetErr() == nil || !strings.HasPrefix(missing.GetErr().Error(), readitem.ErrNotFound.Error()) {
 		t.Errorf("err = %v, want %v", missing.GetErr(), readitem.ErrNotFound)
 	}
 }

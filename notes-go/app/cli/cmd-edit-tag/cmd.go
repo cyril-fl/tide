@@ -7,14 +7,14 @@ import (
 	"strings"
 
 	"charm.land/huh/v2"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/edittag"
 	"github.com/spf13/cobra"
 )
 
 var errRequired = errors.New("required")
 
+// Edit renames the tag through PATCH /api/tags/{value}, in the text of its notes too.
 func Edit(cobra *cobra.Command, args []string) error {
 	_, err := rename(cobra.Context(), args[0], args[1])
 	return err
@@ -30,15 +30,20 @@ func Interactive(ctx context.Context, value string) (string, error) {
 }
 
 func rename(ctx context.Context, from string, to string) (string, error) {
-	process := edittag.Process(ctx, postgrey.GetDb(), from, to)
-	process.Run()
-
-	if process.HasErr() {
-		return from, process.GetErr()
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return from, err
+	}
+	response, err := client.PatchApiTagsValueWithResponse(ctx, from, apiclient.EdittagBody{Value: to})
+	if err != nil {
+		return from, err
+	}
+	if response.JSON200 == nil {
+		return from, apiclient.Fail(response.HTTPResponse, response.Body)
 	}
 
-	fmt.Printf("Successfully renamed %q to %q\n", from, process.GetResult().Value)
-	return string(process.GetResult().Value), nil
+	fmt.Printf("Successfully renamed %q to %q\n", from, response.JSON200.Value)
+	return response.JSON200.Value, nil
 }
 
 func notBlank(value string) error {

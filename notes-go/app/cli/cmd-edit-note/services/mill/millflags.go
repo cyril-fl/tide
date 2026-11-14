@@ -2,29 +2,29 @@ package millflagseditnote
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/hashtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/editnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/spf13/pflag"
-	"github.com/uptrace/bun"
 )
 
 type mill struct {
 	plumprimitive.Mill
 	cache
 
-	ctx   context.Context
-	db    bun.IDB
-	flags *pflag.FlagSet
-	id    string
+	ctx    context.Context
+	client *apiclient.ClientWithResponses
+	flags  *pflag.FlagSet
+	id     string
 }
 
 type cache struct {
@@ -38,18 +38,18 @@ type cache struct {
 }
 
 type Template struct {
-	Ctx   context.Context
-	Db    bun.IDB
-	Flags *pflag.FlagSet
-	ID    string
+	Ctx    context.Context
+	Client *apiclient.ClientWithResponses
+	Flags  *pflag.FlagSet
+	ID     string
 }
 
 func New(params Template) *mill {
 	return &mill{
-		ctx:   params.Ctx,
-		db:    params.Db,
-		flags: params.Flags,
-		id:    params.ID,
+		ctx:    params.Ctx,
+		client: params.Client,
+		flags:  params.Flags,
+		id:     params.ID,
 	}
 }
 
@@ -79,21 +79,32 @@ func (m *mill) readFlags() {
 	m.SetErr(errors.Join(errs[:]...))
 }
 
+// loadNote reads the note through GET /api/notes/{id}, decoded into readitem.Result for its dates.
 func (m *mill) loadNote() {
 	if m.HasErr() {
 		return
 	}
 
-	process := readitem.Process(m.ctx, m.db, domain.NOTE, m.id)
-	process.Run()
-	current := process.GetResult()
+	response, err := m.client.GetApiNotesIdWithResponse(m.ctx, m.id)
+	if err != nil {
+		m.SetErr(err)
+		return
+	}
+	if response.JSON200 == nil {
+		m.SetErr(apiclient.Fail(response.HTTPResponse, response.Body))
+		return
+	}
+	var current readitem.Result
+	if err := json.Unmarshal(response.Body, &current); err != nil {
+		m.SetErr(err)
+		return
+	}
 	m.cache.input = editnote.Input{ID: current.Item.ID, Content: current.Content, Tags: current.Tags}
 	// A note never edited has no updated_at: its version is created_at, as patchnote compares it.
 	m.cache.version = current.Item.UpdatedAt
 	if m.cache.version.IsZero() {
 		m.cache.version = current.Item.CreatedAt
 	}
-	m.SetErr(process.GetErr())
 }
 
 func (m *mill) applyFlags() {
@@ -112,10 +123,9 @@ func (m *mill) loadTags() {
 		return
 	}
 
-	process := listtag.Process(m.ctx, m.db)
-	process.Run()
-	m.cache.tags = process.GetResult()
-	m.SetErr(process.GetErr())
+	tags, err := apiclient.Tags(m.ctx, m.client)
+	m.cache.tags = tags
+	m.SetErr(err)
 }
 
 // hasChanges reports whether a flag already says what to change, in which case the content is not asked.

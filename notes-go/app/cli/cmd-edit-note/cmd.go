@@ -2,11 +2,11 @@ package cmdeditnote
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"time"
 
 	millflagseditnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-note/services/mill"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/patchnote"
 	"github.com/cyril-fl/notes/notes-go/config"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// Edit loads the note, applies the flags (or a pre-filled form when none), then saves it.
+// Edit loads the note, applies the flags (or a pre-filled form when none), then saves it through PATCH /api/notes/{id}.
 func Edit(cobra *cobra.Command, args []string) error {
 	return run(cobra.Context(), args[0], cobra.Flags())
 }
@@ -25,9 +25,13 @@ func Interactive(ctx context.Context, id string) error {
 }
 
 // run edits the text only when a flag asks for it, or with the form when no flag says anything: --pin or --lock
-// alone must not rewrite the note, nor change its last change date. patchnote pins, locks and edits in one transaction.
+// alone must not rewrite the note, nor change its last change date. The API pins, locks and edits in one transaction.
 func run(ctx context.Context, id string, flags *pflag.FlagSet) error {
-	input := patchnote.Input{ID: id}
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	var input apiclient.EditnoteBody
 	if flags.Changed("pin") || flags.Changed("unpin") {
 		pinned := flags.Changed("pin")
 		input.Pinned = &pinned
@@ -38,23 +42,26 @@ func run(ctx context.Context, id string, flags *pflag.FlagSet) error {
 	}
 	textChanged := flags.Changed("content") || flags.Changed("tag") || flags.Changed("untag") || flags.Changed("tag-from-list")
 	if input.Pinned == nil && input.Readonly == nil || textChanged {
-		// The mill applies --tag and --untag over the current note, patchnote then only saves its result.
-		resolver := millflagseditnote.New(millflagseditnote.Template{Ctx: ctx, Db: postgrey.GetDb(), Flags: flags, ID: id})
+		// The mill applies --tag and --untag over the current note, the API then only saves its result.
+		resolver := millflagseditnote.New(millflagseditnote.Template{Ctx: ctx, Client: client, Flags: flags, ID: id})
 		note := resolver.Resolve()
 		if resolver.HasErr() {
 			return resolver.GetErr()
 		}
-		version := resolver.Version()
+		version := resolver.Version().Format(time.RFC3339Nano)
 		input.Content, input.Tags, input.UpdatedAt = &note.Content, &note.Tags, &version
 	}
 
-	process := patchnote.Process(ctx, postgrey.GetDb(), input)
-	process.Run()
-	if process.HasErr() {
-		if errors.Is(process.GetErr(), patchnote.ErrStale) {
-			return fmt.Errorf("%w: nothing saved, run the command again to edit the new text", process.GetErr())
+	response, err := client.PatchApiNotesIdWithResponse(ctx, id, input)
+	if err != nil {
+		return err
+	}
+	if response.JSON200 == nil {
+		err := apiclient.Fail(response.HTTPResponse, response.Body)
+		if err.Error() == patchnote.ErrStale.Error() {
+			return fmt.Errorf("%w: nothing saved, run the command again to edit the new text", err)
 		}
-		return process.GetErr()
+		return err
 	}
 
 	if input.Content != nil {

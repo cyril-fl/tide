@@ -7,7 +7,7 @@ import (
 	cmdeditfolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-folder"
 	cmdeditnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-note"
 	cmdedittag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-tag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 )
 
 var cmdEdit = &cobra.Command{
@@ -23,7 +23,7 @@ var cmdEditNote = &cobra.Command{
 	Long:    cmd.EditNote.Long,
 	Example: cmd.EditNote.Example,
 	Args:    cobra.ExactArgs(1),
-	RunE:    resolved(domain.NOTE, cmdeditnote.Edit),
+	RunE:    apiResolved(apiclient.NOTE, cmdeditnote.Edit),
 }
 
 var cmdEditFloder = &cobra.Command{
@@ -32,7 +32,7 @@ var cmdEditFloder = &cobra.Command{
 	Long:    cmd.EditFolder.Long,
 	Example: cmd.EditFolder.Example,
 	Args:    cobra.ExactArgs(1),
-	RunE:    resolved(domain.FOLDER, cmdeditfolder.Edit),
+	RunE:    apiResolved(apiclient.FOLDER, cmdeditfolder.Edit),
 }
 
 var cmdEditTag = &cobra.Command{

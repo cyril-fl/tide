@@ -29,9 +29,8 @@ func Read(cobra *cobra.Command, args []string) error {
 	return View(cobra.Context(), id)
 }
 
-// View is the show note screen: ctrl+e edits the note, then shows it again, until the user quits. The note comes from
-// the API.
-// TODO: ctrl+e still edits in the base, move it to PATCH /api/notes/{id} with edit note (#148).
+// View is the show note screen: ctrl+e edits the note, then shows it again, until the user quits, both through the
+// API.
 func View(ctx context.Context, id string) error {
 	for {
 		output, err := load(ctx, id)

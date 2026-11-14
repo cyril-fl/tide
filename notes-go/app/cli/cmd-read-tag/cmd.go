@@ -53,7 +53,6 @@ func showTag(cobra *cobra.Command, value string) error {
 			return err
 		}
 		// An aborted form goes back to the view unchanged; a rename reloads under the new value.
-		// TODO: ctrl+e still renames in the base, move it to PATCH /api/tags/{value} with edit tag (#148).
 		if value, err = cmdedittag.Interactive(cobra.Context(), value); err != nil && !errors.Is(err, huh.ErrUserAborted) {
 			return err
 		}

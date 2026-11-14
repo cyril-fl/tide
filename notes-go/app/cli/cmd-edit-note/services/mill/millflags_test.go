@@ -1,16 +1,14 @@
 package millflagseditnote
 
 import (
-	"context"
 	"errors"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
 	"slices"
 	"testing"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/patchnote"
 	"github.com/cyril-fl/notes/notes-go/config"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
@@ -26,24 +24,11 @@ func TestMergeTags(t *testing.T) {
 
 // Flags come from config.yaml (a renamed flag breaks this test) and always give a change, so no form opens.
 func TestResolveFromFlags(t *testing.T) {
-	ctx := context.Background()
-	env := postgrey.NewEnvironment()
-	env.ReadEnv()
-	db := env.Connect()
-	defer db.Close()
-
-	schema := createschema.Process(ctx, db)
-	schema.Run()
-	if schema.HasErr() {
-		t.Fatalf("create schema: %v", schema.GetErr())
-	}
-
-	tx, err := db.BeginTx(ctx, nil)
+	ctx, tx := apitest.Serve(t)
+	client, err := apiclient.Read().Client()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
-	ctx, tx = testaccount.New(t, ctx, tx)
 
 	seed := createnote.Process(ctx, tx, createnote.Input{Content: "old", Tags: []string{"test-edit-a", "test-edit-b"}})
 	seed.Run()
@@ -57,7 +42,7 @@ func TestResolveFromFlags(t *testing.T) {
 		t.Fatalf("ParseFlags() error = %v", err)
 	}
 
-	resolver := New(Template{Ctx: ctx, Db: tx, Flags: cmd.Flags(), ID: seed.GetResult().ID})
+	resolver := New(Template{Ctx: ctx, Client: client, Flags: cmd.Flags(), ID: seed.GetResult().ID})
 	input := resolver.Resolve()
 	if resolver.HasErr() {
 		t.Fatalf("Resolve() error = %v", resolver.GetErr())

@@ -94,6 +94,8 @@ var noAccount = map[*cobra.Command]bool{cmdUser: true, cmdUserAdd: true, cmdUser
 var apiClients = map[*cobra.Command]bool{
 	cmdLogin: true, cmdLogout: true, cmdWhoami: true,
 	cmdCreateNote: true, cmdCreateFloder: true, cmdCreateTag: true,
+	cmdReadNote: true, cmdReadFloder: true, cmdReadTag: true,
+	cmdEditNote: true, cmdEditFloder: true, cmdEditTag: true,
 }
 
 func init() {

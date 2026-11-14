@@ -48,7 +48,6 @@ func Read(cobra *cobra.Command, args []string) error {
 			return err
 		}
 		// An aborted form goes back to the view unchanged.
-		// TODO: ctrl+e still edits in the base, move it to PATCH /api/folders/{id} with edit folder (#148).
 		if err := cmdeditfolder.Interactive(cobra.Context(), id); err != nil && !errors.Is(err, huh.ErrUserAborted) {
 			return err
 		}

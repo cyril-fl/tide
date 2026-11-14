@@ -5,17 +5,15 @@ import (
 	"fmt"
 
 	millflagseditfolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-folder/services/mill"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/editfolder"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/pinnote"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/config"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
-// Edit loads the folder, applies --title (or a pre-filled form), then saves it; --pin and --unpin make it a favorite or not.
+// Edit loads the folder, applies --title (or a pre-filled form), then saves it through PATCH /api/folders/{id}; --pin and
+// --unpin make it a favorite or not.
 func Edit(cobra *cobra.Command, args []string) error {
 	return run(cobra.Context(), args[0], cobra.Flags())
 }
@@ -26,41 +24,40 @@ func Interactive(ctx context.Context, id string) error {
 }
 
 // run renames only when --title asks for it, or with the form when no flag says anything: --pin alone keeps the title.
+// The API pins and renames in one transaction.
 func run(ctx context.Context, id string, flags *pflag.FlagSet) error {
-	pinChanged := flags.Changed("pin") || flags.Changed("unpin")
-	if pinChanged && !flags.Changed("title") {
-		return pin(ctx, id, flags.Changed("pin"))
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	var input apiclient.EditfolderBody
+	if flags.Changed("pin") || flags.Changed("unpin") {
+		pinned := flags.Changed("pin")
+		input.Pinned = &pinned
+	}
+	if input.Pinned == nil || flags.Changed("title") {
+		resolver := millflagseditfolder.New(millflagseditfolder.Template{Ctx: ctx, Client: client, Flags: flags, ID: id})
+		folder := resolver.Resolve()
+		if resolver.HasErr() {
+			return resolver.GetErr()
+		}
+		input.Title = &folder.Title
 	}
 
-	resolver := millflagseditfolder.New(millflagseditfolder.Template{Ctx: ctx, Db: postgrey.GetDb(), Flags: flags, ID: id})
-	input := resolver.Resolve()
-	if resolver.HasErr() {
-		return resolver.GetErr()
+	response, err := client.PatchApiFoldersIdWithResponse(ctx, id, input)
+	if err != nil {
+		return err
+	}
+	if response.JSON200 == nil {
+		return apiclient.Fail(response.HTTPResponse, response.Body)
 	}
 
-	process := editfolder.Process(ctx, postgrey.GetDb(), input)
-	process.Run()
-	if process.HasErr() {
-		return process.GetErr()
+	if input.Title != nil {
+		fmt.Printf("Successfully updated folder %s\n", id)
 	}
-	fmt.Printf("Successfully updated folder %s\n", process.GetResult().ID)
-
-	if pinChanged {
-		return pin(ctx, id, flags.Changed("pin"))
-	}
-	return nil
-}
-
-func pin(ctx context.Context, id string, pinned bool) error {
-	process := pinnote.Process(ctx, postgrey.GetDb(), domain.FOLDER, id, pinned)
-	process.Run()
-	if process.HasErr() {
-		return process.GetErr()
-	}
-
-	if pinned {
+	if input.Pinned != nil && *input.Pinned {
 		fmt.Printf("Successfully pinned folder %s\n", id)
-	} else {
+	} else if input.Pinned != nil {
 		fmt.Printf("Successfully unpinned folder %s\n", id)
 	}
 	return nil

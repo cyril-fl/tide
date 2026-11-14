@@ -75,6 +75,10 @@ components:
           type: string
         password:
           type: string
+        token:
+          description: 'Token asks the token in the answer too, for a client without
+            cookies (the CLI): the web keeps it HttpOnly.'
+          type: boolean
       required:
       - name
       - password
@@ -82,6 +86,8 @@ components:
     createsession.Result:
       properties:
         expires_at:
+          type: string
+        token:
           type: string
         user:
           $ref: '#/components/schemas/domain.User'

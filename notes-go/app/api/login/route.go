@@ -22,7 +22,8 @@ import (
 // failed counts the wrong passwords in a row, by address for the login and by account for a new password.
 var failed = throttle.New("too many wrong passwords, try again later")
 
-// Handler logs in: POST /api/login. The session token goes in an HttpOnly cookie, never in the body.
+// Handler logs in: POST /api/login. The session token goes in an HttpOnly cookie, in the body only when the input
+// asks it (the CLI).
 // @Summary  Log in
 // @Tags     account
 // @Accept   json
@@ -58,6 +59,9 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		failed.Reset(key)
 		result := process.GetResult()
 		auth.SetCookie(w, result.Token, result.ExpiresAt)
+		if !input.Token {
+			result.Token = ""
+		}
 		respond.JSON(w, http.StatusOK, result)
 	}
 }

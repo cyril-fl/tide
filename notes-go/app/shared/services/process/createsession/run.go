@@ -25,11 +25,13 @@ var dummyHash = password.Hash("not a password")
 type Input struct {
 	Name     string `json:"name"`
 	Password string `json:"password"`
+	// Token asks the token in the answer too, for a client without cookies (the CLI): the web keeps it HttpOnly.
+	Token bool `json:"token" binding:"optional"`
 }
 
 // Result is the new session: the token goes to the client, and only there.
 type Result struct {
-	Token     string      `json:"-"`
+	Token     string      `json:"token,omitempty" binding:"optional"`
 	User      domain.User `json:"user"`
 	ExpiresAt time.Time   `json:"expires_at"`
 }

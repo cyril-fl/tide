@@ -3303,9 +3303,12 @@ export interface components {
         };
         "domain.SidebarSection": {
             id: string;
+            /** @description Token asks the token in the answer too, for a client without cookies (the CLI): the web keeps it HttpOnly. */
+            token?: boolean;
             shown: boolean;
         };
         "domain.Snippet": {
+            token?: string;
             content: string;
             name: string;
         };

@@ -901,6 +901,11 @@ func TestLogin(t *testing.T) {
 	if w := send("PATCH", "/api/me", `{"trash_retention_days":-1}`, cookies[0]); w.Code != http.StatusBadRequest {
 		t.Errorf("negative retention: status = %d, want 400", w.Code)
 	}
+	var cli struct{ Token string }
+	c.do("POST", "/api/login", fmt.Sprintf(`{"name":%q,"password":"correct horse","token":true}`, name), http.StatusOK, &cli)
+	if cli.Token == "" {
+		t.Errorf("login asking the token: none in the body")
+	}
 	if w := send("PATCH", "/api/me", `{"theme":"dracula","color_mode":"dark","view":"grid","plan":"pro","trash_retention_days":7}`, cookies[0]); w.Code != http.StatusOK ||
 		!strings.Contains(w.Body.String(), `"locale":"en","theme":"dracula","color_mode":"dark","view":"grid","plan":"pro","admin":false,"trash_retention_days":7`) {
 		t.Errorf("edit settings: status = %d, body = %s", w.Code, w.Body)

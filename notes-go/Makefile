@@ -50,7 +50,7 @@ connect:
 		*) echo "usage: make connect TO=fedora|local"; exit 1 ;; \
 	esac; \
 	test -n "$$url" || { echo "set NOTES_FEDORA_URL in .env"; exit 1; }; \
-	go run . login "$$url" && go run . whoami
+	go run ./cmd/notes login "$$url" && go run ./cmd/notes whoami
 
 # psql on the base: `make pgsql` opens it, `make pgsql QUERY="ALTER TABLE ..."` runs one statement and stops at an error.
 pgsql:

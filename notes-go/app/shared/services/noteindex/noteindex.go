@@ -124,8 +124,9 @@ func Fill(ctx context.Context, db bun.IDB) error {
 	}
 }
 
-// FillAll runs Fill for every account with notes left to index: notes serve runs it at start and in its loop, so a
-// base just upgraded is indexed before its first search, and the notes of an idle account do not slow the Fill of the others.
+// FillAll runs Fill for every account with notes left to index: notes-server serve runs it at start and in its loop,
+// so a base just upgraded is indexed before its first search, and the notes of an idle account do not slow the Fill
+// of the others.
 func FillAll(ctx context.Context, db bun.IDB) error {
 	var ids []string
 	err := db.NewRaw(`

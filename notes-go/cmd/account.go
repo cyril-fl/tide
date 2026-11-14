@@ -29,49 +29,6 @@ var cmdWhoami = &cobra.Command{
 	RunE:  cmdaccount.Whoami,
 }
 
-var cmdUser = &cobra.Command{
-	Use:   cmd.User.Use,
-	Short: cmd.User.Short,
-}
-
-var cmdUserAdd = &cobra.Command{
-	Use:     cmd.UserAdd.Use,
-	Short:   cmd.UserAdd.Short,
-	Long:    cmd.UserAdd.Long,
-	Example: cmd.UserAdd.Example,
-	Args:    cobra.ExactArgs(1),
-	RunE:    cmdaccount.AddUser,
-}
-
-// Hidden: a tool to measure the app, not something an admin needs.
-var cmdUserPerf = &cobra.Command{
-	Use:     cmd.UserPerf.Use,
-	Short:   cmd.UserPerf.Short,
-	Long:    cmd.UserPerf.Long,
-	Example: cmd.UserPerf.Example,
-	Args:    cobra.RangeArgs(1, 2),
-	Hidden:  true,
-	RunE:    cmdaccount.SeedPerf,
-}
-
-var cmdResetPassword = &cobra.Command{
-	Use:     cmd.ResetPassword.Use,
-	Short:   cmd.ResetPassword.Short,
-	Long:    cmd.ResetPassword.Long,
-	Example: cmd.ResetPassword.Example,
-	Args:    cobra.ExactArgs(1),
-	RunE:    cmdaccount.ResetPassword,
-}
-
-var cmdRotateSecret = &cobra.Command{
-	Use:     cmd.RotateSecret.Use,
-	Short:   cmd.RotateSecret.Short,
-	Long:    cmd.RotateSecret.Long,
-	Example: cmd.RotateSecret.Example,
-	Args:    cobra.NoArgs,
-	RunE:    cmdaccount.RotateSecret,
-}
-
 var cmdAccount = &cobra.Command{
 	Use:   cmd.Account.Use,
 	Short: cmd.Account.Short,
@@ -86,25 +43,9 @@ var cmdAccountPurge = &cobra.Command{
 	RunE:    cmdaccount.Purge,
 }
 
-// apiClients talk to the server through its API, never to the base; only the admin's commands and the API itself
-// (#149) open it.
-var apiClients = map[*cobra.Command]bool{
-	cmdLogin: true, cmdLogout: true, cmdWhoami: true,
-	cmdCreateNote: true, cmdCreateFloder: true, cmdCreateTag: true,
-	cmdReadNote: true, cmdReadFloder: true, cmdReadTag: true,
-	cmdEditNote: true, cmdEditFloder: true, cmdEditTag: true,
-	cmdDeleteNote: true, cmdDeleteFloder: true, cmdDeleteTag: true,
-	cmdTrash: true, cmdRestore: true, cmdRecent: true, cmdSearch: true, cmdMove: true, cmdGraph: true, cmdFinder: true,
-	cmdExport: true, cmdImport: true, cmdAccountPurge: true, cmdMCP: true,
-}
-
 func init() {
 	plumcliutilsargs.Makeflags(cmdLogin, cmd.Login.Flags)
-	plumcliutilsargs.Makeflags(cmdUserAdd, cmd.UserAdd.Flags)
-	plumcliutilsargs.Makeflags(cmdUserPerf, cmd.UserPerf.Flags)
-	plumcliutilsargs.Makeflags(cmdResetPassword, cmd.ResetPassword.Flags)
 
-	cmdUser.AddCommand(cmdUserAdd, cmdUserPerf)
 	cmdAccount.AddCommand(cmdAccountPurge)
-	cmdRoot.AddCommand(cmdLogin, cmdLogout, cmdWhoami, cmdUser, cmdResetPassword, cmdRotateSecret, cmdAccount)
+	cmdRoot.AddCommand(cmdLogin, cmdLogout, cmdWhoami, cmdAccount)
 }

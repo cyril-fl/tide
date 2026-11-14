@@ -277,7 +277,7 @@ commands:
     use: "serve"
     short: "Run the HTTP API"
     long: "Run the HTTP API. It has no authentication: keep it on the loopback. Web pages can only call it from --origin. Accounts are created by invitation of an admin, unless --add-user-mode=public; NOTES_HOST_NAME and NOTES_HOST_PASSWORD create the first account on an empty base."
-    example: "notes serve --origin http://localhost:3000"
+    example: "notes-server serve --origin http://localhost:3000"
     args:
       - name: "addr"
         shorthand: ""
@@ -328,12 +328,12 @@ commands:
     short: "Show the account and the server the CLI acts for"
   user:
     use: "user"
-    short: "Manage the accounts (admin, on the server)"
+    short: "Manage the accounts"
   user-add:
     use: "add <name>"
     short: "Create an account"
     long: "Create an account; the password is asked twice, or read from stdin with --password-stdin."
-    example: "notes user add cyril\necho \"$PASSWORD\" | notes user add cyril --password-stdin"
+    example: "notes-server user add cyril\necho \"$PASSWORD\" | notes-server user add cyril --password-stdin"
     args:
       - name: "password-stdin"
         shorthand: ""
@@ -344,18 +344,18 @@ commands:
     use: "perf <name> [notes]"
     short: "Create an account of generated notes, to measure the app at scale (hidden)"
     long: "Create the account with [notes] generated notes (50000 by default): one big folder and 30 small ones, 1 to 4 tags per note among 150 on a Zipf law, a few [[links]]. Nothing is done when the account exists. The password is read from stdin with --password-stdin. Used by make perf."
-    example: "echo perf-password | notes user perf perf --password-stdin"
+    example: "echo perf-password | notes-server user perf perf --password-stdin"
     args:
       - name: "password-stdin"
         shorthand: ""
         value: ""
         usage: "Read the password from the first line of stdin"
         type: "bool"
-  reset-password:
+  user-reset-password:
     use: "reset-password <name>"
-    short: "Give an account a new password (admin, on the server)"
-    long: "Give an account a new password, for a forgotten one, and log all its devices out. Run it on the server: it needs access to the base."
-    example: "notes reset-password cyril"
+    short: "Give an account a new password"
+    long: "Give an account a new password, for a forgotten one, and log all its devices out: the way back in when no admin can log in any more."
+    example: "notes-server user reset-password cyril"
     args:
       - name: "password-stdin"
         shorthand: ""
@@ -364,9 +364,9 @@ commands:
         type: "bool"
   rotate-secret:
     use: "rotate-secret"
-    short: "Seal the keys of the accounts by a new NOTES_SECRET (admin, on the server)"
+    short: "Seal the keys of the accounts by a new NOTES_SECRET"
     long: "Seal the key of every account, sealed by NOTES_OLD_SECRET, by NOTES_SECRET instead. Put the new secret in NOTES_SECRET and the old one in NOTES_OLD_SECRET, after make backup; the notes are not rewritten. Then the same NOTES_SECRET goes in .env.docker, and make api."
-    example: "NOTES_OLD_SECRET=<old> notes rotate-secret"
+    example: "NOTES_OLD_SECRET=<old> notes-server rotate-secret"
   account:
     use: "account"
     short: "Manage the account logged in"
@@ -377,4 +377,8 @@ commands:
     example: "notes account purge"
   root:
     short: "The root of the notes system"
-    long: "The root of the notes system, used to access the main functionality"
+    long: "The root of the notes system, used to access the main functionality. A client of the API of a notes-server: notes login <url> first."
+  server-root:
+    use: "notes-server"
+    short: "The server of the notes system"
+    long: "The server of the notes system: the API and the web app, and the commands of its admin, on the base."

@@ -18,7 +18,7 @@ import (
 var version string
 
 // Version comes from the build (the tag of an image, the git commit, or module version without one): nothing to keep
-// in sync by hand. The CLI and the API run from the same binary, so this is also what `notes serve` answers.
+// in sync by hand. notes and notes-server of one build answer the same.
 func Version() string {
 	if version != "" {
 		return version
@@ -48,45 +48,46 @@ type config struct {
 }
 
 type commands struct {
-	Create        plumcliconfig.Cmdparams `yaml:"create"`
-	CreateNote    plumcliconfig.Cmdparams `yaml:"create-note"`
-	CreateFolder  plumcliconfig.Cmdparams `yaml:"create-folder"`
-	CreateTag     plumcliconfig.Cmdparams `yaml:"create-tag"`
-	Read          plumcliconfig.Cmdparams `yaml:"read"`
-	ReadNote      plumcliconfig.Cmdparams `yaml:"read-note"`
-	ReadFolder    plumcliconfig.Cmdparams `yaml:"read-folder"`
-	ReadTag       plumcliconfig.Cmdparams `yaml:"read-tag"`
-	Edit          plumcliconfig.Cmdparams `yaml:"edit"`
-	EditNote      plumcliconfig.Cmdparams `yaml:"edit-note"`
-	EditFolder    plumcliconfig.Cmdparams `yaml:"edit-folder"`
-	EditTag       plumcliconfig.Cmdparams `yaml:"edit-tag"`
-	Delete        plumcliconfig.Cmdparams `yaml:"delete"`
-	DeleteNote    plumcliconfig.Cmdparams `yaml:"delete-note"`
-	DeleteFolder  plumcliconfig.Cmdparams `yaml:"delete-folder"`
-	DeleteTag     plumcliconfig.Cmdparams `yaml:"delete-tag"`
-	Move          plumcliconfig.Cmdparams `yaml:"move"`
-	Show          plumcliconfig.Cmdparams `yaml:"show"`
-	ShowFinder    plumcliconfig.Cmdparams `yaml:"show-finder"`
-	ShowGraph     plumcliconfig.Cmdparams `yaml:"show-graph"`
-	Trash         plumcliconfig.Cmdparams `yaml:"trash"`
-	Restore       plumcliconfig.Cmdparams `yaml:"restore"`
-	Search        plumcliconfig.Cmdparams `yaml:"search"`
-	Recent        plumcliconfig.Cmdparams `yaml:"recent"`
-	Export        plumcliconfig.Cmdparams `yaml:"export"`
-	Import        plumcliconfig.Cmdparams `yaml:"import"`
-	Serve         plumcliconfig.Cmdparams `yaml:"serve"`
-	MCP           plumcliconfig.Cmdparams `yaml:"mcp"`
-	Login         plumcliconfig.Cmdparams `yaml:"login"`
-	Logout        plumcliconfig.Cmdparams `yaml:"logout"`
-	Whoami        plumcliconfig.Cmdparams `yaml:"whoami"`
-	User          plumcliconfig.Cmdparams `yaml:"user"`
-	UserAdd       plumcliconfig.Cmdparams `yaml:"user-add"`
-	UserPerf      plumcliconfig.Cmdparams `yaml:"user-perf"`
-	ResetPassword plumcliconfig.Cmdparams `yaml:"reset-password"`
-	RotateSecret  plumcliconfig.Cmdparams `yaml:"rotate-secret"`
-	Account       plumcliconfig.Cmdparams `yaml:"account"`
-	AccountPurge  plumcliconfig.Cmdparams `yaml:"account-purge"`
-	Root          plumcliconfig.Cmdparams `yaml:"root"`
+	Create            plumcliconfig.Cmdparams `yaml:"create"`
+	CreateNote        plumcliconfig.Cmdparams `yaml:"create-note"`
+	CreateFolder      plumcliconfig.Cmdparams `yaml:"create-folder"`
+	CreateTag         plumcliconfig.Cmdparams `yaml:"create-tag"`
+	Read              plumcliconfig.Cmdparams `yaml:"read"`
+	ReadNote          plumcliconfig.Cmdparams `yaml:"read-note"`
+	ReadFolder        plumcliconfig.Cmdparams `yaml:"read-folder"`
+	ReadTag           plumcliconfig.Cmdparams `yaml:"read-tag"`
+	Edit              plumcliconfig.Cmdparams `yaml:"edit"`
+	EditNote          plumcliconfig.Cmdparams `yaml:"edit-note"`
+	EditFolder        plumcliconfig.Cmdparams `yaml:"edit-folder"`
+	EditTag           plumcliconfig.Cmdparams `yaml:"edit-tag"`
+	Delete            plumcliconfig.Cmdparams `yaml:"delete"`
+	DeleteNote        plumcliconfig.Cmdparams `yaml:"delete-note"`
+	DeleteFolder      plumcliconfig.Cmdparams `yaml:"delete-folder"`
+	DeleteTag         plumcliconfig.Cmdparams `yaml:"delete-tag"`
+	Move              plumcliconfig.Cmdparams `yaml:"move"`
+	Show              plumcliconfig.Cmdparams `yaml:"show"`
+	ShowFinder        plumcliconfig.Cmdparams `yaml:"show-finder"`
+	ShowGraph         plumcliconfig.Cmdparams `yaml:"show-graph"`
+	Trash             plumcliconfig.Cmdparams `yaml:"trash"`
+	Restore           plumcliconfig.Cmdparams `yaml:"restore"`
+	Search            plumcliconfig.Cmdparams `yaml:"search"`
+	Recent            plumcliconfig.Cmdparams `yaml:"recent"`
+	Export            plumcliconfig.Cmdparams `yaml:"export"`
+	Import            plumcliconfig.Cmdparams `yaml:"import"`
+	Serve             plumcliconfig.Cmdparams `yaml:"serve"`
+	MCP               plumcliconfig.Cmdparams `yaml:"mcp"`
+	Login             plumcliconfig.Cmdparams `yaml:"login"`
+	Logout            plumcliconfig.Cmdparams `yaml:"logout"`
+	Whoami            plumcliconfig.Cmdparams `yaml:"whoami"`
+	User              plumcliconfig.Cmdparams `yaml:"user"`
+	UserAdd           plumcliconfig.Cmdparams `yaml:"user-add"`
+	UserPerf          plumcliconfig.Cmdparams `yaml:"user-perf"`
+	UserResetPassword plumcliconfig.Cmdparams `yaml:"user-reset-password"`
+	RotateSecret      plumcliconfig.Cmdparams `yaml:"rotate-secret"`
+	Account           plumcliconfig.Cmdparams `yaml:"account"`
+	AccountPurge      plumcliconfig.Cmdparams `yaml:"account-purge"`
+	Root              plumcliconfig.Cmdparams `yaml:"root"`
+	ServerRoot        plumcliconfig.Cmdparams `yaml:"server-root"`
 }
 
 func load() (*config, error) {

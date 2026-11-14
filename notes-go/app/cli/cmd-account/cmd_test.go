@@ -22,7 +22,6 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createsession"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resetpassword"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
 	"github.com/spf13/cobra"
 )
@@ -131,6 +130,13 @@ func run(t *testing.T, ctx context.Context, runE func(*cobra.Command, []string) 
 	return string(printed), runErr
 }
 
+// addUser creates the account with the password "a password", as notes-server user add does.
+func addUser(ctx context.Context, name string) (domain.User, error) {
+	process := adduser.Process(ctx, postgrey.GetDb(), adduser.Input{Name: name, Password: "a password"})
+	process.Run()
+	return process.GetResult(), process.GetErr()
+}
+
 func logIn(t *testing.T, ctx context.Context, name, password string) error {
 	t.Helper()
 	process := createsession.Process(ctx, postgrey.GetDb(), createsession.Input{Name: name, Password: password})
@@ -138,97 +144,10 @@ func logIn(t *testing.T, ctx context.Context, name, password string) error {
 	return process.GetErr()
 }
 
-func TestAddUser(t *testing.T) {
-	ctx := setup(t)
-	name := account(t, ctx)
-
-	printed, err := run(t, ctx, AddUser, "a password\n", name)
-	if err != nil || printed != "Successfully created account "+name+"\n" {
-		t.Fatalf("printed %q, err = %v; want the account created", printed, err)
-	}
-	if err := logIn(t, ctx, name, "a password"); err != nil {
-		t.Errorf("log in: %v; want the password read from stdin, without its newline", err)
-	}
-
-	for label, test := range map[string]struct {
-		stdin string
-		want  error
-	}{
-		"name taken":     {"another password\n", adduser.ErrNameTaken},
-		"short password": {"short\n", adduser.ErrShortPassword},
-		"no password":    {"", io.EOF},
-	} {
-		printed, err := run(t, ctx, AddUser, test.stdin, name)
-		if !errors.Is(err, test.want) || printed != "" {
-			t.Errorf("%s: printed %q, err = %v; want %v", label, printed, err, test.want)
-		}
-	}
-}
-
-func TestResetPassword(t *testing.T) {
-	ctx := setup(t)
-	name := account(t, ctx)
-	if _, err := run(t, ctx, AddUser, "the old password\n", name); err != nil {
-		t.Fatal(err)
-	}
-
-	printed, err := run(t, ctx, ResetPassword, "the new password\r\n", name)
-	if err != nil || !strings.HasPrefix(printed, "Successfully reset the password of "+name) {
-		t.Fatalf("printed %q, err = %v; want the password reset", printed, err)
-	}
-	if err := logIn(t, ctx, name, "the new password"); err != nil {
-		t.Errorf("log in with the new password: %v", err)
-	}
-	if err := logIn(t, ctx, name, "the old password"); !errors.Is(err, createsession.ErrBadCredentials) {
-		t.Errorf("log in with the old password: err = %v, want %v", err, createsession.ErrBadCredentials)
-	}
-
-	if _, err := run(t, ctx, ResetPassword, "the new password\n", name+"-nobody"); !errors.Is(err, resetpassword.ErrNotFound) {
-		t.Errorf("unknown account: err = %v, want %v", err, resetpassword.ErrNotFound)
-	}
-}
-
-func TestAskPassword(t *testing.T) {
-	ctx := setup(t)
-	name := account(t, ctx)
-
-	keys(t, "a password\r", "another one\r", "\x03")
-	if _, err := run(t, ctx, AddUser, "", name); !errors.Is(err, huh.ErrUserAborted) {
-		t.Fatalf("passwords that differ: err = %v, want the form kept until aborted", err)
-	}
-	keys(t, "a password\r", "a password\r")
-	if printed, err := run(t, ctx, AddUser, "", name); err != nil || printed != "Successfully created account "+name+"\n" {
-		t.Fatalf("printed %q, err = %v; want the account created", printed, err)
-	}
-	if err := logIn(t, ctx, name, "a password"); err != nil {
-		t.Errorf("log in: %v; want the password typed twice", err)
-	}
-}
-
-func TestRotateSecret(t *testing.T) {
-	ctx := setup(t)
-	t.Setenv("NOTES_OLD_SECRET", "b2xkIHNlY3JldCBvZiB0aGUgc2VydmVyLCAzMiBieXQ=")
-
-	printed, err := run(t, ctx, RotateSecret, "")
-	if err != nil || !strings.HasPrefix(printed, "Successfully sealed ") {
-		t.Errorf("printed %q, err = %v; want the keys sealed", printed, err)
-	}
-
-	// A key no secret opens stops the rotation.
-	name := account(t, ctx)
-	broken := domain.User{Name: name, PasswordHash: "-", DataKey: "bm90IGEga2V5"}
-	if _, err := postgrey.GetDb().NewInsert().Model(&broken).Exec(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if printed, err := run(t, ctx, RotateSecret, ""); err == nil || printed != "" {
-		t.Errorf("printed %q, err = %v; want the broken key to stop the rotation", printed, err)
-	}
-}
-
 func TestLogin(t *testing.T) {
 	ctx := setup(t)
 	name := account(t, ctx)
-	if _, err := run(t, ctx, AddUser, "a password\n", name); err != nil {
+	if _, err := addUser(ctx, name); err != nil {
 		t.Fatal(err)
 	}
 	file, err := apiclient.SessionFile()
@@ -268,7 +187,7 @@ func TestWhoami(t *testing.T) {
 	}
 
 	name := account(t, ctx)
-	if _, err := run(t, ctx, AddUser, "a password\n", name); err != nil {
+	if _, err := addUser(ctx, name); err != nil {
 		t.Fatal(err)
 	}
 	keys(t, name+"\r", "a password\r")
@@ -290,7 +209,7 @@ func TestWhoami(t *testing.T) {
 func TestPurge(t *testing.T) {
 	ctx := setup(t)
 	name := account(t, ctx)
-	if _, err := run(t, ctx, AddUser, "a password\n", name); err != nil {
+	if _, err := addUser(ctx, name); err != nil {
 		t.Fatal(err)
 	}
 	keys(t, name+"\r", "a password\r")
@@ -337,7 +256,7 @@ func TestSession(t *testing.T) {
 	}
 
 	name := account(t, ctx)
-	if _, err := run(t, ctx, AddUser, "a password\n", name); err != nil {
+	if _, err := addUser(ctx, name); err != nil {
 		t.Fatal(err)
 	}
 	session := createsession.Process(ctx, postgrey.GetDb(), createsession.Input{Name: name, Password: "a password"})
@@ -377,7 +296,7 @@ func TestSession(t *testing.T) {
 func TestPrintToken(t *testing.T) {
 	ctx := setup(t)
 	name := account(t, ctx)
-	if _, err := run(t, ctx, AddUser, "a password\n", name); err != nil {
+	if _, err := addUser(ctx, name); err != nil {
 		t.Fatal(err)
 	}
 	keys(t, name+"\r", "a password\r")

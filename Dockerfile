@@ -17,15 +17,15 @@ RUN go mod download
 COPY notes-go .
 # The version shown to the admin: the context has no .git for go build to read the commit from.
 ARG VERSION
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags "-X github.com/cyril-fl/notes/notes-go/config.version=$VERSION" -o /notes .
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags "-X github.com/cyril-fl/notes/notes-go/config.version=$VERSION" -o /notes-server ./cmd/notes-server
 # scratch has no /tmp, where an import writes its body instead of holding it in memory (#119).
 RUN install -d /image-tmp
 
 FROM scratch
-COPY --from=api /notes /notes
+COPY --from=api /notes-server /notes-server
 COPY --from=api --chown=65534:65534 /image-tmp /tmp
 COPY --from=web /src/.output/public /web
 USER 65534
 EXPOSE 8080
-ENTRYPOINT ["/notes"]
+ENTRYPOINT ["/notes-server"]
 CMD ["serve", "--addr", ":8080", "--web", "/web"]

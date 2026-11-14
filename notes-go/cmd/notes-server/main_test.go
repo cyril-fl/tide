@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"testing"
@@ -7,29 +7,24 @@ import (
 )
 
 func TestNeedsDb(t *testing.T) {
-	root := &cobra.Command{Use: "notes"}
-	show := &cobra.Command{Use: "show"}
-	note := &cobra.Command{Use: "note"}
 	completion := &cobra.Command{Use: "completion"}
 	zsh := &cobra.Command{Use: "zsh"}
 	request := &cobra.Command{Use: cobra.ShellCompRequestCmd}
-	show.AddCommand(note)
 	completion.AddCommand(zsh)
-	root.AddCommand(show, completion, request)
+	root := &cobra.Command{Use: "notes-server"}
+	root.AddCommand(completion, request)
 
 	tests := map[string]struct {
 		command *cobra.Command
 		want    bool
 	}{
-		"root help":        {root, false},
-		"subcommand":       {note, true},
+		"root help":        {cmdRoot, false},
+		"serve":            {cmdServe, true},
+		"user add":         {cmdUserAdd, true},
+		"rotate-secret":    {cmdRotateSecret, true},
 		"completion":       {completion, false},
 		"completion zsh":   {zsh, false},
 		"shell __complete": {request, false},
-		"login":            {cmdLogin, false},
-		"add note":         {cmdCreateNote, false},
-		"mcp":              {cmdMCP, false},
-		"serve":            {cmdServe, true},
 	}
 
 	for name, test := range tests {

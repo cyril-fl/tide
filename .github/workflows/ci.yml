@@ -94,7 +94,7 @@ jobs:
           ENV
           { cat .env.docker; echo WEB_ORIGIN=http://localhost:3000; } > .env
           docker compose --profile api up -d --wait --build postgres silo api
-          echo e2e-password | docker exec -i note-api /notes user add e2e --password-stdin
+          echo e2e-password | docker exec -i note-api /notes-server user add e2e --password-stdin
       - name: Start the web app
         working-directory: notes-app
         run: |

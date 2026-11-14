@@ -78,9 +78,8 @@ func Serve(cobra *cobra.Command, args []string) error {
 	if err := addHost(ctx, db); err != nil {
 		return err
 	}
-	go fillIndexes(ctx, db)
 	// The files after the items: a note purged now frees its images in the same round.
-	go every(ctx, purgeInterval, func() {
+	cleanup := func() {
 		fillIndexes(ctx, db)
 		purge := purgeitems.Process(ctx, db)
 		purge.Run()
@@ -102,7 +101,12 @@ func Serve(cobra *cobra.Command, args []string) error {
 		if invites.HasErr() && ctx.Err() == nil {
 			log.Printf("purge invites: %v", invites.GetErr())
 		}
-	})
+	}
+	// At startup, then every hour: a server runs for weeks.
+	go func() {
+		cleanup()
+		every(ctx, purgeInterval, cleanup)
+	}()
 
 	handler := api.New(db, store, origin, addUserMode)
 	if web != "" {
@@ -168,7 +172,7 @@ func fillIndexes(ctx context.Context, db *bun.DB) {
 	}
 }
 
-// every runs task at each interval until ctx ends: the root command only purges at startup, a server runs for weeks.
+// every runs task at each interval until ctx ends.
 func every(ctx context.Context, interval time.Duration, task func()) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

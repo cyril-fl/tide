@@ -6,9 +6,6 @@ import (
 	"os"
 
 	"charm.land/huh/v2"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/purgeitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/spf13/cobra"
@@ -26,52 +23,9 @@ var cmdRoot = &cobra.Command{
 	// Errors are printed by Execute so a form abort (Ctrl+C / Esc) stays silent.
 	SilenceUsage:  true,
 	SilenceErrors: true,
-
-	// Runs before every subcommand: schema creation is idempotent (IF NOT EXISTS).
-	PersistentPreRunE: func(cobra *cobra.Command, args []string) error {
-		if !needsDb(cobra) {
-			return nil
-		}
-
-		env := postgrey.NewEnvironment()
-		env.ReadEnv()
-		postgrey.SetDb(env.Connect())
-
-		schema := createschema.Process(cobra.Context(), postgrey.GetDb())
-		schema.Run()
-		if schema.HasErr() {
-			return schema.GetErr()
-		}
-
-		// Startup is the "cron": no daemon, the trash is emptied whenever the CLI runs.
-		purge := purgeitems.Process(cobra.Context(), postgrey.GetDb())
-		purge.Run()
-		return purge.GetErr()
-	},
-	PersistentPostRunE: func(cobra *cobra.Command, args []string) error {
-		if db := postgrey.GetDb(); db != nil {
-			return db.Close()
-		}
-		return nil
-	},
 	RunE: func(cobra *cobra.Command, args []string) error {
 		return cobra.Help()
 	},
-}
-
-// needsDb is false for what only prints help or shell completion, and for the clients of the API: those must work
-// with the database down.
-func needsDb(command *cobra.Command) bool {
-	if !command.HasParent() || apiClients[command] {
-		return false
-	}
-	for ; command != nil; command = command.Parent() {
-		switch command.Name() {
-		case "completion", cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
-			return false
-		}
-	}
-	return true
 }
 
 // groups sorts the commands of the help by scope; a command left out shows under "Additional Commands".
@@ -84,7 +38,6 @@ var groups = []struct {
 	{cobra.Group{ID: "trash", Title: "Trash:"}, []string{"trash", "restore"}},
 	{cobra.Group{ID: "files", Title: "Markdown files:"}, []string{"import", "export"}},
 	{cobra.Group{ID: "account", Title: "Account:"}, []string{"login", "logout", "whoami", "account", "mcp"}},
-	{cobra.Group{ID: "admin", Title: "Admin (on the server):"}, []string{"user", "reset-password", "rotate-secret", "serve"}},
 }
 
 func groupCommands() {

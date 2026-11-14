@@ -1,6 +1,6 @@
 // Times the API and the pages of the account of generated notes (make perf, #138), and prints a table to paste in an issue.
 // node scripts/perf.mjs  (PERF_NAME / PERF_PASSWORD: perf / perf-password by default)
-// Needs `make up` and the account, made by `notes user perf` (make perf does both).
+// Needs `make up` and the account, made by `notes-server user perf` (make perf does both).
 import { chromium, request } from '@playwright/test';
 
 const APP = process.env.E2E_APP ?? 'http://localhost:3000';

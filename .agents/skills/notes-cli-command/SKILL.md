@@ -57,7 +57,7 @@ func (p *run) Run() {
 - **Not found**: `Scan` into a struct returns `sql.ErrNoRows` on 0 rows; into a slice it returns nil.
 - **Unique violation**: let the index fail (no SELECT first, it races), then `errors.As(err, &pgErr) && pgErr.Field('C') == "23505"`.
 - **List**: `Model(&result).OrderExpr("lower(value)").Scan(ctx)`.
-- **Soft delete (items)**: `Item.DeletedAt` has `soft_delete`, so bun adds `deleted_at IS NULL` to every Item select/update; use `WhereDeleted()` / `WhereAllWithDeleted()` to see the trash, `ForceDelete()` to really delete. `deleteitems` marks a subtree with one recursive `UPDATE` (same timestamp), `purgeitems` empties the trash at startup (and hourly in `notes serve`) after each account's `trash_retention_days`.
+- **Soft delete (items)**: `Item.DeletedAt` has `soft_delete`, so bun adds `deleted_at IS NULL` to every Item select/update; use `WhereDeleted()` / `WhereAllWithDeleted()` to see the trash, `ForceDelete()` to really delete. `deleteitems` marks a subtree with one recursive `UPDATE` (same timestamp), `purgeitems` empties the trash when `notes-server serve` starts, then hourly, after each account's `trash_retention_days`.
 - Deleting a parent relies on the `ON DELETE CASCADE` FKs from `createschema`: no code needed.
 
 ## 5. CLI entry
@@ -75,7 +75,7 @@ func Create(cobra *cobra.Command, args []string) error {
 }
 ```
 
-Check errors with `HasErr()`, never `if err := process.GetErr(); err != nil`. The DB comes from `postgrey.GetDb()` (set once in `cmd/root.go`).
+Check errors with `HasErr()`, never `if err := process.GetErr(); err != nil`. The DB comes from `postgrey.GetDb()` (set once by the root of `notes-server`, `cmd/notes-server/main.go`).
 
 ## 6. Flags and --yaml / --json
 
@@ -119,4 +119,4 @@ The printed domain struct needs `json:"-" yaml:"-"` on `bun.BaseModel` and lower
 - **Integration test**: connect via `postgrey.NewEnvironment()`, run `createschema`, `BeginTx` + `defer tx.Rollback()`, unique values `fmt.Sprintf("test-%d", time.Now().UnixNano())`, seed with other processes (`createtag`).
 - A failed statement aborts the transaction: put the expected-DB-error case **last**.
 - Run: `make test ARGS="./app/shared/services/process/..."` (needs Postgres; `colima start && docker compose up -d`).
-- Then run the real command: `set -a && . ./.env && set +a && CONFIG_FILE=$PWD/config/config.yaml go run . <verb> <noun> ...`, and clean up what you created.
+- Then run the real command: `set -a && . ./.env && set +a && CONFIG_FILE=$PWD/config/config.yaml go run ./cmd/notes <verb> <noun> ...`, and clean up what you created.

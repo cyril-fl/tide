@@ -36,6 +36,11 @@ jobs:
           cache-dependency-path: notes-go/go.sum
       - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
+      # The client stays off the kernel: only notes-server links the models, Postgres and Silo.
+      - name: notes links no kernel
+        run: |
+          go build -o /dev/null ./cmd/notes && go build -o /dev/null ./cmd/notes-server
+          ! go list -deps ./cmd/notes | grep -E 'uptrace/bun|minio|notes-go/app/(api|shared/domain|shared/services/(process|postgrey|silo))'
       # -p 1: the packages share the test base, see `make test`.
       - run: CONFIG_FILE=$PWD/config/config.yaml go test -p 1 ./...
 

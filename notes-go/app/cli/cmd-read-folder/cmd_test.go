@@ -1,9 +1,12 @@
 package cmdreadfolder
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
@@ -44,25 +47,32 @@ func TestReadJSON(t *testing.T) {
 		command := &cobra.Command{}
 		command.Flags().Bool("json", true, "")
 		command.SetContext(ctx)
-		got, err := apitest.Stdout(t, func() error { return Read(command, []string{ref}) })
-		if err != nil || got != want {
-			t.Errorf("%s: printed %s, err = %v; want %s", ref, got, err, want)
+		printed, err := apitest.Stdout(t, func() error { return Read(command, []string{ref}) })
+		// The generated types order and omit fields their own way: printed back in readitem's, it must be the same.
+		var decoded readitem.Result
+		if err == nil {
+			err = json.Unmarshal([]byte(printed), &decoded)
+		}
+		got, _ := apitest.Stdout(t, func() error { plumdebug.Json(decoded); return nil })
+		if err != nil || got != want || !strings.Contains(printed, `"children": [`) {
+			t.Errorf("%s: printed %s, err = %v; want %s", ref, printed, err, want)
 		}
 	}
 }
 
 func TestInfo(t *testing.T) {
-	created := time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC)
-	updated := time.Date(2026, 11, 2, 10, 0, 0, 0, time.UTC)
-	children := []domain.Item{{Kind: domain.FOLDER}, {Kind: domain.NOTE}, {Kind: domain.NOTE}}
+	created := time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC).Format(time.RFC3339Nano)
+	updated := time.Date(2026, 11, 2, 10, 0, 0, 0, time.UTC).Format(time.RFC3339Nano)
+	children := []apiclient.DomainItem{{Kind: apiclient.FOLDER}, {Kind: apiclient.NOTE}, {Kind: apiclient.NOTE}}
+	root := children[:1]
 
 	tests := map[string]struct {
-		folder readitem.Result
+		folder apiclient.ReaditemResult
 		want   string
 	}{
-		"updated":      {readitem.Result{Item: domain.Item{CreatedAt: created, UpdatedAt: updated}, Children: children}, "1 folder · 2 notes · updated 2 Nov 2026"},
-		"never edited": {readitem.Result{Item: domain.Item{CreatedAt: created}}, "0 folders · 0 notes · updated 1 Nov 2026"},
-		"root":         {readitem.Result{Children: children[:1]}, "1 folder · 0 notes"},
+		"updated":      {apiclient.ReaditemResult{Item: apiclient.DomainItem{CreatedAt: created, UpdatedAt: &updated}, Children: &children}, "1 folder · 2 notes · updated 2 Nov 2026"},
+		"never edited": {apiclient.ReaditemResult{Item: apiclient.DomainItem{CreatedAt: created}}, "0 folders · 0 notes · updated 1 Nov 2026"},
+		"root":         {apiclient.ReaditemResult{Children: &root}, "1 folder · 0 notes"},
 	}
 
 	for name, test := range tests {

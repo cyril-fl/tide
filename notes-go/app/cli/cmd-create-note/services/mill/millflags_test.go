@@ -5,7 +5,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
 	"github.com/cyril-fl/notes/notes-go/config"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/spf13/cobra"
@@ -13,7 +12,7 @@ import (
 
 // resolve parses args with the flags declared in config.yaml: a renamed flag breaks this test.
 // Every case gives title and content, so no form opens and no terminal is needed.
-func resolve(t *testing.T, args ...string) (*mill, createnote.Input) {
+func resolve(t *testing.T, args ...string) (*mill, Input) {
 	t.Helper()
 	cmd := &cobra.Command{}
 	plumcliutilsargs.Makeflags(cmd, config.Current.Commands.CreateNote.Flags)

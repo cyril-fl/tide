@@ -2,7 +2,6 @@ package cmdsearch
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -10,7 +9,6 @@ import (
 	cmdreadnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-note"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/navigator"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/searchnotes"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/spf13/cobra"
@@ -49,9 +47,8 @@ func Search(cobra *cobra.Command, args []string) error {
 	})
 }
 
-// fetch gives the first page of matches and their total (X-Total-Count), decoded into the process's type: the output
-// stays that of searchnotes.
-func fetch(ctx context.Context, text string, limit int) ([]searchnotes.Match, int, error) {
+// fetch gives the first page of matches and their total (X-Total-Count).
+func fetch(ctx context.Context, text string, limit int) ([]apiclient.SearchnotesMatch, int, error) {
 	client, err := apiclient.Read().Client()
 	if err != nil {
 		return nil, 0, err
@@ -63,10 +60,7 @@ func fetch(ctx context.Context, text string, limit int) ([]searchnotes.Match, in
 	if response.JSON200 == nil {
 		return nil, 0, apiclient.Fail(response.HTTPResponse, response.Body)
 	}
-	var matches []searchnotes.Match
-	if err := json.Unmarshal(response.Body, &matches); err != nil {
-		return nil, 0, err
-	}
+	matches := *response.JSON200
 	total := len(matches)
 	if response.Headers200 != nil && response.Headers200.XTotalCount != nil {
 		total = *response.Headers200.XTotalCount
@@ -96,7 +90,7 @@ func searchPage(ctx context.Context, text string, limit int) (navigator.Page, er
 		}
 		page.Rows = append(page.Rows, navigator.Row{
 			Cells:  []string{title, match.Path, match.Snippet},
-			Target: navigator.Target{Kind: navigator.KindNote, Key: match.ID},
+			Target: navigator.Target{Kind: navigator.KindNote, Key: match.Id},
 		})
 	}
 	return page, nil

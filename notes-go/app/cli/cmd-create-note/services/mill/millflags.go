@@ -5,9 +5,7 @@ import (
 	"errors"
 
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/spf13/pflag"
 )
@@ -21,11 +19,18 @@ type mill struct {
 	flags  *pflag.FlagSet
 }
 
+// Input is the note to create, for POST /api/notes; ParentID "" is the root.
+type Input struct {
+	Content  string
+	ParentID string
+	Tags     []string
+}
+
 type cache struct {
-	input          createnote.Input
+	input          Input
 	tagFromList    bool
 	parentFromList bool
-	tags           []domain.Tag
+	tags           []apiclient.DomainTag
 }
 
 type Template struct {
@@ -43,7 +48,7 @@ func New(params Template) *mill {
 }
 
 // Resolve turns the flags into a complete note, asking in a form for what is missing.
-func (m *mill) Resolve() createnote.Input {
+func (m *mill) Resolve() Input {
 	m.readFlags()
 	m.pickParent()
 	m.loadTags()

@@ -2,7 +2,6 @@ package cmdreadtag
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -10,8 +9,6 @@ import (
 
 	cmdedittag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-tag"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
@@ -59,7 +56,6 @@ func showTag(cobra *cobra.Command, value string) error {
 	}
 }
 
-// loadTag decodes into the domain types, not the generated ones: the output stays that of readtag.
 func loadTag(ctx context.Context, client *apiclient.ClientWithResponses, value string) (string, error) {
 	response, err := client.GetApiTagsValueWithResponse(ctx, value, nil)
 	if err != nil {
@@ -68,19 +64,16 @@ func loadTag(ctx context.Context, client *apiclient.ClientWithResponses, value s
 	if response.JSON200 == nil {
 		return "", apiclient.Fail(response.HTTPResponse, response.Body)
 	}
-	var result readtag.Result
-	if err := json.Unmarshal(response.Body, &result); err != nil {
-		return "", err
-	}
+	result := response.JSON200
 
-	header := style.Title().Render(string(result.Tag.Value)) + "\n\n"
+	header := style.Title().Render(result.Tag.Value) + "\n\n"
 	if len(result.Notes) == 0 {
 		return header + style.Empty().Render("No note carries this tag"), nil
 	}
 
 	cells := make([][]string, len(result.Notes))
 	for i, note := range result.Notes {
-		cells[i] = []string{note.Path, note.ID}
+		cells[i] = []string{note.Path, note.Id}
 	}
 	return header + style.Table(cells, -1, 0), nil
 }
@@ -97,16 +90,12 @@ func listTags(cobra *cobra.Command, asYAML bool, asJSON bool) error {
 	if response.JSON200 == nil {
 		return apiclient.Fail(response.HTTPResponse, response.Body)
 	}
-	var tags []domain.Tag
-	if err := json.Unmarshal(response.Body, &tags); err != nil {
-		return err
-	}
-	printTags(tags, asYAML, asJSON)
+	printTags(*response.JSON200, asYAML, asJSON)
 	return nil
 }
 
 // printTags keeps the plain output to values only: ids are for scripts, through --yaml/--json.
-func printTags(tags []domain.Tag, asYAML bool, asJSON bool) {
+func printTags(tags []apiclient.DomainTag, asYAML bool, asJSON bool) {
 	switch {
 	case asJSON:
 		plumdebug.Json(tags)

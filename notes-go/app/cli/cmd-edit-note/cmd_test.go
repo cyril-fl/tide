@@ -7,9 +7,17 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/patchnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 	"github.com/spf13/pflag"
 )
+
+// The CLI has no kernel to import ErrStale from: its text must stay the one the API answers.
+func TestErrStale(t *testing.T) {
+	if errStale != patchnote.ErrStale.Error() {
+		t.Errorf("errStale = %q, want %q", errStale, patchnote.ErrStale.Error())
+	}
+}
 
 // Interactive relies on it: a changed flag would skip the form.
 func TestNoFlags(t *testing.T) {

@@ -2,14 +2,10 @@ package apiclient
 
 import (
 	"context"
-	"encoding/json"
-
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listfolders"
 )
 
 // Folders is every folder with its path, through GET /api/folders, in the type huhform.PickFolder takes.
-func Folders(ctx context.Context, client *ClientWithResponses) ([]listfolders.Folder, error) {
+func Folders(ctx context.Context, client *ClientWithResponses) ([]ListfoldersFolder, error) {
 	response, err := client.GetApiFoldersWithResponse(ctx)
 	if err != nil {
 		return nil, err
@@ -17,12 +13,11 @@ func Folders(ctx context.Context, client *ClientWithResponses) ([]listfolders.Fo
 	if response.JSON200 == nil {
 		return nil, Fail(response.HTTPResponse, response.Body)
 	}
-	var folders []listfolders.Folder
-	return folders, json.Unmarshal(response.Body, &folders)
+	return *response.JSON200, nil
 }
 
 // Tags is every tag, through GET /api/tags.
-func Tags(ctx context.Context, client *ClientWithResponses) ([]domain.Tag, error) {
+func Tags(ctx context.Context, client *ClientWithResponses) ([]DomainTag, error) {
 	response, err := client.GetApiTagsWithResponse(ctx)
 	if err != nil {
 		return nil, err
@@ -30,8 +25,7 @@ func Tags(ctx context.Context, client *ClientWithResponses) ([]domain.Tag, error
 	if response.JSON200 == nil {
 		return nil, Fail(response.HTTPResponse, response.Body)
 	}
-	var tags []domain.Tag
-	return tags, json.Unmarshal(response.Body, &tags)
+	return *response.JSON200, nil
 }
 
 // NoteTags is the tags of each note of ids by id, through POST /api/notes/tags; a note without tags is missing.
@@ -44,4 +38,13 @@ func NoteTags(ctx context.Context, client *ClientWithResponses, ids []string) (m
 		return nil, Fail(response.HTTPResponse, response.Body)
 	}
 	return *response.JSON200, nil
+}
+
+// Deref is the zero value for an optional field the API left out.
+func Deref[T any](value *T) T {
+	var zero T
+	if value == nil {
+		return zero
+	}
+	return *value
 }

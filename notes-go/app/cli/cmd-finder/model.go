@@ -8,8 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	cmdreadfolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-folder"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
 	plumtypes "github.com/cyril-fl/plum/types"
@@ -35,13 +34,14 @@ const (
 
 type action struct {
 	kind actionKind
-	item domain.Item
+	item apiclient.DomainItem
 }
 
 // page is a folder with its children and their tags, which the filter matches too.
 type page struct {
-	readitem.Result
-	tags map[string][]string
+	apiclient.ReaditemResult
+	children []apiclient.DomainItem
+	tags     map[string][]string
 }
 
 // loader reads a folder with its children; "" is the root.
@@ -62,14 +62,14 @@ type model struct {
 	height    int
 	filter    textinput.Model
 	filtering bool
-	clipboard *domain.Item // cut with ^X, pasted with ^V; kept by cmd.go across screens
-	status    string       // result of the last action, shown above the footer
-	failed    bool         // status is an error
+	clipboard *apiclient.DomainItem // cut with ^X, pasted with ^V; kept by cmd.go across screens
+	status    string                // result of the last action, shown above the footer
+	failed    bool                  // status is an error
 	action    action
 	err       error
 }
 
-func newModel(load loader, folder page, cursor int, clipboard *domain.Item, status string, failed bool) *model {
+func newModel(load loader, folder page, cursor int, clipboard *apiclient.DomainItem, status string, failed bool) *model {
 	m := &model{load: load, folder: folder, clipboard: clipboard, status: status, failed: failed, filter: textinput.New()}
 	m.filter.Prompt = "/"
 	m.filter.SetStyles(style.Filter(m.filter.Styles()))
@@ -93,7 +93,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.folder, m.cursor, m.offset = msg.folder, 0, 0
 		m.filter.SetValue("")
 		for i, child := range m.visible() {
-			if child.ID == msg.selectID {
+			if child.Id == msg.selectID {
 				m.cursor = i
 			}
 		}
@@ -134,8 +134,8 @@ func (m *model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case plumtypes.KEY_ENTER, plumtypes.KEY_RIGHT:
 		switch {
 		case !hasSelected:
-		case selected.Kind == domain.FOLDER:
-			return m, m.open(selected.ID, "")
+		case selected.Kind == apiclient.FOLDER:
+			return m, m.open(selected.Id, "")
 		default:
 			return m.quit(actionOpen, selected)
 		}
@@ -146,7 +146,7 @@ func (m *model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m.quit(actionEdit, selected)
 		}
 	case plumtypes.SHORT_CTRL_N:
-		return m.quit(actionCreate, domain.Item{})
+		return m.quit(actionCreate, apiclient.DomainItem{})
 	case plumtypes.SHORT_CTRL_D:
 		if hasSelected {
 			return m.quit(actionDelete, selected)
@@ -173,12 +173,12 @@ func (m *model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.clipboard = nil
 			return m, nil
 		}
-		if m.folder.Item.ID != "" {
+		if m.folder.Item.Id != "" {
 			return m, m.back()
 		}
-		return m.quit(actionQuit, domain.Item{})
+		return m.quit(actionQuit, apiclient.DomainItem{})
 	case plumtypes.SHORT_CTRL_Q, plumtypes.SHORT_CTRL_C:
-		return m.quit(actionQuit, domain.Item{})
+		return m.quit(actionQuit, apiclient.DomainItem{})
 	}
 	return m, nil
 }
@@ -197,7 +197,7 @@ func (m *model) View() tea.View {
 	if m.filter.Value() != "" {
 		empty = "No match"
 	}
-	body := strings.TrimRight(cmdreadfolder.Output(m.folder.Result, children[m.offset:end], m.cursor-m.offset, empty), "\n")
+	body := strings.TrimRight(cmdreadfolder.Output(m.folder.ReaditemResult, children[m.offset:end], m.cursor-m.offset, empty), "\n")
 	if m.filtering || m.filter.Value() != "" {
 		body += "\n" + m.filter.View()
 	}
@@ -213,25 +213,25 @@ func (m *model) View() tea.View {
 // Helpers
 
 // visible is the folder's children whose title or a tag holds the filter, case-insensitively.
-func (m *model) visible() []domain.Item {
+func (m *model) visible() []apiclient.DomainItem {
 	query := strings.ToLower(strings.TrimSpace(m.filter.Value()))
 	if query == "" {
-		return m.folder.Children
+		return m.folder.children
 	}
 
-	var matches []domain.Item
-	for _, child := range m.folder.Children {
-		if strings.Contains(strings.ToLower(string(child.Title)+" #"+strings.Join(m.folder.tags[child.ID], " #")), query) {
+	var matches []apiclient.DomainItem
+	for _, child := range m.folder.children {
+		if strings.Contains(strings.ToLower(string(child.Title)+" #"+strings.Join(m.folder.tags[child.Id], " #")), query) {
 			matches = append(matches, child)
 		}
 	}
 	return matches
 }
 
-func (m *model) selected() (domain.Item, bool) {
+func (m *model) selected() (apiclient.DomainItem, bool) {
 	children := m.visible()
 	if m.cursor < 0 || m.cursor >= len(children) {
-		return domain.Item{}, false
+		return apiclient.DomainItem{}, false
 	}
 	return children[m.cursor], true
 }
@@ -239,7 +239,7 @@ func (m *model) selected() (domain.Item, bool) {
 // rows is how many children fit between the header and the footer (and the filter line).
 func (m *model) rows() int {
 	if m.height == 0 {
-		return len(m.folder.Children) + 1 // no size yet: show everything
+		return len(m.folder.children) + 1 // no size yet: show everything
 	}
 	extra := 0
 	if m.filtering || m.filter.Value() != "" {
@@ -260,17 +260,17 @@ func (m *model) open(id string, selectID string) tea.Cmd {
 
 // back opens the parent folder with the cursor on the folder we leave; nothing at the root.
 func (m *model) back() tea.Cmd {
-	if m.folder.Item.ID == "" {
+	if m.folder.Item.Id == "" {
 		return nil
 	}
 	parentID := ""
-	if m.folder.Item.ParentID != nil {
-		parentID = *m.folder.Item.ParentID
+	if m.folder.Item.ParentId != nil {
+		parentID = *m.folder.Item.ParentId
 	}
-	return m.open(parentID, m.folder.Item.ID)
+	return m.open(parentID, m.folder.Item.Id)
 }
 
-func (m *model) quit(kind actionKind, item domain.Item) (tea.Model, tea.Cmd) {
+func (m *model) quit(kind actionKind, item apiclient.DomainItem) (tea.Model, tea.Cmd) {
 	m.action = action{kind: kind, item: item}
 	return m, tea.Quit
 }

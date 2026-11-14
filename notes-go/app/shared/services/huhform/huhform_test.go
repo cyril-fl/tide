@@ -10,7 +10,7 @@ import (
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listfolders"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 )
 
 func TestFitFillsHeight(t *testing.T) {
@@ -30,7 +30,7 @@ func TestFitFillsHeight(t *testing.T) {
 }
 
 func TestFolderOptions(t *testing.T) {
-	options := folderOptions([]listfolders.Folder{{ID: "a", Path: "/A"}, {ID: "b", Path: "/A/B"}})
+	options := folderOptions([]apiclient.ListfoldersFolder{{Id: "a", Path: "/A"}, {Id: "b", Path: "/A/B"}})
 	if len(options) != 3 || options[0].Key != "/" || options[0].Value != "" || options[2].Key != "/A/B" || options[2].Value != "b" {
 		t.Errorf("options = %+v, want / then the paths", options)
 	}

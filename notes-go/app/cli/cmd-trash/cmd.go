@@ -1,13 +1,11 @@
 package cmdtrash
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"time"
 
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listtrash"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
@@ -32,11 +30,7 @@ func Trash(cobra *cobra.Command, args []string) error {
 	if response.JSON200 == nil {
 		return apiclient.Fail(response.HTTPResponse, response.Body)
 	}
-	// Decoded into the process's type, not the generated one: the output stays that of listtrash.
-	var trash []listtrash.Trashed
-	if err := json.Unmarshal(response.Body, &trash); err != nil {
-		return err
-	}
+	trash := *response.JSON200
 
 	if asJSON {
 		screen.PrintJSON(trash)
@@ -49,28 +43,36 @@ func Trash(cobra *cobra.Command, args []string) error {
 	if me.JSON200 == nil {
 		return apiclient.Fail(me.HTTPResponse, me.Body)
 	}
-	screen.Print(output(trash, me.JSON200.TrashRetentionDays, time.Now()))
+	printed, err := output(trash, me.JSON200.TrashRetentionDays, time.Now())
+	if err != nil {
+		return err
+	}
+	screen.Print(printed)
 	return nil
 }
 
-func output(trash []listtrash.Trashed, retention int, now time.Time) string {
+func output(trash []apiclient.ListtrashTrashed, retention int, now time.Time) (string, error) {
 	header := style.Header("Trash", "notes restore <uuid> brings an item back", info(len(trash), retention)) + "\n"
 	if len(trash) == 0 {
-		return header + style.Empty().Render("The trash is empty")
+		return header + style.Empty().Render("The trash is empty"), nil
 	}
 
 	cells := make([][]string, len(trash))
 	for i, item := range trash {
-		title := string(item.Title)
+		deletedAt, err := time.Parse(time.RFC3339Nano, item.DeletedAt)
+		if err != nil {
+			return "", err
+		}
+		title := item.Title
 		if title == "" {
 			title = "untitled"
 		}
 		if item.Inside > 0 {
 			title += fmt.Sprintf(" (+%d inside)", item.Inside)
 		}
-		cells[i] = []string{string(item.Kind), title, "removed " + item.DeletedAt.Format("2 Jan 2006"), purge(item.DeletedAt, retention, now), item.ID}
+		cells[i] = []string{string(item.Kind), title, "removed " + deletedAt.Format("2 Jan 2006"), purge(deletedAt, retention, now), item.Id}
 	}
-	return header + style.Table(cells, -1, 1)
+	return header + style.Table(cells, -1, 1), nil
 }
 
 func info(removals, retention int) string {

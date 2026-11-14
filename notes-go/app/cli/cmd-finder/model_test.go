@@ -4,19 +4,17 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 )
 
 // tree: root holds folder A (with note N inside) and note R.
 var (
 	rootID    = ""
-	folderA   = domain.Item{ID: "a", Kind: domain.FOLDER, Title: "A"}
-	noteR     = domain.Item{ID: "r", Kind: domain.NOTE, Title: "Readme"}
-	noteN     = domain.Item{ID: "n", Kind: domain.NOTE, Title: "Notes", ParentID: &folderA.ID}
-	folderOfA = page{Result: readitem.Result{Item: domain.Item{ID: "a", Kind: domain.FOLDER, Title: "A", ParentID: &rootID}, Path: "/A", Children: []domain.Item{noteN}}}
-	root      = page{Result: readitem.Result{Item: domain.Item{Kind: domain.FOLDER, Title: "Notes"}, Path: "/", Children: []domain.Item{folderA, noteR}}, tags: map[string][]string{"r": {"doc"}}}
+	folderA   = apiclient.DomainItem{Id: "a", Kind: apiclient.FOLDER, Title: "A"}
+	noteR     = apiclient.DomainItem{Id: "r", Kind: apiclient.NOTE, Title: "Readme"}
+	noteN     = apiclient.DomainItem{Id: "n", Kind: apiclient.NOTE, Title: "Notes", ParentId: &folderA.Id}
+	folderOfA = page{ReaditemResult: apiclient.ReaditemResult{Item: apiclient.DomainItem{Id: "a", Kind: apiclient.FOLDER, Title: "A", ParentId: &rootID}, Path: "/A"}, children: []apiclient.DomainItem{noteN}}
+	root      = page{ReaditemResult: apiclient.ReaditemResult{Item: apiclient.DomainItem{Kind: apiclient.FOLDER, Title: "Notes"}, Path: "/"}, children: []apiclient.DomainItem{folderA, noteR}, tags: map[string][]string{"r": {"doc"}}}
 )
 
 func fakeLoad(id string) (page, error) {
@@ -89,9 +87,9 @@ func TestActions(t *testing.T) {
 	}{
 		"enter on note opens": {1, enter, action{actionOpen, noteR}},
 		"ctrl+e edits":        {0, ctrl('e'), action{actionEdit, folderA}},
-		"ctrl+n creates":      {0, ctrl('n'), action{actionCreate, domain.Item{}}},
+		"ctrl+n creates":      {0, ctrl('n'), action{actionCreate, apiclient.DomainItem{}}},
 		"ctrl+d deletes":      {1, ctrl('d'), action{actionDelete, noteR}},
-		"ctrl+q quits":        {0, ctrl('q'), action{actionQuit, domain.Item{}}},
+		"ctrl+q quits":        {0, ctrl('q'), action{actionQuit, apiclient.DomainItem{}}},
 	}
 
 	for name, test := range tests {
@@ -99,7 +97,7 @@ func TestActions(t *testing.T) {
 		if cmd := press(m, test.key); cmd == nil {
 			t.Errorf("%s: no quit command", name)
 		}
-		if m.action.kind != test.want.kind || m.action.item.ID != test.want.item.ID {
+		if m.action.kind != test.want.kind || m.action.item.Id != test.want.item.Id {
 			t.Errorf("%s: action = %+v, want %+v", name, m.action, test.want)
 		}
 	}
@@ -112,7 +110,7 @@ func TestFilter(t *testing.T) {
 	for _, r := range "READ" {
 		press(m, text(r))
 	}
-	if got := m.visible(); len(got) != 1 || got[0].ID != noteR.ID {
+	if got := m.visible(); len(got) != 1 || got[0].Id != noteR.Id {
 		t.Fatalf("visible = %+v, want [Readme]", got)
 	}
 
@@ -135,16 +133,16 @@ func TestFilterTags(t *testing.T) {
 
 	for _, query := range []string{"doc", "#DOC"} {
 		m.filter.SetValue(query)
-		if got := m.visible(); len(got) != 1 || got[0].ID != noteR.ID {
+		if got := m.visible(); len(got) != 1 || got[0].Id != noteR.Id {
 			t.Errorf("%q: visible = %+v, want [Readme] by its tag", query, got)
 		}
 	}
 }
 
 func TestScroll(t *testing.T) {
-	folder := page{Result: readitem.Result{Path: "/"}}
+	folder := page{ReaditemResult: apiclient.ReaditemResult{Path: "/"}}
 	for i := 0; i < 20; i++ {
-		folder.Children = append(folder.Children, domain.Item{ID: string(rune('a' + i)), Kind: domain.NOTE, Title: secret.Text(rune('a' + i))})
+		folder.children = append(folder.children, apiclient.DomainItem{Id: string(rune('a' + i)), Kind: apiclient.NOTE, Title: string(rune('a' + i))})
 	}
 	m := newModel(fakeLoad, folder, 0, nil, "", false)
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 12}) // 12 - 1 - 3 - 2 = 6 rows
@@ -160,7 +158,7 @@ func TestScroll(t *testing.T) {
 
 // Regression: down in an empty folder set the cursor to -1 and View panicked on children[-1:].
 func TestEmptyFolder(t *testing.T) {
-	m := newModel(fakeLoad, page{Result: readitem.Result{Path: "/"}}, 0, nil, "", false)
+	m := newModel(fakeLoad, page{ReaditemResult: apiclient.ReaditemResult{Path: "/"}}, 0, nil, "", false)
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 12})
 
 	press(m, down)
@@ -183,7 +181,7 @@ func TestCutPaste(t *testing.T) {
 	}
 
 	press(m, ctrl('x')) // cut Readme
-	if m.clipboard == nil || m.clipboard.ID != noteR.ID {
+	if m.clipboard == nil || m.clipboard.Id != noteR.Id {
 		t.Fatalf("clipboard = %+v, want Readme", m.clipboard)
 	}
 
@@ -195,7 +193,7 @@ func TestCutPaste(t *testing.T) {
 	press(m, ctrl('x'))
 	press(m, up)
 	press(m, enter) // into A, the clipboard follows
-	if cmd := press(m, ctrl('v')); cmd == nil || m.action.kind != actionMove || m.action.item.ID != noteR.ID || m.folder.Path != "/A" {
+	if cmd := press(m, ctrl('v')); cmd == nil || m.action.kind != actionMove || m.action.item.Id != noteR.Id || m.folder.Path != "/A" {
 		t.Errorf("paste: action = %+v, folder = %q; want move Readme into /A", m.action, m.folder.Path)
 	}
 }

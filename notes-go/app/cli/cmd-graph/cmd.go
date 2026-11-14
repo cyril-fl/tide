@@ -2,17 +2,14 @@ package cmdgraph
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	cmdeditnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-note"
 	cmdreadnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-note"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/fold"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/navigator"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readgraph"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readneighbors"
 	"github.com/spf13/cobra"
 )
 
@@ -60,12 +57,8 @@ func notesPage(ctx context.Context) (navigator.Page, error) {
 	if response.JSON200 == nil {
 		return navigator.Page{}, apiclient.Fail(response.HTTPResponse, response.Body)
 	}
-	// Decoded into the processes' types, not the generated ones: the pages stay those of the processes.
-	var result readgraph.Result
-	if err := json.Unmarshal(response.Body, &result); err != nil {
-		return navigator.Page{}, err
-	}
-	domain.SortFold(result.Notes, func(n readgraph.Note) string { return n.Path }, nil)
+	result := response.JSON200
+	fold.Sort(result.Notes, func(n apiclient.ReadgraphNote) string { return n.Path }, nil)
 	linked := map[string]int{}
 	for _, link := range result.Links {
 		linked[link.Source]++
@@ -73,10 +66,11 @@ func notesPage(ctx context.Context) (navigator.Page, error) {
 	}
 	p := navigator.Page{Title: "Graph", Path: "notes", Info: count(len(result.Notes), "note"), Empty: "No note yet"}
 	for _, note := range result.Notes {
+		tags := apiclient.Deref(note.Tags)
 		p.Rows = append(p.Rows, navigator.Row{
-			Cells:  []string{untitled(string(note.Title)), note.Path, count(linked[note.ID], "link") + " · " + count(len(note.Tags), "tag")},
-			Tags:   note.Tags,
-			Target: navigator.Target{Kind: navigator.KindNote, Key: note.ID},
+			Cells:  []string{untitled(note.Title), note.Path, count(linked[note.Id], "link") + " · " + count(len(tags), "tag")},
+			Tags:   tags,
+			Target: navigator.Target{Kind: navigator.KindNote, Key: note.Id},
 		})
 	}
 	return p, nil
@@ -95,21 +89,18 @@ func notePage(ctx context.Context, id string) (navigator.Page, error) {
 	if response.JSON200 == nil {
 		return navigator.Page{}, apiclient.Fail(response.HTTPResponse, response.Body)
 	}
-	var result readneighbors.Result
-	if err := json.Unmarshal(response.Body, &result); err != nil {
-		return navigator.Page{}, err
-	}
+	result := response.JSON200
 	tags, err := linkedTags(ctx, client, append(result.Links, result.Backlinks...))
 	if err != nil {
 		return navigator.Page{}, err
 	}
 	rows := append(linkedRows(result.Links, "link", tags), linkedRows(result.Backlinks, "backlink", tags)...)
 	info := []string{count(len(rows)+len(result.Neighbors), "linked note")}
-	if len(result.Note.Tags) > 0 {
-		info = append([]string{strings.Join(result.Note.Tags, " · ")}, info...)
+	if tags := apiclient.Deref(result.Note.Tags); len(tags) > 0 {
+		info = append([]string{strings.Join(tags, " · ")}, info...)
 	}
 	p := navigator.Page{
-		Title: untitled(string(result.Note.Item.Title)),
+		Title: untitled(result.Note.Item.Title),
 		Path:  result.Note.Path,
 		Info:  strings.Join(info, " — "),
 		Empty: "No note links to or shares a tag with this one",
@@ -117,31 +108,31 @@ func notePage(ctx context.Context, id string) (navigator.Page, error) {
 	}
 	for _, neighbor := range result.Neighbors {
 		p.Rows = append(p.Rows, navigator.Row{
-			Cells:  []string{untitled(string(neighbor.Title)), neighbor.Path, count(neighbor.Shared, "tag"), strings.Join(neighbor.Tags, " · ")},
+			Cells:  []string{untitled(neighbor.Title), neighbor.Path, count(neighbor.Shared, "tag"), strings.Join(neighbor.Tags, " · ")},
 			Tags:   neighbor.Tags,
-			Target: navigator.Target{Kind: navigator.KindNote, Key: neighbor.ID},
+			Target: navigator.Target{Kind: navigator.KindNote, Key: neighbor.Id},
 		})
 	}
 	return p, nil
 }
 
 // linkedTags reads the tags of the linked notes: readneighbors gives them only to the neighbors.
-func linkedTags(ctx context.Context, client *apiclient.ClientWithResponses, notes []readneighbors.Linked) (map[string][]string, error) {
+func linkedTags(ctx context.Context, client *apiclient.ClientWithResponses, notes []apiclient.ReadneighborsLinked) (map[string][]string, error) {
 	ids := make([]string, len(notes))
 	for i, note := range notes {
-		ids[i] = note.ID
+		ids[i] = note.Id
 	}
 	return apiclient.NoteTags(ctx, client, ids)
 }
 
 // linkedRows lists the notes at the other end of the [[links]], same columns as the neighbors.
-func linkedRows(notes []readneighbors.Linked, relation string, tags map[string][]string) []navigator.Row {
+func linkedRows(notes []apiclient.ReadneighborsLinked, relation string, tags map[string][]string) []navigator.Row {
 	rows := make([]navigator.Row, 0, len(notes))
 	for _, note := range notes {
 		rows = append(rows, navigator.Row{
-			Cells:  []string{untitled(string(note.Title)), note.Path, relation, ""},
-			Tags:   tags[note.ID],
-			Target: navigator.Target{Kind: navigator.KindNote, Key: note.ID},
+			Cells:  []string{untitled(note.Title), note.Path, relation, ""},
+			Tags:   tags[note.Id],
+			Target: navigator.Target{Kind: navigator.KindNote, Key: note.Id},
 		})
 	}
 	return rows

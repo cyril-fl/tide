@@ -13,6 +13,7 @@ import (
 
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
+	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/exportnotes"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -183,8 +184,8 @@ func TestTagsHistoryLinks(t *testing.T) {
 	if len(versions.Versions) != 1 {
 		t.Fatalf("note_history = %+v", versions)
 	}
-	call(t, agent, "note_history", map[string]any{"note": "/Target", "version": versions.Versions[0].ID}, &version)
-	if version.Version == nil || string(version.Version.Content) != target.Content {
+	call(t, agent, "note_history", map[string]any{"note": "/Target", "version": versions.Versions[0].Id}, &version)
+	if version.Version == nil || apiclient.Deref(version.Version.Content) != target.Content {
 		t.Errorf("note_history version = %+v", version)
 	}
 
@@ -252,12 +253,12 @@ func TestImportDir(t *testing.T) {
 }
 
 // TestExportedFiles drops the directories, keeps a note's text and names a file by its id; a note of a folder
-// named like exportnotes.FilesDir stays a note.
+// named like filesDir stays a note.
 func TestExportedFiles(t *testing.T) {
 	id := "0b6f8e2a-1c3d-4e5f-8a9b-0c1d2e3f4a5b"
 	var body bytes.Buffer
 	archive := zip.NewWriter(&body)
-	for name, content := range map[string]string{"Folder/": "", "Folder/Note.md": "text", exportnotes.FilesDir + "/" + id + ".png": "bytes", exportnotes.FilesDir + "/Other.md": "note"} {
+	for name, content := range map[string]string{"Folder/": "", "Folder/Note.md": "text", filesDir + "/" + id + ".png": "bytes", filesDir + "/Other.md": "note"} {
 		entry, _ := archive.Create(name)
 		entry.Write([]byte(content))
 	}
@@ -269,9 +270,16 @@ func TestExportedFiles(t *testing.T) {
 
 	got, err := exportedFiles(reader)
 	slices.SortFunc(got, func(a, b exported) int { return strings.Compare(a.Path, b.Path) })
-	want := []exported{{Path: "Folder/Note.md", Content: "text"}, {Path: exportnotes.FilesDir + "/" + id + ".png", File: id}, {Path: exportnotes.FilesDir + "/Other.md", Content: "note"}}
+	want := []exported{{Path: "Folder/Note.md", Content: "text"}, {Path: filesDir + "/" + id + ".png", File: id}, {Path: filesDir + "/Other.md", Content: "note"}}
 	slices.SortFunc(want, func(a, b exported) int { return strings.Compare(a.Path, b.Path) })
 	if err != nil || !slices.Equal(got, want) {
 		t.Errorf("exportedFiles = %v, %v, want %v", got, err, want)
+	}
+}
+
+// The CLI has no kernel to import them from: they must stay those of the server.
+func TestServerNames(t *testing.T) {
+	if filesDir != exportnotes.FilesDir || fileURL("id") != domain.FileURL("id") {
+		t.Errorf("filesDir %q, fileURL %q; want %q, %q", filesDir, fileURL("id"), exportnotes.FilesDir, domain.FileURL("id"))
 	}
 }

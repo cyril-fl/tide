@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"charm.land/huh/v2"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/hashtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
 )
@@ -43,7 +43,7 @@ func (m *mill) askMissing() {
 
 // tagOptions lists the existing tags plus the note's tags not saved yet (--tag), and rewrites
 // selected to the existing spelling: the multiselect only checks exact matches.
-func tagOptions(tags []domain.Tag, selected []string) []string {
+func tagOptions(tags []apiclient.DomainTag, selected []string) []string {
 	options := make([]string, len(tags))
 	for i, tag := range tags {
 		options[i] = string(tag.Value)

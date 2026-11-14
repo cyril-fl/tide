@@ -7,14 +7,17 @@ import (
 
 	millflagseditnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-note/services/mill"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/patchnote"
 	"github.com/cyril-fl/notes/notes-go/config"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
+// errStale is the text of patchnote.ErrStale the API answers: the note changed since the mill read it.
+const errStale = "note changed elsewhere since it was read"
+
 // Edit loads the note, applies the flags (or a pre-filled form when none), then saves it through PATCH /api/notes/{id}.
+
 func Edit(cobra *cobra.Command, args []string) error {
 	return run(cobra.Context(), args[0], cobra.Flags())
 }
@@ -58,7 +61,7 @@ func run(ctx context.Context, id string, flags *pflag.FlagSet) error {
 	}
 	if response.JSON200 == nil {
 		err := apiclient.Fail(response.HTTPResponse, response.Body)
-		if err.Error() == patchnote.ErrStale.Error() {
+		if err.Error() == errStale {
 			return fmt.Errorf("%w: nothing saved, run the command again to edit the new text", err)
 		}
 		return err

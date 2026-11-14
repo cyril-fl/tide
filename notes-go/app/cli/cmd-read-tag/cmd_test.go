@@ -1,6 +1,7 @@
 package cmdreadtag
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -10,8 +11,23 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readtag"
+	plumdebug "github.com/cyril-fl/plum/utils/debug"
 	"github.com/spf13/cobra"
 )
+
+// printKernel is printTags on the kernel's type: the generated one must print the same.
+func printKernel(tags []domain.Tag, asYAML bool, asJSON bool) {
+	switch {
+	case asJSON:
+		plumdebug.Json(tags)
+	case asYAML:
+		plumdebug.Yaml(tags)
+	default:
+		for _, tag := range tags {
+			fmt.Println(tag.Value)
+		}
+	}
+}
 
 // --list through the API prints what listtag gives in the base, in each format, with no tag (an empty list, not
 // null) and with some.
@@ -36,7 +52,7 @@ func TestListTags(t *testing.T) {
 			listed = []domain.Tag{}
 		}
 		for _, format := range []struct{ yaml, json bool }{{}, {yaml: true}, {json: true}} {
-			want, _ := apitest.Stdout(t, func() error { printTags(listed, format.yaml, format.json); return nil })
+			want, _ := apitest.Stdout(t, func() error { printKernel(listed, format.yaml, format.json); return nil })
 			command := &cobra.Command{}
 			command.SetContext(ctx)
 			got, err := apitest.Stdout(t, func() error { return listTags(command, format.yaml, format.json) })

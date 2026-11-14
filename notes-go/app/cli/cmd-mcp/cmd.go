@@ -18,23 +18,20 @@ import (
 	"testing/fstest"
 
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/hashtag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/counttags"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/exportnotes"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/importnotes"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listbrokenlinks"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listrecent"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listtrash"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readneighbors"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readtag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/searchnotes"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 )
 
 var errBadPath = errors.New("not the relative path of a .md file")
+
+// filesDir is exportnotes.FilesDir, where an export puts the images and attachments.
+const filesDir = "_files"
+
+// fileURL is domain.FileURL, how a note cites a file.
+func fileURL(id string) string {
+	return "/api/files/" + id
+}
 
 // item is a note or a folder as an agent needs it: no timestamps, no model, nothing to read twice.
 type item struct {
@@ -111,9 +108,9 @@ type tagsArgs struct {
 
 // tags is the account's tags with their count, or one tag with the notes carrying it.
 type tags struct {
-	Tags  []counttags.TagCount `json:"tags,omitempty"`
-	Tag   *domain.Tag          `json:"tag,omitempty"`
-	Notes []readtag.Note       `json:"notes,omitempty"`
+	Tags  []apiclient.CounttagsTagCount `json:"tags,omitempty"`
+	Tag   *apiclient.DomainTag          `json:"tag,omitempty"`
+	Notes []apiclient.ReadtagNote       `json:"notes,omitempty"`
 }
 
 type renameTagArgs struct {
@@ -128,8 +125,8 @@ type historyArgs struct {
 
 // history is the list of versions, their texts left out, or the one version asked with its text.
 type history struct {
-	Versions []domain.NoteVersion `json:"versions,omitempty"`
-	Version  *domain.NoteVersion  `json:"version,omitempty"`
+	Versions []apiclient.DomainNoteVersion `json:"versions,omitempty"`
+	Version  *apiclient.DomainNoteVersion  `json:"version,omitempty"`
 }
 
 type linksArgs struct {
@@ -138,10 +135,10 @@ type linksArgs struct {
 
 // links joins a note to the others, the note itself left out (read_note reads it), or lists the broken links of every note.
 type links struct {
-	Links     []readneighbors.Linked   `json:"links,omitempty"`
-	Backlinks []readneighbors.Linked   `json:"backlinks,omitempty"`
-	Neighbors []readneighbors.Neighbor `json:"neighbors,omitempty"`
-	Broken    []listbrokenlinks.Link   `json:"broken,omitempty"`
+	Links     []apiclient.ReadneighborsLinked   `json:"links,omitempty"`
+	Backlinks []apiclient.ReadneighborsLinked   `json:"backlinks,omitempty"`
+	Neighbors []apiclient.ReadneighborsNeighbor `json:"neighbors,omitempty"`
+	Broken    []apiclient.ListbrokenlinksLink   `json:"broken,omitempty"`
 }
 
 type fileArgs struct {
@@ -198,20 +195,20 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_notes",
 		Description: "Find the notes whose title or content contains a text, with the line where it was found: the first 50, title matches first, unless limit says otherwise.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, []searchnotes.Match, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, []apiclient.SearchnotesMatch, error) {
 		limit := searchLimit
 		if args.Limit != nil {
 			limit = max(*args.Limit, 0)
 		}
-		matches, err := decode[[]searchnotes.Match](client.GetApiSearch(ctx, &apiclient.GetApiSearchParams{Q: args.Text, Limit: &limit}))
+		matches, err := decode[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, &apiclient.GetApiSearchParams{Q: args.Text, Limit: &limit}))
 		return nil, matches, err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "recent_notes",
 		Description: "List the notes changed most recently, newest first.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []listrecent.Recent, error) {
-		recent, err := decode[[]listrecent.Recent](client.GetApiRecent(ctx))
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []apiclient.ListrecentRecent, error) {
+		recent, err := decode[[]apiclient.ListrecentRecent](client.GetApiRecent(ctx))
 		return nil, recent, err
 	})
 
@@ -223,7 +220,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		if err != nil {
 			return nil, note{}, err
 		}
-		read, err := readNote(decode[readitem.Result](client.GetApiNotesId(ctx, id)))
+		read, err := readNote(decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, id)))
 		return nil, read, err
 	})
 
@@ -235,7 +232,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		if err != nil {
 			return nil, nil, err
 		}
-		return made(decode[[]domain.Item](client.GetApiItems(ctx, &apiclient.GetApiItemsParams{Parent: &parentID})))
+		return made(decode[[]apiclient.DomainItem](client.GetApiItems(ctx, &apiclient.GetApiItemsParams{Parent: &parentID})))
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -246,12 +243,12 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		if err != nil {
 			return nil, note{}, err
 		}
-		created, err := decode[domain.Item](client.PostApiNotes(ctx, apiclient.CreatenoteInput{Content: args.Content, ParentId: &parentID, Tags: &args.Tags}))
+		created, err := decode[apiclient.DomainItem](client.PostApiNotes(ctx, apiclient.CreatenoteInput{Content: args.Content, ParentId: &parentID, Tags: &args.Tags}))
 		if err != nil {
 			return nil, note{}, err
 		}
 		// Read back: the API answers the item alone, without the path nor the tags it parsed.
-		read, err := readNote(decode[readitem.Result](client.GetApiNotesId(ctx, created.ID)))
+		read, err := readNote(decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, created.Id)))
 		return nil, read, err
 	})
 
@@ -269,7 +266,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 			tags := append(hashtag.Parse(args.Content), args.Tags...)
 			input.Tags = &tags
 		}
-		edited, err := readNote(decode[readitem.Result](client.PatchApiNotesId(ctx, id, input)))
+		edited, err := readNote(decode[apiclient.ReaditemResult](client.PatchApiNotesId(ctx, id, input)))
 		return nil, edited, err
 	})
 
@@ -281,7 +278,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		if err != nil {
 			return nil, item{}, err
 		}
-		created, err := decode[domain.Item](client.PostApiFolders(ctx, apiclient.CreatefolderInput{Title: args.Title, ParentId: &parentID}))
+		created, err := decode[apiclient.DomainItem](client.PostApiFolders(ctx, apiclient.CreatefolderInput{Title: args.Title, ParentId: &parentID}))
 		return nil, one(created), err
 	})
 
@@ -293,7 +290,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		if err != nil {
 			return nil, item{}, err
 		}
-		renamed, err := decode[domain.Item](client.PatchApiFoldersId(ctx, id, apiclient.EditfolderBody{Title: &args.Title}))
+		renamed, err := decode[apiclient.DomainItem](client.PatchApiFoldersId(ctx, id, apiclient.EditfolderBody{Title: &args.Title}))
 		return nil, one(renamed), err
 	})
 
@@ -309,7 +306,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		if err != nil {
 			return nil, nil, err
 		}
-		return made(decode[[]domain.Item](client.PostApiMove(ctx, apiclient.MoveitemsInput{Ids: []string{id}, ParentId: &parentID})))
+		return made(decode[[]apiclient.DomainItem](client.PostApiMove(ctx, apiclient.MoveitemsInput{Ids: []string{id}, ParentId: &parentID})))
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -320,7 +317,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		if err != nil {
 			return nil, nil, err
 		}
-		return made(decode[[]domain.Item](client.DeleteApiNotesId(ctx, id)))
+		return made(decode[[]apiclient.DomainItem](client.DeleteApiNotesId(ctx, id)))
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -331,14 +328,14 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		if err != nil {
 			return nil, nil, err
 		}
-		return made(decode[[]domain.Item](client.DeleteApiFoldersId(ctx, id)))
+		return made(decode[[]apiclient.DomainItem](client.DeleteApiFoldersId(ctx, id)))
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_trash",
 		Description: "List what is in the trash, last removed first, with the uuid restore_item takes.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []listtrash.Trashed, error) {
-		trash, err := decode[[]listtrash.Trashed](client.GetApiTrash(ctx))
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []apiclient.ListtrashTrashed, error) {
+		trash, err := decode[[]apiclient.ListtrashTrashed](client.GetApiTrash(ctx))
 		return nil, trash, err
 	})
 
@@ -347,7 +344,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		Description: "Take a note or a folder out of the trash, with everything removed at the same time as it.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args trashedArgs) (*mcp.CallToolResult, []item, error) {
 		// No resolve: a trashed item has no path to look up.
-		return made(decode[[]domain.Item](client.PostApiRestore(ctx, apiclient.RestoreBody{Ids: []string{args.Item}})))
+		return made(decode[[]apiclient.DomainItem](client.PostApiRestore(ctx, apiclient.RestoreBody{Ids: []string{args.Item}})))
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -355,10 +352,10 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		Description: "List the notes carrying a tag, with their path. Without a tag, the account's tags, most used first. Tags of a note are set by create_note and edit_note.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagsArgs) (*mcp.CallToolResult, tags, error) {
 		if args.Tag == "" {
-			counts, err := decode[[]counttags.TagCount](client.GetApiGraph(ctx))
+			counts, err := decode[[]apiclient.CounttagsTagCount](client.GetApiGraph(ctx))
 			return nil, tags{Tags: counts}, err
 		}
-		result, err := decode[readtag.Result](client.GetApiTagsValue(ctx, args.Tag, nil))
+		result, err := decode[apiclient.ReadtagResult](client.GetApiTagsValue(ctx, args.Tag, nil))
 		if err != nil {
 			return nil, tags{}, err
 		}
@@ -368,16 +365,16 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "rename_tag",
 		Description: "Rename a tag on every note carrying it, in their text too.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, domain.Tag, error) {
-		renamed, err := decode[domain.Tag](client.PatchApiTagsValue(ctx, args.Tag, apiclient.EdittagBody{Value: args.To}))
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, apiclient.DomainTag, error) {
+		renamed, err := decode[apiclient.DomainTag](client.PatchApiTagsValue(ctx, args.Tag, apiclient.EdittagBody{Value: args.To}))
 		return nil, renamed, err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_tag",
 		Description: "Remove a tag from every note carrying it, in their text too. A note holding nothing but the tag goes to the trash.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagArgs) (*mcp.CallToolResult, []domain.Tag, error) {
-		deleted, err := decode[[]domain.Tag](client.DeleteApiTagsValue(ctx, args.Tag))
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagArgs) (*mcp.CallToolResult, []apiclient.DomainTag, error) {
+		deleted, err := decode[[]apiclient.DomainTag](client.DeleteApiTagsValue(ctx, args.Tag))
 		return nil, deleted, err
 	})
 
@@ -390,10 +387,10 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 			return nil, history{}, err
 		}
 		if args.Version == "" {
-			versions, err := decode[[]domain.NoteVersion](client.GetApiNotesIdVersions(ctx, id))
+			versions, err := decode[[]apiclient.DomainNoteVersion](client.GetApiNotesIdVersions(ctx, id))
 			return nil, history{Versions: versions}, err
 		}
-		version, err := decode[domain.NoteVersion](client.GetApiNotesIdVersionsVersion(ctx, id, args.Version))
+		version, err := decode[apiclient.DomainNoteVersion](client.GetApiNotesIdVersionsVersion(ctx, id, args.Version))
 		if err != nil {
 			return nil, history{}, err
 		}
@@ -405,14 +402,14 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		Description: "List the notes a note links to, those linking to it, and those sharing its tags. Without a note, the broken links of every note.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args linksArgs) (*mcp.CallToolResult, links, error) {
 		if args.Note == "" {
-			broken, err := decode[[]listbrokenlinks.Link](client.GetApiLinksBroken(ctx))
+			broken, err := decode[[]apiclient.ListbrokenlinksLink](client.GetApiLinksBroken(ctx))
 			return nil, links{Broken: broken}, err
 		}
 		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
 		if err != nil {
 			return nil, links{}, err
 		}
-		result, err := decode[readneighbors.Result](client.GetApiNotesIdNeighbors(ctx, id))
+		result, err := decode[apiclient.ReadneighborsResult](client.GetApiNotesIdNeighbors(ctx, id))
 		if err != nil {
 			return nil, links{}, err
 		}
@@ -425,7 +422,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		Description: "Read an image or attachment a note cites. Without a file, list the account's files, largest first.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args fileArgs) (*mcp.CallToolResult, any, error) {
 		if args.File == "" {
-			files, err := decode[[]domain.File](client.GetApiFiles(ctx))
+			files, err := decode[[]apiclient.DomainFile](client.GetApiFiles(ctx))
 			return nil, files, err
 		}
 		response, err := client.GetApiFilesIdWithResponse(ctx, args.File)
@@ -448,11 +445,11 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 			return nil, attached{}, fmt.Errorf("data is not base64: %w", err)
 		}
 		// The server reads the type from the bytes, not from this header.
-		file, err := decode[domain.File](client.PostApiFilesWithBody(ctx, &apiclient.PostApiFilesParams{Name: &args.Name}, "application/octet-stream", bytes.NewReader(data)))
+		file, err := decode[apiclient.DomainFile](client.PostApiFilesWithBody(ctx, &apiclient.PostApiFilesParams{Name: &args.Name}, "application/octet-stream", bytes.NewReader(data)))
 		if err != nil {
 			return nil, attached{}, err
 		}
-		return nil, attached{ID: file.ID, Markdown: citation(file, args.Name)}, nil
+		return nil, attached{ID: file.Id, Markdown: citation(file, args.Name)}, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -496,30 +493,29 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "import_notes",
 		Description: "Import markdown files as notes, their directories as folders, all or nothing: a folder name already taken refuses.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args importArgs) (*mcp.CallToolResult, importnotes.Result, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args importArgs) (*mcp.CallToolResult, apiclient.ImportnotesResult, error) {
 		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
-			return nil, importnotes.Result{}, err
+			return nil, apiclient.ImportnotesResult{}, err
 		}
 		dir, err := importDir(args.Files)
 		if err != nil {
-			return nil, importnotes.Result{}, err
+			return nil, apiclient.ImportnotesResult{}, err
 		}
 		var body bytes.Buffer
 		archive := zip.NewWriter(&body)
 		if err := archive.AddFS(dir); err != nil {
-			return nil, importnotes.Result{}, err
+			return nil, apiclient.ImportnotesResult{}, err
 		}
 		if err := archive.Close(); err != nil {
-			return nil, importnotes.Result{}, err
+			return nil, apiclient.ImportnotesResult{}, err
 		}
-		result, err := decode[importnotes.Result](client.PostApiImportWithBody(ctx, &apiclient.PostApiImportParams{Parent: &parentID}, "application/zip", &body))
+		result, err := decode[apiclient.ImportnotesResult](client.PostApiImportWithBody(ctx, &apiclient.PostApiImportParams{Parent: &parentID}, "application/zip", &body))
 		return nil, result, err
 	})
 }
 
-// decode reads a JSON answer into the type of the process behind the route, the result shapes staying those of the
-// processes; any status but 2xx is the API's error.
+// decode reads a JSON answer into the generated type of the route; any status but 2xx is the API's error.
 func decode[T any](response *http.Response, err error) (T, error) {
 	var out T
 	if err != nil {
@@ -544,12 +540,12 @@ func fileContent(id, contentType string, data []byte) mcp.Content {
 	case strings.HasPrefix(contentType, "audio/"):
 		return &mcp.AudioContent{Data: data, MIMEType: contentType}
 	}
-	return &mcp.EmbeddedResource{Resource: &mcp.ResourceContents{URI: domain.FileURL(id), MIMEType: contentType, Blob: data}}
+	return &mcp.EmbeddedResource{Resource: &mcp.ResourceContents{URI: fileURL(id), MIMEType: contentType, Blob: data}}
 }
 
 // citation is the markdown of a file in a note, under the name given (the stored one is sealed): an image shown, anything else linked.
-func citation(file domain.File, name string) string {
-	link := "[" + name + "](" + domain.FileURL(file.ID) + ")"
+func citation(file apiclient.DomainFile, name string) string {
+	link := "[" + name + "](" + fileURL(file.Id) + ")"
 	if strings.HasPrefix(file.ContentType, "image/") {
 		return "!" + link
 	}
@@ -557,14 +553,14 @@ func citation(file domain.File, name string) string {
 }
 
 // exportedFiles reads the zip of GET /api/export: the directories left out, implied by the paths of what they hold,
-// a note with its text, and a file of exportnotes.FilesDir named by the id read_file takes, its bytes left out.
+// a note with its text, and a file of filesDir named by the id read_file takes, its bytes left out.
 func exportedFiles(archive *zip.Reader) ([]exported, error) {
 	out := []exported{}
 	for _, entry := range archive.File {
 		name := entry.Name
 		switch {
 		case strings.HasSuffix(name, "/"):
-		case path.Dir(name) == exportnotes.FilesDir && path.Ext(name) != ".md":
+		case path.Dir(name) == filesDir && path.Ext(name) != ".md":
 			// exportnotes names it <id><ext> in its FilesDir; a note is always a .md.
 			out = append(out, exported{Path: name, File: strings.TrimSuffix(path.Base(name), path.Ext(name))})
 		default:
@@ -597,12 +593,12 @@ func importDir(files []importFile) (fstest.MapFS, error) {
 }
 
 // one turns an item the API answers into what the agent reads.
-func one(found domain.Item) item {
-	return item{ID: found.ID, Kind: string(found.Kind), Title: string(found.Title)}
+func one(found apiclient.DomainItem) item {
+	return item{ID: found.Id, Kind: string(found.Kind), Title: found.Title}
 }
 
 // made turns the items of an answer into what the agent reads, for a tool answering them.
-func made(found []domain.Item, err error) (*mcp.CallToolResult, []item, error) {
+func made(found []apiclient.DomainItem, err error) (*mcp.CallToolResult, []item, error) {
 	if err != nil {
 		return nil, nil, err
 	}
@@ -622,16 +618,16 @@ func resolveFolder(ctx context.Context, client *apiclient.ClientWithResponses, r
 }
 
 // readNote turns the note the API answers into what the agent reads.
-func readNote(result readitem.Result, err error) (note, error) {
+func readNote(result apiclient.ReaditemResult, err error) (note, error) {
 	if err != nil {
 		return note{}, err
 	}
 	return note{
-		ID:       result.Item.ID,
-		Title:    string(result.Item.Title),
+		ID:       result.Item.Id,
+		Title:    result.Item.Title,
 		Path:     result.Path,
-		Content:  result.Content,
-		Tags:     result.Tags,
-		Readonly: result.Readonly,
+		Content:  apiclient.Deref(result.Content),
+		Tags:     apiclient.Deref(result.Tags),
+		Readonly: apiclient.Deref(result.Readonly),
 	}, nil
 }

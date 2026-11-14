@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/editfolder"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/spf13/pflag"
 )
@@ -19,8 +18,14 @@ type mill struct {
 	id     string
 }
 
+// Input is the folder to rename, for PATCH /api/folders/{id}.
+type Input struct {
+	ID    string
+	Title string
+}
+
 type cache struct {
-	input editfolder.Input
+	input Input
 }
 
 type Template struct {
@@ -40,7 +45,7 @@ func New(params Template) *mill {
 }
 
 // Resolve starts from the current folder, applies --title, or asks for it in a pre-filled form.
-func (m *mill) Resolve() editfolder.Input {
+func (m *mill) Resolve() Input {
 	m.loadFolder()
 	m.readFlags()
 	m.askMissing()
@@ -60,7 +65,7 @@ func (m *mill) loadFolder() {
 		m.SetErr(apiclient.Fail(response.HTTPResponse, response.Body))
 		return
 	}
-	m.cache.input = editfolder.Input{ID: response.JSON200.Item.Id, Title: response.JSON200.Item.Title}
+	m.cache.input = Input{ID: response.JSON200.Item.Id, Title: response.JSON200.Item.Title}
 }
 
 func (m *mill) readFlags() {

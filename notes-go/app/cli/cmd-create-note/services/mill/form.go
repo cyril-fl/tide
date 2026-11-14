@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"charm.land/huh/v2"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
 )
 
@@ -36,7 +36,7 @@ func (m *mill) askMissing() {
 
 // Helpers
 
-func tagOptions(tags []domain.Tag) []huh.Option[string] {
+func tagOptions(tags []apiclient.DomainTag) []huh.Option[string] {
 	values := make([]string, len(tags))
 	for i, tag := range tags {
 		values[i] = string(tag.Value)

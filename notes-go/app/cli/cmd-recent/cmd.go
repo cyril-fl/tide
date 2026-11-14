@@ -2,14 +2,13 @@ package cmdrecent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"time"
 
 	cmdeditnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-note"
 	cmdreadnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-note"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/navigator"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listrecent"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/spf13/cobra"
@@ -40,8 +39,7 @@ func Recent(cobra *cobra.Command, args []string) error {
 	})
 }
 
-// fetch decodes into the process's type, not the generated one: the output stays that of listrecent.
-func fetch(ctx context.Context) ([]listrecent.Recent, error) {
+func fetch(ctx context.Context) ([]apiclient.ListrecentRecent, error) {
 	client, err := apiclient.Read().Client()
 	if err != nil {
 		return nil, err
@@ -53,8 +51,7 @@ func fetch(ctx context.Context) ([]listrecent.Recent, error) {
 	if response.JSON200 == nil {
 		return nil, apiclient.Fail(response.HTTPResponse, response.Body)
 	}
-	var notes []listrecent.Recent
-	return notes, json.Unmarshal(response.Body, &notes)
+	return *response.JSON200, nil
 }
 
 // recentPage is reloaded after an edit: the edited note moves to the top.
@@ -73,9 +70,13 @@ func recentPage(ctx context.Context) (navigator.Page, error) {
 		if title == "" {
 			title = "untitled"
 		}
+		updated, err := time.Parse(time.RFC3339Nano, note.UpdatedAt)
+		if err != nil {
+			return navigator.Page{}, err
+		}
 		page.Rows = append(page.Rows, navigator.Row{
-			Cells:  []string{string(title), note.Path, note.UpdatedAt.Format("2 Jan 2006")},
-			Target: navigator.Target{Kind: navigator.KindNote, Key: note.ID},
+			Cells:  []string{title, note.Path, updated.Format("2 Jan 2006")},
+			Target: navigator.Target{Kind: navigator.KindNote, Key: note.Id},
 		})
 	}
 	return page, nil

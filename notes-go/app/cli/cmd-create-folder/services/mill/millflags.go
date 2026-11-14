@@ -6,7 +6,6 @@ import (
 
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/spf13/pflag"
 )
@@ -20,8 +19,14 @@ type mill struct {
 	flags  *pflag.FlagSet
 }
 
+// Input is the folder to create, for POST /api/folders; ParentID "" is the root.
+type Input struct {
+	Title    string
+	ParentID string
+}
+
 type cache struct {
-	input          createfolder.Input
+	input          Input
 	parentFromList bool
 }
 
@@ -40,7 +45,7 @@ func New(params Template) *mill {
 }
 
 // Resolve turns the flags into a complete folder, asking in a form for what is missing.
-func (m *mill) Resolve() createfolder.Input {
+func (m *mill) Resolve() Input {
 	m.readFlags()
 	m.pickParent()
 	m.askMissing()

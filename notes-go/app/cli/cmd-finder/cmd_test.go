@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
@@ -28,18 +28,18 @@ func TestThroughAPI(t *testing.T) {
 	}
 
 	root, err := loadFolder(ctx, "")
-	if err != nil || root.Path != "/" || len(root.Children) != 2 || strings.Join(root.tags[note.GetResult().ID], ",") != "doc" {
+	if err != nil || root.Path != "/" || len(root.children) != 2 || strings.Join(root.tags[note.GetResult().ID], ",") != "doc" {
 		t.Fatalf("root = %+v, err = %v; want Projects and Readme with its tag", root, err)
 	}
 
-	if err := move(ctx, domain.Item{ID: note.GetResult().ID}, folder.GetResult().ID); err != nil {
+	if err := move(ctx, apiclient.DomainItem{Id: note.GetResult().ID}, folder.GetResult().ID); err != nil {
 		t.Fatal(err)
 	}
 	projects, err := loadFolder(ctx, folder.GetResult().ID)
-	if err != nil || projects.Path != "/Projects" || len(projects.Children) != 1 || len(projects.tags[note.GetResult().ID]) != 1 {
+	if err != nil || projects.Path != "/Projects" || len(projects.children) != 1 || len(projects.tags[note.GetResult().ID]) != 1 {
 		t.Errorf("projects = %+v, err = %v; want Readme inside with its tag", projects, err)
 	}
-	if err := move(ctx, folder.GetResult(), folder.GetResult().ID); err == nil || !strings.HasPrefix(err.Error(), moveitems.ErrCycle.Error()) {
+	if err := move(ctx, apiclient.DomainItem{Id: folder.GetResult().ID, Kind: apiclient.FOLDER}, folder.GetResult().ID); err == nil || !strings.HasPrefix(err.Error(), moveitems.ErrCycle.Error()) {
 		t.Errorf("into itself: err = %v, want %v", err, moveitems.ErrCycle)
 	}
 }
@@ -60,7 +60,7 @@ func TestRemove(t *testing.T) {
 
 	huhform.Input = strings.NewReader("y\r")
 	t.Cleanup(func() { huhform.Input = nil })
-	if err := remove(ctx, folder.GetResult()); err != nil {
+	if err := remove(ctx, apiclient.DomainItem{Id: folder.GetResult().ID, Kind: apiclient.FOLDER, Title: "Projects"}); err != nil {
 		t.Fatal(err)
 	}
 	trash := listtrash.Process(ctx, tx)

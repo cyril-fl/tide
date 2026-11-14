@@ -2,7 +2,6 @@ package cmdfinder
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,9 +16,7 @@ import (
 	cmdreadfolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-folder"
 	cmdreadnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-note"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -39,12 +36,12 @@ func Finder(cobra *cobra.Command, args []string) error {
 		return err
 	}
 	if !term.IsTerminal(int(os.Stdout.Fd())) {
-		screen.Print(cmdreadfolder.Output(folder.Result, folder.Children, -1, cmdreadfolder.EmptyFolder))
+		screen.Print(cmdreadfolder.Output(folder.ReaditemResult, folder.children, -1, cmdreadfolder.EmptyFolder))
 		return nil
 	}
 
 	cursor, status, failed := 0, "", false
-	var clipboard *domain.Item
+	var clipboard *apiclient.DomainItem
 	for {
 		final, err := tea.NewProgram(newModel(load, folder, cursor, clipboard, status, failed)).Run()
 		if err != nil {
@@ -58,16 +55,16 @@ func Finder(cobra *cobra.Command, args []string) error {
 		clipboard, status, failed = m.clipboard, "", false
 		if m.action.kind == actionMove {
 			// A refused move (into its own subfolder…) is shown in the finder, which stays open.
-			if err := move(ctx, m.action.item, m.folder.Item.ID); err != nil {
+			if err := move(ctx, m.action.item, m.folder.Item.Id); err != nil {
 				status, failed = err.Error(), true
 			} else {
 				clipboard, status = nil, fmt.Sprintf("Moved %q here", untitled(string(m.action.item.Title)))
 			}
-		} else if err := do(ctx, m.action, m.folder.Item.ID); err != nil && !errors.Is(err, huh.ErrUserAborted) {
+		} else if err := do(ctx, m.action, m.folder.Item.Id); err != nil && !errors.Is(err, huh.ErrUserAborted) {
 			// An aborted form comes back to the finder unchanged.
 			return err
 		}
-		if folder, err = load(m.folder.Item.ID); err != nil {
+		if folder, err = load(m.folder.Item.Id); err != nil {
 			return err
 		}
 		cursor = m.cursor
@@ -76,12 +73,12 @@ func Finder(cobra *cobra.Command, args []string) error {
 
 // move puts the item in the folder through POST /api/move, which refuses a folder going into itself or its
 // subfolders.
-func move(ctx context.Context, item domain.Item, folderID string) error {
+func move(ctx context.Context, item apiclient.DomainItem, folderID string) error {
 	client, err := apiclient.Read().Client()
 	if err != nil {
 		return err
 	}
-	response, err := client.PostApiMoveWithResponse(ctx, apiclient.MoveitemsInput{Ids: []string{item.ID}, ParentId: &folderID})
+	response, err := client.PostApiMoveWithResponse(ctx, apiclient.MoveitemsInput{Ids: []string{item.Id}, ParentId: &folderID})
 	if err != nil {
 		return err
 	}
@@ -95,12 +92,12 @@ func do(ctx context.Context, action action, folderID string) error {
 	item := action.item
 	switch action.kind {
 	case actionOpen:
-		return cmdreadnote.View(ctx, item.ID)
+		return cmdreadnote.View(ctx, item.Id)
 	case actionEdit:
-		if item.Kind == domain.FOLDER {
-			return cmdeditfolder.Interactive(ctx, item.ID)
+		if item.Kind == apiclient.FOLDER {
+			return cmdeditfolder.Interactive(ctx, item.Id)
 		}
-		return cmdeditnote.Interactive(ctx, item.ID)
+		return cmdeditnote.Interactive(ctx, item.Id)
 	case actionCreate:
 		return create(ctx, folderID)
 	case actionDelete:
@@ -111,26 +108,26 @@ func do(ctx context.Context, action action, folderID string) error {
 
 // create asks what to make, then opens its add form inside the current folder.
 func create(ctx context.Context, folderID string) error {
-	kind := domain.NOTE
-	choice := huh.NewSelect[domain.Kind]().Title("New").Options(huh.NewOption("Note", domain.NOTE), huh.NewOption("Folder", domain.FOLDER)).Value(&kind)
+	kind := apiclient.NOTE
+	choice := huh.NewSelect[apiclient.DomainKind]().Title("New").Options(huh.NewOption("Note", apiclient.NOTE), huh.NewOption("Folder", apiclient.FOLDER)).Value(&kind)
 	if err := huhform.New(choice).Run(); err != nil {
 		return err
 	}
 
-	if kind == domain.FOLDER {
+	if kind == apiclient.FOLDER {
 		return cmdcreatefolder.Interactive(ctx, folderID)
 	}
 	return cmdcreatenote.Interactive(ctx, folderID)
 }
 
 // remove moves the item to the trash once confirmed; a folder takes its content with it.
-func remove(ctx context.Context, item domain.Item) error {
+func remove(ctx context.Context, item apiclient.DomainItem) error {
 	title := item.Title
 	if title == "" {
 		title = "untitled"
 	}
 	question := fmt.Sprintf("Move %q to the trash?", title)
-	if item.Kind == domain.FOLDER {
+	if item.Kind == apiclient.FOLDER {
 		question = fmt.Sprintf("Move %q and its content to the trash?", title)
 	}
 
@@ -145,14 +142,14 @@ func remove(ctx context.Context, item domain.Item) error {
 	}
 	var response *http.Response
 	var body []byte
-	if item.Kind == domain.FOLDER {
-		deleted, err := client.DeleteApiFoldersIdWithResponse(ctx, item.ID)
+	if item.Kind == apiclient.FOLDER {
+		deleted, err := client.DeleteApiFoldersIdWithResponse(ctx, item.Id)
 		if err != nil {
 			return err
 		}
 		response, body = deleted.HTTPResponse, deleted.Body
 	} else {
-		deleted, err := client.DeleteApiNotesIdWithResponse(ctx, item.ID)
+		deleted, err := client.DeleteApiNotesIdWithResponse(ctx, item.Id)
 		if err != nil {
 			return err
 		}
@@ -175,22 +172,23 @@ func loadFolder(ctx context.Context, id string) (page, error) {
 		return page{}, err
 	}
 
-	ids := make([]string, len(folder.Children))
-	for i, child := range folder.Children {
-		ids[i] = child.ID
+	children := apiclient.Deref(folder.Children)
+	ids := make([]string, len(children))
+	for i, child := range children {
+		ids[i] = child.Id
 	}
 	tags, err := apiclient.NoteTags(ctx, client, ids)
-	return page{Result: folder, tags: tags}, err
+	return page{ReaditemResult: folder, children: children, tags: tags}, err
 }
 
 // readFolder reads a folder with its children, as show folder does; "" is the root, its children read through
 // GET /api/items.
-func readFolder(ctx context.Context, client *apiclient.ClientWithResponses, id string) (readitem.Result, error) {
+func readFolder(ctx context.Context, client *apiclient.ClientWithResponses, id string) (apiclient.ReaditemResult, error) {
 	if id != "" {
 		return cmdreadfolder.Fetch(ctx, client, id)
 	}
 
-	root := readitem.Result{Item: domain.Item{Kind: domain.FOLDER, Title: "Notes"}, Path: "/"}
+	root := apiclient.ReaditemResult{Item: apiclient.DomainItem{Kind: apiclient.FOLDER, Title: "Notes"}, Path: "/"}
 	response, err := client.GetApiItemsWithResponse(ctx, &apiclient.GetApiItemsParams{})
 	if err != nil {
 		return root, err
@@ -198,5 +196,6 @@ func readFolder(ctx context.Context, client *apiclient.ClientWithResponses, id s
 	if response.JSON200 == nil {
 		return root, apiclient.Fail(response.HTTPResponse, response.Body)
 	}
-	return root, json.Unmarshal(response.Body, &root.Children)
+	root.Children = response.JSON200
+	return root, nil
 }

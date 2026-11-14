@@ -2,17 +2,13 @@ package millflagseditnote
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/hashtag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/editnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/spf13/pflag"
 )
@@ -27,13 +23,20 @@ type mill struct {
 	id     string
 }
 
+// Input is the note to rewrite, for PATCH /api/notes/{id}.
+type Input struct {
+	ID      string
+	Content string
+	Tags    []string
+}
+
 type cache struct {
-	input       editnote.Input
+	input       Input
 	content     string
 	addTags     []string
 	removeTags  []string
 	tagFromList bool
-	tags        []domain.Tag
+	tags        []apiclient.DomainTag
 	version     time.Time
 }
 
@@ -54,7 +57,7 @@ func New(params Template) *mill {
 }
 
 // Resolve starts from the current note, applies the flags, and opens a form when no change was given.
-func (m *mill) Resolve() editnote.Input {
+func (m *mill) Resolve() Input {
 	m.readFlags()
 	m.loadNote()
 	m.applyFlags()
@@ -79,7 +82,7 @@ func (m *mill) readFlags() {
 	m.SetErr(errors.Join(errs[:]...))
 }
 
-// loadNote reads the note through GET /api/notes/{id}, decoded into readitem.Result for its dates.
+// loadNote reads the note through GET /api/notes/{id}, and its version.
 func (m *mill) loadNote() {
 	if m.HasErr() {
 		return
@@ -94,17 +97,15 @@ func (m *mill) loadNote() {
 		m.SetErr(apiclient.Fail(response.HTTPResponse, response.Body))
 		return
 	}
-	var current readitem.Result
-	if err := json.Unmarshal(response.Body, &current); err != nil {
-		m.SetErr(err)
-		return
-	}
-	m.cache.input = editnote.Input{ID: current.Item.ID, Content: current.Content, Tags: current.Tags}
+	current := response.JSON200
+	m.cache.input = Input{ID: current.Item.Id, Content: apiclient.Deref(current.Content), Tags: apiclient.Deref(current.Tags)}
 	// A note never edited has no updated_at: its version is created_at, as patchnote compares it.
-	m.cache.version = current.Item.UpdatedAt
-	if m.cache.version.IsZero() {
-		m.cache.version = current.Item.CreatedAt
+	version := current.Item.CreatedAt
+	if current.Item.UpdatedAt != nil {
+		version = *current.Item.UpdatedAt
 	}
+	m.cache.version, err = time.Parse(time.RFC3339Nano, version)
+	m.SetErr(err)
 }
 
 func (m *mill) applyFlags() {

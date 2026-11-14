@@ -6,7 +6,6 @@ import (
 
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/moveitems"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/spf13/pflag"
 )
@@ -21,8 +20,14 @@ type mill struct {
 	ids    []string
 }
 
+// Input is the items to move, for POST /api/move; ParentID "" is the root.
+type Input struct {
+	IDs      []string
+	ParentID string
+}
+
 type cache struct {
-	input          moveitems.Input
+	input          Input
 	parentFromList bool
 }
 
@@ -43,7 +48,7 @@ func New(params Template) *mill {
 }
 
 // Resolve turns the args and flags into the move; no --parent means the root.
-func (m *mill) Resolve() moveitems.Input {
+func (m *mill) Resolve() Input {
 	m.readFlags()
 	m.pickParent()
 	return m.cache.input

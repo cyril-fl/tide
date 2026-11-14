@@ -537,6 +537,9 @@ type GetApiAddUserParams struct {
 type GetApiExportParams struct {
 	// Id items to export with what they hold, every note when left out
 	Id *[]string `form:"id,omitempty" json:"id,omitempty"`
+
+	// Parent folder whose content to export, without the folder itself
+	Parent *string `form:"parent,omitempty" json:"parent,omitempty"`
 }
 
 // PostApiFilesJSONBody defines parameters for PostApiFiles.
@@ -2399,6 +2402,18 @@ func NewGetApiExportRequest(server string, params *GetApiExportParams) (*http.Re
 		if params.Id != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "id", *params.Id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Parent != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "parent", *params.Parent, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

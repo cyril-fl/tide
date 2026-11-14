@@ -14,11 +14,13 @@ import (
 )
 
 // Handler gives every live note as a zip of markdown files, one directory per folder, the images in _files:
-// GET /api/export, or only some items with what they hold: GET /api/export?id=<uuid>&id=<uuid>.
+// GET /api/export, or only some items with what they hold: GET /api/export?id=<uuid>&id=<uuid>, or what a folder
+// holds without the folder itself: GET /api/export?parent=<uuid>.
 // @Summary  Export the notes as markdown files
 // @Tags     transfer
 // @Produce  application/zip
 // @Param    id query []string false "items to export with what they hold, every note when left out" collectionFormat(multi)
+// @Param    parent query string false "folder whose content to export, without the folder itself"
 // @Success  200 {file} binary
 // @Failure  400 {object} respond.Failure
 // @Failure  404 {object} respond.Failure
@@ -26,11 +28,11 @@ import (
 // @Router   /api/export [get]
 func Handler(db bun.IDB, store silo.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ids := r.URL.Query()["id"]
-		if !respond.ValidIDs(w, ids...) {
+		ids, parent := r.URL.Query()["id"], r.URL.Query().Get("parent")
+		if !respond.ValidIDs(w, append(ids, parent)...) {
 			return
 		}
-		process := exportnotes.Process(r.Context(), db, "", ids...)
+		process := exportnotes.Process(r.Context(), db, parent, ids...)
 		process.Run()
 		if process.HasErr() {
 			respond.Error(w, process.GetErr())

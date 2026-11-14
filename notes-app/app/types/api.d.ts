@@ -65,6 +65,8 @@ export interface paths {
                 query?: {
                     /** @description items to export with what they hold, every note when left out */
                     id?: string[];
+                    /** @description folder whose content to export, without the folder itself */
+                    parent?: string;
                 };
                 header?: never;
                 path?: never;

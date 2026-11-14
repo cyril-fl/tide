@@ -78,7 +78,7 @@ var statuses = []struct {
 		adduser.ErrBadInvite,
 	}},
 	{http.StatusNotFound, []error{
-		deleteuser.ErrNotFound, editfolder.ErrNotFound, editnote.ErrNotFound, emptytrash.ErrNotFound, edittag.ErrNotFound, exportnotes.ErrNotFound, pinnote.ErrNotFound, readfile.ErrNotFound, readitem.ErrNotFound, readsavedsearch.ErrNotFound, readtag.ErrNotFound, resetpassword.ErrNotFound, resolveitem.ErrNotFound,
+		deleteuser.ErrNotFound, editfolder.ErrNotFound, editnote.ErrNotFound, emptytrash.ErrNotFound, edittag.ErrNotFound, exportnotes.ErrNotFound, exportnotes.ErrFolderNotFound, pinnote.ErrNotFound, readfile.ErrNotFound, readitem.ErrNotFound, readsavedsearch.ErrNotFound, readtag.ErrNotFound, resetpassword.ErrNotFound, resolveitem.ErrNotFound,
 	}},
 	{http.StatusUnsupportedMediaType, []error{
 		createfile.ErrFileType,

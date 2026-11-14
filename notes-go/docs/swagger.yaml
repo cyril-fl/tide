@@ -896,6 +896,11 @@ paths:
             type: string
           type: array
         style: form
+      - description: folder whose content to export, without the folder itself
+        in: query
+        name: parent
+        schema:
+          type: string
       responses:
         "200":
           content:

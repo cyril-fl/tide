@@ -837,6 +837,22 @@ func TestFiles(t *testing.T) {
 			t.Errorf("Chat.md = %q, want %q in it", data, want)
 		}
 	}
+	// The content of a folder, without the folder: its images cited one level up.
+	exported = c.raw("/api/export?parent=" + top.ID)
+	read, err = zip.NewReader(strings.NewReader(exported), int64(len(exported)))
+	if err != nil {
+		t.Fatalf("export of a folder's content is not a zip: %v", err)
+	}
+	names = nil
+	for _, entry := range read.File {
+		names = append(names, entry.Name)
+	}
+	if want := []string{"bas/", "bas/Chat.md", "_files/", "_files/" + file.ID + ".png"}; !slices.Equal(names, want) {
+		t.Errorf("export of a folder's content = %q, want %q", names, want)
+	}
+	c.do(http.MethodGet, "/api/export?parent=nope", "", http.StatusBadRequest, nil)
+	c.do(http.MethodGet, "/api/export?parent="+unknownID, "", http.StatusNotFound, nil)
+	c.other(t).do(http.MethodGet, "/api/export?parent="+top.ID, "", http.StatusNotFound, nil)
 	c.do(http.MethodGet, "/api/export?id=nope", "", http.StatusBadRequest, nil)
 	c.do(http.MethodGet, "/api/export?id="+unknownID, "", http.StatusNotFound, nil)
 	c.other(t).do(http.MethodGet, "/api/export?id="+top.ID, "", http.StatusNotFound, nil)

@@ -33,6 +33,12 @@ const (
 	// From a saved layout, only what changed settles: a little heat, a few ticks.
 	warmAlpha = 0.1
 	warmTicks = 40
+	// A big graph with no saved layout: a sample of it is placed from scratch, the rest starts around it and settles.
+	// Measured at 50,000 notes: half the time, the same clusters (#152).
+	sampleSize  = 3000
+	sampleLimit = 2 * sampleSize
+	sampleAlpha = 0.3
+	sampleTicks = 60
 	// d3's cooling and friction.
 	velocityDecay = 0.6
 )
@@ -146,6 +152,7 @@ func (n *node) Mass() float64  { return 1 }
 // Simulate places the notes and their tags, in the simulation's units: see Edges for the springs.
 // The pull to the center weakens as the graph grows (1/√ of its nodes), or a big one shrinks into a ball.
 // seed: a layout saved before; the nodes it lacks start next to a neighbor it has, and the whole only settles a little.
+// Without one, a graph past sampleLimit notes is seeded from a sample of its notes: see fromSample.
 func Simulate(notes []Note, links []Link, seed map[string]Point) (map[string]Point, error) {
 	nodes := make([]*node, 0, len(notes))
 	index := map[string]*node{}
@@ -166,6 +173,16 @@ func Simulate(notes []Note, links []Link, seed map[string]Point) (map[string]Poi
 	edges := Edges(notes, links)
 	gravity := math.Sqrt(10 / math.Max(float64(len(nodes)), 10))
 
+	alpha, count := 1.0, ticks
+	if seed != nil {
+		alpha, count = warmAlpha, warmTicks
+	} else if len(notes) > sampleLimit {
+		var err error
+		if seed, err = fromSample(notes, links); err != nil {
+			return nil, err
+		}
+		alpha, count = sampleAlpha, sampleTicks
+	}
 	if seed != nil {
 		near := map[string]Point{}
 		for _, edge := range edges {
@@ -199,10 +216,6 @@ func Simulate(notes []Note, links []Link, seed map[string]Point) (map[string]Poi
 
 	s := simulation{nodes: nodes, edges: edges, index: index, random: 1}
 	s.bias()
-	alpha, count := 1.0, ticks
-	if seed != nil {
-		alpha, count = warmAlpha, warmTicks
-	}
 	for range count {
 		alpha += -alpha * alphaDecay
 		if err := s.charge(alpha); err != nil {
@@ -225,6 +238,68 @@ func Simulate(notes []Note, links []Link, seed map[string]Point) (map[string]Poi
 	positions := make(map[string]Point, len(nodes))
 	for _, n := range nodes {
 		positions[n.id] = Point{n.x, n.y}
+	}
+	return positions, nil
+}
+
+// fromSample places about sampleSize of the notes from scratch, then each other note amid its tags placed so,
+// on a disk of the room its rarest tag needs. Drawn on the ids: the same graph gives the same map.
+func fromSample(notes []Note, links []Link) (map[string]Point, error) {
+	stride := uint64(len(notes) / sampleSize)
+	draws := make([]uint64, len(notes))
+	carriers := map[string]int{}
+	picked := map[string]bool{}
+	var sample []Note
+	for i, note := range notes {
+		hash := fnv.New64a()
+		hash.Write([]byte(note.ID))
+		draws[i] = hash.Sum64()
+		if draws[i]%stride == 0 {
+			picked[note.ID] = true
+			sample = append(sample, note)
+		}
+		for _, tag := range note.Tags {
+			carriers[tag]++
+		}
+	}
+	var sampleLinks []Link
+	for _, link := range links {
+		if picked[link.Source] && picked[link.Target] {
+			sampleLinks = append(sampleLinks, link)
+		}
+	}
+	positions, err := Simulate(sample, sampleLinks, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, note := range notes {
+		if picked[note.ID] {
+			continue
+		}
+		var middle Point
+		placed, rarest := 0, 0
+		for _, tag := range note.Tags {
+			if at, ok := positions[TagNode(tag)]; ok {
+				middle.X += at.X
+				middle.Y += at.Y
+				placed++
+			}
+			if rarest == 0 || carriers[tag] < rarest {
+				rarest = carriers[tag]
+			}
+		}
+		// A note with no tag in the sample is left to Simulate, as any node the seed lacks.
+		if placed == 0 {
+			continue
+		}
+		// √ of the draw: even over the disk, not piled at its center.
+		radius := collideRadius * math.Sqrt(float64(rarest)*float64(draws[i]>>32)/(1<<32))
+		angle := float64(draws[i]&(1<<32-1)) / (1 << 32) * 2 * math.Pi
+		positions[note.ID] = Point{
+			middle.X/float64(placed) + radius*math.Cos(angle),
+			middle.Y/float64(placed) + radius*math.Sin(angle),
+		}
 	}
 	return positions, nil
 }

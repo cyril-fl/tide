@@ -211,3 +211,26 @@ func TestWarmStart(t *testing.T) {
 		t.Error("the new note did not join its tag")
 	}
 }
+
+// Past sampleLimit a sample is placed first: every note still gets its place, and a small tag still gathers its notes.
+func TestFromSample(t *testing.T) {
+	var notes []Note
+	for i := range sampleLimit + 1000 {
+		tags := []string{fmt.Sprintf("t%d", i%5)}
+		if i%700 == 0 {
+			tags = append(tags, "small")
+		}
+		notes = append(notes, note(fmt.Sprintf("n%d", i), tags...))
+	}
+	positions := layout(t, notes, []Link{{"n0", "n1"}})
+	if len(positions) != len(notes)+5+1 {
+		t.Fatalf("%d positions", len(positions))
+	}
+	// All four have the tag t0, the first two the small one too.
+	if small, big := distance(positions, "n0", "n700"), distance(positions, "n5", "n705"); small >= big {
+		t.Errorf("small tag %v, big %v", small, big)
+	}
+	if again := layout(t, notes, []Link{{"n0", "n1"}}); !maps.Equal(positions, again) {
+		t.Error("two maps")
+	}
+}

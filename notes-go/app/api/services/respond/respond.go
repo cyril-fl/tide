@@ -37,6 +37,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resetpassword"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resolveitem"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/restoreitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/searchnotes"
 )
@@ -77,13 +78,13 @@ var statuses = []struct {
 		adduser.ErrBadInvite,
 	}},
 	{http.StatusNotFound, []error{
-		deleteuser.ErrNotFound, editfolder.ErrNotFound, editnote.ErrNotFound, emptytrash.ErrNotFound, edittag.ErrNotFound, exportnotes.ErrNotFound, pinnote.ErrNotFound, readfile.ErrNotFound, readitem.ErrNotFound, readsavedsearch.ErrNotFound, readtag.ErrNotFound, resetpassword.ErrNotFound,
+		deleteuser.ErrNotFound, editfolder.ErrNotFound, editnote.ErrNotFound, emptytrash.ErrNotFound, edittag.ErrNotFound, exportnotes.ErrNotFound, pinnote.ErrNotFound, readfile.ErrNotFound, readitem.ErrNotFound, readsavedsearch.ErrNotFound, readtag.ErrNotFound, resetpassword.ErrNotFound, resolveitem.ErrNotFound,
 	}},
 	{http.StatusUnsupportedMediaType, []error{
 		createfile.ErrFileType,
 	}},
 	{http.StatusConflict, []error{
-		domain.ErrFolderExists, edittag.ErrAlreadyExists, adduser.ErrNameTaken, deleteuser.ErrSelf, deleteuser.ErrLastAdmin, moveitems.ErrCycle, restoreitems.ErrParentInTrash, patchnote.ErrLocked, patchnote.ErrStale,
+		domain.ErrFolderExists, edittag.ErrAlreadyExists, adduser.ErrNameTaken, deleteuser.ErrSelf, deleteuser.ErrLastAdmin, moveitems.ErrCycle, restoreitems.ErrParentInTrash, patchnote.ErrLocked, patchnote.ErrStale, resolveitem.ErrAmbiguous,
 	}},
 }
 

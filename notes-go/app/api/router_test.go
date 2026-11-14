@@ -271,6 +271,15 @@ func TestFoldersAndMove(t *testing.T) {
 	c.do("POST", "/api/folders", `{"title":" "}`, http.StatusBadRequest, nil)
 	c.do("POST", "/api/folders", fmt.Sprintf(`{"title":"SUB","parent_id":%q}`, folder.ID), http.StatusConflict, nil)
 
+	// The CLI's paths become ids.
+	var resolved struct{ ID string }
+	c.do("GET", "/api/resolve?kind=folder&path=/"+title+"/sub", "", http.StatusOK, &resolved)
+	if resolved.ID != sub.ID {
+		t.Errorf("resolve = %q, want %q", resolved.ID, sub.ID)
+	}
+	c.do("GET", "/api/resolve?kind=note&path=/"+title+"/sub", "", http.StatusNotFound, nil)
+	c.do("GET", "/api/resolve?path="+sub.ID, "", http.StatusNotFound, nil)
+
 	// A favorite keeps its title, and a note cannot be one through the folders.
 	c.do("PATCH", path, `{"pinned":true}`, http.StatusOK, nil)
 	if !strings.Contains(c.raw("/api/pinned"), folder.ID) || !strings.Contains(c.raw(path), title) {
@@ -892,6 +901,11 @@ func TestLogin(t *testing.T) {
 	if w := send("GET", "/api/me", "", cookies[0]); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), name) {
 		t.Errorf("me: status = %d, body = %s", w.Code, w.Body)
 	}
+	var cli struct{ Token string }
+	c.do("POST", "/api/login", fmt.Sprintf(`{"name":%q,"password":"correct horse","token":true}`, name), http.StatusOK, &cli)
+	if cli.Token == "" {
+		t.Errorf("login asking the token: none in the body")
+	}
 	if w := send("PATCH", "/api/me", `{"locale":"de"}`, cookies[0]); w.Code != http.StatusBadRequest {
 		t.Errorf("unknown locale: status = %d, want 400", w.Code)
 	}
@@ -900,11 +914,6 @@ func TestLogin(t *testing.T) {
 	}
 	if w := send("PATCH", "/api/me", `{"trash_retention_days":-1}`, cookies[0]); w.Code != http.StatusBadRequest {
 		t.Errorf("negative retention: status = %d, want 400", w.Code)
-	}
-	var cli struct{ Token string }
-	c.do("POST", "/api/login", fmt.Sprintf(`{"name":%q,"password":"correct horse","token":true}`, name), http.StatusOK, &cli)
-	if cli.Token == "" {
-		t.Errorf("login asking the token: none in the body")
 	}
 	if w := send("PATCH", "/api/me", `{"theme":"dracula","color_mode":"dark","view":"grid","plan":"pro","trash_retention_days":7}`, cookies[0]); w.Code != http.StatusOK ||
 		!strings.Contains(w.Body.String(), `"locale":"en","theme":"dracula","color_mode":"dark","view":"grid","plan":"pro","admin":false,"trash_retention_days":7`) {

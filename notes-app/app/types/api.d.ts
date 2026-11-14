@@ -2224,6 +2224,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Find the item at a path */
+        get: {
+            parameters: {
+                query: {
+                    /** @description path from the root, /Projects/Ideas */
+                    path: string;
+                    /** @description folder or note, both when left out */
+                    kind?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["readpath.Resolved"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/restore": {
         parameters: {
             query?: never;
@@ -3235,9 +3303,12 @@ export interface components {
         "createsession.Input": {
             name: string;
             password: string;
+            /** @description Token asks the token in the answer too, for a client without cookies (the CLI): the web keeps it HttpOnly. */
+            token?: boolean;
         };
         "createsession.Result": {
             expires_at: string;
+            token?: string;
             user: components["schemas"]["domain.User"];
         };
         "createtag.Body": {
@@ -3303,12 +3374,9 @@ export interface components {
         };
         "domain.SidebarSection": {
             id: string;
-            /** @description Token asks the token in the answer too, for a client without cookies (the CLI): the web keeps it HttpOnly. */
-            token?: boolean;
             shown: boolean;
         };
         "domain.Snippet": {
-            token?: string;
             content: string;
             name: string;
         };
@@ -3485,6 +3553,9 @@ export interface components {
             neighbors: components["schemas"]["readneighbors.Neighbor"][];
             neighbors_total: number;
             note: components["schemas"]["readitem.Result"];
+        };
+        "readpath.Resolved": {
+            id: string;
         };
         "readtag.Note": {
             created_at: string;

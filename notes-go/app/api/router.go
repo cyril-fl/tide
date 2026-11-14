@@ -26,6 +26,7 @@ import (
 	apireadfolder "github.com/cyril-fl/notes/notes-go/app/api/read-folder"
 	apireadgraph "github.com/cyril-fl/notes/notes-go/app/api/read-graph"
 	apireadnote "github.com/cyril-fl/notes/notes-go/app/api/read-note"
+	apireadpath "github.com/cyril-fl/notes/notes-go/app/api/read-path"
 	apireadpinned "github.com/cyril-fl/notes/notes-go/app/api/read-pinned"
 	apireadrecent "github.com/cyril-fl/notes/notes-go/app/api/read-recent"
 	apireadsearch "github.com/cyril-fl/notes/notes-go/app/api/read-search"
@@ -86,6 +87,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("DELETE /api/folders/{id}", apideletefolder.Handler(db))
 
 	mux.Handle("GET /api/items", apireadfinder.Handler(db))
+	mux.Handle("GET /api/resolve", apireadpath.Handler(db))
 	mux.Handle("POST /api/move", apimove.Handler(db))
 
 	mux.Handle("GET /api/tags", apireadtag.List(db))

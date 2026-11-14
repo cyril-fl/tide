@@ -699,6 +699,13 @@ components:
       - neighbors_total
       - note
       type: object
+    readpath.Resolved:
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      type: object
     readtag.Note:
       properties:
         created_at:
@@ -2246,6 +2253,48 @@ paths:
       summary: List the last changed notes
       tags:
       - search
+  /api/resolve:
+    get:
+      parameters:
+      - description: path from the root, /Projects/Ideas
+        in: query
+        name: path
+        required: true
+        schema:
+          type: string
+      - description: folder or note, both when left out
+        in: query
+        name: kind
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/readpath.Resolved'
+          description: OK
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Conflict
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Find the item at a path
+      tags:
+      - items
   /api/restore:
     post:
       requestBody:

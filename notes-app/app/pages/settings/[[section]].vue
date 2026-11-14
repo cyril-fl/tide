@@ -51,7 +51,7 @@ async function changeLanguage(next: string) {
 
 // The layout applies the theme of me, and saves the mode to the account whenever it changes.
 const colorMode = useColorMode();
-const sidebar = useSidebarSections();
+const { sections: sidebar } = useSidebarSections();
 const modes = computed(() => [
   { label: t('settings.modeSystem'), value: 'system', icon: icons.systemMode },
   { label: t('settings.modeLight'), value: 'light', icon: icons.lightMode },
@@ -64,10 +64,8 @@ async function changeTheme(next: string) {
 
 const { plan, has } = usePro();
 
+const sidebarSections = computed(() => sidebar.value.filter((s) => s.id !== 'savedSearches' || has('savedSearches')));
 // Read only where the section shows: it opens every note of the account.
-const sidebarSections = computed(() =>
-  (['favorites', 'pinned', 'recent', 'savedSearches'] as const).filter((s) => s !== 'savedSearches' || has(s)),
-);
 const showLinks = computed(() => show('links') && has('brokenLinks'));
 // A key per state: another section's page, still mounted during the navigation, would hand over its null.
 const { data: brokenLinks } = useLazyAsyncData(
@@ -386,10 +384,7 @@ async function deleteData() {
             <p class="text-sm">{{ $t('settings.sidebar.title') }}</p>
             <p class="text-xs text-muted">{{ $t('settings.sidebar.description') }}</p>
             <ul class="mt-3 divide-y divide-default border-default pl-4">
-              <li v-for="section in sidebarSections" :key="section" class="flex items-center gap-4 py-2">
-                <span class="min-w-0 flex-1 text-sm text-muted">{{ $t(`settings.sidebar.${section}`) }}</span>
-                <USwitch v-model="sidebar[section]" :aria-label="$t(`settings.sidebar.${section}`)" />
-              </li>
+              <SidebarSectionRow v-for="section in sidebarSections" :key="section.id" :section="section" />
             </ul>
           </li>
           <li class="flex flex-wrap items-center gap-4 px-4 py-3">

@@ -20,6 +20,7 @@ export function useIcons() {
     unfavorite: 'i-reicon-star-off',
     rename: 'i-reicon-edit',
     move: 'i-reicon-folder-move',
+    reorder: 'i-reicon-menu',
     delete: 'i-reicon-trash3',
     trash: 'i-reicon-trash2',
 

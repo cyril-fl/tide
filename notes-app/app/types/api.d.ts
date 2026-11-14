@@ -3301,6 +3301,10 @@ export interface components {
             tag_mode?: string;
             text?: string;
         };
+        "domain.SidebarSection": {
+            id: string;
+            shown: boolean;
+        };
         "domain.Snippet": {
             content: string;
             name: string;
@@ -3330,6 +3334,8 @@ export interface components {
             /** @description the features of the web app, one of Plans */
             plan: string;
             saved_searches: components["schemas"]["domain.SavedSearch"][];
+            /** @description The order of the sidebar lists and which ones show, [] for the app's default. */
+            sidebar_sections: components["schemas"]["domain.SidebarSection"][];
             snippets: components["schemas"]["domain.Snippet"][];
             /** @description the colors of the web app, one of Themes */
             theme: string;
@@ -3370,6 +3376,8 @@ export interface components {
             plan?: string;
             /** @description the whole list, it replaces the saved one */
             saved_searches?: components["schemas"]["domain.SavedSearch"][];
+            /** @description the whole list, in order */
+            sidebar_sections?: components["schemas"]["domain.SidebarSection"][];
             /** @description the whole list, it replaces the saved one */
             snippets?: components["schemas"]["domain.Snippet"][];
             theme?: string;

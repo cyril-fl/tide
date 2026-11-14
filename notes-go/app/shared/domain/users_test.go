@@ -38,3 +38,20 @@ func TestPlansMatchApp(t *testing.T) {
 		t.Errorf("features.ts has %v, domain.Plans %v", app, Plans)
 	}
 }
+
+// The web app lists the sidebar sections in sidebar.ts: one on the API's side only cannot be shown, on the app's side only is refused.
+func TestSidebarSectionsMatchApp(t *testing.T) {
+	file, err := os.ReadFile("../../../../notes-app/app/utils/sidebar.ts")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var app []string
+	if match := regexp.MustCompile(`sidebarSectionIds = \[([^\]]*)\]`).FindStringSubmatch(string(file)); match != nil {
+		for _, id := range regexp.MustCompile(`'([^']+)'`).FindAllStringSubmatch(match[1], -1) {
+			app = append(app, id[1])
+		}
+	}
+	if !slices.Equal(app, SidebarSectionIDs) {
+		t.Errorf("sidebar.ts has %v, domain.SidebarSectionIDs %v", app, SidebarSectionIDs)
+	}
+}

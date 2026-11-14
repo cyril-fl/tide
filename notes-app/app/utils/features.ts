@@ -1,5 +1,5 @@
 /** The plans, each one including those before it: a new plan is added at the end. Repeated by domain.Plans of notes-go. */
-export const plans = ['base', 'pro'] as const;
+export const plans = ['base', 'pro', 'ultra'] as const;
 export type Plan = (typeof plans)[number];
 
 /** A plan, from which the feature is available; off: for no one (unfinished, withdrawn). */
@@ -36,6 +36,8 @@ export const features = {
   tagSuggestions: 'base',
   snippets: 'base',
   savedSearches: 'pro',
+  sidebarOrder: 'pro',
+  hideFolders: 'ultra',
   search: 'base',
   favorites: 'base',
   backlinks: 'base',
@@ -77,6 +79,8 @@ const groups: Record<Feature, 'display' | 'editing' | 'navigation' | 'data' | 'i
   tagSuggestions: 'implied',
   snippets: 'editing',
   savedSearches: 'navigation',
+  sidebarOrder: 'navigation',
+  hideFolders: 'navigation',
   search: 'navigation',
   favorites: 'implied',
   backlinks: 'implied',

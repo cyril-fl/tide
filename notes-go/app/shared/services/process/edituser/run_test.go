@@ -3,6 +3,7 @@ package edituser
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
@@ -41,6 +42,8 @@ func TestInvalidInput(t *testing.T) {
 		{Input{SavedSearches: &[]domain.SavedSearch{{Name: "no id"}}}, ErrInvalidSavedSearch},
 		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", TagMode: "both"}}}, ErrInvalidSavedSearch},
 		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", FolderMode: "maybe"}}}, ErrInvalidSavedSearch},
+		{Input{SidebarSections: &[]domain.SidebarSection{{ID: "tags"}}}, ErrInvalidSidebar},
+		{Input{SidebarSections: &[]domain.SidebarSection{{ID: "recent"}, {ID: "recent"}}}, ErrInvalidSidebar},
 	}
 	for _, test := range tests {
 		process := Process(context.Background(), nil, test.input)
@@ -106,6 +109,13 @@ func TestEditUser(t *testing.T) {
 	process.Run()
 	if got := process.GetResult(); process.HasErr() || len(got.SavedSearches) != 2 || got.SavedSearches[0].Name != "Work" || got.SavedSearches[0].TagMode != "all" {
 		t.Errorf("saved searches: result = %+v, err = %v; want both saved", got.SavedSearches, process.GetErr())
+	}
+
+	sections := []domain.SidebarSection{{ID: "folders", Shown: false}, {ID: "recent", Shown: true}}
+	process = Process(ctx, tx, Input{SidebarSections: &sections})
+	process.Run()
+	if got := process.GetResult(); process.HasErr() || !slices.Equal(got.SidebarSections, sections) {
+		t.Errorf("sidebar: result = %+v, err = %v; want %+v", got.SidebarSections, process.GetErr(), sections)
 	}
 
 	process = Process(ctx, tx, Input{})

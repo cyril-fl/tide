@@ -2,6 +2,7 @@ package edituser
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -41,21 +42,23 @@ var (
 	ErrInvalidAvatar      = errors.New("the avatar is not an image of the account")
 	ErrInvalidSnippet     = fmt.Errorf("a snippet needs a name, at most %d of them of %d bytes each", MaxSnippets, MaxSnippetSize)
 	ErrInvalidSavedSearch = fmt.Errorf("a saved search needs a name and a known tag/folder mode, at most %d of them", MaxSavedSearches)
+	ErrInvalidSidebar     = errors.New("the sidebar sections are known lists, each at most once")
 )
 
 // Input holds the settings to change: a nil one is kept.
 type Input struct {
-	Locale             *string               `json:"locale,omitempty" binding:"optional"`
-	Theme              *string               `json:"theme,omitempty" binding:"optional"`
-	ColorMode          *string               `json:"color_mode,omitempty" binding:"optional"`
-	View               *string               `json:"view,omitempty" binding:"optional"`
-	Plan               *string               `json:"plan,omitempty" binding:"optional"`
-	TrashRetentionDays *int                  `json:"trash_retention_days,omitempty" binding:"optional"`
-	NeighborsLimit     *int                  `json:"neighbors_limit,omitempty" binding:"optional"` // one of domain.NeighborsLimits
-	Name               *string               `json:"name,omitempty" binding:"optional"`
-	Avatar             *string               `json:"avatar,omitempty" binding:"optional"`         // the id of an image of the account, "" for none
-	Snippets           *[]domain.Snippet     `json:"snippets,omitempty" binding:"optional"`       // the whole list, it replaces the saved one
-	SavedSearches      *[]domain.SavedSearch `json:"saved_searches,omitempty" binding:"optional"` // the whole list, it replaces the saved one
+	Locale             *string                  `json:"locale,omitempty" binding:"optional"`
+	Theme              *string                  `json:"theme,omitempty" binding:"optional"`
+	ColorMode          *string                  `json:"color_mode,omitempty" binding:"optional"`
+	View               *string                  `json:"view,omitempty" binding:"optional"`
+	Plan               *string                  `json:"plan,omitempty" binding:"optional"`
+	TrashRetentionDays *int                     `json:"trash_retention_days,omitempty" binding:"optional"`
+	NeighborsLimit     *int                     `json:"neighbors_limit,omitempty" binding:"optional"` // one of domain.NeighborsLimits
+	Name               *string                  `json:"name,omitempty" binding:"optional"`
+	Avatar             *string                  `json:"avatar,omitempty" binding:"optional"`           // the id of an image of the account, "" for none
+	Snippets           *[]domain.Snippet        `json:"snippets,omitempty" binding:"optional"`         // the whole list, it replaces the saved one
+	SavedSearches      *[]domain.SavedSearch    `json:"saved_searches,omitempty" binding:"optional"`   // the whole list, it replaces the saved one
+	SidebarSections    *[]domain.SidebarSection `json:"sidebar_sections,omitempty" binding:"optional"` // the whole list, in order
 }
 
 type run struct {
@@ -116,6 +119,8 @@ func (p *run) checkInput() {
 		p.SetErr(ErrInvalidSnippet)
 	case !validSavedSearches(p.input.SavedSearches):
 		p.SetErr(ErrInvalidSavedSearch)
+	case !validSidebar(p.input.SidebarSections):
+		p.SetErr(ErrInvalidSidebar)
 	}
 }
 
@@ -193,6 +198,14 @@ func (p *run) updateUser() {
 			query.Set("saved_searches = ?", sealed)
 		}
 
+		if p.input.SidebarSections != nil {
+			data, err := json.Marshal(*p.input.SidebarSections)
+			if err != nil {
+				return err
+			}
+			query.Set("sidebar_sections = ?", string(data))
+		}
+
 		var pgErr pgdriver.Error
 		err := query.Scan(ctx)
 		if errors.As(err, &pgErr) && pgErr.Field('C') == "23505" {
@@ -245,6 +258,21 @@ func validSavedSearches(searches *[]domain.SavedSearch) bool {
 		case len(search.TagIDs) > MaxSavedSearchIDs || len(search.FolderIDs) > MaxSavedSearchIDs:
 			return false
 		}
+	}
+	return true
+}
+
+// validSidebar accepts sidebar sections left out, or known ones each at most once.
+func validSidebar(sections *[]domain.SidebarSection) bool {
+	if sections == nil {
+		return true
+	}
+	seen := map[string]bool{}
+	for _, section := range *sections {
+		if !slices.Contains(domain.SidebarSectionIDs, section.ID) || seen[section.ID] {
+			return false
+		}
+		seen[section.ID] = true
 	}
 	return true
 }

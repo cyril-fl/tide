@@ -30,7 +30,7 @@ const settingsLinks = computed(() => [
     })),
 ]);
 
-const sections = useSidebarSections();
+const { sections } = useSidebarSections();
 const { data: pinned } = usePinned();
 const favorites = computed(() => pinned.value.filter((item) => item.kind === 'folder'));
 const pinnedNotes = computed(() => pinned.value.filter((item) => item.kind === 'note'));
@@ -63,7 +63,8 @@ const accountMenu = computed(() => [
   ],
 ]);
 
-const rootLink = useTemplateRef('rootLink');
+// Inside the v-for of the sections, where a ref by name would be an array.
+const rootLink = shallowRef<unknown>();
 const isOverRoot = useDropFolder(rootLink, () => null);
 </script>
 
@@ -204,105 +205,107 @@ const isOverRoot = useDropFolder(rootLink, () => null);
       </NuxtLink>
 
       <div class="min-h-0 flex-1 space-y-5 overflow-y-auto">
-        <section v-if="sections.favorites && favorites.length">
-          <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.favorites') }}</h2>
-          <div
-            v-for="folder in favorites"
-            :key="folder.id"
-            class="row"
-            :class="{ 'row-active': route.params.id === folder.id }"
-          >
-            <UTooltip :text="$t('sidebar.removeFavorite')">
-              <button
-                type="button"
-                class="shrink-0 text-muted hover:text-default"
-                :aria-label="$t('sidebar.removeFavorite')"
-                @click="pinItem(folder, false)"
-              >
-                <UIcon :name="icons.favorite" class="block size-4" />
-              </button>
-            </UTooltip>
-            <NuxtLink :to="`/folders/${folder.id}`" class="flex-1 self-stretch truncate leading-7">{{
-              folder.title
-            }}</NuxtLink>
-          </div>
-        </section>
+        <template v-for="s in sections" :key="s.id">
+          <section v-if="s.id === 'favorites' && s.shown && favorites.length">
+            <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.favorites') }}</h2>
+            <div
+              v-for="folder in favorites"
+              :key="folder.id"
+              class="row"
+              :class="{ 'row-active': route.params.id === folder.id }"
+            >
+              <UTooltip :text="$t('sidebar.removeFavorite')">
+                <button
+                  type="button"
+                  class="shrink-0 text-muted hover:text-default"
+                  :aria-label="$t('sidebar.removeFavorite')"
+                  @click="pinItem(folder, false)"
+                >
+                  <UIcon :name="icons.favorite" class="block size-4" />
+                </button>
+              </UTooltip>
+              <NuxtLink :to="`/folders/${folder.id}`" class="flex-1 self-stretch truncate leading-7">{{
+                folder.title
+              }}</NuxtLink>
+            </div>
+          </section>
 
-        <section v-if="sections.pinned && pinnedNotes.length">
-          <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.pinned') }}</h2>
-          <div
-            v-for="note in pinnedNotes"
-            :key="note.id"
-            class="row"
-            :class="{ 'row-active': route.params.id === note.id }"
-          >
-            <UTooltip :text="$t('sidebar.unpin')">
-              <button
-                type="button"
-                class="shrink-0 text-muted hover:text-default"
-                :aria-label="$t('sidebar.unpin')"
-                @click="pinItem(note, false)"
-              >
-                <UIcon :name="icons.pin" class="block size-4" />
-              </button>
-            </UTooltip>
-            <NuxtLink :to="`/notes/${note.id}`" class="flex min-w-0 flex-1 items-center gap-2 self-stretch leading-7">
+          <section v-if="s.id === 'pinned' && s.shown && pinnedNotes.length">
+            <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.pinned') }}</h2>
+            <div
+              v-for="note in pinnedNotes"
+              :key="note.id"
+              class="row"
+              :class="{ 'row-active': route.params.id === note.id }"
+            >
+              <UTooltip :text="$t('sidebar.unpin')">
+                <button
+                  type="button"
+                  class="shrink-0 text-muted hover:text-default"
+                  :aria-label="$t('sidebar.unpin')"
+                  @click="pinItem(note, false)"
+                >
+                  <UIcon :name="icons.pin" class="block size-4" />
+                </button>
+              </UTooltip>
+              <NuxtLink :to="`/notes/${note.id}`" class="flex min-w-0 flex-1 items-center gap-2 self-stretch leading-7">
+                <span class="truncate">{{ displayTitle(note.title, $t('untitled')) }}</span>
+                <!-- At the end of the row, in line with the chevrons of the folders. -->
+                <span v-if="note.readonly" class="ml-auto flex size-5 shrink-0 items-center justify-center">
+                  <UIcon :name="icons.lock" :aria-label="$t('note.readonly')" class="size-3.5 text-muted" />
+                </span>
+              </NuxtLink>
+            </div>
+          </section>
+
+          <section v-if="s.id === 'recent' && s.shown && recentNotes.length">
+            <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.recent') }}</h2>
+            <NuxtLink
+              v-for="note in recentNotes"
+              :key="note.id"
+              :to="`/notes/${note.id}`"
+              class="row"
+              :class="{ 'row-active': route.params.id === note.id }"
+            >
+              <UIcon :name="icons.recent" class="size-4 shrink-0 text-muted" />
               <span class="truncate">{{ displayTitle(note.title, $t('untitled')) }}</span>
               <!-- At the end of the row, in line with the chevrons of the folders. -->
               <span v-if="note.readonly" class="ml-auto flex size-5 shrink-0 items-center justify-center">
                 <UIcon :name="icons.lock" :aria-label="$t('note.readonly')" class="size-3.5 text-muted" />
               </span>
             </NuxtLink>
-          </div>
-        </section>
+          </section>
 
-        <section v-if="sections.recent && recentNotes.length">
-          <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.recent') }}</h2>
-          <NuxtLink
-            v-for="note in recentNotes"
-            :key="note.id"
-            :to="`/notes/${note.id}`"
-            class="row"
-            :class="{ 'row-active': route.params.id === note.id }"
-          >
-            <UIcon :name="icons.recent" class="size-4 shrink-0 text-muted" />
-            <span class="truncate">{{ displayTitle(note.title, $t('untitled')) }}</span>
-            <!-- At the end of the row, in line with the chevrons of the folders. -->
-            <span v-if="note.readonly" class="ml-auto flex size-5 shrink-0 items-center justify-center">
-              <UIcon :name="icons.lock" :aria-label="$t('note.readonly')" class="size-3.5 text-muted" />
-            </span>
-          </NuxtLink>
-        </section>
+          <section v-if="s.id === 'folders' && s.shown">
+            <div class="flex items-center">
+              <NuxtLink
+                :ref="(el) => (rootLink = el)"
+                to="/"
+                class="row flex-1 font-medium"
+                :class="{ 'row-active': route.path === '/', 'row-over': isOverRoot }"
+              >
+                <UIcon :name="icons.notes" class="size-4 shrink-0" />
+                {{ $t('common.notes') }}
+              </NuxtLink>
+              <UTooltip :text="$t('common.newFolder')">
+                <UButton
+                  :icon="icons.add"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :aria-label="$t('common.newFolder')"
+                  @click="createFolder()"
+                />
+              </UTooltip>
+            </div>
+            <FolderTree />
+          </section>
 
-        <section>
-          <div class="flex items-center">
-            <NuxtLink
-              ref="rootLink"
-              to="/"
-              class="row flex-1 font-medium"
-              :class="{ 'row-active': route.path === '/', 'row-over': isOverRoot }"
-            >
-              <UIcon :name="icons.notes" class="size-4 shrink-0" />
-              {{ $t('common.notes') }}
-            </NuxtLink>
-            <UTooltip :text="$t('common.newFolder')">
-              <UButton
-                :icon="icons.add"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                :aria-label="$t('common.newFolder')"
-                @click="createFolder()"
-              />
-            </UTooltip>
-          </div>
-          <FolderTree />
-        </section>
-
-        <section v-if="has('savedSearches') && sections.savedSearches && me?.saved_searches?.length">
-          <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.savedSearches') }}</h2>
-          <SavedSearchRow v-for="search in me.saved_searches" :key="search.id" :search="search" />
-        </section>
+          <section v-if="s.id === 'savedSearches' && s.shown && has('savedSearches') && me?.saved_searches?.length">
+            <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.savedSearches') }}</h2>
+            <SavedSearchRow v-for="search in me.saved_searches" :key="search.id" :search="search" />
+          </section>
+        </template>
       </div>
     </template>
 

@@ -316,10 +316,12 @@
     "modeDescription": "Light, dark, or the system's.",
     "sidebar": {
       "title": "Navigation",
-      "description": "The sidebar lists, on this device",
+      "description": "The lists of the sidebar, on every device",
       "favorites": "Favorites",
       "pinned": "Pinned notes",
       "recent": "Recent notes",
+      "folders": "Folders",
+      "reorder": "Move",
       "savedSearches": "Smart folders"
     },
     "modeSystem": "System",
@@ -358,7 +360,8 @@
     "feature": "Feature",
     "plans": {
       "base": "Standard",
-      "pro": "Advanced"
+      "pro": "Advanced",
+      "ultra": "Ultra"
     },
     "currentPlan": "Current",
     "included": "Included",
@@ -471,6 +474,8 @@
     "linkCards": "A web or mail link as a plain link, a mini card or a large card",
     "snippets": "Snippets inserted with ;; and templates for a new note, set in the settings",
     "savedSearches": "Smart folders: searches replayed, shown in the sidebar",
+    "sidebarOrder": "Reorder the lists of the sidebar, in the settings",
+    "hideFolders": "Hide the folders of the sidebar",
     "search": "Search and the Cmd K palette",
     "themes": "Color themes, in light and dark mode",
     "importExport": "Import a zip, .md files or an Obsidian vault; export everything, a folder or a selection",

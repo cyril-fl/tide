@@ -230,6 +230,16 @@ components:
       - id
       - name
       type: object
+    domain.SidebarSection:
+      properties:
+        id:
+          type: string
+        shown:
+          type: boolean
+      required:
+      - id
+      - shown
+      type: object
     domain.Snippet:
       properties:
         content:
@@ -285,6 +295,13 @@ components:
             $ref: '#/components/schemas/domain.SavedSearch'
           type: array
           uniqueItems: false
+        sidebar_sections:
+          description: The order of the sidebar lists and which ones show, [] for
+            the app's default.
+          items:
+            $ref: '#/components/schemas/domain.SidebarSection'
+          type: array
+          uniqueItems: false
         snippets:
           items:
             $ref: '#/components/schemas/domain.Snippet'
@@ -311,6 +328,7 @@ components:
       - neighbors_limit
       - plan
       - saved_searches
+      - sidebar_sections
       - snippets
       - theme
       - trash_retention_days
@@ -382,6 +400,12 @@ components:
           description: the whole list, it replaces the saved one
           items:
             $ref: '#/components/schemas/domain.SavedSearch'
+          type: array
+          uniqueItems: false
+        sidebar_sections:
+          description: the whole list, in order
+          items:
+            $ref: '#/components/schemas/domain.SidebarSection'
           type: array
           uniqueItems: false
         snippets:

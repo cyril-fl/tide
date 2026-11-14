@@ -32,7 +32,9 @@ type User struct {
 	Avatar         string        `bun:",type:uuid,nullzero" json:"avatar,omitempty"` // the id of a File of the account, purgefiles keeps it
 	Snippets       Snippets      `bun:",type:jsonb,notnull,default:'[]'" json:"snippets"`
 	SavedSearches  SavedSearches `bun:",type:jsonb,notnull,default:'[]'" json:"saved_searches"`
-	CreatedAt      time.Time     `bun:",notnull,default:current_timestamp" json:"created_at"`
+	// The order of the sidebar lists and which ones show, [] for the app's default.
+	SidebarSections []SidebarSection `bun:",type:jsonb,notnull,default:'[]'" json:"sidebar_sections"`
+	CreatedAt       time.Time        `bun:",notnull,default:current_timestamp" json:"created_at"`
 	// Bumped by the triggers of createschema at every write that changes a path, from any process: Paths reads it to
 	// know its cache is still right. From a sequence, so a rolled-back write never hands its number to another.
 	ItemsVersion int64 `bun:",notnull,default:0" json:"-"`
@@ -93,8 +95,17 @@ var (
 	Themes     = []string{"notes", "dracula", "catppuccin", "nord", "gruvbox", "everforest", "tokyo", "vue"}
 	ColorModes = []string{"system", "light", "dark"}
 	Views      = []string{"list", "grid"}
-	Plans      = []string{"base", "pro"}
+	Plans      = []string{"base", "pro", "ultra"}
 )
+
+// SidebarSection is a list of the web app's sidebar, one of SidebarSectionIDs, shown or hidden.
+type SidebarSection struct {
+	ID    string `json:"id"`
+	Shown bool   `json:"shown"`
+}
+
+// SidebarSectionIDs are the lists of the sidebar, in their default order: notes-app/app/utils/sidebar.ts repeats them, users_test.go checks they match.
+var SidebarSectionIDs = []string{"favorites", "pinned", "recent", "folders", "savedSearches"}
 
 // NeighborsLimits are the choices of User.NeighborsLimit, the first one by default; 0 shows them all.
 var NeighborsLimits = []int{50, 20, 100, 0}

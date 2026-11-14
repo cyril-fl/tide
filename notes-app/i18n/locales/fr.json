@@ -316,10 +316,12 @@
     "modeDescription": "Clair, sombre, ou celui du système.",
     "sidebar": {
       "title": "Navigation",
-      "description": "Les listes de la barre latérale, sur cet appareil",
+      "description": "Les listes de la barre latérale, sur tous les appareils",
       "favorites": "Favoris",
       "pinned": "Notes épinglées",
       "recent": "Notes récentes",
+      "folders": "Dossiers",
+      "reorder": "Déplacer",
       "savedSearches": "Dossiers intelligents"
     },
     "modeSystem": "Système",
@@ -358,7 +360,8 @@
     "feature": "Fonctionnalité",
     "plans": {
       "base": "Standard",
-      "pro": "Avancé"
+      "pro": "Avancé",
+      "ultra": "Ultra"
     },
     "currentPlan": "Actuel",
     "included": "Inclus",
@@ -471,6 +474,8 @@
     "linkCards": "Un lien web ou mail en lien simple, en mini carte ou en grande carte",
     "snippets": "Les snippets insérés avec ;; et les modèles de nouvelle note, définis dans les réglages",
     "savedSearches": "Les dossiers intelligents : des recherches rejouées, affichées dans la barre latérale",
+    "sidebarOrder": "Réordonner les listes de la barre latérale, dans les réglages",
+    "hideFolders": "Masquer les dossiers de la barre latérale",
     "search": "La recherche et la palette Cmd K",
     "themes": "Les thèmes de couleurs, en mode clair et sombre",
     "importExport": "Importer un zip, des fichiers .md ou un coffre Obsidian ; exporter tout, un dossier ou une sélection",

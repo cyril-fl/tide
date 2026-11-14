@@ -90,18 +90,23 @@ func (p *run) loadNotes() {
 		return
 	}
 	p.cache.paths = paths
+	titles, err := domain.Titles(p.ctx, p.db)
+	p.SetErr(err)
+	if p.HasErr() {
+		return
+	}
 
-	var notes []Note
+	// The ids alone: the titles come from the cache, not 50,000 opened again.
+	var ids []string
 	p.SetErr(p.db.NewRaw(`
-		SELECT id, title
+		SELECT id
 		FROM items
 		WHERE user_id = ? AND kind = ? AND deleted_at IS NULL
 		ORDER BY id`, domain.UserID(p.ctx), domain.NOTE).
-		Scan(p.ctx, &notes))
-	for _, note := range notes {
-		if path, ok := paths[note.ID]; ok {
-			note.Path = path
-			p.cache.result.Notes = append(p.cache.result.Notes, note)
+		Scan(p.ctx, &ids))
+	for _, id := range ids {
+		if path, ok := paths[id]; ok {
+			p.cache.result.Notes = append(p.cache.result.Notes, Note{ID: id, Title: secret.Text(titles[id]), Path: path})
 		}
 	}
 	// With the links, the graph has no order to show: by id, sorting 50,000 paths costs 55 ms.

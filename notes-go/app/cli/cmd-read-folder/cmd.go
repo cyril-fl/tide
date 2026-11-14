@@ -2,14 +2,15 @@ package cmdreadfolder
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"charm.land/huh/v2"
 	cmdeditfolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-folder"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
@@ -24,50 +25,71 @@ func Read(cobra *cobra.Command, args []string) error {
 	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"json": &asJSON}); err != nil {
 		return err
 	}
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	id, err := apiclient.Resolve(cobra.Context(), client, apiclient.FOLDER, args[0])
+	if err != nil {
+		return err
+	}
 	if asJSON {
-		return printJSON(cobra.Context(), args[0])
+		return printJSON(cobra.Context(), client, id)
 	}
 
 	for {
-		output, err := load(cobra.Context(), args[0])
+		folder, err := fetch(cobra.Context(), client, id)
 		if err != nil {
 			return err
 		}
 
-		edit, err := screen.Show(output)
+		edit, err := screen.Show(Output(folder, folder.Children, -1, EmptyFolder))
 		if err != nil || !edit {
 			return err
 		}
 		// An aborted form goes back to the view unchanged.
-		if err := cmdeditfolder.Interactive(cobra.Context(), args[0]); err != nil && !errors.Is(err, huh.ErrUserAborted) {
+		// TODO: ctrl+e still edits in the base, move it to PATCH /api/folders/{id} with edit folder (#148).
+		if err := cmdeditfolder.Interactive(cobra.Context(), id); err != nil && !errors.Is(err, huh.ErrUserAborted) {
 			return err
 		}
 	}
 }
 
 // printJSON gives an empty folder "children": [], not null.
-func printJSON(ctx context.Context, id string) error {
-	process := readitem.Process(ctx, postgrey.GetDb(), domain.FOLDER, id)
-	process.Run()
-	if process.HasErr() {
-		return process.GetErr()
+func printJSON(ctx context.Context, client *apiclient.ClientWithResponses, id string) error {
+	folder, err := fetch(ctx, client, id)
+	if err != nil {
+		return err
 	}
 
-	folder := process.GetResult()
 	folder.Children = append([]domain.Item{}, folder.Children...)
 	plumdebug.Json(folder)
 	return nil
 }
 
-func load(ctx context.Context, id string) (string, error) {
-	process := readitem.Process(ctx, postgrey.GetDb(), domain.FOLDER, id)
-	process.Run()
-	if process.HasErr() {
-		return "", process.GetErr()
+// fetch reads the folder through GET /api/folders/{id}, which leaves its children out, then them through
+// GET /api/items. Decoded into the domain types, not the generated ones: the output stays that of readitem.
+func fetch(ctx context.Context, client *apiclient.ClientWithResponses, id string) (readitem.Result, error) {
+	var folder readitem.Result
+	response, err := client.GetApiFoldersIdWithResponse(ctx, id)
+	if err != nil {
+		return folder, err
+	}
+	if response.JSON200 == nil {
+		return folder, apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	if err := json.Unmarshal(response.Body, &folder); err != nil {
+		return folder, err
 	}
 
-	folder := process.GetResult()
-	return Output(folder, folder.Children, -1, EmptyFolder), nil
+	children, err := client.GetApiItemsWithResponse(ctx, &apiclient.GetApiItemsParams{Parent: &id})
+	if err != nil {
+		return folder, err
+	}
+	if children.JSON200 == nil {
+		return folder, apiclient.Fail(children.HTTPResponse, children.Body)
+	}
+	return folder, json.Unmarshal(children.Body, &folder.Children)
 }
 
 // EmptyFolder is the message of a folder without children.

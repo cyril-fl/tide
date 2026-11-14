@@ -1,0 +1,73 @@
+// Package apitest serves the real API to the tests of the CLI commands that are clients of it.
+package apitest
+
+import (
+	"context"
+	"io"
+	"net/http/httptest"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/cyril-fl/notes/notes-go/app/api"
+	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/password"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
+	"github.com/uptrace/bun"
+)
+
+// Serve starts the API on a transaction of the test base, rolled back at the end, and points NOTES_URL and
+// NOTES_SESSION at it, logged in as a new account. The fixtures go into the returned tx, as that account.
+func Serve(t *testing.T) (context.Context, bun.Tx) {
+	t.Helper()
+	ctx := context.Background()
+	env := postgrey.NewEnvironment()
+	env.ReadEnv()
+	db := env.Connect()
+	t.Cleanup(func() { db.Close() })
+	schema := createschema.Process(ctx, db)
+	schema.Run()
+	if schema.HasErr() {
+		t.Fatalf("create schema: %v", schema.GetErr())
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { tx.Rollback() })
+
+	ctx, savepoint := testaccount.New(t, ctx, tx)
+	token := password.Token()
+	session := domain.Session{UserID: domain.UserID(ctx), TokenHash: password.TokenHash(token), ExpiresAt: time.Now().Add(time.Hour)}
+	if _, err := savepoint.NewInsert().Model(&session).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(api.New(savepoint, silo.NewMemory(), "", ""))
+	t.Cleanup(server.Close)
+
+	// The session file of the user, under HOME, stays untouched.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("NOTES_URL", server.URL)
+	t.Setenv("NOTES_SESSION", token)
+	return ctx, savepoint
+}
+
+// Stdout returns what print writes to stdout.
+func Stdout(t *testing.T, print func() error) (string, error) {
+	t.Helper()
+	out, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := os.Stdout
+	os.Stdout = writer
+	defer func() { os.Stdout = before }()
+
+	printErr := print()
+	writer.Close()
+	printed, _ := io.ReadAll(out)
+	return string(printed), printErr
+}

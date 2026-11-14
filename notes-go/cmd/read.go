@@ -7,7 +7,6 @@ import (
 	cmdreadfolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-folder"
 	cmdreadnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-note"
 	cmdreadtag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-tag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 )
 
 var cmdRead = &cobra.Command{
@@ -32,7 +31,7 @@ var cmdReadFloder = &cobra.Command{
 	Long:    cmd.ReadFolder.Long,
 	Example: cmd.ReadFolder.Example,
 	Args:    cobra.ExactArgs(1),
-	RunE:    resolved(domain.FOLDER, cmdreadfolder.Read),
+	RunE:    cmdreadfolder.Read,
 }
 
 var cmdReadTag = &cobra.Command{

@@ -4,9 +4,52 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
+	plumdebug "github.com/cyril-fl/plum/utils/debug"
+	"github.com/spf13/cobra"
 )
+
+// --json through the API prints what readitem gives in the base, the folder found by its path or its uuid.
+func TestReadJSON(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	folder := createfolder.Process(ctx, tx, createfolder.Input{Title: "Projects"})
+	folder.Run()
+	empty := createfolder.Process(ctx, tx, createfolder.Input{Title: "Empty"})
+	empty.Run()
+	subfolder := createfolder.Process(ctx, tx, createfolder.Input{Title: "Go", ParentID: folder.GetResult().ID})
+	subfolder.Run()
+	note := createnote.Process(ctx, tx, createnote.Input{Content: "# Ideas", ParentID: folder.GetResult().ID})
+	note.Run()
+	if folder.HasErr() || empty.HasErr() || subfolder.HasErr() || note.HasErr() {
+		t.Fatal(folder.GetErr(), empty.GetErr(), subfolder.GetErr(), note.GetErr())
+	}
+
+	for ref, id := range map[string]string{"/Projects": folder.GetResult().ID, folder.GetResult().ID: folder.GetResult().ID, "/Empty": empty.GetResult().ID} {
+		process := readitem.Process(ctx, tx, domain.FOLDER, id)
+		process.Run()
+		if process.HasErr() {
+			t.Fatal(process.GetErr())
+		}
+		want, _ := apitest.Stdout(t, func() error {
+			result := process.GetResult()
+			result.Children = append([]domain.Item{}, result.Children...)
+			plumdebug.Json(result)
+			return nil
+		})
+
+		command := &cobra.Command{}
+		command.Flags().Bool("json", true, "")
+		command.SetContext(ctx)
+		got, err := apitest.Stdout(t, func() error { return Read(command, []string{ref}) })
+		if err != nil || got != want {
+			t.Errorf("%s: printed %s, err = %v; want %s", ref, got, err, want)
+		}
+	}
+}
 
 func TestInfo(t *testing.T) {
 	created := time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC)

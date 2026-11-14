@@ -54,6 +54,17 @@
     "fromSnippet": "Nouvelle note depuis un snippet",
     "moveTo": "Déplacer vers…",
     "theme": "Changer de thème",
+    "replace": {
+      "action": "Remplacer dans toutes les notes",
+      "submit": "Tout remplacer",
+      "find": "Texte à remplacer",
+      "with": "Remplacer « {find} » par",
+      "confirm": "Remplacer « {find} » par « {replace} » ?",
+      "notes": "{occurrences} occurrence dans {n} note. | {occurrences} occurrences dans {n} notes.",
+      "locked": "Une note verrouillée reste telle quelle. | {n} notes verrouillées restent telles quelles.",
+      "none": "Aucune note modifiable ne contient « {find} ».",
+      "done": "{n} note modifiée | {n} notes modifiées"
+    },
     "saved": {
       "add": "Dossier intelligent",
       "edit": "Modifier le dossier intelligent",

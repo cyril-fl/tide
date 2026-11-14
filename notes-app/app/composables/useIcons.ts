@@ -27,6 +27,7 @@ export function useIcons() {
     // Navigation
     search: 'i-reicon-search',
     searchEmpty: 'i-reicon-search-minus',
+    replace: 'i-reicon-arrow-swap-horizontal',
     graph: 'i-reicon-nodes',
     expand: 'i-reicon-expand',
     settings: 'i-reicon-setting',

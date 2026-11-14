@@ -54,6 +54,17 @@
     "fromSnippet": "New note from a snippet",
     "moveTo": "Move to…",
     "theme": "Change theme",
+    "replace": {
+      "action": "Replace in every note",
+      "submit": "Replace all",
+      "find": "Text to replace",
+      "with": "Replace “{find}” with",
+      "confirm": "Replace “{find}” with “{replace}”?",
+      "notes": "{occurrences} occurrence in {n} note. | {occurrences} occurrences in {n} notes.",
+      "locked": "One locked note stays as it is. | {n} locked notes stay as they are.",
+      "none": "No editable note contains “{find}”.",
+      "done": "{n} note changed | {n} notes changed"
+    },
     "saved": {
       "add": "Smart folder",
       "edit": "Edit the smart folder",

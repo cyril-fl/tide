@@ -8,6 +8,7 @@ export type TagCount = Schemas['counttags.TagCount'];
 export type NoteStats = Schemas['countnotes.Stats'];
 export type TagDetail = Schemas['readtag.Result'];
 export type Match = Schemas['searchnotes.Match'];
+export type ReplaceResult = Schemas['replacenotes.Result'];
 export type Trashed = Schemas['listtrash.Trashed'];
 export type Neighbors = Schemas['readneighbors.Result'];
 export type NotesGraph = Schemas['readgraph.Result'];

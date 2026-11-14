@@ -30,3 +30,13 @@ func TestFolderOptions(t *testing.T) {
 		t.Errorf("options = %+v, want / then the paths", options)
 	}
 }
+
+func TestEscQuits(t *testing.T) {
+	var content string
+	text := []huh.Field{huh.NewText().Value(&content)}
+	list := []huh.Field{huh.NewSelect[string]().Options(huh.NewOptions("a")...)}
+
+	if hasSelect(text) || !hasSelect(list) {
+		t.Errorf("hasSelect = %v, %v; want false for a text, true for a list", hasSelect(text), hasSelect(list))
+	}
+}

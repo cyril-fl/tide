@@ -50,7 +50,7 @@ func fit(fields []huh.Field, width, height int) *huh.Form {
 }
 
 func build(fields []huh.Field) *huh.Form {
-	form := huh.NewForm(huh.NewGroup(fields...)).WithKeyMap(keyMap()).WithTheme(huh.ThemeFunc(theme))
+	form := huh.NewForm(huh.NewGroup(fields...)).WithKeyMap(keyMap(!hasSelect(fields))).WithTheme(huh.ThemeFunc(theme))
 	if Input != nil {
 		form = form.WithInput(Input).WithOutput(io.Discard)
 	}
@@ -66,10 +66,24 @@ func lastText(fields []huh.Field) *huh.Text {
 	return nil
 }
 
+// hasSelect tells a form with a list: esc closes its filter, so it cannot leave the form.
+func hasSelect(fields []huh.Field) bool {
+	for _, field := range fields {
+		switch field.(type) {
+		case *huh.Select[string], *huh.MultiSelect[string]:
+			return true
+		}
+	}
+	return false
+}
+
 // keyMap makes the content field behave like an editor: enter adds a line, ctrl+enter moves on.
-// tab stays as a fallback for terminals that cannot tell ctrl+enter from enter.
-func keyMap() *huh.KeyMap {
+// tab stays as a fallback for terminals that cannot tell ctrl+enter from enter. esc leaves without saving, like ctrl+c.
+func keyMap(escQuits bool) *huh.KeyMap {
 	keys := huh.NewDefaultKeyMap()
+	if escQuits {
+		keys.Quit = shortcut("Cancel", plumtypes.KEY_ESC, plumtypes.SHORT_CTRL_C)
+	}
 	keys.Input.Prev = shortcut("Back", plumtypes.KEY_SHIFT_TAB)
 	keys.Input.Next = shortcut("Next", plumtypes.KEY_ENTER, plumtypes.KEY_TAB)
 	keys.Input.Submit = shortcut("Submit", plumtypes.KEY_ENTER)

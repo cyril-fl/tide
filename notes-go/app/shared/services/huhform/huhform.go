@@ -6,8 +6,10 @@ import (
 	"os"
 
 	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
 	plumtypes "github.com/cyril-fl/plum/types"
 	"golang.org/x/term"
@@ -18,7 +20,7 @@ import (
 var Input io.Reader
 
 // New builds a one-group form with the shared key map and theme, as tall as the terminal.
-// The help line always shows so the form keeps its height when an error replaces it.
+// The help line always shows so the form keeps its height when an error replaces it; the cancel line goes under it.
 func New(fields ...huh.Field) *huh.Form {
 	width, height, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
@@ -37,7 +39,7 @@ func fit(fields []huh.Field, width, height int) *huh.Form {
 
 	probe := build(fields).WithWidth(width)
 	probe.Init()
-	extra := height - lipgloss.Height(probe.View())
+	extra := height - 1 - lipgloss.Height(probe.View()) // 1: the cancel line added by withCancel
 	if extra <= 0 {
 		return build(fields)
 	}
@@ -46,11 +48,11 @@ func fit(fields []huh.Field, width, height int) *huh.Form {
 		return build(fields)
 	}
 	// WithHeight sizes the group, the help line comes on top of it.
-	return build(fields).WithHeight(height - 1)
+	return build(fields).WithHeight(height - 2)
 }
 
 func build(fields []huh.Field) *huh.Form {
-	form := huh.NewForm(huh.NewGroup(fields...)).WithKeyMap(keyMap()).WithTheme(huh.ThemeFunc(theme))
+	form := huh.NewForm(huh.NewGroup(fields...)).WithKeyMap(keyMap()).WithTheme(huh.ThemeFunc(theme)).WithViewHook(withCancel)
 	if Input != nil {
 		form = form.WithInput(Input).WithOutput(io.Discard)
 	}
@@ -66,10 +68,17 @@ func lastText(fields []huh.Field) *huh.Text {
 	return nil
 }
 
+// withCancel shows the quit key under the form: huh's help line only lists the field's keys.
+func withCancel(v tea.View) tea.View {
+	v.Content += "\n" + screen.Footer(screen.Hint{Key: plumtypes.SHORT_CTRL_Q, Label: "Cancel"})
+	return v
+}
+
 // keyMap makes the content field behave like an editor: enter adds a line, ctrl+enter moves on.
 // tab stays as a fallback for terminals that cannot tell ctrl+enter from enter.
 func keyMap() *huh.KeyMap {
 	keys := huh.NewDefaultKeyMap()
+	keys.Quit = shortcut("Cancel", plumtypes.SHORT_CTRL_Q, plumtypes.SHORT_CTRL_C)
 	keys.Input.Prev = shortcut("Back", plumtypes.KEY_SHIFT_TAB)
 	keys.Input.Next = shortcut("Next", plumtypes.KEY_ENTER, plumtypes.KEY_TAB)
 	keys.Input.Submit = shortcut("Submit", plumtypes.KEY_ENTER)

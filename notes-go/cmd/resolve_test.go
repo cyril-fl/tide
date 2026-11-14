@@ -1,14 +1,12 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
 	"github.com/spf13/cobra"
@@ -58,23 +56,6 @@ func TestReadContent(t *testing.T) {
 func TestReadContentNoFlag(t *testing.T) {
 	if err := readContent(pflag.NewFlagSet("test", pflag.ContinueOnError), strings.NewReader("")); err != nil {
 		t.Fatal(err)
-	}
-}
-
-// No DB needed: uuids are not looked up, so a nil db is never touched.
-func TestResolveRefsKeepsUuids(t *testing.T) {
-	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	flags.String("parent", "", "")
-	if err := flags.Parse([]string{"--parent", "parent-uuid"}); err != nil {
-		t.Fatal(err)
-	}
-
-	ids, err := resolveRefs(context.Background(), nil, domain.NOTE, []string{"a", "b"}, flags)
-	if err != nil || strings.Join(ids, ",") != "a,b" {
-		t.Fatalf("ids = %v, %v", ids, err)
-	}
-	if got, _ := flags.GetString("parent"); got != "parent-uuid" {
-		t.Errorf("parent = %q", got)
 	}
 }
 

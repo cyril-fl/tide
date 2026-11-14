@@ -16,7 +16,7 @@ import (
 func Import(cobra *cobra.Command, args []string) error {
 	input := importnotes.Input{Dir: os.DirFS(args[0])}
 	if parent, _ := cobra.Flags().GetString("parent"); parent != "" {
-		// Not cmd's resolved(): it would read the directory, a path too, as an item.
+		// Not cmd's apiResolved(): it would read the directory, a path too, as an item.
 		resolve := resolveitem.Process(cobra.Context(), postgrey.GetDb(), domain.FOLDER, []string{parent})
 		resolve.Run()
 		if resolve.HasErr() {

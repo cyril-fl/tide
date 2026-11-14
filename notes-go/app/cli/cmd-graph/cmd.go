@@ -2,15 +2,15 @@ package cmdgraph
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	cmdeditnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-note"
 	cmdreadnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-note"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/navigator"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listnotetags"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readgraph"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readneighbors"
 	"github.com/spf13/cobra"
@@ -44,12 +44,27 @@ func loadPage(ctx context.Context, target navigator.Target) (navigator.Page, err
 	return notesPage(ctx)
 }
 
-// notesPage lists every note with how many [[links]] and tags join it to the others, like the web graph.
+// notesPage lists every note with how many [[links]] and tags join it to the others, like the web graph, through
+// GET /api/graph/notes.
+// TODO: the route also lays the graph out (and saves the layout when the graph changed), which the CLI does not show,
+// add a way to skip it if it slows the CLI down on a big account.
 func notesPage(ctx context.Context) (navigator.Page, error) {
-	process := readgraph.Process(ctx, postgrey.GetDb(), true)
-	process.Run()
-
-	result := process.GetResult()
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return navigator.Page{}, err
+	}
+	response, err := client.GetApiGraphNotesWithResponse(ctx)
+	if err != nil {
+		return navigator.Page{}, err
+	}
+	if response.JSON200 == nil {
+		return navigator.Page{}, apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	// Decoded into the processes' types, not the generated ones: the pages stay those of the processes.
+	var result readgraph.Result
+	if err := json.Unmarshal(response.Body, &result); err != nil {
+		return navigator.Page{}, err
+	}
 	domain.SortFold(result.Notes, func(n readgraph.Note) string { return n.Path }, nil)
 	linked := map[string]int{}
 	for _, link := range result.Links {
@@ -64,15 +79,27 @@ func notesPage(ctx context.Context) (navigator.Page, error) {
 			Target: navigator.Target{Kind: navigator.KindNote, Key: note.ID},
 		})
 	}
-	return p, process.GetErr()
+	return p, nil
 }
 
+// notePage reads the note and its neighbors through GET /api/notes/{id}/neighbors.
 func notePage(ctx context.Context, id string) (navigator.Page, error) {
-	process := readneighbors.Process(ctx, postgrey.GetDb(), id)
-	process.Run()
-
-	result := process.GetResult()
-	tags, err := linkedTags(ctx, append(result.Links, result.Backlinks...))
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return navigator.Page{}, err
+	}
+	response, err := client.GetApiNotesIdNeighborsWithResponse(ctx, id)
+	if err != nil {
+		return navigator.Page{}, err
+	}
+	if response.JSON200 == nil {
+		return navigator.Page{}, apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	var result readneighbors.Result
+	if err := json.Unmarshal(response.Body, &result); err != nil {
+		return navigator.Page{}, err
+	}
+	tags, err := linkedTags(ctx, client, append(result.Links, result.Backlinks...))
 	if err != nil {
 		return navigator.Page{}, err
 	}
@@ -95,18 +122,16 @@ func notePage(ctx context.Context, id string) (navigator.Page, error) {
 			Target: navigator.Target{Kind: navigator.KindNote, Key: neighbor.ID},
 		})
 	}
-	return p, process.GetErr()
+	return p, nil
 }
 
 // linkedTags reads the tags of the linked notes: readneighbors gives them only to the neighbors.
-func linkedTags(ctx context.Context, notes []readneighbors.Linked) (map[string][]string, error) {
+func linkedTags(ctx context.Context, client *apiclient.ClientWithResponses, notes []readneighbors.Linked) (map[string][]string, error) {
 	ids := make([]string, len(notes))
 	for i, note := range notes {
 		ids[i] = note.ID
 	}
-	process := listnotetags.Process(ctx, postgrey.GetDb(), ids)
-	process.Run()
-	return process.GetResult(), process.GetErr()
+	return apiclient.NoteTags(ctx, client, ids)
 }
 
 // linkedRows lists the notes at the other end of the [[links]], same columns as the neighbors.

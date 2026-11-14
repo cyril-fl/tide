@@ -33,3 +33,15 @@ func Tags(ctx context.Context, client *ClientWithResponses) ([]domain.Tag, error
 	var tags []domain.Tag
 	return tags, json.Unmarshal(response.Body, &tags)
 }
+
+// NoteTags is the tags of each note of ids by id, through POST /api/notes/tags; a note without tags is missing.
+func NoteTags(ctx context.Context, client *ClientWithResponses, ids []string) (map[string][]string, error) {
+	response, err := client.PostApiNotesTagsWithResponse(ctx, ReadnotetagsBody{Ids: ids})
+	if err != nil {
+		return nil, err
+	}
+	if response.JSON200 == nil {
+		return nil, Fail(response.HTTPResponse, response.Body)
+	}
+	return *response.JSON200, nil
+}

@@ -2,7 +2,7 @@ package cmd
 
 import (
 	cmdgraph "github.com/cyril-fl/notes/notes-go/app/cli/cmd-graph"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/spf13/cobra"
 )
 
@@ -12,7 +12,7 @@ var cmdGraph = &cobra.Command{
 	Long:    cmd.ShowGraph.Long,
 	Example: cmd.ShowGraph.Example,
 	Args:    cobra.MaximumNArgs(1),
-	RunE:    resolved(domain.NOTE, cmdgraph.Graph),
+	RunE:    apiResolved(apiclient.NOTE, cmdgraph.Graph),
 }
 
 func init() {

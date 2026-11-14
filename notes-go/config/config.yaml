@@ -233,9 +233,14 @@ commands:
   search:
     use: "search <text>"
     short: "Find notes by their title or content"
-    long: "List the notes whose title or content contains the text (case-insensitive), title matches first. Enter opens a note."
-    example: "notes search recette\nnotes search \"pâte brisée\"\nnotes search recette --json"
+    long: "List the notes whose title or content contains the text (case-insensitive), title matches first, 50 of them unless --limit says otherwise. Enter opens a note."
+    example: "notes search recette\nnotes search \"pâte brisée\"\nnotes search recette --json\nnotes search recette --limit 0"
     args:
+      - name: "limit"
+        shorthand: ""
+        value: "50"
+        usage: "How many notes at most, 0 for all of them"
+        type: "int"
       - name: "json"
         shorthand: ""
         value: ""

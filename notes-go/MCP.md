@@ -156,7 +156,7 @@ en langage naturel : « range mes notes de réunion de novembre dans /Travail/R�
 
 | Outil | Ce qu'il fait |
 |---|---|
-| `search_notes` | Les notes dont le titre ou le contenu contient un texte, avec la ligne trouvée |
+| `search_notes` | Les notes dont le titre ou le contenu contient un texte, avec la ligne trouvée : les 50 premières, ou `limit` (0 pour toutes) |
 | `recent_notes` | Les notes modifiées le plus récemment, la plus récente d'abord |
 | `read_note` | Le contenu d'une note, son chemin et ses tags |
 | `list_folder` | Les notes et dossiers directement dans un dossier |

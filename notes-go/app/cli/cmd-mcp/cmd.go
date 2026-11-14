@@ -68,8 +68,13 @@ type note struct {
 	Readonly bool     `json:"readonly,omitempty"`
 }
 
+// searchLimit is how many notes search_notes gives when the agent names no limit: a common word matches tens of
+// thousands of them, megabytes an agent cannot read.
+const searchLimit = 50
+
 type searchArgs struct {
-	Text string `json:"text" jsonschema:"the text to find in the title or the content of the notes"`
+	Text  string `json:"text" jsonschema:"the text to find in the title or the content of the notes"`
+	Limit *int   `json:"limit,omitempty" jsonschema:"how many notes at most, 50 when left out, 0 for all of them"`
 }
 
 type noteArgs struct {
@@ -203,9 +208,13 @@ func Serve(cobra *cobra.Command, _ []string) error {
 func AddTools(server *mcp.Server, ctx context.Context) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_notes",
-		Description: "Find the notes whose title or content contains a text, with the line where it was found.",
+		Description: "Find the notes whose title or content contains a text, with the line where it was found: the first 50, title matches first, unless limit says otherwise.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, []searchnotes.Match, error) {
-		process := searchnotes.Process(ctx, postgrey.GetDb(), args.Text)
+		limit := searchLimit
+		if args.Limit != nil {
+			limit = max(*args.Limit, 0)
+		}
+		process := searchnotes.Process(ctx, postgrey.GetDb(), args.Text).Page(limit, 0)
 		process.Run()
 		if process.HasErr() {
 			return nil, nil, process.GetErr()

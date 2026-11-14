@@ -99,6 +99,7 @@ Une note n'a pas de titre à part : c'est son premier titre markdown (`#`, `##`�
 notes finder [dossier]    # explorer, ouvrir, modifier, créer, supprimer
 notes graph [note]        # naviguer entre les notes qui partagent des tags
 notes search recette      # chercher dans les titres et le contenu
+notes search recette --limit 0   # toutes les notes trouvées, 50 sans --limit
 notes recent              # les 20 dernières notes modifiées
 ```
 

@@ -1233,8 +1233,14 @@ paths:
         schema:
           type: string
       responses:
-        "204":
-          description: No Content
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/domain.Item'
+                type: array
+          description: OK
         "404":
           content:
             application/json:
@@ -1940,8 +1946,14 @@ paths:
         schema:
           type: string
       responses:
-        "204":
-          description: No Content
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/domain.Item'
+                type: array
+          description: OK
         "404":
           content:
             application/json:
@@ -2627,8 +2639,14 @@ paths:
         schema:
           type: string
       responses:
-        "204":
-          description: No Content
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/domain.Tag'
+                type: array
+          description: OK
         "404":
           content:
             application/json:

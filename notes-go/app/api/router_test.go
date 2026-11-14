@@ -238,7 +238,7 @@ func TestNotes(t *testing.T) {
 	c.do("GET", "/api/notes/"+unknownID, "", http.StatusNotFound, nil)
 	c.do("GET", "/api/notes/nope", "", http.StatusNotFound, nil)
 
-	c.do("DELETE", path, "", http.StatusNoContent, nil)
+	c.do("DELETE", path, "", http.StatusOK, nil)
 	c.do("GET", path, "", http.StatusNotFound, nil)
 	c.do("DELETE", path, "", http.StatusNotFound, nil)
 	c.do("DELETE", "/api/notes/nope", "", http.StatusNotFound, nil)
@@ -370,7 +370,11 @@ func TestFoldersAndMove(t *testing.T) {
 	c.do("POST", "/api/move", `{"ids":["nope"]}`, http.StatusBadRequest, nil)
 
 	// Removing a folder takes its content, and the trash shows it once.
-	c.do("DELETE", path, "", http.StatusNoContent, nil)
+	var removed []item
+	c.do("DELETE", path, "", http.StatusOK, &removed)
+	if len(removed) != 3 {
+		t.Errorf("removed = %+v", removed)
+	}
 	c.do("GET", "/api/notes/"+note.ID, "", http.StatusNotFound, nil)
 	var trash []struct {
 		ID     string `json:"id"`
@@ -402,8 +406,8 @@ func TestEmptyTrash(t *testing.T) {
 	c.do("POST", "/api/notes", fmt.Sprintf(`{"content":"C","parent_id":%q}`, folder.ID), http.StatusCreated, &inside)
 	c.do("POST", "/api/notes", `{"content":"C"}`, http.StatusCreated, &removed)
 	c.do("POST", "/api/notes", `{"content":"C"}`, http.StatusCreated, &live)
-	c.do("DELETE", "/api/folders/"+folder.ID, "", http.StatusNoContent, nil)
-	c.do("DELETE", "/api/notes/"+removed.ID, "", http.StatusNoContent, nil)
+	c.do("DELETE", "/api/folders/"+folder.ID, "", http.StatusOK, nil)
+	c.do("DELETE", "/api/notes/"+removed.ID, "", http.StatusOK, nil)
 
 	// One removal goes alone, its content with it; a live item is not in the trash.
 	c.do("DELETE", "/api/trash/"+folder.ID, "", http.StatusNoContent, nil)
@@ -629,7 +633,7 @@ func TestTagsAndGraph(t *testing.T) {
 	}
 	c.do("PATCH", "/api/tags/"+unique("unknown"), `{"value":"x"}`, http.StatusNotFound, nil)
 
-	c.do("DELETE", "/api/tags/"+renamed, "", http.StatusNoContent, nil)
+	c.do("DELETE", "/api/tags/"+renamed, "", http.StatusOK, nil)
 	c.do("DELETE", "/api/tags/"+renamed, "", http.StatusNotFound, nil)
 
 	// Last: the unique violation aborts the transaction.

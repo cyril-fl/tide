@@ -5456,10 +5456,17 @@ func (r PostApiFoldersResponse) ContentType() string {
 type DeleteApiFoldersIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]DomainItem
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *RespondFailure
 	// JSON500 the response for an HTTP 500 `application/json` response
 	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeleteApiFoldersIdResponse) GetJSON200() *[]DomainItem {
+	return r.JSON200
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -6736,10 +6743,17 @@ func (r PostApiNotesTagsResponse) ContentType() string {
 type DeleteApiNotesIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]DomainItem
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *RespondFailure
 	// JSON500 the response for an HTTP 500 `application/json` response
 	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeleteApiNotesIdResponse) GetJSON200() *[]DomainItem {
+	return r.JSON200
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -7748,10 +7762,17 @@ func (r PostApiTagsResponse) ContentType() string {
 type DeleteApiTagsValueResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]DomainTag
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *RespondFailure
 	// JSON500 the response for an HTTP 500 `application/json` response
 	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeleteApiTagsValueResponse) GetJSON200() *[]DomainTag {
+	return r.JSON200
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -9526,8 +9547,12 @@ func ParseDeleteApiFoldersIdResponse(rsp *http.Response) (*DeleteApiFoldersIdRes
 	}
 
 	switch {
-	case rsp.StatusCode == 204:
-		break // No content-type
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []DomainItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest RespondFailure
@@ -10497,8 +10522,12 @@ func ParseDeleteApiNotesIdResponse(rsp *http.Response) (*DeleteApiNotesIdRespons
 	}
 
 	switch {
-	case rsp.StatusCode == 204:
-		break // No content-type
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []DomainItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest RespondFailure
@@ -11272,8 +11301,12 @@ func ParseDeleteApiTagsValueResponse(rsp *http.Response) (*DeleteApiTagsValueRes
 	}
 
 	switch {
-	case rsp.StatusCode == 204:
-		break // No content-type
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []DomainTag
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest RespondFailure

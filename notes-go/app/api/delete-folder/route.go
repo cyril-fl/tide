@@ -11,12 +11,12 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// Handler moves the folder and its content to the trash: DELETE /api/folders/{id}.
+// Handler moves the folder and its content to the trash and answers every item moved: DELETE /api/folders/{id}.
 // @Summary  Move a folder and its content to the trash
 // @Tags     folders
 // @Produce  json
 // @Param    id path string true "uuid"
-// @Success  204
+// @Success  200 {array} domain.Item
 // @Failure  404 {object} respond.Failure
 // @Failure  500 {object} respond.Failure
 // @Router   /api/folders/{id} [delete]
@@ -38,6 +38,6 @@ func Handler(db bun.IDB) http.HandlerFunc {
 			respond.Error(w, fmt.Errorf("%w: %q", readitem.ErrNotFound, id))
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		respond.List(w, http.StatusOK, process.GetResult())
 	}
 }

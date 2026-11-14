@@ -10,12 +10,12 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// Handler deletes a tag, not the notes carrying it: DELETE /api/tags/{value}.
+// Handler deletes a tag, not the notes carrying it, and answers the tag deleted: DELETE /api/tags/{value}.
 // @Summary  Delete a tag and erase it from the text of its notes
 // @Tags     tags
 // @Produce  json
 // @Param    value path string true "tag"
-// @Success  204
+// @Success  200 {array} domain.Tag
 // @Failure  404 {object} respond.Failure
 // @Failure  500 {object} respond.Failure
 // @Router   /api/tags/{value} [delete]
@@ -33,6 +33,6 @@ func Handler(db bun.IDB) http.HandlerFunc {
 			respond.Error(w, fmt.Errorf("%w: %q", readtag.ErrNotFound, value))
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		respond.List(w, http.StatusOK, process.GetResult())
 	}
 }

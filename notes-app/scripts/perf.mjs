@@ -42,7 +42,7 @@ for (const path of [
   '/api/graph/notes',
   `/api/notes?q=${word}`,
   `/api/notes/${note.id}/neighbors`,
-  `/api/search?q=${word}`,
+  `/api/search?q=${word}&limit=200&offset=0`, // the first page, as the search page asks for it (usePages)
   `/api/tags/${encodeURIComponent(tag.value)}`,
   '/api/recent',
 ]) {

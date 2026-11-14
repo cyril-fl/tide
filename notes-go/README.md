@@ -50,6 +50,7 @@ notes user add cyril            # demande le mot de passe deux fois (8 caractèr
 notes login https://notes.example.ts.net  # nom et mot de passe sur ce serveur, puis toutes les commandes agissent pour ce compte
 notes logout                    # coupe aussi la session sur le serveur
 notes whoami                    # le compte et le serveur pour lesquels la CLI agit
+make connect TO=fedora          # dans le repo : login sur NOTES_FEDORA_URL du .env, ou TO=local sur l'API de make api
 notes reset-password cyril      # mot de passe oublié : nouveau mot de passe, tous les appareils déconnectés
 notes rotate-secret             # rechiffre les clés des comptes par un nouveau NOTES_SECRET (voir Chiffrement)
 notes account purge             # vide le compte connecté (notes, dossiers, tags, images), après avoir tapé son nom

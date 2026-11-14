@@ -53,9 +53,10 @@ api:
 	@VERSION=$$(git describe --tags --always --dirty) docker compose up -d --build api
 
 # Generates docs/swagger.yaml from the @ comments of app/api; no docs.go, the binary stays out of it.
-# Every field is required unless tagged binding:"optional".
+# Every field is required unless tagged binding:"optional". Then the CLI's client of the API from it.
 openapi:
 	go tool swag init --v3.1 --requiredByDefault -d app/api,app/shared -g router.go -o docs --outputTypes yaml
+	go tool oapi-codegen -generate types,client -package apiclient -o app/cli/services/apiclient/client.gen.go docs/swagger.yaml
 
 up:
 	@colima start && docker compose up -d

@@ -163,6 +163,7 @@ func List(db bun.IDB) http.HandlerFunc {
 // Delete deletes an account for good, with everything it holds: DELETE /api/users/{id}.
 // @Summary  Delete an account and all its data
 // @Tags     admin
+// @Param    id path string true "uuid"
 // @Success  204
 // @Failure  400 {object} respond.Failure
 // @Failure  401 {object} respond.Failure
@@ -194,6 +195,7 @@ func Delete(db bun.IDB, store silo.Store) http.HandlerFunc {
 // The password is in the answer and nowhere else.
 // @Summary  Reset the password of an account
 // @Tags     admin
+// @Param    id path string true "uuid"
 // @Produce  json
 // @Success  200 {object} Reset
 // @Failure  400 {object} respond.Failure
@@ -299,6 +301,7 @@ func Invites(db bun.IDB) http.HandlerFunc {
 // Revoke makes an invitation unusable: DELETE /api/invites/{id}.
 // @Summary  Revoke an invitation
 // @Tags     admin
+// @Param    id path string true "uuid"
 // @Success  204
 // @Failure  401 {object} respond.Failure
 // @Failure  403 {object} respond.Failure

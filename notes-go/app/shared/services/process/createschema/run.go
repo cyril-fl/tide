@@ -181,6 +181,8 @@ func getIndexes(tx bun.Tx) []*bun.CreateIndexQuery {
 		tx.NewCreateIndex().Model((*domain.Item)(nil)).Index(domain.FolderNameIndex).Unique().
 			ColumnExpr("user_id, coalesce(parent_id, '00000000-0000-0000-0000-000000000000'), title_hash").
 			Where("kind = ? AND deleted_at IS NULL", domain.FOLDER),
+		// linknotes.Resolve: the notes a [[link]] names.
+		tx.NewCreateIndex().Model((*domain.Item)(nil)).Index("idx_items_user_title_hash").ColumnExpr("user_id, title_hash"),
 		// The primary key (source_id, target_id) only covers the links of a note, not its backlinks.
 		tx.NewCreateIndex().Model((*domain.NoteLink)(nil)).Index("idx_notes_on_links_target_id").Column("target_id"),
 		tx.NewCreateIndex().Model((*domain.NoteFile)(nil)).Index("idx_notes_on_files_file_id").Column("file_id"),

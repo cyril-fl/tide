@@ -215,9 +215,15 @@ func Resolve(ctx context.Context, db bun.IDB, target string) (string, string, er
 	if err != nil {
 		return "", "", err
 	}
-	err = db.NewRaw(domain.LiveCTE+`
-		SELECT i.id, i.title FROM items AS i JOIN live ON live.id = i.id
-		WHERE i.kind = ? AND i.title_hash = ? LIMIT 2`, domain.UserID(ctx), domain.NOTE, hash).Scan(ctx, &notes)
+	// Live: no folder up to the root is trashed. Walked up from the notes with that title, not down the whole tree.
+	err = db.NewRaw(`
+		WITH RECURSIVE up AS (
+			SELECT id AS note, id, parent_id, deleted_at FROM items WHERE user_id = ? AND kind = ? AND title_hash = ?
+			UNION ALL SELECT up.note, i.id, i.parent_id, i.deleted_at FROM items AS i JOIN up ON i.id = up.parent_id
+		)
+		SELECT i.id, i.title FROM items AS i WHERE i.id IN (
+			SELECT note FROM up GROUP BY note HAVING bool_and(deleted_at IS NULL)
+		) LIMIT 2`, domain.UserID(ctx), domain.NOTE, hash).Scan(ctx, &notes)
 	if err != nil || len(notes) != 1 {
 		return "", "", err
 	}

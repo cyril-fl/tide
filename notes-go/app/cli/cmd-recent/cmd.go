@@ -2,35 +2,35 @@ package cmdrecent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	cmdeditnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-note"
 	cmdreadnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-note"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/navigator"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listrecent"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/spf13/cobra"
 )
 
-// Recent lists the last changed notes; ↳ opens one, ^E edits it, --json prints them for scripts.
+// Recent lists the last changed notes, through GET /api/recent; ↳ opens one, ^E edits it, --json prints them for
+// scripts.
 func Recent(cobra *cobra.Command, args []string) error {
 	ctx := cobra.Context()
-
 	var asJSON bool
 	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"json": &asJSON}); err != nil {
 		return err
 	}
-	if asJSON {
-		process := listrecent.Process(ctx, postgrey.GetDb())
-		process.Run()
-		if !process.HasErr() {
-			screen.PrintJSON(process.GetResult())
-		}
-		return process.GetErr()
-	}
 
+	if asJSON {
+		notes, err := fetch(ctx)
+		if err == nil {
+			screen.PrintJSON(notes)
+		}
+		return err
+	}
 	load := func(navigator.Target) (navigator.Page, error) { return recentPage(ctx) }
 	return navigator.Run(load, navigator.Target{}, navigator.Options{EnterOpens: true}, func(action navigator.Action, note navigator.Target) error {
 		if action == navigator.ActionEdit {
@@ -40,12 +40,29 @@ func Recent(cobra *cobra.Command, args []string) error {
 	})
 }
 
+// fetch decodes into the process's type, not the generated one: the output stays that of listrecent.
+func fetch(ctx context.Context) ([]listrecent.Recent, error) {
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return nil, err
+	}
+	response, err := client.GetApiRecentWithResponse(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if response.JSON200 == nil {
+		return nil, apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	var notes []listrecent.Recent
+	return notes, json.Unmarshal(response.Body, &notes)
+}
+
 // recentPage is reloaded after an edit: the edited note moves to the top.
 func recentPage(ctx context.Context) (navigator.Page, error) {
-	process := listrecent.Process(ctx, postgrey.GetDb())
-	process.Run()
-
-	notes := process.GetResult()
+	notes, err := fetch(ctx)
+	if err != nil {
+		return navigator.Page{}, err
+	}
 	info := fmt.Sprintf("%d notes", len(notes))
 	if len(notes) == 1 {
 		info = "1 note"
@@ -61,5 +78,5 @@ func recentPage(ctx context.Context) (navigator.Page, error) {
 			Target: navigator.Target{Kind: navigator.KindNote, Key: note.ID},
 		})
 	}
-	return page, process.GetErr()
+	return page, nil
 }

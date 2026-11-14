@@ -97,7 +97,7 @@ var apiClients = map[*cobra.Command]bool{
 	cmdReadNote: true, cmdReadFloder: true, cmdReadTag: true,
 	cmdEditNote: true, cmdEditFloder: true, cmdEditTag: true,
 	cmdDeleteNote: true, cmdDeleteFloder: true, cmdDeleteTag: true,
-	cmdTrash: true, cmdRestore: true,
+	cmdTrash: true, cmdRestore: true, cmdRecent: true,
 }
 
 func init() {

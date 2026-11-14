@@ -65,7 +65,7 @@ var statuses = []struct {
 		editnote.ErrNoValue, editnote.ErrNoContent,
 		edituser.ErrInvalidLocale, edituser.ErrInvalidTheme, edituser.ErrInvalidColorMode, edituser.ErrInvalidView, edituser.ErrInvalidPlan, edituser.ErrInvalidRetention, edituser.ErrInvalidNeighbors, edituser.ErrInvalidAvatar, edituser.ErrInvalidSnippet, edituser.ErrInvalidSavedSearch, edituser.ErrInvalidSidebar,
 		adduser.ErrNoName, adduser.ErrShortPassword, editpassword.ErrWrongPassword,
-		createapitoken.ErrNoName, createapitoken.ErrInvalidLifetime,
+		createapitoken.ErrNoName, createapitoken.ErrLongName, createapitoken.ErrInvalidLifetime,
 		edittag.ErrNoValue,
 		hashtag.ErrInvalid,
 		listitems.ErrInvalidID, listitems.ErrInvalidKind, listitems.ErrInvalidPage,

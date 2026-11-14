@@ -3,6 +3,7 @@ package createapitoken_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listapitokens"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readapitoken"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
 )
 
@@ -40,9 +42,10 @@ func TestTokenLifecycle(t *testing.T) {
 	ctx, tx = testaccount.New(t, ctx, tx)
 
 	for input, want := range map[createapitoken.Input]error{
-		{Name: " "}:                    createapitoken.ErrNoName,
-		{Name: "x", ExpiresIn: "2d"}:   createapitoken.ErrInvalidLifetime,
-		{Name: "x", ExpiresIn: "365d"}: createapitoken.ErrInvalidLifetime,
+		{Name: " "}:                      createapitoken.ErrNoName,
+		{Name: strings.Repeat("é", 101)}: createapitoken.ErrLongName,
+		{Name: "x", ExpiresIn: "2d"}:     createapitoken.ErrInvalidLifetime,
+		{Name: "x", ExpiresIn: "365d"}:   createapitoken.ErrInvalidLifetime,
 	} {
 		process := createapitoken.Process(ctx, tx, input)
 		process.Run()
@@ -61,6 +64,14 @@ func TestTokenLifecycle(t *testing.T) {
 		t.Errorf("created = %+v, want an id, the name trimmed, 7 days", created.APIToken)
 	}
 
+	var stored string
+	if err := tx.NewSelect().Table("api_tokens").Column("name").Where("id = ?", created.APIToken.ID).Scan(ctx, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(stored, secret.Prefix) || strings.Contains(stored, "Claude") {
+		t.Errorf("the base keeps the name %q, want it sealed", stored)
+	}
+
 	read := readapitoken.Process(ctx, tx, created.Token)
 	read.Run()
 	if read.HasErr() || read.GetResult().ID != domain.UserID(ctx) {
@@ -69,8 +80,8 @@ func TestTokenLifecycle(t *testing.T) {
 
 	list := listapitokens.Process(ctx, tx)
 	list.Run()
-	if list.HasErr() || len(list.GetResult()) != 1 || list.GetResult()[0].LastUsedAt.IsZero() {
-		t.Fatalf("list = %+v, %v; want the token, used", list.GetResult(), list.GetErr())
+	if list.HasErr() || len(list.GetResult()) != 1 || list.GetResult()[0].LastUsedAt.IsZero() || list.GetResult()[0].Name != "Claude téléphone" {
+		t.Fatalf("list = %+v, %v; want the token, used, its name opened", list.GetResult(), list.GetErr())
 	}
 	if list.GetResult()[0].TokenHash != password.TokenHash(created.Token) {
 		t.Errorf("the base keeps the hash of the token")

@@ -8,6 +8,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
 )
 
@@ -40,10 +41,14 @@ func TestPurgeExpiredOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	name, err := secret.Seal(domain.UserID(ctx), "token")
+	if err != nil {
+		t.Fatal(err)
+	}
 	tokens := []domain.APIToken{
-		{UserID: domain.UserID(ctx), Name: "expired", TokenHash: "expired-token-" + now.String(), ExpiresAt: now.Add(-time.Minute)},
-		{UserID: domain.UserID(ctx), Name: "live", TokenHash: "live-token-" + now.String(), ExpiresAt: now.Add(time.Hour)},
-		{UserID: domain.UserID(ctx), Name: "never", TokenHash: "never-token-" + now.String()},
+		{UserID: domain.UserID(ctx), Name: name, TokenHash: "expired-token-" + now.String(), ExpiresAt: now.Add(-time.Minute)},
+		{UserID: domain.UserID(ctx), Name: name, TokenHash: "live-token-" + now.String(), ExpiresAt: now.Add(time.Hour)},
+		{UserID: domain.UserID(ctx), Name: name, TokenHash: "never-token-" + now.String()},
 	}
 	if _, err := tx.NewInsert().Model(&tokens).Exec(ctx); err != nil {
 		t.Fatal(err)
@@ -67,11 +72,11 @@ func TestPurgeExpiredOnly(t *testing.T) {
 		t.Errorf("sessions left = %v, want only %q", left, sessions[1].TokenHash)
 	}
 
-	var names []string
-	if err := tx.NewSelect().Model((*domain.APIToken)(nil)).Column("name").Where("user_id = ?", domain.UserID(ctx)).Order("name").Scan(ctx, &names); err != nil {
+	var hashes []string
+	if err := tx.NewSelect().Model((*domain.APIToken)(nil)).Column("token_hash").Where("user_id = ?", domain.UserID(ctx)).Order("token_hash").Scan(ctx, &hashes); err != nil {
 		t.Fatal(err)
 	}
-	if len(names) != 2 || names[0] != "live" || names[1] != "never" {
-		t.Errorf("API tokens left = %v, want live and never", names)
+	if len(hashes) != 2 || hashes[0] != tokens[1].TokenHash || hashes[1] != tokens[2].TokenHash {
+		t.Errorf("API tokens left = %v, want live and never", hashes)
 	}
 }

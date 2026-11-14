@@ -5,9 +5,11 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/password"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/uptrace/bun"
 )
@@ -27,8 +29,12 @@ var Lifetimes = map[string]time.Duration{
 // DefaultLifetime is the duration of a token when none is asked.
 const DefaultLifetime = "90d"
 
+// MaxName is the most runes the name of a token has.
+const MaxName = 100
+
 var (
 	ErrNoName          = errors.New("the token needs a name")
+	ErrLongName        = errors.New("the name of the token has at most 100 characters")
 	ErrInvalidLifetime = errors.New("expires_in must be one of 7d, 30d, 90d, 1y, never")
 )
 
@@ -81,8 +87,13 @@ func (p *run) GetResult() Result {
 // Methods
 
 func (p *run) ensureInput() {
-	if strings.TrimSpace(p.input.Name) == "" {
+	p.input.Name = strings.TrimSpace(p.input.Name)
+	if p.input.Name == "" {
 		p.SetErr(ErrNoName)
+		return
+	}
+	if utf8.RuneCountInString(p.input.Name) > MaxName {
+		p.SetErr(ErrLongName)
 		return
 	}
 	if p.input.ExpiresIn == "" {
@@ -104,11 +115,17 @@ func (p *run) saveToken() {
 	p.cache.result.Token = Prefix + password.Token()
 	token := &p.cache.result.APIToken
 	token.UserID = domain.UserID(p.ctx)
-	token.Name = strings.TrimSpace(p.input.Name)
 	token.TokenHash = password.TokenHash(p.cache.result.Token)
 	if p.cache.lifetime > 0 {
 		token.ExpiresAt = time.Now().Add(p.cache.lifetime)
 	}
-	err := p.db.NewInsert().Model(token).Returning("id, created_at").Scan(p.ctx)
+	sealed, err := secret.Seal(token.UserID, p.input.Name)
+	if err != nil {
+		p.SetErr(err)
+		return
+	}
+	token.Name = sealed
+	err = p.db.NewInsert().Model(token).Returning("id, created_at").Scan(p.ctx)
+	token.Name = secret.Text(p.input.Name) // shown in clear to who created it
 	p.SetErr(err)
 }

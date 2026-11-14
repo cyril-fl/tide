@@ -142,13 +142,13 @@ type Session struct {
 type APIToken struct {
 	bun.BaseModel `bun:"table:api_tokens,alias:at" json:"-"`
 
-	ID         string    `bun:",pk,type:uuid,default:gen_random_uuid()" json:"id"`
-	UserID     string    `bun:",notnull,type:uuid" json:"-"`
-	Name       string    `bun:",notnull" json:"name"`
-	TokenHash  string    `bun:",notnull,unique" json:"-"`
-	CreatedAt  time.Time `bun:",notnull,default:current_timestamp" json:"created_at"`
-	LastUsedAt time.Time `bun:",nullzero" json:"last_used_at,omitzero" binding:"optional"` // never used when absent
-	ExpiresAt  time.Time `bun:",nullzero" json:"expires_at,omitzero" binding:"optional"`   // no limit when absent
+	ID         string      `bun:",pk,type:uuid,default:gen_random_uuid()" json:"id"`
+	UserID     string      `bun:",notnull,type:uuid" json:"-"`
+	Name       secret.Text `bun:",type:text,notnull" json:"name" swaggertype:"string"` // sealed: a stolen base does not tell what the tokens are for
+	TokenHash  string      `bun:",notnull,unique" json:"-"`
+	CreatedAt  time.Time   `bun:",notnull,default:current_timestamp" json:"created_at"`
+	LastUsedAt time.Time   `bun:",nullzero" json:"last_used_at,omitzero" binding:"optional"` // never used when absent
+	ExpiresAt  time.Time   `bun:",nullzero" json:"expires_at,omitzero" binding:"optional"`   // no limit when absent
 }
 
 // Invite is a link an admin hands out so someone creates their own account: the base keeps the hash of its token,

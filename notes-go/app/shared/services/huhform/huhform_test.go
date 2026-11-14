@@ -57,8 +57,8 @@ func TestCancelHelp(t *testing.T) {
 	form.Init()
 
 	view := ansi.Strip(form.View())
-	if line := view[strings.LastIndex(view, "\n")+1:]; !strings.HasSuffix(line, "Submit · ⎋ Cancel") {
-		t.Errorf("help line = %q, want the esc Cancel after Submit", line)
+	if line := view[strings.LastIndex(view, "\n")+1:]; !strings.HasPrefix(line, "⎋ Back · ^E Editor · ^↳ Submit · ↳ New line") {
+		t.Errorf("help line = %q, want Back, Editor then Submit first", line)
 	}
 }
 

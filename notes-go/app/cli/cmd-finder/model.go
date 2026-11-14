@@ -291,9 +291,9 @@ func (m *model) statusLine() string {
 
 func (m *model) footer() string {
 	hints := []screen.Hint{
-		{Key: plumtypes.KEY_ENTER, Label: "Open"},
 		{Key: plumtypes.KEY_ESC, Label: "Back"},
 		{Key: plumtypes.SHORT_CTRL_E, Label: "Edit"},
+		{Key: plumtypes.KEY_ENTER, Label: "Open"},
 		{Key: plumtypes.SHORT_CTRL_N, Label: "New"},
 		{Key: plumtypes.SHORT_CTRL_D, Label: "Delete"},
 		{Key: plumtypes.SHORT_CTRL_X, Label: "Cut"},

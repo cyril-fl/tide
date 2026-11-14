@@ -19,7 +19,7 @@ import (
 var Input io.Reader
 
 // New builds a one-group form with the shared key map and theme, as tall as the terminal.
-// The help line always shows so the form keeps its height when an error replaces it.
+// The help line always shows so the form keeps its height when an error replaces it; withCancel draws it.
 func New(fields ...huh.Field) *huh.Form {
 	width, height, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
@@ -46,13 +46,13 @@ func fit(fields []huh.Field, width, height int) *huh.Form {
 		text.Lines(extra) // not 1+extra: measured, the 1-line probe already counts one extra row
 		return build(fields)
 	}
-	// WithHeight sizes the group, the help line comes on top of it.
-	return build(fields).WithHeight(height - 1)
+	// WithHeight sizes the group, withCancel's blank line and help line come on top of it.
+	return build(fields).WithHeight(height - 2)
 }
 
 func build(fields []huh.Field) *huh.Form {
 	keys := keyMap()
-	form := huh.NewForm(huh.NewGroup(fields...)).WithKeyMap(keys).WithTheme(huh.ThemeFunc(theme))
+	form := huh.NewForm(huh.NewGroup(fields...)).WithKeyMap(keys).WithTheme(huh.ThemeFunc(theme)).WithShowHelp(false)
 	form = form.WithLayout(cancelLayout{huh.LayoutDefault, keys})
 	if Input != nil {
 		form = form.WithInput(Input).WithOutput(io.Discard)
@@ -70,15 +70,31 @@ func (l cancelLayout) View(form *huh.Form) string {
 	return withCancel(form, l.keys, l.Layout.View(form))
 }
 
-// withCancel makes esc leave the form unless the field uses it (a list closing its filter), and adds the cancel
-// key to the help line, the last one when no error replaces it: huh lists only the field's keys.
+// withCancel makes esc leave the form unless the field uses it (a list closing its filter), and draws the help
+// line when no error replaces it, cancel included: huh lists only the field's keys, in its own order.
 func withCancel(form *huh.Form, keys *huh.KeyMap, view string) string {
 	keys.Quit = cancel(escTaken(form.KeyBinds()))
 	if len(form.Errors()) > 0 {
 		return view
 	}
-	help := form.Help()
-	return view + help.Styles.ShortSeparator.Render(help.ShortSeparator) + help.ShortHelpView([]key.Binding{keys.Quit})
+	return view + "\n\n" + form.Help().ShortHelpView(ordered(append(form.KeyBinds(), keys.Quit)))
+}
+
+// ordered puts the keys shared with the screens first, like their footer: back, editor, then submit or next.
+func ordered(binds []key.Binding) []key.Binding {
+	rank := func(bind key.Binding) int {
+		switch bind.Help().Desc {
+		case "Back":
+			return 0
+		case "Editor":
+			return 1
+		case "Submit", "Next":
+			return 2
+		}
+		return 3
+	}
+	slices.SortStableFunc(binds, func(a, b key.Binding) int { return rank(a) - rank(b) })
+	return binds
 }
 
 // escTaken tells whether one of the field's keys is esc.
@@ -94,9 +110,9 @@ func escTaken(binds []key.Binding) bool {
 // cancel is the key leaving the form without saving: esc, or ctrl+c alone when the field takes esc.
 func cancel(escTaken bool) key.Binding {
 	if escTaken {
-		return shortcut("Cancel", plumtypes.SHORT_CTRL_C)
+		return shortcut("Back", plumtypes.SHORT_CTRL_C)
 	}
-	return shortcut("Cancel", plumtypes.KEY_ESC, plumtypes.SHORT_CTRL_C)
+	return shortcut("Back", plumtypes.KEY_ESC, plumtypes.SHORT_CTRL_C)
 }
 
 func lastText(fields []huh.Field) *huh.Text {
@@ -112,10 +128,10 @@ func lastText(fields []huh.Field) *huh.Text {
 // tab stays as a fallback for terminals that cannot tell ctrl+enter from enter. withCancel sets the quit key.
 func keyMap() *huh.KeyMap {
 	keys := huh.NewDefaultKeyMap()
-	keys.Input.Prev = shortcut("Back", plumtypes.KEY_SHIFT_TAB)
+	keys.Input.Prev = shortcut("Previous", plumtypes.KEY_SHIFT_TAB)
 	keys.Input.Next = shortcut("Next", plumtypes.KEY_ENTER, plumtypes.KEY_TAB)
 	keys.Input.Submit = shortcut("Submit", plumtypes.KEY_ENTER)
-	keys.Text.Prev = shortcut("Back", plumtypes.KEY_SHIFT_TAB)
+	keys.Text.Prev = shortcut("Previous", plumtypes.KEY_SHIFT_TAB)
 	keys.Text.NewLine = shortcut("New line", plumtypes.KEY_ENTER)
 	keys.Text.Editor = shortcut("Editor", plumtypes.SHORT_CTRL_E)
 	keys.Text.Next = shortcut("Next", plumtypes.CMD_CTRL_ENTER, plumtypes.KEY_TAB)

@@ -94,6 +94,8 @@ type Hint struct {
 }
 
 // Footer renders shortcuts like the forms' help line: accent key glyph, muted label, subtle " · " between.
+// Every screen and form starts with the keys found almost everywhere, always in the same place: ⎋ Back,
+// ^E Edit, then ↳ or ^↳; the screen's own keys follow, ^Q Quit last.
 func Footer(hints ...Hint) string {
 	parts := make([]string, len(hints))
 	for i, hint := range hints {
@@ -103,5 +105,5 @@ func Footer(hints ...Hint) string {
 }
 
 func footer() string {
-	return Footer(Hint{plumtypes.SHORT_CTRL_E, "Edit"}, Hint{plumtypes.KEY_ESC, "Back"}, Hint{plumtypes.SHORT_CTRL_Q, "Quit"})
+	return Footer(Hint{plumtypes.KEY_ESC, "Back"}, Hint{plumtypes.SHORT_CTRL_E, "Edit"}, Hint{plumtypes.SHORT_CTRL_Q, "Quit"})
 }

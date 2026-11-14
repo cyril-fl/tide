@@ -284,12 +284,15 @@ func (m *model) footer() string {
 	if m.options.EnterOpens {
 		enter = "Open"
 	}
-	hints := []screen.Hint{{Key: plumtypes.KEY_ENTER, Label: enter}, {Key: plumtypes.KEY_ESC, Label: "Back"}}
-	if selected, ok := m.selected(); ok && selected.Target.Kind == KindNote {
-		if !m.options.EnterOpens { // ↳ already says Open
-			hints = append(hints, screen.Hint{Key: plumtypes.SHORT_CTRL_O, Label: "Open"})
-		}
+	hints := []screen.Hint{{Key: plumtypes.KEY_ESC, Label: "Back"}}
+	selected, ok := m.selected()
+	note := ok && selected.Target.Kind == KindNote
+	if note {
 		hints = append(hints, screen.Hint{Key: plumtypes.SHORT_CTRL_E, Label: "Edit"})
+	}
+	hints = append(hints, screen.Hint{Key: plumtypes.KEY_ENTER, Label: enter})
+	if note && !m.options.EnterOpens { // ↳ already says Open
+		hints = append(hints, screen.Hint{Key: plumtypes.SHORT_CTRL_O, Label: "Open"})
 	}
 	hints = append(hints, screen.Hint{Key: "/", Label: "Filter"}, screen.Hint{Key: plumtypes.SHORT_CTRL_Q, Label: "Quit"})
 	return screen.Footer(hints...)

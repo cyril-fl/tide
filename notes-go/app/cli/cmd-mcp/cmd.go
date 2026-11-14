@@ -469,9 +469,8 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 			ids = append(ids, id)
 		}
 
-		// TODO: the zip carries the bytes of every image the notes cite, only to be named here; an export without
-		// them when an agent exports a big account.
-		params := apiclient.GetApiExportParams{Parent: &folderID}
+		withFiles := false // The images are only named here: their bytes would weigh down a big account's export.
+		params := apiclient.GetApiExportParams{Parent: &folderID, Files: &withFiles}
 		if len(ids) > 0 {
 			params.Id = &ids // An empty list would still send id=.
 		}

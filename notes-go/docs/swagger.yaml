@@ -921,6 +921,11 @@ paths:
         name: parent
         schema:
           type: string
+      - description: 'false: the images in _files are empty, only named'
+        in: query
+        name: files
+        schema:
+          type: boolean
       responses:
         "200":
           content:

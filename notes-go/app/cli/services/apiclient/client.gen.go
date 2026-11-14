@@ -550,6 +550,9 @@ type GetApiExportParams struct {
 
 	// Parent folder whose content to export, without the folder itself
 	Parent *string `form:"parent,omitempty" json:"parent,omitempty"`
+
+	// Files false: the images in _files are empty, only named
+	Files *bool `form:"files,omitempty" json:"files,omitempty"`
 }
 
 // PostApiFilesJSONBody defines parameters for PostApiFiles.
@@ -2577,6 +2580,18 @@ func NewGetApiExportRequest(server string, params *GetApiExportParams) (*http.Re
 		if params.Parent != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "parent", *params.Parent, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Files != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "files", *params.Files, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

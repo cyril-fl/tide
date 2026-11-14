@@ -15,12 +15,13 @@ import (
 
 // Handler gives every live note as a zip of markdown files, one directory per folder, the images in _files:
 // GET /api/export, or only some items with what they hold: GET /api/export?id=<uuid>&id=<uuid>, or what a folder
-// holds without the folder itself: GET /api/export?parent=<uuid>.
+// holds without the folder itself: GET /api/export?parent=<uuid>. files=false leaves the images empty, only named.
 // @Summary  Export the notes as markdown files
 // @Tags     transfer
 // @Produce  application/zip
 // @Param    id query []string false "items to export with what they hold, every note when left out" collectionFormat(multi)
 // @Param    parent query string false "folder whose content to export, without the folder itself"
+// @Param    files query bool false "false: the images in _files are empty, only named"
 // @Success  200 {file} binary
 // @Failure  400 {object} respond.Failure
 // @Failure  404 {object} respond.Failure
@@ -29,6 +30,7 @@ import (
 func Handler(db bun.IDB, store silo.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ids, parent := r.URL.Query()["id"], r.URL.Query().Get("parent")
+		files := r.URL.Query().Get("files") != "false"
 		if !respond.ValidIDs(w, append(ids, parent)...) {
 			return
 		}
@@ -50,7 +52,7 @@ func Handler(db bun.IDB, store silo.Store) http.HandlerFunc {
 				name += "/" // Keeps the empty folders.
 			}
 			entry, err := archive.Create(name)
-			if err == nil {
+			if err == nil && (files || file.Key == "") {
 				err = write(r, store, entry, file)
 			}
 			if err != nil {

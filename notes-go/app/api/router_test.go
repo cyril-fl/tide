@@ -817,6 +817,18 @@ func TestFiles(t *testing.T) {
 		}
 	}
 
+	// files=false names the image, without its bytes.
+	exported = c.raw("/api/export?files=false")
+	read, err = zip.NewReader(strings.NewReader(exported), int64(len(exported)))
+	if err != nil {
+		t.Fatalf("export without files is not a zip: %v", err)
+	}
+	if entry, err := read.Open("_files/" + file.ID + ".png"); err != nil {
+		t.Errorf("export without files misses the image: %v", err)
+	} else if data, _ := io.ReadAll(entry); len(data) != 0 {
+		t.Errorf("export without files carries %d bytes of the image", len(data))
+	}
+
 	// A folder exported alone keeps its subfolders, and the images they cite.
 	var top, sub item
 	c.do(http.MethodPost, "/api/folders", fmt.Sprintf(`{"title":%q}`, unique("haut")), http.StatusCreated, &top)

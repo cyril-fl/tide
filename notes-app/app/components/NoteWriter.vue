@@ -64,6 +64,7 @@ async function upload(file: File) {
   }
 }
 
+const { open: searchOpen, module: searchModule } = useNoteSearch();
 // Merged once the account is known: UEditor reads its extensions when created, so it waits for ready.
 const modules = [
   useNoteFormatting(),
@@ -75,6 +76,7 @@ const modules = [
   useNoteMath(),
   ...useNoteCallouts(),
   useNoteImages(baseURL, upload),
+  searchModule,
   { extensions: [slashTrigger(openSlash)] },
 ];
 const parts = computed(() => mergeModules(modules, has));
@@ -220,6 +222,7 @@ const toolbar = computed(() =>
             class="shrink-0 overflow-x-auto border-b border-muted py-1"
             :class="compact ? '' : 'mx-7'"
           />
+          <NoteSearch v-model:open="searchOpen" :editor="editor" :readonly="readonly" />
           <UEditorToolbar
             v-for="bubble in readonly ? [] : parts.bubbles"
             :key="bubble.pluginKey"

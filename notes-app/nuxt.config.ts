@@ -14,6 +14,8 @@ export default defineNuxtConfig({
     detectBrowserLanguage: { useCookie: true, cookieKey: 'notes-locale' },
   },
   css: ['~/assets/css/main.css'],
+  // prosemirror-search has its own prosemirror-* dependencies: a second copy breaks the decorations of the editor.
+  vite: { resolve: { dedupe: ['prosemirror-model', 'prosemirror-state', 'prosemirror-view'] } },
   runtimeConfig: {
     public: { apiBase: 'http://localhost:8080' },
   },

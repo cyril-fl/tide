@@ -45,6 +45,7 @@
     "mermaid": "^12.3.0",
     "node-diff3": "^3.2.1",
     "nuxt": "^4.6.4",
+    "prosemirror-search": "^1.1.1",
     "tailwindcss": "^4.3.4",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0"

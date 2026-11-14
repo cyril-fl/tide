@@ -719,3 +719,21 @@ test.describe('on a touch screen', () => {
     await expect.poll(() => box.content(note.id), { timeout: 5000 }).toBe('neuf');
   });
 });
+
+// Cmd+F searches the rendered text, counts the matches, then replaces them all in the markdown.
+test('the search bar finds and replaces in the note (#113)', async ({ page }) => {
+  const note = await box.note(`# ${box.prefix} search\n\nfoo bar foo\n\n\`\`\`js\nfoo()\n\`\`\``);
+  await page.goto(`/notes/${note.id}`);
+  const editor = page.locator('.ProseMirror');
+  await cursorAtEnd(editor);
+  await page.keyboard.press('ControlOrMeta+f');
+  await page.getByRole('textbox', { name: 'Chercher' }).fill('foo');
+  await expect(editor.locator('.ProseMirror-search-match')).toHaveCount(3);
+  await page.getByRole('textbox', { name: 'Chercher' }).press('Enter');
+  await expect(page.getByText(/^[1-3]\/3$/)).toBeVisible();
+  await page.getByRole('textbox', { name: 'Remplacer' }).fill('baz');
+  await page.getByRole('button', { name: 'tout remplacer' }).click();
+  await expect
+    .poll(() => box.content(note.id), { timeout: 5000 })
+    .toBe(`# ${box.prefix} search\n\nbaz bar baz\n\n\`\`\`js\nbaz()\n\`\`\``);
+});

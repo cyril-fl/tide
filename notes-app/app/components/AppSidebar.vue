@@ -204,7 +204,8 @@ const isOverRoot = useDropFolder(rootLink, () => null);
         {{ $t('common.graph') }}
       </NuxtLink>
 
-      <div class="min-h-0 flex-1 space-y-5 overflow-y-auto">
+      <!-- The last section, whichever the order puts there, sits against the bottom of the sidebar. -->
+      <div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto [&>section:last-child]:mt-auto">
         <template v-for="s in sections" :key="s.id">
           <section v-if="s.id === 'favorites' && s.shown && favorites.length">
             <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.favorites') }}</h2>

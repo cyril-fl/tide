@@ -13,10 +13,12 @@ import (
 	"crypto/sha256"
 	"database/sql/driver"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -125,6 +127,30 @@ func Blind(userID, text string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(mac(key.blind, strings.ToLower(text))), nil
+}
+
+// BlindGrams gives the blind of each gram (a few letters, at most 15 bytes) on 16 bits, sorted, each once: an AES
+// block of the gram, with a key derived from the account's, loaded. Many grams share a value, so a search on them
+// gives a few notes more to check (its index tells less too); tens of ns each, not the µs of an HMAC.
+func BlindGrams(userID string, grams []string) ([]int16, error) {
+	key, err := load(userID)
+	if err != nil {
+		return nil, err
+	}
+	block, err := aes.NewCipher(mac(key.blind, "grams"))
+	if err != nil {
+		return nil, err
+	}
+	blinds := make([]int16, len(grams))
+	var in, out [aes.BlockSize]byte
+	for i, gram := range grams {
+		in = [aes.BlockSize]byte{}
+		in[copy(in[:aes.BlockSize-1], gram)] = 0x80 // padded: "ab" and "ab\x00" differ
+		block.Encrypt(out[:], in[:])
+		blinds[i] = int16(binary.BigEndian.Uint16(out[:]))
+	}
+	slices.Sort(blinds)
+	return slices.Compact(blinds), nil
 }
 
 // SealBytes encrypts the bytes of a file with the key of the account, loaded: nonce then ciphertext, no base64.

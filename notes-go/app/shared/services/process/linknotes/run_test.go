@@ -15,6 +15,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/editnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readneighbors"
@@ -91,6 +92,33 @@ func TestLinks(t *testing.T) {
 	}
 	if got := neighbors(t, ctx, tx, a); !slices.Contains(ids(got.Links), b) {
 		t.Errorf("links of a after the rename = %+v, want b still", got.Links)
+	}
+
+	// Renaming the second c leaves one c: the [[c]] of d, waiting for that title, now resolves.
+	rename := editnote.Process(ctx, tx, editnote.Input{ID: inFolder, Content: "# " + u + "-other"})
+	rename.Run()
+	if rename.HasErr() {
+		t.Fatalf("rename c: %v", rename.GetErr())
+	}
+	if got, want := content(t, ctx, tx, d), fmt.Sprintf("[%s-c](note:%s)", u, c); !strings.Contains(got, want) {
+		t.Errorf("content of d = %q, want it to hold %q", got, want)
+	}
+
+	// A note in a trashed folder is not live: a [[link]] to it waits.
+	trashed := createfolder.Process(ctx, tx, createfolder.Input{Title: u + "-trashed"})
+	trashed.Run()
+	if trashed.HasErr() {
+		t.Fatalf("folder: %v", trashed.GetErr())
+	}
+	create(t, ctx, tx, trashed.GetResult().ID, "# "+u+"-e")
+	trash := deleteitems.Process(ctx, tx, domain.FOLDER, []string{trashed.GetResult().ID})
+	trash.Run()
+	if trash.HasErr() {
+		t.Fatalf("trash: %v", trash.GetErr())
+	}
+	f := create(t, ctx, tx, "", fmt.Sprintf("# %[1]s-f\n\n[[%[1]s-e]]", u))
+	if got := content(t, ctx, tx, f); !strings.Contains(got, "[["+u+"-e]]") {
+		t.Errorf("content of f = %q, want [[e]] unresolved", got)
 	}
 }
 

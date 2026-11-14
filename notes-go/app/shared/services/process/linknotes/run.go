@@ -7,11 +7,13 @@ import (
 	"strings"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/noteindex"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/notetitle"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/wikilink"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
 )
 
 // Input is a note as just saved: its id, content and title ("" = untitled), and the title it had
@@ -160,41 +162,44 @@ func (p *run) relabelBacklinks() {
 	}
 }
 
-// resolveWaiting resolves only the notes whose text holds title]] or title# ([[/…/title, [[title#heading]]):
-// resolving every note would be one query per link. Its old title too: shared before, it may now name one note only.
-// TODO: decrypts every note of the account on each title change, 40 ms per note created at 5,000 notes (#145).
+// resolveWaiting resolves only the notes with a [[link]] waiting for its title, found by their index: resolving every
+// note would be one query per link. Its old title too: shared before, it may now name one note only.
 func (p *run) resolveWaiting() {
-	titles := []string{}
+	blinds := []string{}
 	for _, title := range []string{p.input.Title, p.input.OldTitle} {
-		if title != "" {
-			titles = append(titles, strings.ToLower(title)+"]]", strings.ToLower(title)+"#")
+		if title == "" {
+			continue
 		}
+		blind, err := secret.Blind(domain.UserID(p.ctx), title)
+		if err != nil {
+			p.SetErr(err)
+			return
+		}
+		blinds = append(blinds, blind)
 	}
-	if p.HasErr() || len(titles) == 0 {
+	if p.HasErr() || len(blinds) == 0 {
 		return
 	}
 
+	if err := noteindex.Fill(p.ctx, p.db); err != nil {
+		p.SetErr(err)
+		return
+	}
 	notes, err := loadNotes(p.ctx, p.db, `
 		SELECT mn.item_id AS id, mn.content FROM metadata_notes AS mn JOIN items AS i ON i.id = mn.item_id
-		WHERE mn.item_id <> ? AND i.user_id = ?`, p.input.ID, domain.UserID(p.ctx))
+		WHERE mn.item_id <> ? AND i.user_id = ? AND mn.waiting && ?::text[]`, p.input.ID, domain.UserID(p.ctx), pgdialect.Array(blinds))
 	if err != nil {
 		p.SetErr(err)
 		return
 	}
 
-	for _, title := range titles {
-		for _, note := range notes {
-			if !strings.Contains(strings.ToLower(note.Content), title) {
-				continue
-			}
-
-			// No title: resolving a note must not resolve the notes waiting for it in turn.
-			resolve := Process(p.ctx, p.db, Input{ID: note.ID, Content: note.Content})
-			resolve.Run()
-			if resolve.HasErr() {
-				p.SetErr(resolve.GetErr())
-				return
-			}
+	for _, note := range notes {
+		// No title: resolving a note must not resolve the notes waiting for it in turn.
+		resolve := Process(p.ctx, p.db, Input{ID: note.ID, Content: note.Content})
+		resolve.Run()
+		if resolve.HasErr() {
+			p.SetErr(resolve.GetErr())
+			return
 		}
 	}
 }

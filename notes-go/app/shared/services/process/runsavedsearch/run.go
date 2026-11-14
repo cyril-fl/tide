@@ -66,8 +66,8 @@ func (p *run) GetResult() []Match {
 
 // Methods
 
-// queryCandidates runs every SQL-filterable criterion (tags, dates, folders): the text criterion, if any, only
-// ever narrows this candidate set in Go, after it is decrypted, instead of scanning the whole account.
+// queryCandidates runs every SQL-filterable criterion (tags, dates, folders), and the grams of the text criterion if
+// any: filterText then checks the text itself, once decrypted.
 func (p *run) queryCandidates() {
 	query := domain.LiveCTE + `
 		SELECT i.id, i.title, mn.content, mn.readonly
@@ -114,6 +114,16 @@ func (p *run) queryCandidates() {
 			query += ` AND i.id IN ` + tree
 		}
 		args = append(args, bun.In(p.search.FolderIDs), domain.UserID(p.ctx))
+	}
+
+	if text := strings.TrimSpace(p.search.Text); text != "" {
+		grams, gramArgs, err := searchnotes.Candidates(p.ctx, p.db, text)
+		if err != nil {
+			p.SetErr(err)
+			return
+		}
+		query += grams
+		args = append(args, gramArgs...)
 	}
 
 	p.SetErr(p.db.NewRaw(query, args...).Scan(p.ctx, &p.cache.rows))

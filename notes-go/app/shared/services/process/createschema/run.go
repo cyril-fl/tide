@@ -187,6 +187,10 @@ func getIndexes(tx bun.Tx) []*bun.CreateIndexQuery {
 		tx.NewCreateIndex().Model((*domain.NoteLink)(nil)).Index("idx_notes_on_links_target_id").Column("target_id"),
 		tx.NewCreateIndex().Model((*domain.NoteFile)(nil)).Index("idx_notes_on_files_file_id").Column("file_id"),
 		tx.NewCreateIndex().Model((*domain.NoteVersion)(nil)).Index("idx_note_versions_item_id").ColumnExpr("item_id, created_at"),
+		// noteindex: a search, the links waiting for a title, and the notes noteindex.Fill has left to do.
+		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_grams").Using("gin").Column("grams"),
+		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_waiting").Using("gin").Column("waiting"),
+		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_unindexed").Column("item_id").Where("grams IS NULL"),
 	}
 }
 
@@ -220,6 +224,16 @@ var triggers = []string{
 	`CREATE OR REPLACE TRIGGER items_version_insert AFTER INSERT ON items REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION bump_items_version()`,
 	`CREATE OR REPLACE TRIGGER items_version_delete AFTER DELETE ON items REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION bump_items_version()`,
 	`CREATE OR REPLACE TRIGGER items_version_update AFTER UPDATE ON items REFERENCING OLD TABLE AS old_items NEW TABLE AS new_items FOR EACH STATEMENT EXECUTE FUNCTION bump_items_version_on_update()`,
+	// noteindex: a content written by any process empties the index of its note, noteindex.Fill makes it again.
+	// The title comes from the content: it changes with it.
+	`CREATE OR REPLACE FUNCTION unindex_note() RETURNS trigger AS $$
+	BEGIN
+		NEW.grams := NULL;
+		NEW.waiting := NULL;
+		RETURN NEW;
+	END $$ LANGUAGE plpgsql`,
+	`CREATE OR REPLACE TRIGGER metadata_notes_unindex BEFORE UPDATE OF content ON metadata_notes FOR EACH ROW
+		WHEN (NEW.content IS DISTINCT FROM OLD.content) EXECUTE FUNCTION unindex_note()`,
 }
 
 // Interface

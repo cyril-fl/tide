@@ -7,9 +7,11 @@ import (
 	"strings"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/noteindex"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
 )
 
 // snippetWidth is how many characters of content a match shows around the text found.
@@ -80,21 +82,25 @@ func (p *run) makeText() {
 	}
 }
 
-// searchNotes loads every live note, by path: the content is sealed, makeMatches searches it once opened.
-// Joining live keeps live notes only.
-// TODO: decrypts every note of the account on each search, 50 ms for 5,000 notes (#145); index the words past ~50,000.
+// searchNotes loads the live notes holding every gram of the text, by path: the content is sealed, makeMatches
+// searches it once opened. Joining live keeps live notes only.
 func (p *run) searchNotes() {
 	if p.HasErr() {
 		return
 	}
 
+	query, args, err := Candidates(p.ctx, p.db, p.cache.text)
+	if err != nil {
+		p.SetErr(err)
+		return
+	}
 	p.SetErr(p.db.NewRaw(domain.LiveCTE+`
 		SELECT i.id, i.title, mn.content, mn.readonly
 		FROM items AS i
 		JOIN metadata_notes AS mn ON mn.item_id = i.id
 		JOIN live ON live.id = i.id
-		WHERE i.kind = ?`,
-		domain.UserID(p.ctx), domain.NOTE).
+		WHERE i.kind = ?`+query,
+		append([]any{domain.UserID(p.ctx), domain.NOTE}, args...)...).
 		Scan(p.ctx, &p.cache.rows))
 	if p.HasErr() {
 		return
@@ -127,6 +133,21 @@ func (p *run) makeMatches() {
 }
 
 // Helpers
+
+// Candidates indexes the notes written since the last search, then gives the condition on mn (metadata_notes) that
+// keeps the notes holding every gram of text: a few more share them, the caller checks the text once opened.
+// None for a single letter: every note.
+// TODO: a 2-letter text ("go") opens about a note in 30 more than hold it (16-bit blinds), fine at 50,000 notes.
+func Candidates(ctx context.Context, db bun.IDB, text string) (string, []any, error) {
+	if err := noteindex.Fill(ctx, db); err != nil {
+		return "", nil, err
+	}
+	grams, err := noteindex.Query(domain.UserID(ctx), text)
+	if err != nil || grams == nil {
+		return "", nil, err
+	}
+	return " AND mn.grams @> ?::smallint[]", []any{pgdialect.Array(grams)}, nil
+}
 
 func boolOrder(b bool) int {
 	if b {

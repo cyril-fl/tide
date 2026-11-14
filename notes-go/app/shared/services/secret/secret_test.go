@@ -2,6 +2,7 @@ package secret
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -40,6 +41,13 @@ func TestSealOpen(t *testing.T) {
 	other, _ := Blind("c", "Idée")
 	if err != nil || blind != again2 || blind == other || strings.Contains(blind, "Id") {
 		t.Errorf("Blind() = %q, %q, %q, %v; want the same value whatever the case, another for another account", blind, again2, other, err)
+	}
+
+	grams, err := BlindGrams("a", []string{"ab", "bc", "ab"})
+	again3, _ := BlindGrams("a", []string{"bc", "ab"})
+	others, _ := BlindGrams("c", []string{"ab", "bc"})
+	if err != nil || len(grams) != 2 || grams[0] > grams[1] || !slices.Equal(grams, again3) || slices.Equal(grams, others) {
+		t.Errorf("BlindGrams() = %v, %v, %v, %v; want 2 values sorted, the same whatever the order, others for another account", grams, again3, others, err)
 	}
 
 	image := []byte("\x89PNG bytes")

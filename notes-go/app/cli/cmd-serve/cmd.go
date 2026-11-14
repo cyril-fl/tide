@@ -18,6 +18,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/api"
 	"github.com/cyril-fl/notes/notes-go/app/api/services/guard"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/noteindex"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/adduser"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/purgefiles"
@@ -77,8 +78,10 @@ func Serve(cobra *cobra.Command, args []string) error {
 	if err := addHost(ctx, db); err != nil {
 		return err
 	}
+	go fillIndexes(ctx, db)
 	// The files after the items: a note purged now frees its images in the same round.
 	go every(ctx, purgeInterval, func() {
+		fillIndexes(ctx, db)
 		purge := purgeitems.Process(ctx, db)
 		purge.Run()
 		if purge.HasErr() && ctx.Err() == nil {
@@ -156,6 +159,13 @@ func addHost(ctx context.Context, db bun.IDB) error {
 	}
 	log.Printf("created the first account, %s: it manages the others", process.GetResult().Name)
 	return nil
+}
+
+// fillIndexes indexes the notes no search or edit has indexed yet (noteindex.FillAll): the first time, every note.
+func fillIndexes(ctx context.Context, db *bun.DB) {
+	if err := noteindex.FillAll(ctx, db); err != nil && ctx.Err() == nil {
+		log.Printf("index notes: %v", err)
+	}
 }
 
 // every runs task at each interval until ctx ends: the root command only purges at startup, a server runs for weeks.

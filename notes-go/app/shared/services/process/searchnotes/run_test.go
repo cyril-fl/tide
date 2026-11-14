@@ -14,6 +14,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteitems"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/editnote"
 )
 
 // No DB needed: makeText fails first and the search is guarded, so a nil db is never touched.
@@ -110,5 +111,26 @@ func TestSearchNotes(t *testing.T) {
 	percent.Run()
 	if percent.HasErr() || len(percent.GetResult()) != 1 || percent.GetResult()[0].Title != "Percent" {
 		t.Errorf("percent = %+v, %v; want only Percent", percent.GetResult(), percent.GetErr())
+	}
+
+	// Any piece of a word is found, not only its start.
+	inside := Process(ctx, tx, word[2:])
+	inside.Run()
+	if inside.HasErr() || len(inside.GetResult()) != 3 {
+		t.Errorf("inside = %+v, %v; want the 3 live notes", inside.GetResult(), inside.GetErr())
+	}
+
+	// An edit indexes the note again: its old text is no longer found, its new one is.
+	edit := editnote.Process(ctx, tx, editnote.Input{ID: ids["Percent"], Content: "# Percent\n\nnow " + word + "Edited"})
+	edit.Run()
+	if edit.HasErr() {
+		t.Fatalf("edit: %v", edit.GetErr())
+	}
+	for text, want := range map[string]int{word + "100%": 0, word + "edited": 1} {
+		search := Process(ctx, tx, text)
+		search.Run()
+		if search.HasErr() || len(search.GetResult()) != want {
+			t.Errorf("search %q after the edit = %+v, %v; want %d", text, search.GetResult(), search.GetErr(), want)
+		}
 	}
 }

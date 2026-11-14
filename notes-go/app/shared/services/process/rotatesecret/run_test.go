@@ -129,6 +129,16 @@ func TestRotateSecretKeepsNotes(t *testing.T) {
 	if want := hex.EncodeToString(mac(mac(key, "blind"), "tag")); err != nil || blind != want {
 		t.Errorf("blind = %q, %v; want %q, the one kept before the rotation", blind, err, want)
 	}
+	// The search index (noteindex) is BlindGrams: an AES block of the gram, its first 2 bytes.
+	block, _ := aes.NewCipher(mac(mac(key, "blind"), "grams"))
+	in, out := make([]byte, aes.BlockSize), make([]byte, aes.BlockSize)
+	copy(in, "ab")
+	in[2] = 0x80
+	block.Encrypt(out, in)
+	grams, err := secret.BlindGrams(user.ID, []string{"ab"})
+	if want := int16(out[0])<<8 | int16(out[1]); err != nil || len(grams) != 1 || grams[0] != want {
+		t.Errorf("blind grams = %v, %v; want [%d], the index kept before the rotation", grams, err, want)
+	}
 }
 
 // seal is AES-GCM, nonce then ciphertext, as services/secret writes it.

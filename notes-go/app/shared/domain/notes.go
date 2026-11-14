@@ -57,6 +57,8 @@ type MetadataNote struct {
 	Content  secret.Text `bun:",type:text"`
 	Readonly bool        `bun:",notnull"`
 	Pinned   bool        `bun:",notnull"`
+	Grams    []int16     `bun:",array,type:smallint[]"` // noteindex: blinds of its grams, NULL until noteindex.Fill
+	Waiting  []string    `bun:",array,type:text[]"`     // noteindex: blinds of the titles its [[links]] wait for
 	Tags     []Tag       `bun:"m2m:notes_on_tags,join:Note=Tag"`
 }
 

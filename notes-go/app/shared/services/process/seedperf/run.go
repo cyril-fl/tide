@@ -70,8 +70,8 @@ type note struct {
 }
 
 // Process creates an account filled with generated notes, to measure the app at scale; nothing when the account
-// exists. Everything goes in one transaction, written as the app writes it but in bulk: creating the notes one by one
-// would resolve the [[links]] of the whole account each time (#145).
+// exists. Everything goes in one transaction, written as the app writes it but in bulk: creating 50,000 notes one by one
+// through createnote would take half an hour.
 func Process(ctx context.Context, db bun.IDB, input Input) *run {
 	return &run{
 		ctx:   ctx,

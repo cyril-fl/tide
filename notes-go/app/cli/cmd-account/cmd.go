@@ -18,7 +18,6 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/adduser"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/purgeaccount"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resetpassword"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/rotatesecret"
@@ -202,14 +201,21 @@ func RotateSecret(cobra *cobra.Command, args []string) error {
 	return nil
 }
 
-// Purge deletes for good every note, folder, tag and image of the account logged in, once its name is typed.
+// Purge deletes for good every note, folder, tag and image of the account logged in, once its name (GET /api/me) is
+// typed, through DELETE /api/me/data.
 func Purge(cobra *cobra.Command, args []string) error {
-	session := readsession.Process(cobra.Context(), postgrey.GetDb(), readToken())
-	session.Run()
-	if session.HasErr() {
-		return session.GetErr()
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
 	}
-	name := session.GetResult().Name
+	me, err := client.GetApiMeWithResponse(cobra.Context())
+	if err != nil {
+		return err
+	}
+	if me.JSON200 == nil {
+		return apiclient.Fail(me.HTTPResponse, me.Body)
+	}
+	name := me.JSON200.Name
 
 	var typed string
 	if err := huhform.New(
@@ -219,10 +225,12 @@ func Purge(cobra *cobra.Command, args []string) error {
 		return err
 	}
 
-	process := purgeaccount.Process(cobra.Context(), postgrey.GetDb())
-	process.Run()
-	if process.HasErr() {
-		return process.GetErr()
+	response, err := client.DeleteApiMeDataWithResponse(cobra.Context())
+	if err != nil {
+		return err
+	}
+	if response.StatusCode() != http.StatusNoContent {
+		return apiclient.Fail(response.HTTPResponse, response.Body)
 	}
 	fmt.Printf("Successfully emptied account %s\n", name)
 	return nil

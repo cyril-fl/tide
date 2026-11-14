@@ -332,8 +332,8 @@ func TestSession(t *testing.T) {
 	if _, err := WithAccount(ctx); !errors.Is(err, domain.ErrNoUser) {
 		t.Errorf("no session: err = %v, want %v", err, domain.ErrNoUser)
 	}
-	if _, err := run(t, ctx, Purge, ""); !errors.Is(err, readsession.ErrNoSession) {
-		t.Errorf("purge with no session: err = %v, want %v", err, readsession.ErrNoSession)
+	if _, err := run(t, ctx, Purge, ""); !errors.Is(err, apiclient.ErrNoSession) {
+		t.Errorf("purge with no session: err = %v, want %v", err, apiclient.ErrNoSession)
 	}
 
 	name := account(t, ctx)

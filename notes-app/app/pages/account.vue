@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { FetchError } from 'ofetch';
-import type { NoteFile, User } from '~/types/items';
+import type { ApiToken, NewApiToken, NoteFile, User } from '~/types/items';
 
 const { icons } = useIcons();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const api = useApi();
 const toast = useToast();
 const logout = useLogout();
+const { confirm } = useDialogs();
 const baseURL = useRuntimeConfig().public.apiBase;
 const input = useTemplateRef('input');
 
@@ -107,6 +108,51 @@ async function changePassword() {
   current.value = next.value = '';
   toast.add({ title: t('account.passwordChanged'), color: 'success' });
 }
+const { data: tokens, refresh: refreshTokens } = useLazyAsyncData('api-tokens', () =>
+  api<ApiToken[]>('/api/me/tokens'),
+);
+const tokenName = ref('');
+// As createapitoken.Lifetimes, 90d by default.
+const lifetime = ref('90d');
+const lifetimes = computed(() =>
+  ['7d', '30d', '90d', '1y', 'never'].map((value) => ({ label: t(`account.tokenLifetimes.${value}`), value })),
+);
+// The new token, shown until the page is left: the API never gives it again.
+const created = ref<NewApiToken | null>(null);
+
+async function createToken() {
+  created.value = await api<NewApiToken>('/api/me/tokens', {
+    method: 'POST',
+    body: { name: tokenName.value, expires_in: lifetime.value },
+  });
+  tokenName.value = '';
+  await refreshTokens();
+  await copyToken(created.value.token);
+}
+
+async function copyToken(token: string) {
+  // Over plain HTTP, or without the permission, the clipboard refuses: the token stays readable in the page.
+  const copied = await navigator.clipboard.writeText(token).then(
+    () => true,
+    () => false,
+  );
+  if (copied) toast.add({ title: t('account.tokenCopied'), color: 'success' });
+}
+
+async function revokeToken(token: ApiToken) {
+  const confirmed = await confirm({
+    title: t('account.revokeToken', { name: token.name }),
+    action: t('account.revoke'),
+  });
+  if (!confirmed) return;
+  await api(`/api/me/tokens/${token.id}`, { method: 'DELETE' });
+  if (created.value?.api_token.id === token.id) created.value = null;
+  await refreshTokens();
+}
+
+function day(at: string) {
+  return new Date(at).toLocaleDateString(locale.value);
+}
 </script>
 
 <template>
@@ -187,6 +233,80 @@ async function changePassword() {
           :disabled="!current || !next"
         />
       </form>
+    </section>
+
+    <section class="mb-8">
+      <h2 class="mb-1 text-sm font-semibold">{{ $t('account.tokens') }}</h2>
+      <p class="mb-3 text-xs text-muted">{{ $t('account.tokensDescription') }}</p>
+      <form class="flex flex-wrap items-end gap-4" @submit.prevent="createToken">
+        <UFormField :label="$t('account.tokenName')">
+          <UInput v-model="tokenName" :placeholder="$t('account.tokenNamePlaceholder')" class="w-56" />
+        </UFormField>
+        <UFormField :label="$t('account.tokenExpiresIn')">
+          <USelectMenu v-model="lifetime" :items="lifetimes" value-key="value" :search-input="false" class="w-40" />
+        </UFormField>
+        <UButton
+          type="submit"
+          :label="$t('account.createToken')"
+          :icon="icons.apiToken"
+          color="neutral"
+          variant="outline"
+          :disabled="!tokenName.trim()"
+        />
+      </form>
+
+      <div v-if="created" class="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-default px-4 py-2">
+        <span class="text-xs text-muted">{{ $t('account.newToken', { name: created.api_token.name }) }}</span>
+        <UInput
+          :model-value="created.token"
+          readonly
+          size="sm"
+          class="min-w-0 flex-1 basis-64 font-mono"
+          :aria-label="$t('account.newToken', { name: created.api_token.name })"
+        >
+          <template #trailing>
+            <UButton
+              :icon="icons.copy"
+              :aria-label="$t('account.copyToken')"
+              color="neutral"
+              variant="link"
+              size="sm"
+              @click="copyToken(created.token)"
+            />
+          </template>
+        </UInput>
+      </div>
+
+      <ul v-if="tokens?.length" class="mt-3 divide-y divide-default rounded-lg border border-default">
+        <li v-for="token in tokens" :key="token.id" class="flex flex-wrap items-center gap-3 px-4 py-2">
+          <UIcon :name="icons.apiToken" class="size-4 shrink-0 text-muted" />
+          <div class="min-w-0 flex-1 basis-48">
+            <p class="truncate text-sm">{{ token.name }}</p>
+            <p class="text-xs text-muted">
+              {{
+                $t('account.tokenDates', {
+                  created: day(token.created_at),
+                  used: token.last_used_at
+                    ? $t('account.tokenUsed', { date: day(token.last_used_at) })
+                    : $t('account.tokenNeverUsed'),
+                  expires: token.expires_at
+                    ? $t('account.tokenExpires', { date: day(token.expires_at) })
+                    : $t('account.tokenNoExpiry'),
+                })
+              }}
+            </p>
+          </div>
+          <UButton
+            :label="$t('account.revoke')"
+            :ui="{ label: 'max-sm:sr-only' }"
+            :icon="icons.delete"
+            color="neutral"
+            variant="ghost"
+            @click="revokeToken(token)"
+          />
+        </li>
+      </ul>
+      <p v-else-if="tokens" class="mt-3 text-xs text-muted">{{ $t('account.tokensEmpty') }}</p>
     </section>
 
     <section>

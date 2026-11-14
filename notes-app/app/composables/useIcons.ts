@@ -67,6 +67,7 @@ export function useIcons() {
     invite: 'i-lucide-user-plus',
     resetPassword: 'i-lucide-key-round',
     copy: 'i-lucide-copy',
+    apiToken: 'i-lucide-key',
     source: 'i-reicon-document-code',
     selectAll: 'i-reicon-text-select',
     clear: 'i-reicon-eraser',

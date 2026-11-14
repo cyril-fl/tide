@@ -465,7 +465,31 @@
     "passwordChanged": "Mot de passe changé",
     "wrongPassword": "Le mot de passe actuel est faux.",
     "shortPassword": "Le nouveau mot de passe doit faire 8 caractères ou plus.",
-    "session": "Session"
+    "session": "Session",
+    "tokens": "Jetons d’API",
+    "tokensDescription": "Pour un script ou un agent (Authorization: Bearer). Un jeton fait tout sur les notes, dossiers, tags et fichiers, mais ne gère pas le compte : ni jetons, ni mot de passe, ni réglages.",
+    "tokenName": "Nom du jeton",
+    "tokenNamePlaceholder": "Claude téléphone",
+    "tokenExpiresIn": "Durée",
+    "tokenLifetimes": {
+      "7d": "7 jours",
+      "30d": "30 jours",
+      "90d": "90 jours",
+      "1y": "1 an",
+      "never": "Sans limite"
+    },
+    "createToken": "Créer",
+    "newToken": "Copiez le jeton « {name} » maintenant : il ne sera plus affiché.",
+    "copyToken": "Copier le jeton",
+    "tokenCopied": "Jeton copié",
+    "tokensEmpty": "Aucun jeton.",
+    "tokenDates": "Créé le {created} · {used} · {expires}",
+    "tokenUsed": "utilisé le {date}",
+    "tokenNeverUsed": "jamais utilisé",
+    "tokenExpires": "expire le {date}",
+    "tokenNoExpiry": "sans expiration",
+    "revokeToken": "Révoquer le jeton « {name} » ?",
+    "revoke": "Révoquer"
   },
   "features": {
     "graph": "Le graphe des notes",

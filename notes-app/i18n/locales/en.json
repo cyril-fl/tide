@@ -465,7 +465,31 @@
     "passwordChanged": "Password changed",
     "wrongPassword": "The current password is wrong.",
     "shortPassword": "The new password needs 8 characters or more.",
-    "session": "Session"
+    "session": "Session",
+    "tokens": "API tokens",
+    "tokensDescription": "For a script or an agent (Authorization: Bearer). A token does everything on notes, folders, tags and files, but does not manage the account: no tokens, password or settings.",
+    "tokenName": "Token name",
+    "tokenNamePlaceholder": "Claude phone",
+    "tokenExpiresIn": "Duration",
+    "tokenLifetimes": {
+      "7d": "7 days",
+      "30d": "30 days",
+      "90d": "90 days",
+      "1y": "1 year",
+      "never": "No limit"
+    },
+    "createToken": "Create",
+    "newToken": "Copy the token “{name}” now: it will not be shown again.",
+    "copyToken": "Copy the token",
+    "tokenCopied": "Token copied",
+    "tokensEmpty": "No token.",
+    "tokenDates": "Created on {created} · {used} · {expires}",
+    "tokenUsed": "used on {date}",
+    "tokenNeverUsed": "never used",
+    "tokenExpires": "expires on {date}",
+    "tokenNoExpiry": "no expiry",
+    "revokeToken": "Revoke the token “{name}”?",
+    "revoke": "Revoke"
   },
   "features": {
     "graph": "The graph of the notes",

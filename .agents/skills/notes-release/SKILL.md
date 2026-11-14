@@ -22,7 +22,7 @@ Two halves: you make the commits and the READMEs (they need judgment), then the 
 Once every commit is made, launch the `notes-release-checker` subagent with:
 
 - the short shas of the release's commits;
-- minor (a `feat:` in the release) or patch, and the tag message: what the user gets;
+- minor (a `feat:` in the release) or patch, and the tag message, in English: what the user gets;
 - the issues to close, each with what was done, and the issues to open for what is left (title, label, **À faire**);
 - whether to run the e2e (`make up` must be running);
 - what the handoff must say.

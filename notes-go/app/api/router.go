@@ -9,6 +9,7 @@ import (
 	apicreatenote "github.com/cyril-fl/notes/notes-go/app/api/create-note"
 	apicreatetag "github.com/cyril-fl/notes/notes-go/app/api/create-tag"
 	apideletefolder "github.com/cyril-fl/notes/notes-go/app/api/delete-folder"
+	apideleteitems "github.com/cyril-fl/notes/notes-go/app/api/delete-items"
 	apideletenote "github.com/cyril-fl/notes/notes-go/app/api/delete-note"
 	apideletetag "github.com/cyril-fl/notes/notes-go/app/api/delete-tag"
 	apideletetrash "github.com/cyril-fl/notes/notes-go/app/api/delete-trash"
@@ -40,6 +41,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/api/services/compress"
 	"github.com/cyril-fl/notes/notes-go/app/api/services/guard"
 	apiusers "github.com/cyril-fl/notes/notes-go/app/api/users"
+	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
 	"github.com/uptrace/bun"
 )
@@ -72,6 +74,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 
 	mux.Handle("GET /api/notes", apireadgraph.List(db))
 	mux.Handle("POST /api/notes", apicreatenote.Handler(db))
+	mux.Handle("DELETE /api/notes", apideleteitems.Handler(db, domain.NOTE))
 	mux.Handle("POST /api/notes/tags", apireadnotetags.Handler(db))
 	mux.Handle("GET /api/notes/{id}", apireadnote.Handler(db))
 	mux.Handle("PATCH /api/notes/{id}", apieditnote.Handler(db))
@@ -84,6 +87,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 
 	mux.Handle("GET /api/folders", apireadfolder.List(db))
 	mux.Handle("POST /api/folders", apicreatefolder.Handler(db))
+	mux.Handle("DELETE /api/folders", apideleteitems.Handler(db, domain.FOLDER))
 	mux.Handle("GET /api/folders/{id}", apireadfolder.Handler(db))
 	mux.Handle("PATCH /api/folders/{id}", apieditfolder.Handler(db))
 	mux.Handle("DELETE /api/folders/{id}", apideletefolder.Handler(db))
@@ -94,6 +98,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 
 	mux.Handle("GET /api/tags", apireadtag.List(db))
 	mux.Handle("POST /api/tags", apicreatetag.Handler(db))
+	mux.Handle("DELETE /api/tags", apideletetag.Many(db))
 	mux.Handle("GET /api/tags/{value}", apireadtag.Handler(db))
 	mux.Handle("PATCH /api/tags/{value}", apiedittag.Handler(db))
 	mux.Handle("DELETE /api/tags/{value}", apideletetag.Handler(db))

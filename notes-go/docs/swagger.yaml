@@ -105,6 +105,26 @@ components:
       required:
       - values
       type: object
+    deleteitems.Body:
+      properties:
+        ids:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+      required:
+      - ids
+      type: object
+    deletetag.Body:
+      properties:
+        values:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+      required:
+      - values
+      type: object
     domain.File:
       properties:
         content_type:
@@ -1160,6 +1180,46 @@ paths:
       tags:
       - files
   /api/folders:
+    delete:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/deleteitems.Body'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/domain.Item'
+                type: array
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Request Entity Too Large
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Move notes or folders to the trash, a folder with its content
+      tags:
+      - items
     get:
       responses:
         "200":
@@ -1873,6 +1933,46 @@ paths:
       tags:
       - items
   /api/notes:
+    delete:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/deleteitems.Body'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/domain.Item'
+                type: array
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Request Entity Too Large
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Move notes or folders to the trash, a folder with its content
+      tags:
+      - items
     get:
       parameters:
       - description: text of the title or the path
@@ -2570,6 +2670,46 @@ paths:
       tags:
       - account
   /api/tags:
+    delete:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/deletetag.Body'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/domain.Tag'
+                type: array
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Request Entity Too Large
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Delete tags and erase them from the text of their notes
+      tags:
+      - tags
     get:
       responses:
         "200":

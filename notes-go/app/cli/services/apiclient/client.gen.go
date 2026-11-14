@@ -120,6 +120,16 @@ type CreatetagBody struct {
 	Values []string `json:"values"`
 }
 
+// DeleteitemsBody defines model for deleteitems.Body.
+type DeleteitemsBody struct {
+	Ids []string `json:"ids"`
+}
+
+// DeletetagBody defines model for deletetag.Body.
+type DeletetagBody struct {
+	Values []string `json:"values"`
+}
+
 // DomainFile defines model for domain.File.
 type DomainFile struct {
 	ContentType string `json:"content_type"`
@@ -626,6 +636,9 @@ type GetApiTagsValueParams struct {
 // PostApiFilesJSONRequestBody defines body for PostApiFiles for application/json ContentType.
 type PostApiFilesJSONRequestBody = PostApiFilesJSONBody
 
+// DeleteApiFoldersJSONRequestBody defines body for DeleteApiFolders for application/json ContentType.
+type DeleteApiFoldersJSONRequestBody = DeleteitemsBody
+
 // PostApiFoldersJSONRequestBody defines body for PostApiFolders for application/json ContentType.
 type PostApiFoldersJSONRequestBody = CreatefolderInput
 
@@ -650,6 +663,9 @@ type PatchApiMePasswordJSONRequestBody = EditpasswordInput
 // PostApiMoveJSONRequestBody defines body for PostApiMove for application/json ContentType.
 type PostApiMoveJSONRequestBody = MoveitemsInput
 
+// DeleteApiNotesJSONRequestBody defines body for DeleteApiNotes for application/json ContentType.
+type DeleteApiNotesJSONRequestBody = DeleteitemsBody
+
 // PostApiNotesJSONRequestBody defines body for PostApiNotes for application/json ContentType.
 type PostApiNotesJSONRequestBody = CreatenoteInput
 
@@ -667,6 +683,9 @@ type PostApiRestoreJSONRequestBody = RestoreBody
 
 // PostApiSignupJSONRequestBody defines body for PostApiSignup for application/json ContentType.
 type PostApiSignupJSONRequestBody = AdduserInput
+
+// DeleteApiTagsJSONRequestBody defines body for DeleteApiTags for application/json ContentType.
+type DeleteApiTagsJSONRequestBody = DeletetagBody
 
 // PostApiTagsJSONRequestBody defines body for PostApiTags for application/json ContentType.
 type PostApiTagsJSONRequestBody = CreatetagBody
@@ -781,6 +800,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/files/{id} (the `GetApiFilesId` operationId).
 	GetApiFilesId(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteApiFoldersWithBody Move notes or folders to the trash, a folder with its content
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with DELETE /api/folders (the `DeleteApiFolders` operationId).
+	DeleteApiFoldersWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteApiFolders Move notes or folders to the trash, a folder with its content
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with DELETE /api/folders (the `DeleteApiFolders` operationId).
+	DeleteApiFolders(ctx context.Context, body DeleteApiFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiFolders List every folder with its path
 	//
@@ -950,6 +983,20 @@ type ClientInterface interface {
 	// Corresponds with POST /api/move (the `PostApiMove` operationId).
 	PostApiMove(ctx context.Context, body PostApiMoveJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteApiNotesWithBody Move notes or folders to the trash, a folder with its content
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with DELETE /api/notes (the `DeleteApiNotes` operationId).
+	DeleteApiNotesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteApiNotes Move notes or folders to the trash, a folder with its content
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with DELETE /api/notes (the `DeleteApiNotes` operationId).
+	DeleteApiNotes(ctx context.Context, body DeleteApiNotesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetApiNotes Find the notes by title or path
 	//
 	// Corresponds with GET /api/notes (the `GetApiNotes` operationId).
@@ -1093,6 +1140,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/signup (the `PostApiSignup` operationId).
 	PostApiSignup(ctx context.Context, body PostApiSignupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteApiTagsWithBody Delete tags and erase them from the text of their notes
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with DELETE /api/tags (the `DeleteApiTags` operationId).
+	DeleteApiTagsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteApiTags Delete tags and erase them from the text of their notes
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with DELETE /api/tags (the `DeleteApiTags` operationId).
+	DeleteApiTags(ctx context.Context, body DeleteApiTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiTags List every tag
 	//
@@ -1257,6 +1318,40 @@ func (c *Client) PostApiFiles(ctx context.Context, params *PostApiFilesParams, b
 // Corresponds with GET /api/files/{id} (the `GetApiFilesId` operationId).
 func (c *Client) GetApiFilesId(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiFilesIdRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteApiFoldersWithBody Move notes or folders to the trash, a folder with its content
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with DELETE /api/folders (the `DeleteApiFolders` operationId).
+func (c *Client) DeleteApiFoldersWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiFoldersRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteApiFolders Move notes or folders to the trash, a folder with its content
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with DELETE /api/folders (the `DeleteApiFolders` operationId).
+func (c *Client) DeleteApiFolders(ctx context.Context, body DeleteApiFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiFoldersRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1715,6 +1810,40 @@ func (c *Client) PostApiMove(ctx context.Context, body PostApiMoveJSONRequestBod
 	return c.Client.Do(req)
 }
 
+// DeleteApiNotesWithBody Move notes or folders to the trash, a folder with its content
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with DELETE /api/notes (the `DeleteApiNotes` operationId).
+func (c *Client) DeleteApiNotesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiNotesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteApiNotes Move notes or folders to the trash, a folder with its content
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with DELETE /api/notes (the `DeleteApiNotes` operationId).
+func (c *Client) DeleteApiNotes(ctx context.Context, body DeleteApiNotesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiNotesRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetApiNotes Find the notes by title or path
 //
 // Corresponds with GET /api/notes (the `GetApiNotes` operationId).
@@ -2089,6 +2218,40 @@ func (c *Client) PostApiSignupWithBody(ctx context.Context, contentType string, 
 // Corresponds with POST /api/signup (the `PostApiSignup` operationId).
 func (c *Client) PostApiSignup(ctx context.Context, body PostApiSignupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiSignupRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteApiTagsWithBody Delete tags and erase them from the text of their notes
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with DELETE /api/tags (the `DeleteApiTags` operationId).
+func (c *Client) DeleteApiTagsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiTagsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteApiTags Delete tags and erase them from the text of their notes
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with DELETE /api/tags (the `DeleteApiTags` operationId).
+func (c *Client) DeleteApiTags(ctx context.Context, body DeleteApiTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiTagsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2561,6 +2724,46 @@ func NewGetApiFilesIdRequest(server string, id string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewDeleteApiFoldersRequest calls the generic DeleteApiFolders builder with application/json body
+func NewDeleteApiFoldersRequest(server string, body DeleteApiFoldersJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeleteApiFoldersRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDeleteApiFoldersRequestWithBody constructs an http.Request for the DeleteApiFolders method, with any body, and a specified content type
+func NewDeleteApiFoldersRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/folders")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -3332,6 +3535,46 @@ func NewPostApiMoveRequestWithBody(server string, contentType string, body io.Re
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteApiNotesRequest calls the generic DeleteApiNotes builder with application/json body
+func NewDeleteApiNotesRequest(server string, body DeleteApiNotesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeleteApiNotesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDeleteApiNotesRequestWithBody constructs an http.Request for the DeleteApiNotes method, with any body, and a specified content type
+func NewDeleteApiNotesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/notes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -4123,6 +4366,46 @@ func NewPostApiSignupRequestWithBody(server string, contentType string, body io.
 	return req, nil
 }
 
+// NewDeleteApiTagsRequest calls the generic DeleteApiTags builder with application/json body
+func NewDeleteApiTagsRequest(server string, body DeleteApiTagsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeleteApiTagsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDeleteApiTagsRequestWithBody constructs an http.Request for the DeleteApiTags method, with any body, and a specified content type
+func NewDeleteApiTagsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/tags")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetApiTagsRequest constructs an http.Request for the GetApiTags method
 func NewGetApiTagsRequest(server string) (*http.Request, error) {
 	var err error
@@ -4640,6 +4923,20 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/files/{id} (the `GetApiFilesId` operationId).
 	GetApiFilesIdWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetApiFilesIdResponse, error)
 
+	// DeleteApiFoldersWithBodyWithResponse Move notes or folders to the trash, a folder with its content
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/folders (the `DeleteApiFolders` operationId).
+	DeleteApiFoldersWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteApiFoldersResponse, error)
+
+	// DeleteApiFoldersWithResponse Move notes or folders to the trash, a folder with its content
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/folders (the `DeleteApiFolders` operationId).
+	DeleteApiFoldersWithResponse(ctx context.Context, body DeleteApiFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteApiFoldersResponse, error)
+
 	// GetApiFoldersWithResponse List every folder with its path
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -4836,6 +5133,20 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/move (the `PostApiMove` operationId).
 	PostApiMoveWithResponse(ctx context.Context, body PostApiMoveJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiMoveResponse, error)
 
+	// DeleteApiNotesWithBodyWithResponse Move notes or folders to the trash, a folder with its content
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/notes (the `DeleteApiNotes` operationId).
+	DeleteApiNotesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteApiNotesResponse, error)
+
+	// DeleteApiNotesWithResponse Move notes or folders to the trash, a folder with its content
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/notes (the `DeleteApiNotes` operationId).
+	DeleteApiNotesWithResponse(ctx context.Context, body DeleteApiNotesJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteApiNotesResponse, error)
+
 	// GetApiNotesWithResponse Find the notes by title or path
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -5003,6 +5314,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/signup (the `PostApiSignup` operationId).
 	PostApiSignupWithResponse(ctx context.Context, body PostApiSignupJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiSignupResponse, error)
+
+	// DeleteApiTagsWithBodyWithResponse Delete tags and erase them from the text of their notes
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/tags (the `DeleteApiTags` operationId).
+	DeleteApiTagsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteApiTagsResponse, error)
+
+	// DeleteApiTagsWithResponse Delete tags and erase them from the text of their notes
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/tags (the `DeleteApiTags` operationId).
+	DeleteApiTagsWithResponse(ctx context.Context, body DeleteApiTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteApiTagsResponse, error)
 
 	// GetApiTagsWithResponse List every tag
 	//
@@ -5330,6 +5655,68 @@ func (r GetApiFilesIdResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetApiFilesIdResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteApiFoldersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]DomainItem
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeleteApiFoldersResponse) GetJSON200() *[]DomainItem {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r DeleteApiFoldersResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r DeleteApiFoldersResponse) GetJSON413() *RespondFailure {
+	return r.JSON413
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r DeleteApiFoldersResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteApiFoldersResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteApiFoldersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteApiFoldersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteApiFoldersResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -6568,6 +6955,68 @@ func (r PostApiMoveResponse) ContentType() string {
 	return ""
 }
 
+type DeleteApiNotesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]DomainItem
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeleteApiNotesResponse) GetJSON200() *[]DomainItem {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r DeleteApiNotesResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r DeleteApiNotesResponse) GetJSON413() *RespondFailure {
+	return r.JSON413
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r DeleteApiNotesResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteApiNotesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteApiNotesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteApiNotesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteApiNotesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetApiNotesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7649,6 +8098,68 @@ func (r PostApiSignupResponse) ContentType() string {
 	return ""
 }
 
+type DeleteApiTagsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]DomainTag
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeleteApiTagsResponse) GetJSON200() *[]DomainTag {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r DeleteApiTagsResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r DeleteApiTagsResponse) GetJSON413() *RespondFailure {
+	return r.JSON413
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r DeleteApiTagsResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteApiTagsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteApiTagsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteApiTagsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteApiTagsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetApiTagsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -8436,6 +8947,32 @@ func (c *ClientWithResponses) GetApiFilesIdWithResponse(ctx context.Context, id 
 	return ParseGetApiFilesIdResponse(rsp)
 }
 
+// DeleteApiFoldersWithBodyWithResponse Move notes or folders to the trash, a folder with its content
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/folders (the `DeleteApiFolders` operationId).
+func (c *ClientWithResponses) DeleteApiFoldersWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteApiFoldersResponse, error) {
+	rsp, err := c.DeleteApiFoldersWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiFoldersResponse(rsp)
+}
+
+// DeleteApiFoldersWithResponse Move notes or folders to the trash, a folder with its content
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/folders (the `DeleteApiFolders` operationId).
+func (c *ClientWithResponses) DeleteApiFoldersWithResponse(ctx context.Context, body DeleteApiFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteApiFoldersResponse, error) {
+	rsp, err := c.DeleteApiFolders(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiFoldersResponse(rsp)
+}
+
 // GetApiFoldersWithResponse List every folder with its path
 //
 // Returns a wrapper object for the known response body format(s).
@@ -8800,6 +9337,32 @@ func (c *ClientWithResponses) PostApiMoveWithResponse(ctx context.Context, body 
 	return ParsePostApiMoveResponse(rsp)
 }
 
+// DeleteApiNotesWithBodyWithResponse Move notes or folders to the trash, a folder with its content
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/notes (the `DeleteApiNotes` operationId).
+func (c *ClientWithResponses) DeleteApiNotesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteApiNotesResponse, error) {
+	rsp, err := c.DeleteApiNotesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiNotesResponse(rsp)
+}
+
+// DeleteApiNotesWithResponse Move notes or folders to the trash, a folder with its content
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/notes (the `DeleteApiNotes` operationId).
+func (c *ClientWithResponses) DeleteApiNotesWithResponse(ctx context.Context, body DeleteApiNotesJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteApiNotesResponse, error) {
+	rsp, err := c.DeleteApiNotes(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiNotesResponse(rsp)
+}
+
 // GetApiNotesWithResponse Find the notes by title or path
 //
 // Returns a wrapper object for the known response body format(s).
@@ -9110,6 +9673,32 @@ func (c *ClientWithResponses) PostApiSignupWithResponse(ctx context.Context, bod
 		return nil, err
 	}
 	return ParsePostApiSignupResponse(rsp)
+}
+
+// DeleteApiTagsWithBodyWithResponse Delete tags and erase them from the text of their notes
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/tags (the `DeleteApiTags` operationId).
+func (c *ClientWithResponses) DeleteApiTagsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteApiTagsResponse, error) {
+	rsp, err := c.DeleteApiTagsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiTagsResponse(rsp)
+}
+
+// DeleteApiTagsWithResponse Delete tags and erase them from the text of their notes
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/tags (the `DeleteApiTags` operationId).
+func (c *ClientWithResponses) DeleteApiTagsWithResponse(ctx context.Context, body DeleteApiTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteApiTagsResponse, error) {
+	rsp, err := c.DeleteApiTags(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiTagsResponse(rsp)
 }
 
 // GetApiTagsWithResponse List every tag
@@ -9441,6 +10030,53 @@ func ParseGetApiFilesIdResponse(rsp *http.Response) (*GetApiFilesIdResponse, err
 	response := &GetApiFilesIdResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseDeleteApiFoldersResponse parses an HTTP response from a DeleteApiFoldersWithResponse call
+func ParseDeleteApiFoldersResponse(rsp *http.Response) (*DeleteApiFoldersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteApiFoldersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []DomainItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -10381,6 +11017,53 @@ func ParsePostApiMoveResponse(rsp *http.Response) (*PostApiMoveResponse, error) 
 	return response, nil
 }
 
+// ParseDeleteApiNotesResponse parses an HTTP response from a DeleteApiNotesWithResponse call
+func ParseDeleteApiNotesResponse(rsp *http.Response) (*DeleteApiNotesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteApiNotesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []DomainItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetApiNotesResponse parses an HTTP response from a GetApiNotesWithResponse call
 func ParseGetApiNotesResponse(rsp *http.Response) (*GetApiNotesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -11194,6 +11877,53 @@ func ParsePostApiSignupResponse(rsp *http.Response) (*PostApiSignupResponse, err
 			return nil, err
 		}
 		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteApiTagsResponse parses an HTTP response from a DeleteApiTagsWithResponse call
+func ParseDeleteApiTagsResponse(rsp *http.Response) (*DeleteApiTagsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteApiTagsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []DomainTag
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest RespondFailure

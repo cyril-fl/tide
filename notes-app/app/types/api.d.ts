@@ -427,7 +427,59 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Move notes or folders to the trash, a folder with its content */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description body */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["deleteitems.Body"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["domain.Item"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Request Entity Too Large */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -1656,7 +1708,59 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Move notes or folders to the trash, a folder with its content */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description body */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["deleteitems.Body"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["domain.Item"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Request Entity Too Large */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -2752,7 +2856,59 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Delete tags and erase them from the text of their notes */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description body */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["deletetag.Body"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["domain.Tag"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Request Entity Too Large */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -3399,6 +3555,12 @@ export interface components {
             user: components["schemas"]["domain.User"];
         };
         "createtag.Body": {
+            values: string[];
+        };
+        "deleteitems.Body": {
+            ids: string[];
+        };
+        "deletetag.Body": {
             values: string[];
         };
         "domain.File": {

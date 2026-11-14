@@ -1184,3 +1184,34 @@ func TestAccountsPublicMode(t *testing.T) {
 		t.Errorf("signup 5 in a row: status = %d, want 429: %s", w.Code, w.Body)
 	}
 }
+
+// The batch deletes move everything in one transaction, skip what they do not find or is of the other kind, and
+// answer what they removed: a folder with its content.
+func TestDeleteMany(t *testing.T) {
+	c := newClient(t)
+	var folder, inside, note item
+	c.do("POST", "/api/folders", fmt.Sprintf(`{"title":%q}`, unique("folder")), http.StatusCreated, &folder)
+	c.do("POST", "/api/notes", fmt.Sprintf(`{"content":"inside","parent_id":%q}`, folder.ID), http.StatusCreated, &inside)
+	c.do("POST", "/api/notes", `{"content":"loose"}`, http.StatusCreated, &note)
+
+	var removed []item
+	c.do("DELETE", "/api/folders", fmt.Sprintf(`{"ids":[%q,%q,%q]}`, folder.ID, note.ID, unknownID), http.StatusOK, &removed)
+	if len(removed) != 2 {
+		t.Errorf("folders removed = %+v, want the folder and its note", removed)
+	}
+	c.do("DELETE", "/api/notes", fmt.Sprintf(`{"ids":[%q,%q]}`, note.ID, unknownID), http.StatusOK, &removed)
+	if len(removed) != 1 || removed[0].ID != note.ID {
+		t.Errorf("notes removed = %+v, want the loose note", removed)
+	}
+	c.do("DELETE", "/api/notes", `{"ids":["nope"]}`, http.StatusBadRequest, nil)
+	c.do("DELETE", "/api/notes", `{"ids":[]}`, http.StatusBadRequest, nil)
+
+	tag := unique("tag")
+	c.do("POST", "/api/tags", fmt.Sprintf(`{"values":[%q]}`, tag), http.StatusCreated, nil)
+	var tags []struct{ Value string }
+	c.do("DELETE", "/api/tags", fmt.Sprintf(`{"values":[%q,%q]}`, tag, unique("unknown")), http.StatusOK, &tags)
+	if len(tags) != 1 || tags[0].Value != tag {
+		t.Errorf("tags removed = %+v, want %s", tags, tag)
+	}
+	c.do("DELETE", "/api/tags", `{"values":[]}`, http.StatusBadRequest, nil)
+}

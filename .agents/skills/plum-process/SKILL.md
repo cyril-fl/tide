@@ -9,14 +9,14 @@ Use this skill when code runs ordered steps that can each fail and must stop at 
 
 ## Process vs Mill
 
-- **Process** (`primitive.Process`): one entry point `Run()`, ordered steps, optional single result via `GetResult()`. Example: `resolvearchives`, `generatesession`.
+- **Process** (`primitive.Process`): one entry point `Run()`, ordered steps, optional single result via `GetResult()`. Example: `createtag`, `createschema` in `notes-go/app/shared/services/process/`.
 - **Mill** (`primitive.Mill`): a reusable tool exposing several independent methods that each collect errors. Example: plum `millload`, `millentries`.
 
 If callers would only ever call one method in a fixed sequence, it is a Process.
 
 ## Layout
 
-- Package in `app/<scope>/services/process/<verb><noun>/` (e.g. `resolvearchives`, `createschema`), lowercase, no underscore.
+- Package in `app/<scope>/services/process/<verb><noun>/` (e.g. `createtag`, `createschema`), lowercase, no underscore.
 - Import plum as `plumprimitive "github.com/cyril-fl/plum/primitive"`.
 
 ## Template
@@ -91,15 +91,15 @@ func (p *run) ensureSomething() {
 ## Sub-process
 
 ```go
-func (p *run) makeArchives() {
+func (p *run) makeTags() {
 	if p.HasErr() {
 		return
 	}
 
-	process := resolvearchives.Process(p.db, p.cache.campaignID)
+	process := listtag.Process(p.ctx, p.db)
 	process.Run()
 
-	p.cache.archives = process.GetResult()
+	p.cache.tags = process.GetResult()
 	p.SetErr(process.GetErr())
 }
 ```
@@ -109,9 +109,11 @@ func (p *run) makeArchives() {
 ```go
 process := createschema.Process(ctx, db)
 process.Run()
-if err := process.GetErr(); err != nil {
-	return err
+if process.HasErr() {
+	return process.GetErr()
 }
 ```
+
+Check with `HasErr()`, never `if err := process.GetErr(); err != nil`.
 
 To chain several processes without results, use `plumprimitive.HandleProcess([]plumprimitive.Processable{...})`.

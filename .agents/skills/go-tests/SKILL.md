@@ -5,7 +5,7 @@ description: "Create, update, or run Go unit tests while preserving production b
 
 # Go tests
 
-Use this skill for broad Go test work. For a focused operation, use `go-test-create` to write tests or `go-test-run` to execute them.
+Use this skill for any Go test work: writing, updating or running tests.
 
 ## Create or update tests
 
@@ -25,7 +25,7 @@ Run the project's prescribed command from its root:
 make test
 ```
 
-Use a package path or `-run` only when targeting a specific test. After changing production code or tests, rerun the relevant tests and distinguish test failures from pre-existing defects.
+The Makefile sets up the test environment: never run `go test` directly, and never bypass the Makefile to make a test pass. Target a package or a test with `ARGS`: `make test ARGS="./app/shared/services/process/createtag -run TestX"`. After changing production code or tests, rerun the relevant tests and distinguish test failures from pre-existing defects.
 
 ## Boundaries
 

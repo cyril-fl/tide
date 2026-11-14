@@ -1,6 +1,7 @@
 ---
 name: notes-auditor
 description: Read-only audit of the Notes code (notes-go and notes-app) for bugs, security holes, data loss, timeouts and untested risky code. Returns verified findings with file:line and a concrete failure case. Used by the notes-issue-hunt skill, or when the user asks for an audit of Notes.
+model: opus
 tools: Read, Grep, Glob, Bash
 ---
 

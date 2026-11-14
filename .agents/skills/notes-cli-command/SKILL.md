@@ -79,8 +79,6 @@ Check errors with `HasErr()`, never `if err := process.GetErr(); err != nil`. Th
 
 ## 6. Flags and --yaml / --json
 
-Same pattern as `scne/develop/cmd/config.go`:
-
 ```yaml
 # config/config.yaml
   read-tag:

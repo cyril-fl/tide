@@ -91,7 +91,10 @@ var cmdAccountPurge = &cobra.Command{
 var noAccount = map[*cobra.Command]bool{cmdUser: true, cmdUserAdd: true, cmdUserPerf: true, cmdResetPassword: true, cmdRotateSecret: true, cmdServe: true}
 
 // apiClients talk to the server through its API, never to the base.
-var apiClients = map[*cobra.Command]bool{cmdLogin: true, cmdLogout: true, cmdWhoami: true}
+var apiClients = map[*cobra.Command]bool{
+	cmdLogin: true, cmdLogout: true, cmdWhoami: true,
+	cmdCreateNote: true, cmdCreateFloder: true, cmdCreateTag: true,
+}
 
 func init() {
 	plumcliutilsargs.Makeflags(cmdLogin, cmd.Login.Flags)

@@ -6,7 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
@@ -70,5 +75,38 @@ func TestResolveRefsKeepsUuids(t *testing.T) {
 	}
 	if got, _ := flags.GetString("parent"); got != "parent-uuid" {
 		t.Errorf("parent = %q", got)
+	}
+}
+
+// Paths in the args and in --parent become uuids through GET /api/resolve; uuids are kept as they are.
+func TestAPIResolved(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	folder := createfolder.Process(ctx, tx, createfolder.Input{Title: "Projects"})
+	folder.Run()
+	note := createnote.Process(ctx, tx, createnote.Input{Content: "# Ideas", ParentID: folder.GetResult().ID})
+	note.Run()
+	if folder.HasErr() || note.HasErr() {
+		t.Fatal(folder.GetErr(), note.GetErr())
+	}
+
+	command := &cobra.Command{}
+	command.Flags().String("parent", "", "")
+	command.SetContext(ctx)
+	if err := command.Flags().Parse([]string{"--parent", "/Projects"}); err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	run := apiResolved(apiclient.NOTE, func(_ *cobra.Command, ids []string) error { got = ids; return nil })
+	if err := run(command, []string{"/Projects/Ideas", "a-uuid"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got, ",") != note.GetResult().ID+",a-uuid" {
+		t.Errorf("ids = %v, want the note's uuid then a-uuid", got)
+	}
+	if parent, _ := command.Flags().GetString("parent"); parent != folder.GetResult().ID {
+		t.Errorf("parent = %q, want the folder's uuid", parent)
+	}
+	if err := run(command, []string{"/Nowhere"}); err == nil {
+		t.Error("unknown path: no error")
 	}
 }

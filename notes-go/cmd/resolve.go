@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resolveitem"
@@ -27,6 +28,35 @@ func resolved(kind domain.Kind, run func(*cobra.Command, []string) error) func(*
 		ids, err := resolveRefs(cobra.Context(), postgrey.GetDb(), kind, args, cobra.Flags())
 		if err != nil {
 			return err
+		}
+		if err := readContent(cobra.Flags(), os.Stdin); err != nil {
+			return err
+		}
+		return run(cobra, ids)
+	}
+}
+
+// apiResolved is resolved for the clients of the API: the paths are turned into uuids through GET /api/resolve.
+func apiResolved(kind apiclient.DomainKind, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
+	return func(cobra *cobra.Command, args []string) error {
+		client, err := apiclient.Read().Client()
+		if err != nil {
+			return err
+		}
+		ids := make([]string, len(args))
+		for i, arg := range args {
+			if ids[i], err = apiclient.Resolve(cobra.Context(), client, kind, arg); err != nil {
+				return err
+			}
+		}
+		if parent := cobra.Flags().Lookup("parent"); parent != nil && parent.Changed {
+			id, err := apiclient.Resolve(cobra.Context(), client, apiclient.FOLDER, parent.Value.String())
+			if err != nil {
+				return err
+			}
+			if err := cobra.Flags().Set("parent", id); err != nil {
+				return err
+			}
 		}
 		if err := readContent(cobra.Flags(), os.Stdin); err != nil {
 			return err

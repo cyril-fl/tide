@@ -4,21 +4,20 @@ import (
 	"context"
 	"errors"
 
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listfolders"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/spf13/pflag"
-	"github.com/uptrace/bun"
 )
 
 type mill struct {
 	plumprimitive.Mill
 	cache
 
-	ctx   context.Context
-	db    bun.IDB
-	flags *pflag.FlagSet
+	ctx    context.Context
+	client *apiclient.ClientWithResponses
+	flags  *pflag.FlagSet
 }
 
 type cache struct {
@@ -27,16 +26,16 @@ type cache struct {
 }
 
 type Template struct {
-	Ctx   context.Context
-	Db    bun.IDB
-	Flags *pflag.FlagSet
+	Ctx    context.Context
+	Client *apiclient.ClientWithResponses
+	Flags  *pflag.FlagSet
 }
 
 func New(params Template) *mill {
 	return &mill{
-		ctx:   params.Ctx,
-		db:    params.Db,
-		flags: params.Flags,
+		ctx:    params.Ctx,
+		client: params.Client,
+		flags:  params.Flags,
 	}
 }
 
@@ -67,14 +66,13 @@ func (m *mill) pickParent() {
 		return
 	}
 
-	process := listfolders.Process(m.ctx, m.db)
-	process.Run()
-	if process.HasErr() {
-		m.SetErr(process.GetErr())
+	folders, err := apiclient.Folders(m.ctx, m.client)
+	if err != nil {
+		m.SetErr(err)
 		return
 	}
 
-	id, err := huhform.PickFolder(process.GetResult())
+	id, err := huhform.PickFolder(folders)
 	m.cache.input.ParentID = id
 	m.SetErr(err)
 }

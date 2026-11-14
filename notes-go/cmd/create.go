@@ -7,7 +7,7 @@ import (
 	cmdcreatefolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-create-folder"
 	cmdcreatenote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-create-note"
 	cmdcreatetag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-create-tag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 )
 
 var cmdCreate = &cobra.Command{
@@ -23,7 +23,7 @@ var cmdCreateNote = &cobra.Command{
 	Long:    cmd.CreateNote.Long,
 	Example: cmd.CreateNote.Example,
 	Args:    cobra.NoArgs,
-	RunE:    resolved(domain.NOTE, cmdcreatenote.Create),
+	RunE:    apiResolved(apiclient.NOTE, cmdcreatenote.Create),
 }
 
 var cmdCreateFloder = &cobra.Command{
@@ -32,7 +32,7 @@ var cmdCreateFloder = &cobra.Command{
 	Long:    cmd.CreateFolder.Long,
 	Example: cmd.CreateFolder.Example,
 	Args:    cobra.NoArgs,
-	RunE:    resolved(domain.FOLDER, cmdcreatefolder.Create),
+	RunE:    apiResolved(apiclient.FOLDER, cmdcreatefolder.Create),
 }
 
 var cmdCreateTag = &cobra.Command{

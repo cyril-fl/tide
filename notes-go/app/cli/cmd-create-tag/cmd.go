@@ -3,18 +3,23 @@ package cmdcreatetag
 import (
 	"fmt"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createtag"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/spf13/cobra"
 )
 
+// Create creates the tags through POST /api/tags, which skips the existing ones.
 func Create(cobra *cobra.Command, args []string) error {
-	process := createtag.Process(cobra.Context(), postgrey.GetDb(), args)
-	process.Run()
-
-	if !process.HasErr() {
-		fmt.Printf("Successfully created %d tag(s)\n", len(process.GetResult()))
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
 	}
-
-	return process.GetErr()
+	response, err := client.PostApiTagsWithResponse(cobra.Context(), apiclient.CreatetagBody{Values: args})
+	if err != nil {
+		return err
+	}
+	if response.JSON201 == nil {
+		return apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	fmt.Printf("Successfully created %d tag(s)\n", len(*response.JSON201))
+	return nil
 }

@@ -27,6 +27,7 @@ func TestNeedsDb(t *testing.T) {
 		"completion zsh":   {zsh, false},
 		"shell __complete": {request, false},
 		"login":            {cmdLogin, false},
+		"add note":         {cmdCreateNote, false},
 	}
 
 	for name, test := range tests {

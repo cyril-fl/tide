@@ -352,6 +352,7 @@
     "deleteSnippet": "Delete “{name}”?",
     "snippetName": "Name",
     "snippetContent": "Content",
+    "snippetFromNote": "From a note…",
     "savedSearches": "Smart folders",
     "savedSearchesDescription": "Shown in the sidebar, like the favorites.",
     "savedSearchesEmpty": "No smart folder.",

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { Snippet } from '~/types/items';
+import type { ItemDetail, NoteRef, Snippet } from '~/types/items';
 
 const props = defineProps<{ title: string; value?: Snippet }>();
 const emit = defineEmits<{ close: [value?: Snippet] }>();
 
 const { icons } = useIcons();
 const { has } = usePro();
+const api = useApi();
 
 const name = ref(props.value?.name ?? '');
 const content = ref(props.value?.content ?? '');
@@ -16,6 +17,23 @@ const start = ref(content.value);
 function toggleSource() {
   if (source.value) start.value = content.value;
   source.value = !source.value;
+}
+
+// The notes offered to start from, found by the API like the [[links]]: the whole list is too heavy.
+const query = ref('');
+const search = refDebounced(query, 150);
+const { data: notes } = useLazyAsyncData(
+  'snippet-notes',
+  () => api<NoteRef[]>('/api/notes', { query: { q: search.value }, quiet: true }),
+  { watch: [search], default: () => [] as NoteRef[] },
+);
+
+// Picked, the note's text replaces the content, without its title: the name holds it when still empty.
+async function fromNote(note?: NoteRef) {
+  if (!note) return;
+  const detail = await api<ItemDetail>(`/api/notes/${note.id}`);
+  content.value = start.value = withoutTitle(detail.content ?? '');
+  if (!name.value.trim()) name.value = note.title;
 }
 
 function submit() {
@@ -61,6 +79,18 @@ function submit() {
             @click="toggleSource"
           />
         </UTooltip>
+        <UInputMenu
+          v-model:search-term="query"
+          :items="notes"
+          label-key="title"
+          ignore-filter
+          :icon="icons.note"
+          size="xs"
+          class="w-56"
+          :placeholder="$t('settings.snippetFromNote')"
+          :aria-label="$t('settings.snippetFromNote')"
+          @update:model-value="fromNote"
+        />
         <UButton class="ms-auto" :label="$t('common.cancel')" color="neutral" variant="ghost" @click="emit('close')" />
         <UButton type="submit" form="snippet" :label="$t('settings.save')" :disabled="!name.trim()" />
       </div>

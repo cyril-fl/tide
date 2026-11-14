@@ -7,6 +7,7 @@ import (
 	cmdreadfolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-folder"
 	cmdreadnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-note"
 	cmdreadtag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-tag"
+	cmdreadtoken "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-token"
 )
 
 var cmdRead = &cobra.Command{
@@ -43,11 +44,22 @@ var cmdReadTag = &cobra.Command{
 	RunE:    cmdreadtag.Read,
 }
 
+var cmdReadToken = &cobra.Command{
+	Use:     cmd.ReadToken.Use,
+	Short:   cmd.ReadToken.Short,
+	Long:    cmd.ReadToken.Long,
+	Example: cmd.ReadToken.Example,
+	Args:    cobra.NoArgs,
+	RunE:    cmdreadtoken.Read,
+}
+
 func init() {
+	plumcliutilsargs.Makeflags(cmdReadToken, cmd.ReadToken.Flags)
+	cmdReadToken.MarkFlagsMutuallyExclusive("yaml", "json")
 	plumcliutilsargs.Makeflags(cmdReadTag, cmd.ReadTag.Flags)
 	cmdReadTag.MarkFlagsMutuallyExclusive("yaml", "json")
 	plumcliutilsargs.Makeflags(cmdReadFloder, cmd.ReadFolder.Flags)
 
-	cmdRead.AddCommand(cmdReadNote, cmdReadFloder, cmdReadTag)
+	cmdRead.AddCommand(cmdReadNote, cmdReadFloder, cmdReadTag, cmdReadToken)
 	cmdRoot.AddCommand(cmdRead)
 }

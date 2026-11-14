@@ -6,6 +6,7 @@ import (
 	cmddeletefolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-delete-folder"
 	cmddeletenote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-delete-note"
 	cmddeletetag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-delete-tag"
+	cmddeletetoken "github.com/cyril-fl/notes/notes-go/app/cli/cmd-delete-token"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 )
 
@@ -43,7 +44,16 @@ var cmdDeleteTag = &cobra.Command{
 	RunE:    cmddeletetag.Delete,
 }
 
+var cmdDeleteToken = &cobra.Command{
+	Use:     cmd.DeleteToken.Use,
+	Short:   cmd.DeleteToken.Short,
+	Long:    cmd.DeleteToken.Long,
+	Example: cmd.DeleteToken.Example,
+	Args:    cobra.ExactArgs(1),
+	RunE:    cmddeletetoken.Delete,
+}
+
 func init() {
-	cmdDelete.AddCommand(cmdDeleteNote, cmdDeleteFloder, cmdDeleteTag)
+	cmdDelete.AddCommand(cmdDeleteNote, cmdDeleteFloder, cmdDeleteTag, cmdDeleteToken)
 	cmdRoot.AddCommand(cmdDelete)
 }

@@ -2,7 +2,7 @@ name: "notes"
 commands:
   create:
     use: "add"
-    short: "Add a new note, folder, or tag"
+    short: "Add a new note, folder, tag, or API token"
     example: "notes add [--note | --folder | --tag] [options]"
   create-note:
     use: "note"
@@ -59,9 +59,20 @@ commands:
   create-tag:
     use: "tag"
     short: "Add a new tag"
+  create-token:
+    use: "token <name>"
+    short: "Add an API token to the account"
+    long: "Create a named API token for scripts and agents, and print it once on stdout: the server keeps only its hash. It acts on the notes, folders, tags and files like the account (Authorization: Bearer <token>), never on the account itself: its tokens, password or settings. It expires after --expires: 7d, 30d, 90d, 1y or never."
+    example: "notes add token \"script backup\"\nnotes add token \"Claude phone\" --expires 30d"
+    args:
+      - name: "expires"
+        shorthand: ""
+        value: "90d"
+        usage: "How long the token works: 7d, 30d, 90d, 1y or never"
+        type: "string"
   read:
     use: "show"
-    short: "Show an existing note, folder, or tag"
+    short: "Show an existing note, folder, or tag, or the API tokens"
   read-note:
     use: "note <uuid|path>"
     short: "Show an existing note"
@@ -89,6 +100,22 @@ commands:
         value: ""
         usage: "List all tags"
         type: "bool"
+      - name: "yaml"
+        shorthand: ""
+        value: ""
+        usage: "Display the result as YAML"
+        type: "bool"
+      - name: "json"
+        shorthand: ""
+        value: ""
+        usage: "Display the result as JSON"
+        type: "bool"
+  read-token:
+    use: "token"
+    short: "List the API tokens of the account"
+    long: "List the API tokens of the account: name, uuid, creation, last use and expiry. The tokens themselves are never shown again."
+    example: "notes show token\nnotes show token --json"
+    args:
       - name: "yaml"
         shorthand: ""
         value: ""
@@ -174,7 +201,7 @@ commands:
     short: "Edit an existing tag"
   delete:
     use: "remove"
-    short: "Delete an existing note, folder, or tag"
+    short: "Delete an existing note, folder, or tag, or revoke an API token"
   delete-note:
     use: "note"
     short: "Move notes to the trash"
@@ -188,6 +215,11 @@ commands:
   delete-tag:
     use: "tag"
     short: "Delete an existing tag"
+  delete-token:
+    use: "token <uuid>"
+    short: "Revoke an API token of the account"
+    long: "Revoke an API token: it stops working at once. Its uuid is in notes show token."
+    example: "notes remove token 3f2a4b1c-0d9e-4a8b-9c7d-1e2f3a4b5c6d"
   move:
     use: "move <uuid|path>..."
     short: "Move existing notes or folders to a new location"

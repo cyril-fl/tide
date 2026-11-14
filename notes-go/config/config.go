@@ -52,10 +52,12 @@ type commands struct {
 	CreateNote        plumcliconfig.Cmdparams `yaml:"create-note"`
 	CreateFolder      plumcliconfig.Cmdparams `yaml:"create-folder"`
 	CreateTag         plumcliconfig.Cmdparams `yaml:"create-tag"`
+	CreateToken       plumcliconfig.Cmdparams `yaml:"create-token"`
 	Read              plumcliconfig.Cmdparams `yaml:"read"`
 	ReadNote          plumcliconfig.Cmdparams `yaml:"read-note"`
 	ReadFolder        plumcliconfig.Cmdparams `yaml:"read-folder"`
 	ReadTag           plumcliconfig.Cmdparams `yaml:"read-tag"`
+	ReadToken         plumcliconfig.Cmdparams `yaml:"read-token"`
 	Edit              plumcliconfig.Cmdparams `yaml:"edit"`
 	EditNote          plumcliconfig.Cmdparams `yaml:"edit-note"`
 	EditFolder        plumcliconfig.Cmdparams `yaml:"edit-folder"`
@@ -64,6 +66,7 @@ type commands struct {
 	DeleteNote        plumcliconfig.Cmdparams `yaml:"delete-note"`
 	DeleteFolder      plumcliconfig.Cmdparams `yaml:"delete-folder"`
 	DeleteTag         plumcliconfig.Cmdparams `yaml:"delete-tag"`
+	DeleteToken       plumcliconfig.Cmdparams `yaml:"delete-token"`
 	Move              plumcliconfig.Cmdparams `yaml:"move"`
 	Show              plumcliconfig.Cmdparams `yaml:"show"`
 	ShowFinder        plumcliconfig.Cmdparams `yaml:"show-finder"`

@@ -7,6 +7,7 @@ import (
 	cmdcreatefolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-create-folder"
 	cmdcreatenote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-create-note"
 	cmdcreatetag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-create-tag"
+	cmdcreatetoken "github.com/cyril-fl/notes/notes-go/app/cli/cmd-create-token"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 )
 
@@ -44,7 +45,18 @@ var cmdCreateTag = &cobra.Command{
 	RunE:    cmdcreatetag.Create,
 }
 
+var cmdCreateToken = &cobra.Command{
+	Use:     cmd.CreateToken.Use,
+	Short:   cmd.CreateToken.Short,
+	Long:    cmd.CreateToken.Long,
+	Example: cmd.CreateToken.Example,
+	Args:    cobra.ExactArgs(1),
+	RunE:    cmdcreatetoken.Create,
+}
+
 func init() {
+	plumcliutilsargs.Makeflags(cmdCreateToken, cmd.CreateToken.Flags)
+
 	plumcliutilsargs.Makeflags(cmdCreateNote, cmd.CreateNote.Flags)
 	cmdCreateNote.MarkFlagsMutuallyExclusive("tag", "tag-from-list")
 	cmdCreateNote.MarkFlagsMutuallyExclusive("parent", "parent-from-list")
@@ -52,6 +64,6 @@ func init() {
 	plumcliutilsargs.Makeflags(cmdCreateFloder, cmd.CreateFolder.Flags)
 	cmdCreateFloder.MarkFlagsMutuallyExclusive("parent", "parent-from-list")
 
-	cmdCreate.AddCommand(cmdCreateNote, cmdCreateFloder, cmdCreateTag)
+	cmdCreate.AddCommand(cmdCreateNote, cmdCreateFloder, cmdCreateTag, cmdCreateToken)
 	cmdRoot.AddCommand(cmdCreate)
 }

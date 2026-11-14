@@ -53,6 +53,17 @@ notes account purge             # vide le compte connecté (notes, dossiers, tag
 - **Admin :** le drapeau est posé par le premier compte créé dans une base vide, quelle que soit la façon. Pour le déplacer ou en ajouter un, il faut toucher la base : `UPDATE users SET admin = true WHERE name = '<nom>'`.
 - **Session de la CLI :** l'URL du serveur et le jeton sont gardés dans `~/.config/notes/session.json`, lisible par l'utilisateur seul. La session dure 30 jours, prolongés à chaque usage. `NOTES_URL` et `NOTES_SESSION`, si elles sont posées, passent avant ce fichier : `notes login <url> --print-token` crée une session à part et n'affiche que son jeton, pour un agent qui ne peut pas se connecter là où il tourne (voir `MCP.md`). `notes logout` avec la variable ne coupe que cette session. Le jeton ouvre le compte entier, il ne va dans aucun fichier versionné.
 
+### Jetons d'API
+
+```sh
+notes add token "script backup"               # affiche le jeton une seule fois, sur stdout
+notes add token "Claude téléphone" --expires 30d   # 7d, 30d, 90d (par défaut), 1y ou never
+notes show token                              # nom, uuid, création, dernière utilisation, expiration
+notes remove token <uuid>                     # révoque : le jeton cesse de marcher aussitôt
+```
+
+Un jeton d'API (`notes_…`) s'envoie en `Authorization: Bearer <jeton>`. Il fait tout ce que fait le compte sur les notes, dossiers, tags et fichiers, mais ne gère pas le compte : ses jetons, son mot de passe, ses réglages, la purge, la déconnexion et les routes d'admin répondent 403. La base n'en garde que l'empreinte (SHA-256). Expiré, il est refusé (401) puis purgé par le nettoyage horaire du serveur. Ils se gèrent aussi dans Réglages > Compte de l'app.
+
 Les commandes `note` et `folder`, ainsi que `move`, `finder` et `graph`, acceptent un UUID ou un chemin :
 
 ```sh

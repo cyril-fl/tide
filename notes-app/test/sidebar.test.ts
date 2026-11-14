@@ -6,10 +6,10 @@ test('the saved sections keep their order, the missing ones are shown at the end
   assert.deepEqual(
     mergeSidebar([
       { id: 'folders', shown: false },
-      { id: 'tags', shown: true },
+      { id: 'graph', shown: true },
       { id: 'recent', shown: true },
     ]).map((s) => `${s.id}:${s.shown}`),
-    ['folders:false', 'recent:true', 'favorites:true', 'pinned:true', 'savedSearches:true'],
+    ['folders:false', 'recent:true', 'favorites:true', 'pinned:true', 'savedSearches:true', 'tags:true'],
   );
 });
 
@@ -17,7 +17,7 @@ test('a moved section lands right before its target', () => {
   const sections = mergeSidebar([]);
   assert.deepEqual(
     moveSection(sections, 'folders', 'favorites').map((s) => s.id),
-    ['folders', 'favorites', 'pinned', 'recent', 'savedSearches'],
+    ['folders', 'favorites', 'pinned', 'recent', 'savedSearches', 'tags'],
   );
   assert.deepEqual(moveSection(sections, 'x', 'favorites'), sections);
 });

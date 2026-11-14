@@ -305,28 +305,28 @@ const isOverRoot = useDropFolder(rootLink, () => null);
             <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.savedSearches') }}</h2>
             <SavedSearchRow v-for="search in me.saved_searches" :key="search.id" :search="search" />
           </section>
+
+          <section v-if="s.id === 'tags' && s.shown && tags.length">
+            <h2 class="px-2 pb-2 text-xs font-medium text-muted">{{ $t('common.tags') }}</h2>
+            <!-- Capped so a long tag list never pushes the folders out of the sidebar. -->
+            <div class="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto px-2">
+              <UContextMenu v-for="tag in tags" :key="tag.value" :items="tagMenu(tag.value)">
+                <UButton
+                  :to="tagPath(tag.value)"
+                  :label="`#${tag.value}`"
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  active-color="primary"
+                  class="max-w-full font-normal"
+                  :ui="{ label: 'truncate' }"
+                />
+              </UContextMenu>
+            </div>
+          </section>
         </template>
       </div>
     </template>
-
-    <section v-if="!settingsNav && tags.length" class="border-t border-default pt-3">
-      <h2 class="px-2 pb-2 text-xs font-medium text-muted">{{ $t('common.tags') }}</h2>
-      <!-- Capped so a long tag list never pushes the folders out of the sidebar. -->
-      <div class="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto px-2">
-        <UContextMenu v-for="tag in tags" :key="tag.value" :items="tagMenu(tag.value)">
-          <UButton
-            :to="tagPath(tag.value)"
-            :label="`#${tag.value}`"
-            size="xs"
-            color="neutral"
-            variant="soft"
-            active-color="primary"
-            class="max-w-full font-normal"
-            :ui="{ label: 'truncate' }"
-          />
-        </UContextMenu>
-      </div>
-    </section>
 
     <div class="flex items-center justify-between border-t border-default pt-2">
       <NuxtLink to="/trash" class="row flex-1" :class="{ 'row-active': route.path === '/trash' }">

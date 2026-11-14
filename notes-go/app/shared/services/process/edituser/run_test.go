@@ -42,7 +42,7 @@ func TestInvalidInput(t *testing.T) {
 		{Input{SavedSearches: &[]domain.SavedSearch{{Name: "no id"}}}, ErrInvalidSavedSearch},
 		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", TagMode: "both"}}}, ErrInvalidSavedSearch},
 		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", FolderMode: "maybe"}}}, ErrInvalidSavedSearch},
-		{Input{SidebarSections: &[]domain.SidebarSection{{ID: "tags"}}}, ErrInvalidSidebar},
+		{Input{SidebarSections: &[]domain.SidebarSection{{ID: "graph"}}}, ErrInvalidSidebar},
 		{Input{SidebarSections: &[]domain.SidebarSection{{ID: "recent"}, {ID: "recent"}}}, ErrInvalidSidebar},
 	}
 	for _, test := range tests {

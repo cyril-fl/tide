@@ -105,7 +105,7 @@ type SidebarSection struct {
 }
 
 // SidebarSectionIDs are the lists of the sidebar, in their default order: notes-app/app/utils/sidebar.ts repeats them, users_test.go checks they match.
-var SidebarSectionIDs = []string{"favorites", "pinned", "recent", "folders", "savedSearches"}
+var SidebarSectionIDs = []string{"favorites", "pinned", "recent", "folders", "savedSearches", "tags"}
 
 // NeighborsLimits are the choices of User.NeighborsLimit, the first one by default; 0 shows them all.
 var NeighborsLimits = []int{50, 20, 100, 0}

@@ -35,7 +35,7 @@ La barre latérale se redimensionne en tirant son bord (sa largeur reste d'une v
 
 Un clic droit sur un dossier le met en favori, un clic droit sur un tag le renomme ou le supprime.
 
-Les listes de la barre latérale (Favoris, Épinglées, Récentes, Dossiers, Dossiers intelligents) s'affichent ou se masquent une à une dans les réglages, sous la ligne Navigation de la section Apparence, rangées sur le compte (`sidebar_sections`) : les mêmes sur tous les appareils. En mode avancé, la poignée de chaque ligne les réordonne par glisser-déposer ; masquer les Dossiers demande le mode Ultra.
+Les listes de la barre latérale (Favoris, Épinglées, Récentes, Dossiers, Dossiers intelligents, Tags) s'affichent ou se masquent une à une dans les réglages, sous la ligne Navigation de la section Apparence, rangées sur le compte (`sidebar_sections`) : les mêmes sur tous les appareils. En mode avancé, la poignée de chaque ligne les réordonne par glisser-déposer ; masquer les Dossiers demande le mode Ultra.
 
 Quand la note a changé sur un autre appareil pendant qu'on l'écrit, l'app fusionne les deux textes ligne à ligne, depuis le texte qu'ils avaient en commun : des changements à des endroits différents se fusionnent seuls (un toast le dit) ; au même endroit, la fenêtre « Conflits » montre chaque passage avec « La mienne », « L'autre » ou « Les deux », le texte tapé ici étant d'abord gardé dans l'historique comme une version « conflit ». Si la fusion échoue (note verrouillée ailleurs, réseau), « Recharger » dans le toast garde le texte tapé ici dans l'historique puis relit la note.
 

@@ -1,5 +1,5 @@
 /** The lists of the sidebar, in their default order. Repeated by domain.SidebarSectionIDs of notes-go. */
-export const sidebarSectionIds = ['favorites', 'pinned', 'recent', 'folders', 'savedSearches'] as const;
+export const sidebarSectionIds = ['favorites', 'pinned', 'recent', 'folders', 'savedSearches', 'tags'] as const;
 export type SidebarSectionId = (typeof sidebarSectionIds)[number];
 export type SidebarSection = { id: SidebarSectionId; shown: boolean };
 

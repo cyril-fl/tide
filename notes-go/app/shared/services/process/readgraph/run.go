@@ -84,7 +84,7 @@ func (p *run) GetResult() Result {
 
 // Methods
 
-// loadNotes keeps the live notes by their paths, cached, not by LiveCTE: walking the folders costs 150 ms at 50,000 notes.
+// loadNotes keeps the live notes by their paths, cached: walking the folders in SQL costs 150 ms at 50,000 notes.
 func (p *run) loadNotes() {
 	paths, err := domain.Paths(p.ctx, p.db)
 	p.SetErr(err)

@@ -15,13 +15,6 @@ func RegisterModels(db *bun.DB) {
 	db.RegisterModel((*NoteTag)(nil))
 }
 
-// LiveCTE gives every live item of an account, as "live" (id): append a query on it, the account's id as first argument.
-// It walks down from the roots, so a trashed folder hides its whole subtree. LoadTree gives their paths.
-const LiveCTE = `WITH RECURSIVE live AS (
-	SELECT id FROM items WHERE parent_id IS NULL AND deleted_at IS NULL AND user_id = ?
-	UNION ALL SELECT child.id FROM items AS child JOIN live ON child.parent_id = live.id WHERE child.deleted_at IS NULL
-) `
-
 // collators are pooled: a collate.Collator is not safe for concurrent use.
 // The root order is the same for fr and en (CLDR has no fr-FR rules), so the account's locale is not needed.
 var collators = sync.Pool{New: func() any { return collate.New(language.Und, collate.IgnoreCase) }}

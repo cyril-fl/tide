@@ -52,7 +52,7 @@ type run struct {
 
 type cache struct {
 	result Result
-	paths  map[string]string // read once for the neighbors and the links
+	tree   domain.Tree // read once for the neighbors and the links
 }
 
 func Process(ctx context.Context, db bun.IDB, id string) *run {
@@ -65,7 +65,7 @@ func Process(ctx context.Context, db bun.IDB, id string) *run {
 
 func (p *run) Run() {
 	p.loadNote()
-	p.loadPaths()
+	p.loadTree()
 	p.loadNeighbors()
 	p.loadLinks()
 }
@@ -86,84 +86,80 @@ func (p *run) loadNote() {
 	p.SetErr(process.GetErr())
 }
 
-// loadPaths reads every item's path; the center's already came from readitem.
-func (p *run) loadPaths() {
+// loadTree reads the live items; the center's path already came from readitem.
+func (p *run) loadTree() {
 	if p.HasErr() {
 		return
 	}
 
-	paths, err := domain.Paths(p.ctx, p.db)
-	p.cache.paths = paths
+	tree, err := domain.LoadTree(p.ctx, p.db)
+	p.cache.tree = tree
 	p.SetErr(err)
 }
 
-// loadNeighbors joins the tag links with themselves: same tag, other note. Joining live keeps live notes only.
+// loadNeighbors joins the tag links with themselves: same tag, other note; the tree keeps the live ones.
 // The tags come sealed, opened and ordered here.
 func (p *run) loadNeighbors() {
 	if p.HasErr() {
 		return
 	}
 
-	p.SetErr(p.db.NewRaw(domain.LiveCTE+`
+	var rows []Neighbor
+	p.SetErr(p.db.NewRaw(`
 		SELECT i.id, i.title, array_agg(t.value) AS tags, count(*) AS shared
 		FROM notes_on_tags AS center
 		JOIN notes_on_tags AS other ON other.tag_id = center.tag_id AND other.note_id <> center.note_id
 		JOIN tags AS t ON t.id = center.tag_id
 		JOIN items AS i ON i.id = other.note_id
-		JOIN live ON live.id = i.id
-		WHERE center.note_id = ?
-		GROUP BY i.id, i.title`, domain.UserID(p.ctx), p.cache.result.Note.Item.ID).
-		Scan(p.ctx, &p.cache.result.Neighbors))
+		WHERE center.note_id = ? AND i.user_id = ? AND i.deleted_at IS NULL
+		GROUP BY i.id, i.title`, p.cache.result.Note.Item.ID, domain.UserID(p.ctx)).
+		Scan(p.ctx, &rows))
 	if p.HasErr() {
 		return
 	}
 
+	p.cache.result.Neighbors = domain.Live(p.cache.tree, rows, func(n Neighbor) string { return n.ID }, func(a, b Neighbor) int { return b.Shared - a.Shared })
 	for i := range p.cache.result.Neighbors {
 		neighbor := &p.cache.result.Neighbors[i]
-		neighbor.Path = p.cache.paths[neighbor.ID]
+		neighbor.Path = p.cache.tree.Paths[neighbor.ID]
 		if !p.HasErr() {
 			var err error
 			neighbor.Tags, err = domain.OpenTags(neighbor.Tags)
 			p.SetErr(err)
 		}
 	}
-	domain.SortFold(p.cache.result.Neighbors, func(n Neighbor) string { return n.Path }, func(a, b Neighbor) int { return b.Shared - a.Shared })
 }
 
-// loadLinks reads both ends of the [[links]]; joining live keeps live notes only. Empty, not null, in JSON.
+// loadLinks reads both ends of the [[links]]; the tree keeps the live notes. Empty, not null, in JSON.
 func (p *run) loadLinks() {
 	if p.HasErr() {
 		return
 	}
 
 	id := p.cache.result.Note.Item.ID
-	p.cache.result.Links, p.cache.result.Backlinks = []Linked{}, []Linked{}
 	for _, side := range []struct {
 		from, to, content string
 		dest              *[]Linked
 	}{{"source_id", "target_id", "", &p.cache.result.Links}, {"target_id", "source_id", ", mn.content", &p.cache.result.Backlinks}} {
-		err := p.db.NewRaw(domain.LiveCTE+`
+		var rows []Linked
+		err := p.db.NewRaw(`
 			SELECT i.id, i.title`+side.content+`
 			FROM notes_on_links AS nl
 			JOIN items AS i ON i.id = nl.`+side.to+`
 			JOIN metadata_notes AS mn ON mn.item_id = i.id
-			JOIN live ON live.id = i.id
-			WHERE nl.`+side.from+` = ?`, domain.UserID(p.ctx), id).
-			Scan(p.ctx, side.dest)
+			WHERE nl.`+side.from+` = ? AND i.user_id = ? AND i.deleted_at IS NULL`, id, domain.UserID(p.ctx)).
+			Scan(p.ctx, &rows)
 		if err != nil {
 			p.SetErr(err)
 			return
 		}
+		*side.dest = domain.Live(p.cache.tree, rows, func(l Linked) string { return l.ID }, nil)
+		for i := range *side.dest {
+			(*side.dest)[i].Path = p.cache.tree.Paths[(*side.dest)[i].ID]
+		}
 	}
-
 	for i := range p.cache.result.Backlinks {
 		p.cache.result.Backlinks[i].Snippet = snippet(string(p.cache.result.Backlinks[i].Content), id)
-	}
-	for _, linked := range [][]Linked{p.cache.result.Links, p.cache.result.Backlinks} {
-		for i := range linked {
-			linked[i].Path = p.cache.paths[linked[i].ID]
-		}
-		domain.SortFold(linked, func(l Linked) string { return l.Path }, nil)
 	}
 }
 

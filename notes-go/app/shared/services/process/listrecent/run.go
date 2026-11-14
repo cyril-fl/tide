@@ -55,26 +55,38 @@ func (p *run) GetResult() []Recent {
 
 // Methods
 
-// loadNotes falls back on created_at: a note never edited has no updated_at. Joining live keeps live notes only.
+// loadNotes falls back on created_at: a note never edited has no updated_at. A note under a trashed folder is not
+// trashed itself: the tree drops it, and more are read until the list is full. Titles and paths come from the tree.
 func (p *run) loadNotes() {
-	p.SetErr(p.db.NewRaw(domain.LiveCTE+`
-		SELECT i.id, i.title, coalesce(i.updated_at, i.created_at) AS updated_at, mn.readonly
-		FROM items AS i
-		JOIN metadata_notes AS mn ON mn.item_id = i.id
-		JOIN live ON live.id = i.id
-		WHERE i.kind = ?
-		ORDER BY updated_at DESC, i.id
-		LIMIT ?`,
-		domain.UserID(p.ctx), domain.NOTE, limit).
-		Scan(p.ctx, &p.cache.result))
-	if p.HasErr() {
+	tree, err := domain.LoadTree(p.ctx, p.db)
+	if err != nil {
+		p.SetErr(err)
 		return
 	}
 
-	paths, err := domain.Paths(p.ctx, p.db)
-	p.SetErr(err)
-	for i := range p.cache.result {
-		p.cache.result[i].Path = paths[p.cache.result[i].ID]
+	for read := limit; ; read *= 4 {
+		var rows []Recent
+		err := p.db.NewRaw(`
+			SELECT i.id, coalesce(i.updated_at, i.created_at) AS updated_at, mn.readonly
+			FROM items AS i
+			JOIN metadata_notes AS mn ON mn.item_id = i.id
+			WHERE i.user_id = ? AND i.kind = ? AND i.deleted_at IS NULL
+			ORDER BY updated_at DESC, i.id
+			LIMIT ?`,
+			domain.UserID(p.ctx), domain.NOTE, read).
+			Scan(p.ctx, &rows)
+		if err != nil {
+			p.SetErr(err)
+			return
+		}
+		live := domain.Live(tree, rows, func(r Recent) string { return r.ID }, func(a, b Recent) int { return b.UpdatedAt.Compare(a.UpdatedAt) })
+		if len(live) >= limit || len(rows) < read {
+			p.cache.result = domain.Page(live, limit, 0)
+			break
+		}
 	}
-	domain.SortFold(p.cache.result, func(r Recent) string { return r.Path }, func(a, b Recent) int { return b.UpdatedAt.Compare(a.UpdatedAt) })
+	for i := range p.cache.result {
+		recent := &p.cache.result[i]
+		recent.Title, recent.Path = secret.Text(tree.Titles[recent.ID]), tree.Paths[recent.ID]
+	}
 }

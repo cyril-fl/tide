@@ -38,28 +38,27 @@ func Process(ctx context.Context, db bun.IDB) *run {
 	}
 }
 
-// Run joins live to keep live items only: a pinned note in the trash is not listed.
+// Run keeps live items only: a pinned note in the trash, or under a trashed folder, is not listed.
 func (p *run) Run() {
-	p.cache.result = []Pinned{}
-	p.SetErr(p.db.NewRaw(domain.LiveCTE+`
+	var rows []Pinned
+	p.SetErr(p.db.NewRaw(`
 		SELECT i.id, i.kind, i.title, COALESCE(mn.readonly, false) AS readonly
 		FROM items AS i
-		JOIN live ON live.id = i.id
 		LEFT JOIN metadata_notes AS mn ON mn.item_id = i.id
 		LEFT JOIN metadata_folders AS mf ON mf.item_id = i.id
-		WHERE mn.pinned OR mf.pinned
+		WHERE i.user_id = ? AND i.deleted_at IS NULL AND (mn.pinned OR mf.pinned)
 		ORDER BY i.id`, domain.UserID(p.ctx)).
-		Scan(p.ctx, &p.cache.result))
+		Scan(p.ctx, &rows))
 	if p.HasErr() {
 		return
 	}
 
-	paths, err := domain.Paths(p.ctx, p.db)
+	tree, err := domain.LoadTree(p.ctx, p.db)
 	p.SetErr(err)
+	p.cache.result = domain.Live(tree, rows, func(f Pinned) string { return f.ID }, nil)
 	for i := range p.cache.result {
-		p.cache.result[i].Path = paths[p.cache.result[i].ID]
+		p.cache.result[i].Path = tree.Paths[p.cache.result[i].ID]
 	}
-	domain.SortFold(p.cache.result, func(f Pinned) string { return f.Path }, nil)
 }
 
 // Getters & Setters

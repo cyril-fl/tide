@@ -90,8 +90,11 @@ func (p *run) loadContents() {
 		ID      string      `bun:"id"`
 		Content secret.Text `bun:"content"`
 	}
-	p.SetErr(p.db.NewRaw(domain.LiveCTE+`
-		SELECT mn.item_id AS id, mn.content FROM metadata_notes AS mn JOIN live ON live.id = mn.item_id`, domain.UserID(p.ctx)).
+	p.SetErr(p.db.NewRaw(`
+		SELECT mn.item_id AS id, mn.content
+		FROM metadata_notes AS mn
+		JOIN items AS i ON i.id = mn.item_id
+		WHERE i.user_id = ? AND i.deleted_at IS NULL`, domain.UserID(p.ctx)).
 		Scan(p.ctx, &rows))
 	p.cache.contents = make(map[string]string, len(rows))
 	for _, row := range rows {

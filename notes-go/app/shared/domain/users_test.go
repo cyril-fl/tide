@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"encoding/json"
+	"maps"
 	"os"
 	"regexp"
 	"slices"
@@ -22,20 +24,26 @@ func TestThemesMatchApp(t *testing.T) {
 	}
 }
 
-// The web app orders its plans in features.ts: a plan on one side only is refused by the API or unlocks nothing.
-func TestPlansMatchApp(t *testing.T) {
-	file, err := os.ReadFile("../../../../notes-app/app/utils/features.ts")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var app []string
-	if match := regexp.MustCompile(`plans = \[([^\]]*)\]`).FindStringSubmatch(string(file)); match != nil {
-		for _, plan := range regexp.MustCompile(`'([^']+)'`).FindAllStringSubmatch(match[1], -1) {
-			app = append(app, plan[1])
+// The web app names each plan in fr.json and en.json: a plan without its label shows its id.
+func TestPlansHaveLabels(t *testing.T) {
+	for _, locale := range Locales {
+		file, err := os.ReadFile("../../../../notes-app/i18n/locales/" + locale + ".json")
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	if !slices.Equal(app, Plans) {
-		t.Errorf("features.ts has %v, domain.Plans %v", app, Plans)
+		var labels struct {
+			Settings struct {
+				Plans map[string]string `json:"plans"`
+			} `json:"settings"`
+		}
+		if err := json.Unmarshal(file, &labels); err != nil {
+			t.Fatal(err)
+		}
+		for _, plan := range Plans {
+			if labels.Settings.Plans[plan] == "" {
+				t.Errorf("%s.json has no settings.plans.%s", locale, plan)
+			}
+		}
 	}
 }
 
@@ -56,24 +64,24 @@ func TestSidebarSectionsMatchApp(t *testing.T) {
 	}
 }
 
-// The routes of a paid feature need the plan the web app shows it from in features.ts: else one side unlocks it alone.
+// The web app puts each feature in a subsection of the settings in features.ts: a feature on one side only is
+// either never shown or never unlocked.
 func TestFeaturesMatchApp(t *testing.T) {
 	file, err := os.ReadFile("../../../../notes-app/app/utils/features.ts")
 	if err != nil {
 		t.Fatal(err)
 	}
-	app := map[string]string{}
-	block := regexp.MustCompile(`(?s)features = \{(.*?)\n\}`).FindStringSubmatch(string(file))
+	block := regexp.MustCompile(`(?s)groups = \{(.*?)\n\}`).FindStringSubmatch(string(file))
 	if block == nil {
-		t.Fatal("no features in features.ts")
+		t.Fatal("no groups in features.ts")
 	}
-	for _, match := range regexp.MustCompile(`(?m)^  (\w+): '(\w+)',$`).FindAllStringSubmatch(block[1], -1) {
-		app[match[1]] = match[2]
+	var app []string
+	for _, match := range regexp.MustCompile(`(?m)^  (\w+): '\w+',$`).FindAllStringSubmatch(block[1], -1) {
+		app = append(app, match[1])
 	}
-	for feature, plan := range Features {
-		if app[feature] != plan {
-			t.Errorf("features.ts has %s: %q, domain.Features %q", feature, app[feature], plan)
-		}
+	slices.Sort(app)
+	if names := slices.Sorted(maps.Keys(Features)); !slices.Equal(app, names) {
+		t.Errorf("features.ts has %v, domain.Features %v", app, names)
 	}
 }
 
@@ -87,6 +95,8 @@ func TestUnlocked(t *testing.T) {
 		{"replaceEverywhere", "pro", false},
 		{"replaceEverywhere", "ultra", true},
 		{"noteHistory", "unknown", false},
+		{"graph", "unknown", true},
+		{"unknown", "ultra", false},
 	} {
 		if got := Unlocked(c.feature, c.plan); got != c.want {
 			t.Errorf("Unlocked(%q, %q) = %v, want %v", c.feature, c.plan, got, c.want)

@@ -39,6 +39,16 @@ type User struct {
 	// Bumped by the triggers of createschema at every write that changes a path, from any process: Paths reads it to
 	// know its cache is still right. From a sequence, so a rolled-back write never hands its number to another.
 	ItemsVersion int64 `bun:",notnull,default:0" json:"-"`
+	// The features of its plan, what the web app shows: not stored, filled from Plan at every read.
+	Features []string `bun:"-" json:"features"`
+}
+
+var _ bun.AfterScanRowHook = (*User)(nil)
+
+// AfterScanRow fills Features, so every answer with the account gives the features of its plan.
+func (u *User) AfterScanRow(context.Context) error {
+	u.Features = PlanFeatures(u.Plan)
+	return nil
 }
 
 // Snippet is a piece of markdown of the account, inserted while typing or starting a new note; its #tags become tags of that note.
@@ -99,19 +109,63 @@ var (
 	Plans      = []string{"base", "pro", "ultra"}
 )
 
-// Features are the plans the API routes of the paid features need, each plan including those before it: the levels
-// of notes-app/app/utils/features.ts, users_test.go checks they match. A feature of the app without a route is not here.
+// Features are the plan each feature of the web app comes from, each plan including those before it, "off" for no one
+// (unfinished, withdrawn): the one list of them. The API refuses the routes of a feature to the plans without it, and
+// gives each account its features (User.Features) and each plan its own (GET /api/plans) for the app to show.
 var Features = map[string]string{
+	"graph":             "base",
+	"focusMode":         "pro",
+	"contextPanel":      "pro",
+	"settingsNav":       "pro",
+	"slashCommands":     "pro",
+	"tables":            "pro",
+	"codeHighlight":     "base",
+	"callouts":          "pro",
+	"wordCount":         "pro",
+	"contextMenu":       "pro",
+	"paletteActions":    "pro",
+	"sourceMode":        "base",
+	"noteLock":          "base",
 	"noteHistory":       "pro",
 	"brokenLinks":       "pro",
 	"storageFiles":      "pro",
+	"wikiLinks":         "base",
+	"linkSuggestions":   "pro",
+	"noteEmbeds":        "base",
+	"images":            "base",
+	"attachments":       "base",
+	"linkCards":         "base",
+	"tagSuggestions":    "base",
+	"snippets":          "base",
 	"savedSearches":     "pro",
+	"sidebarOrder":      "pro",
+	"hideFolders":       "ultra",
 	"replaceEverywhere": "ultra",
+	"search":            "base",
+	"favorites":         "base",
+	"backlinks":         "base",
+	"themes":            "base",
+	"importExport":      "base",
+	"trash":             "base",
+	"storageUsage":      "base",
 }
 
-// Unlocked tells whether an account of plan has feature; an unknown plan has the base features, as in the web app.
+// Unlocked tells whether an account of plan has feature; an unknown plan has the base features.
 func Unlocked(feature, plan string) bool {
-	return slices.Index(Plans, Features[feature]) <= max(slices.Index(Plans, plan), 0)
+	level := slices.Index(Plans, Features[feature])
+	return level >= 0 && level <= max(slices.Index(Plans, plan), 0)
+}
+
+// PlanFeatures are the features of plan, sorted.
+func PlanFeatures(plan string) []string {
+	var features []string
+	for feature := range Features {
+		if Unlocked(feature, plan) {
+			features = append(features, feature)
+		}
+	}
+	slices.Sort(features)
+	return features
 }
 
 // SidebarSection is a list of the web app's sidebar, one of SidebarSectionIDs, shown or hidden.

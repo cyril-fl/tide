@@ -170,7 +170,17 @@ func TestNotes(t *testing.T) {
 	}
 	// The history is a Pro feature of the app, refused by the API to a base account.
 	c.do("GET", path+"/versions", "", http.StatusForbidden, nil)
-	c.do("PATCH", "/api/me", `{"plan":"pro"}`, http.StatusOK, nil)
+	// The account answers the features of its plan, as GET /api/plans lists them for that plan.
+	var me domain.User
+	c.do("PATCH", "/api/me", `{"plan":"pro"}`, http.StatusOK, &me)
+	var plans []struct {
+		ID       string   `json:"id"`
+		Features []string `json:"features"`
+	}
+	c.do("GET", "/api/plans", "", http.StatusOK, &plans)
+	if len(plans) != len(domain.Plans) || plans[1].ID != "pro" || !slices.Equal(me.Features, plans[1].Features) || !slices.Contains(me.Features, "noteHistory") {
+		t.Errorf("me.features = %v, plans = %+v", me.Features, plans)
+	}
 	c.do("GET", path+"/versions", "", http.StatusOK, &versions)
 	if len(versions) != 1 || versions[0].Content != "" {
 		t.Errorf("versions = %+v, want 1 without its text", versions)

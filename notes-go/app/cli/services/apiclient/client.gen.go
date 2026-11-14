@@ -183,7 +183,9 @@ type DomainAPIToken struct {
 
 	// LastUsedAt never used when absent
 	LastUsedAt *string `json:"last_used_at,omitempty"`
-	Name       string  `json:"name"`
+
+	// Name sealed: a stolen base does not tell what the tokens are for
+	Name string `json:"name"`
 }
 
 // DomainFile defines model for domain.File.
@@ -291,7 +293,10 @@ type DomainUser struct {
 	// ColorMode light or dark, one of ColorModes
 	ColorMode string `json:"color_mode"`
 	CreatedAt string `json:"created_at"`
-	Id        string `json:"id"`
+
+	// Features The features of its plan, what the web app shows: not stored, filled from Plan at every read.
+	Features []string `json:"features"`
+	Id       string   `json:"id"`
 
 	// Locale the language of the web app, one of Locales
 	Locale string `json:"locale"`
@@ -514,6 +519,12 @@ type ReadnotetagsBody struct {
 // ReadpathResolved defines model for readpath.Resolved.
 type ReadpathResolved struct {
 	Id string `json:"id"`
+}
+
+// ReadplansPlan defines model for readplans.Plan.
+type ReadplansPlan struct {
+	Features []string `json:"features"`
+	Id       string   `json:"id"`
 }
 
 // ReadtagNote defines model for readtag.Note.
@@ -1201,6 +1212,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/pinned (the `GetApiPinned` operationId).
 	GetApiPinned(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiPlans The plans in order, each with its features
+	//
+	// Corresponds with GET /api/plans (the `GetApiPlans` operationId).
+	GetApiPlans(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiRecent List the last changed notes
 	//
@@ -2279,6 +2295,21 @@ func (c *Client) GetApiNotesIdVersionsVersion(ctx context.Context, id string, ve
 // Corresponds with GET /api/pinned (the `GetApiPinned` operationId).
 func (c *Client) GetApiPinned(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiPinnedRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetApiPlans The plans in order, each with its features
+//
+// Corresponds with GET /api/plans (the `GetApiPlans` operationId).
+func (c *Client) GetApiPlans(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiPlansRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -4415,6 +4446,33 @@ func NewGetApiPinnedRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetApiPlansRequest constructs an http.Request for the GetApiPlans method
+func NewGetApiPlansRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/plans")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetApiRecentRequest constructs an http.Request for the GetApiRecent method
 func NewGetApiRecentRequest(server string) (*http.Request, error) {
 	var err error
@@ -5691,6 +5749,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/pinned (the `GetApiPinned` operationId).
 	GetApiPinnedWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiPinnedResponse, error)
+
+	// GetApiPlansWithResponse The plans in order, each with its features
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/plans (the `GetApiPlans` operationId).
+	GetApiPlansWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiPlansResponse, error)
 
 	// GetApiRecentWithResponse List the last changed notes
 	//
@@ -8389,6 +8454,54 @@ func (r GetApiPinnedResponse) ContentType() string {
 	return ""
 }
 
+type GetApiPlansResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]ReadplansPlan
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetApiPlansResponse) GetJSON200() *[]ReadplansPlan {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetApiPlansResponse) GetJSON401() *RespondFailure {
+	return r.JSON401
+}
+
+// GetBody returns the raw response body bytes
+func (r GetApiPlansResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiPlansResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiPlansResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiPlansResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetApiRecentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10367,6 +10480,19 @@ func (c *ClientWithResponses) GetApiPinnedWithResponse(ctx context.Context, reqE
 		return nil, err
 	}
 	return ParseGetApiPinnedResponse(rsp)
+}
+
+// GetApiPlansWithResponse The plans in order, each with its features
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/plans (the `GetApiPlans` operationId).
+func (c *ClientWithResponses) GetApiPlansWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiPlansResponse, error) {
+	rsp, err := c.GetApiPlans(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiPlansResponse(rsp)
 }
 
 // GetApiRecentWithResponse List the last changed notes
@@ -12588,6 +12714,39 @@ func ParseGetApiPinnedResponse(rsp *http.Response) (*GetApiPinnedResponse, error
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiPlansResponse parses an HTTP response from a GetApiPlansWithResponse call
+func ParseGetApiPlansResponse(rsp *http.Response) (*GetApiPlansResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiPlansResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []ReadplansPlan
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	}
 

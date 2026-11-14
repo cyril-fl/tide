@@ -164,6 +164,7 @@ components:
           description: never used when absent
           type: string
         name:
+          description: 'sealed: a stolen base does not tell what the tokens are for'
           type: string
       required:
       - created_at
@@ -345,6 +346,13 @@ components:
           type: string
         created_at:
           type: string
+        features:
+          description: 'The features of its plan, what the web app shows: not stored,
+            filled from Plan at every read.'
+          items:
+            type: string
+          type: array
+          uniqueItems: false
         id:
           type: string
         locale:
@@ -393,6 +401,7 @@ components:
       - avatar
       - color_mode
       - created_at
+      - features
       - id
       - locale
       - name
@@ -779,6 +788,19 @@ components:
         id:
           type: string
       required:
+      - id
+      type: object
+    readplans.Plan:
+      properties:
+        features:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        id:
+          type: string
+      required:
+      - features
       - id
       type: object
     readtag.Note:
@@ -2631,6 +2653,26 @@ paths:
       summary: List the pinned notes
       tags:
       - search
+  /api/plans:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/readplans.Plan'
+                type: array
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Unauthorized
+      summary: The plans in order, each with its features
+      tags:
+      - account
   /api/recent:
     get:
       responses:

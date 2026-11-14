@@ -2600,6 +2600,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The plans in order, each with its features */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["readplans.Plan"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recent": {
         parameters: {
             query?: never;
@@ -3909,6 +3954,7 @@ export interface components {
             id: string;
             /** @description never used when absent */
             last_used_at?: string;
+            /** @description sealed: a stolen base does not tell what the tokens are for */
             name: string;
         };
         "domain.File": {
@@ -3989,6 +4035,8 @@ export interface components {
             /** @description light or dark, one of ColorModes */
             color_mode: string;
             created_at: string;
+            /** @description The features of its plan, what the web app shows: not stored, filled from Plan at every read. */
+            features: string[];
             id: string;
             /** @description the language of the web app, one of Locales */
             locale: string;
@@ -4155,6 +4203,10 @@ export interface components {
             ids: string[];
         };
         "readpath.Resolved": {
+            id: string;
+        };
+        "readplans.Plan": {
+            features: string[];
             id: string;
         };
         "readtag.Note": {

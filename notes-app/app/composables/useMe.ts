@@ -12,3 +12,16 @@ export function useMe() {
       cause === 'initial' ? (nuxtApp._asyncData[key]?.data.value ?? nuxtApp.payload.data[key]) : undefined,
   });
 }
+
+/**
+ * The account before a page renders, kept as the layout's me; none without a session (the layout then sends to /login).
+ * Not useApi: its useI18n needs a component, which a route middleware has not.
+ */
+export async function loadMe() {
+  const cached = useNuxtData<User>('me').data;
+  cached.value ??= await $fetch<User>('/api/me', {
+    baseURL: useRuntimeConfig().public.apiBase,
+    credentials: 'include',
+  }).catch(() => undefined);
+  return cached.value;
+}

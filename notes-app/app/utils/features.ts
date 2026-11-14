@@ -1,60 +1,9 @@
-/** The plans, each one including those before it: a new plan is added at the end. Repeated by domain.Plans of notes-go. */
-export const plans = ['base', 'pro', 'ultra'] as const;
-export type Plan = (typeof plans)[number];
-
-/** A plan, from which the feature is available; off: for no one (unfinished, withdrawn). */
-export type Level = Plan | 'off';
-
-/** The plan of the account: one the app does not know (an older app after a new plan) gets the base features. */
-export const planOf = (user: { plan: string }): Plan =>
-  plans.includes(user.plan as Plan) ? (user.plan as Plan) : 'base';
-
-/** What each feature of the app needs: the one place to move a feature in or out of the Pro mode. */
-export const features = {
-  graph: 'base',
-  focusMode: 'pro',
-  contextPanel: 'pro',
-  settingsNav: 'pro',
-  slashCommands: 'pro',
-  tables: 'pro',
-  codeHighlight: 'base',
-  callouts: 'pro',
-  wordCount: 'pro',
-  contextMenu: 'pro',
-  paletteActions: 'pro',
-  sourceMode: 'base',
-  noteLock: 'base',
-  noteHistory: 'pro',
-  brokenLinks: 'pro',
-  storageFiles: 'pro',
-  wikiLinks: 'base',
-  linkSuggestions: 'pro',
-  noteEmbeds: 'base',
-  images: 'base',
-  attachments: 'base',
-  linkCards: 'base',
-  tagSuggestions: 'base',
-  snippets: 'base',
-  savedSearches: 'pro',
-  sidebarOrder: 'pro',
-  hideFolders: 'ultra',
-  replaceEverywhere: 'ultra',
-  search: 'base',
-  favorites: 'base',
-  backlinks: 'base',
-  themes: 'base',
-  importExport: 'base',
-  trash: 'base',
-  storageUsage: 'base',
-} as const satisfies Record<string, Level>;
-
-export type Feature = keyof typeof features;
-
 /**
- * The subsection of each feature in the settings' comparison: a Record, so a new feature cannot be left out.
+ * The subsection of each feature of the app in the settings' comparison. Which plan has a feature is the API's alone:
+ * domain.Features of notes-go, whose test checks the names match; the account answers its own (User.features).
  * implied: left out of the table, it comes with a feature already listed (the " / " menu, the [[ links, the Data section).
  */
-const groups: Record<Feature, 'display' | 'editing' | 'navigation' | 'data' | 'implied'> = {
+const groups = {
   graph: 'navigation',
   focusMode: 'display',
   contextPanel: 'display',
@@ -90,16 +39,14 @@ const groups: Record<Feature, 'display' | 'editing' | 'navigation' | 'data' | 'i
   importExport: 'data',
   trash: 'data',
   storageUsage: 'implied',
-};
+} as const satisfies Record<string, 'display' | 'editing' | 'navigation' | 'data' | 'implied'>;
 
-/** The features the settings compare between the standard and the Pro mode, by subsection. */
-export const listedFeatures = (['display', 'editing', 'navigation', 'data'] as const).map((group) => ({
-  group,
-  features: (Object.keys(features) as Feature[]).filter(
-    (feature) => groups[feature] === group && (features[feature] as Level) !== 'off',
-  ),
-}));
+export type Feature = keyof typeof groups;
+export const features = Object.keys(groups) as Feature[];
 
-export function unlocked(level: Level, plan: Plan) {
-  return level !== 'off' && plans.indexOf(level) <= plans.indexOf(plan);
-}
+/** The features the settings compare, by subsection: offered by a plan, the others being off for everyone. */
+export const listedFeatures = (offered: string[]) =>
+  (['display', 'editing', 'navigation', 'data'] as const).map((group) => ({
+    group,
+    features: features.filter((feature) => groups[feature] === group && offered.includes(feature)),
+  }));

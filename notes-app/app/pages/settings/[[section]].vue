@@ -1,21 +1,15 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui';
-import type { Account, BrokenLink, Invite, NoteFile, NoteStats, Snippet, User } from '~/types/items';
+import type { Account, BrokenLink, Invite, NoteFile, NoteStats, Plan, Snippet, User } from '~/types/items';
 
 // Decided before the page renders, so the Pro mode never shows every section first and then jumps to one.
 definePageMeta({
   middleware: async (to) => {
-    // Not useApi: its useI18n needs a component. Without a session the page goes on, and the layout sends to /login.
     // Kept as the layout's me, so the sidebar draws the settings nav from the start too.
-    const cached = useNuxtData<User>('me').data;
-    cached.value ??= await $fetch<User>('/api/me', {
-      baseURL: useRuntimeConfig().public.apiBase,
-      credentials: 'include',
-    }).catch(() => undefined);
-    const me = cached.value;
+    const me = await loadMe();
     // A page per section is the Pro mode's: without it, /settings shows them all; with it, /settings opens the first.
     const section = to.params.section as string | undefined;
-    if (me && unlocked(features.settingsNav, planOf(me))) {
+    if (me?.features.includes('settingsNav')) {
       if (!settingsSections.some(({ id }) => id === section)) return navigateTo('/settings/general', { replace: true });
     } else if (section) return navigateTo('/settings', { replace: true });
   },
@@ -133,14 +127,17 @@ const pagedFiles = computed(() =>
 );
 
 const linkColors = { unresolved: 'warning', ambiguous: 'info', missing: 'error', file: 'error' } as const;
+// The plans and their features come from the API, which alone decides what each plan has.
+const { data: plans } = useLazyAsyncData('plans', () => api<Plan[]>('/api/plans'), { default: () => [] as Plan[] });
 const planItems = computed(() =>
-  plans.map((value) => ({ label: t(`settings.plans.${value}`), value, disabled: !me.value })),
+  plans.value.map(({ id }) => ({ label: t(`settings.plans.${id}`), value: id, disabled: !me.value })),
 );
+const comparedFeatures = computed(() => listedFeatures(plans.value.flatMap((p) => p.features)));
 
 // The settings switch between one page and a page per section: with the nav, the choice stays in view on its own page.
-async function changePlan(next: Plan) {
+async function changePlan(next: string) {
   me.value = await api<User>('/api/me', { method: 'PATCH', body: { plan: next } });
-  await navigateTo(unlocked(features.settingsNav, next) ? '/settings/general' : '/settings', { replace: true });
+  await navigateTo(me.value.features.includes('settingsNav') ? '/settings/general' : '/settings', { replace: true });
 }
 
 // 0 never purges; a retention set by hand elsewhere stays in the list.
@@ -374,7 +371,7 @@ async function deleteData() {
               size="sm"
               :aria-label="$t('settings.plan')"
               class="w-56"
-              @update:model-value="changePlan($event as Plan)"
+              @update:model-value="changePlan(String($event))"
             />
           </div>
           <table class="w-full text-sm">
@@ -382,7 +379,7 @@ async function deleteData() {
               <tr class="border-b border-default">
                 <th class="px-4 py-2 text-left text-xs font-normal text-muted">{{ $t('settings.feature') }}</th>
                 <th
-                  v-for="column in plans"
+                  v-for="{ id: column } in plans"
                   :key="column"
                   class="w-24 px-2 py-2 font-medium"
                   :class="{ 'bg-primary/10 text-primary': me && plan === column }"
@@ -394,7 +391,7 @@ async function deleteData() {
                 </th>
               </tr>
             </thead>
-            <tbody v-for="{ group, features: listed } in listedFeatures" :key="group">
+            <tbody v-for="{ group, features: listed } in comparedFeatures" :key="group">
               <tr class="border-b border-default bg-elevated/50">
                 <th :colspan="plans.length + 1" class="px-4 py-1.5 text-left text-xs font-medium text-muted">
                   {{ $t(`settings.featureGroups.${group}`) }}
@@ -404,12 +401,12 @@ async function deleteData() {
                 <td class="px-4 py-2 text-xs">{{ $t(`features.${feature}`) }}</td>
                 <td
                   v-for="column in plans"
-                  :key="column"
+                  :key="column.id"
                   class="px-2 text-center"
-                  :class="{ 'bg-primary/10': me && plan === column }"
+                  :class="{ 'bg-primary/10': me && plan === column.id }"
                 >
                   <UIcon
-                    v-if="unlocked(features[feature], column)"
+                    v-if="column.features.includes(feature)"
                     :name="icons.current"
                     :aria-label="$t('settings.included')"
                     class="size-4 text-primary"

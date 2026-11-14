@@ -30,6 +30,7 @@ import (
 	apireadnotetags "github.com/cyril-fl/notes/notes-go/app/api/read-note-tags"
 	apireadpath "github.com/cyril-fl/notes/notes-go/app/api/read-path"
 	apireadpinned "github.com/cyril-fl/notes/notes-go/app/api/read-pinned"
+	apireadplans "github.com/cyril-fl/notes/notes-go/app/api/read-plans"
 	apireadrecent "github.com/cyril-fl/notes/notes-go/app/api/read-recent"
 	apireadsearch "github.com/cyril-fl/notes/notes-go/app/api/read-search"
 	apireadtag "github.com/cyril-fl/notes/notes-go/app/api/read-tag"
@@ -61,6 +62,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("GET /api/me", apilogin.Me(db))
 	mux.Handle("PATCH /api/me", apilogin.EditMe(db))
 	mux.Handle("GET /api/me/stats", apilogin.Stats(db))
+	mux.Handle("GET /api/plans", apireadplans.Handler())
 	mux.Handle("DELETE /api/me/data", apilogin.DeleteData(db))
 	mux.Handle("PATCH /api/me/password", apilogin.EditPassword(db))
 	mux.Handle("GET /api/me/tokens", apilogin.Tokens(db))

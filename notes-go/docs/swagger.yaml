@@ -699,6 +699,16 @@ components:
       - neighbors_total
       - note
       type: object
+    readnotetags.Body:
+      properties:
+        ids:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+      required:
+      - ids
+      type: object
     readpath.Resolved:
       properties:
         id:
@@ -2218,6 +2228,50 @@ paths:
                 $ref: '#/components/schemas/respond.Failure'
           description: Internal Server Error
       summary: Read a version of a note
+      tags:
+      - notes
+  /api/notes/tags:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/readnotetags.Body'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                type: object
+          description: the tags of each note by id, sorted; a note without tags is
+            missing
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Request Entity Too Large
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Read the tags of notes
       tags:
       - notes
   /api/pinned:

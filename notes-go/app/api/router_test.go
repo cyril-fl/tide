@@ -516,6 +516,18 @@ func TestTagsAndGraph(t *testing.T) {
 	}
 	c.do("GET", "/api/notes/"+unknownID+"/neighbors", "", http.StatusNotFound, nil)
 
+	var tagsOf map[string][]string
+	c.do("POST", "/api/notes/tags", fmt.Sprintf(`{"ids":[%q,%q]}`, a.ID, unknownID), http.StatusOK, &tagsOf)
+	if len(tagsOf) != 1 || !slices.Equal(tagsOf[a.ID], []string{first}) {
+		t.Errorf("tags of a = %+v, want only a with %s", tagsOf, first)
+	}
+	var strangerTags map[string][]string
+	c.other(t).do("POST", "/api/notes/tags", fmt.Sprintf(`{"ids":[%q]}`, a.ID), http.StatusOK, &strangerTags)
+	if len(strangerTags) != 0 {
+		t.Errorf("another account reads the tags of a: %+v", strangerTags)
+	}
+	c.do("POST", "/api/notes/tags", `{"ids":["nope"]}`, http.StatusBadRequest, nil)
+
 	var graph []struct {
 		Value string `json:"value"`
 		Notes int    `json:"notes"`

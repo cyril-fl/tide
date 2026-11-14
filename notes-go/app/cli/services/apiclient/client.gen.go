@@ -440,6 +440,11 @@ type ReadneighborsResult struct {
 	Note           ReaditemResult          `json:"note"`
 }
 
+// ReadnotetagsBody defines model for readnotetags.Body.
+type ReadnotetagsBody struct {
+	Ids []string `json:"ids"`
+}
+
 // ReadpathResolved defines model for readpath.Resolved.
 type ReadpathResolved struct {
 	Id string `json:"id"`
@@ -644,6 +649,9 @@ type PostApiMoveJSONRequestBody = MoveitemsInput
 
 // PostApiNotesJSONRequestBody defines body for PostApiNotes for application/json ContentType.
 type PostApiNotesJSONRequestBody = CreatenoteInput
+
+// PostApiNotesTagsJSONRequestBody defines body for PostApiNotesTags for application/json ContentType.
+type PostApiNotesTagsJSONRequestBody = ReadnotetagsBody
 
 // PatchApiNotesIdJSONRequestBody defines body for PatchApiNotesId for application/json ContentType.
 type PatchApiNotesIdJSONRequestBody = EditnoteBody
@@ -957,6 +965,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/notes (the `PostApiNotes` operationId).
 	PostApiNotes(ctx context.Context, body PostApiNotesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiNotesTagsWithBody Read the tags of notes
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/notes/tags (the `PostApiNotesTags` operationId).
+	PostApiNotesTagsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiNotesTags Read the tags of notes
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/notes/tags (the `PostApiNotesTags` operationId).
+	PostApiNotesTags(ctx context.Context, body PostApiNotesTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteApiNotesId Move a note to the trash
 	//
@@ -1729,6 +1751,40 @@ func (c *Client) PostApiNotesWithBody(ctx context.Context, contentType string, b
 // Corresponds with POST /api/notes (the `PostApiNotes` operationId).
 func (c *Client) PostApiNotes(ctx context.Context, body PostApiNotesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiNotesRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiNotesTagsWithBody Read the tags of notes
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/notes/tags (the `PostApiNotesTags` operationId).
+func (c *Client) PostApiNotesTagsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiNotesTagsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiNotesTags Read the tags of notes
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/notes/tags (the `PostApiNotesTags` operationId).
+func (c *Client) PostApiNotesTags(ctx context.Context, body PostApiNotesTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiNotesTagsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3364,6 +3420,46 @@ func NewPostApiNotesRequestWithBody(server string, contentType string, body io.R
 	return req, nil
 }
 
+// NewPostApiNotesTagsRequest calls the generic PostApiNotesTags builder with application/json body
+func NewPostApiNotesTagsRequest(server string, body PostApiNotesTagsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiNotesTagsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiNotesTagsRequestWithBody constructs an http.Request for the PostApiNotesTags method, with any body, and a specified content type
+func NewPostApiNotesTagsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/notes/tags")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteApiNotesIdRequest constructs an http.Request for the DeleteApiNotesId method
 func NewDeleteApiNotesIdRequest(server string, id string) (*http.Request, error) {
 	var err error
@@ -4745,6 +4841,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/notes (the `PostApiNotes` operationId).
 	PostApiNotesWithResponse(ctx context.Context, body PostApiNotesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesResponse, error)
+
+	// PostApiNotesTagsWithBodyWithResponse Read the tags of notes
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/notes/tags (the `PostApiNotesTags` operationId).
+	PostApiNotesTagsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiNotesTagsResponse, error)
+
+	// PostApiNotesTagsWithResponse Read the tags of notes
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/notes/tags (the `PostApiNotesTags` operationId).
+	PostApiNotesTagsWithResponse(ctx context.Context, body PostApiNotesTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesTagsResponse, error)
 
 	// DeleteApiNotesIdWithResponse Move a note to the trash
 	//
@@ -6540,6 +6650,68 @@ func (r PostApiNotesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostApiNotesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiNotesTagsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *map[string][]string
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostApiNotesTagsResponse) GetJSON200() *map[string][]string {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostApiNotesTagsResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r PostApiNotesTagsResponse) GetJSON413() *RespondFailure {
+	return r.JSON413
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PostApiNotesTagsResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PostApiNotesTagsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiNotesTagsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiNotesTagsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiNotesTagsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -8631,6 +8803,32 @@ func (c *ClientWithResponses) PostApiNotesWithResponse(ctx context.Context, body
 	return ParsePostApiNotesResponse(rsp)
 }
 
+// PostApiNotesTagsWithBodyWithResponse Read the tags of notes
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/notes/tags (the `PostApiNotesTags` operationId).
+func (c *ClientWithResponses) PostApiNotesTagsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiNotesTagsResponse, error) {
+	rsp, err := c.PostApiNotesTagsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiNotesTagsResponse(rsp)
+}
+
+// PostApiNotesTagsWithResponse Read the tags of notes
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/notes/tags (the `PostApiNotesTags` operationId).
+func (c *ClientWithResponses) PostApiNotesTagsWithResponse(ctx context.Context, body PostApiNotesTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesTagsResponse, error) {
+	rsp, err := c.PostApiNotesTags(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiNotesTagsResponse(rsp)
+}
+
 // DeleteApiNotesIdWithResponse Move a note to the trash
 //
 // Returns a wrapper object for the known response body format(s).
@@ -10196,6 +10394,53 @@ func ParsePostApiNotesResponse(rsp *http.Response) (*PostApiNotesResponse, error
 			return nil, err
 		}
 		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiNotesTagsResponse parses an HTTP response from a PostApiNotesTagsWithResponse call
+func ParsePostApiNotesTagsResponse(rsp *http.Response) (*PostApiNotesTagsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiNotesTagsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string][]string
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest RespondFailure

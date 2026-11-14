@@ -1,12 +1,12 @@
 package huhform
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
 
 	"charm.land/bubbles/v2/key"
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -53,13 +53,21 @@ func TestCancel(t *testing.T) {
 
 func TestCancelHelp(t *testing.T) {
 	var content string
-	keys := keyMap()
-	form := huh.NewForm(huh.NewGroup(huh.NewText().Value(&content))).WithKeyMap(keys)
+	form := build([]huh.Field{huh.NewText().Value(&content)})
 	form.Init()
 
-	view := form.View()
-	got := withCancel(form, keys, tea.View{Content: view}).Content
-	if lipgloss.Height(got) != lipgloss.Height(view) || !strings.HasSuffix(ansi.Strip(got), "⎋ Cancel") {
-		t.Errorf("help line = %q, want esc Cancel at its end, on the same line", got[strings.LastIndex(got, "\n")+1:])
+	view := ansi.Strip(form.View())
+	if line := view[strings.LastIndex(view, "\n")+1:]; !strings.HasSuffix(line, "Submit · ⎋ Cancel") {
+		t.Errorf("help line = %q, want the esc Cancel after Submit", line)
+	}
+}
+
+func TestEscCancels(t *testing.T) {
+	var content string
+	Input = strings.NewReader("abc\x1b")
+	defer func() { Input = nil }()
+
+	if err := build([]huh.Field{huh.NewText().Value(&content)}).Run(); !errors.Is(err, huh.ErrUserAborted) {
+		t.Errorf("esc: err = %v, want the form aborted", err)
 	}
 }

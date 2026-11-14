@@ -7,7 +7,6 @@ import (
 	"slices"
 
 	"charm.land/bubbles/v2/key"
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
@@ -54,23 +53,32 @@ func fit(fields []huh.Field, width, height int) *huh.Form {
 func build(fields []huh.Field) *huh.Form {
 	keys := keyMap()
 	form := huh.NewForm(huh.NewGroup(fields...)).WithKeyMap(keys).WithTheme(huh.ThemeFunc(theme))
-	form = form.WithViewHook(func(v tea.View) tea.View { return withCancel(form, keys, v) })
+	form = form.WithLayout(cancelLayout{huh.LayoutDefault, keys})
 	if Input != nil {
 		form = form.WithInput(Input).WithOutput(io.Discard)
 	}
 	return form
 }
 
-// withCancel runs after every key: esc leaves the form unless the field uses it (a list closing its filter),
-// and the help line, the last one when no error replaces it, shows the cancel key: huh lists only the field's keys.
-func withCancel(form *huh.Form, keys *huh.KeyMap, v tea.View) tea.View {
+// cancelLayout renders the form after every key: huh's view hook runs before the content is set, it cannot add to it.
+type cancelLayout struct {
+	huh.Layout
+	keys *huh.KeyMap
+}
+
+func (l cancelLayout) View(form *huh.Form) string {
+	return withCancel(form, l.keys, l.Layout.View(form))
+}
+
+// withCancel makes esc leave the form unless the field uses it (a list closing its filter), and adds the cancel
+// key to the help line, the last one when no error replaces it: huh lists only the field's keys.
+func withCancel(form *huh.Form, keys *huh.KeyMap, view string) string {
 	keys.Quit = cancel(escTaken(form.KeyBinds()))
-	if v.Content == "" || len(form.Errors()) > 0 {
-		return v
+	if len(form.Errors()) > 0 {
+		return view
 	}
 	help := form.Help()
-	v.Content += help.Styles.ShortSeparator.Render(help.ShortSeparator) + help.ShortHelpView([]key.Binding{keys.Quit})
-	return v
+	return view + help.Styles.ShortSeparator.Render(help.ShortSeparator) + help.ShortHelpView([]key.Binding{keys.Quit})
 }
 
 // escTaken tells whether one of the field's keys is esc.

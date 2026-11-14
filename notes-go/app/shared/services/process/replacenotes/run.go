@@ -119,7 +119,7 @@ func (p *run) replace() {
 
 // loadNotes reads the live notes holding every gram of the text, a few more that only share them.
 func (p *run) loadNotes(tx bun.Tx) ([]row, error) {
-	query, args, err := searchnotes.Candidates(p.ctx, tx, p.input.Find)
+	query, args, _, err := searchnotes.Candidates(p.ctx, tx, p.input.Find)
 	if err != nil {
 		return nil, err
 	}

@@ -1,9 +1,11 @@
 package searchnotes
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/noteindex"
@@ -75,7 +77,8 @@ func (p *run) Run() {
 
 // Getters & Setters
 
-// GetResult returns the matching notes: title matches first, then by path.
+// GetResult returns the matching notes: the text in their title first, then in a heading, then the most backlinks,
+// the latest edited, by path.
 func (p *run) GetResult() []Match {
 	return p.cache.result
 }
@@ -94,40 +97,75 @@ func (p *run) makeText() {
 	}
 }
 
-// loadCandidates reads the ids of the live notes holding every gram of the text, the ones with it in their title
-// first, then by path: titles and paths come from the tree, no note is opened.
+// candidate is a note that may hold the text, with what ranks it: no note is opened.
+type candidate struct {
+	ID        string
+	InHeading bool
+	UpdatedAt time.Time // created_at for a note never edited
+	InTitle   bool      `bun:"-"`
+	Backlinks int       `bun:"-"`
+}
+
+// loadCandidates reads the live notes holding every gram of the text, ranked without opening any: the text in their
+// title (from the tree), then in a heading, then the most backlinks from live notes, the latest edited, by path.
 func (p *run) loadCandidates() {
 	if p.HasErr() {
 		return
 	}
 
-	query, args, err := Candidates(p.ctx, p.db, p.cache.text)
+	query, args, grams, err := Candidates(p.ctx, p.db, p.cache.text)
 	if err != nil {
 		p.SetErr(err)
 		return
 	}
-	var ids []string
+	var rows []candidate
 	p.SetErr(p.db.NewRaw(`
-		SELECT i.id
+		SELECT i.id, coalesce(i.updated_at, i.created_at) AS updated_at, coalesce(mn.headings @> ?::smallint[], false) AS in_heading
 		FROM items AS i
 		JOIN metadata_notes AS mn ON mn.item_id = i.id
 		WHERE i.user_id = ? AND i.kind = ? AND i.deleted_at IS NULL`+query,
-		append([]any{domain.UserID(p.ctx), domain.NOTE}, args...)...).
-		Scan(p.ctx, &ids))
+		append([]any{pgdialect.Array(grams), domain.UserID(p.ctx), domain.NOTE}, args...)...).
+		Scan(p.ctx, &rows))
+	if p.HasErr() {
+		return
+	}
+	// Every link of the account in one read: a subquery per note costs 130 ms at 50,000 notes.
+	var links []domain.NoteLink
+	p.SetErr(p.db.NewRaw(`
+		SELECT nl.source_id, nl.target_id
+		FROM notes_on_links AS nl
+		JOIN items AS i ON i.id = nl.source_id
+		WHERE i.user_id = ?`, domain.UserID(p.ctx)).
+		Scan(p.ctx, &links))
 	if p.HasErr() {
 		return
 	}
 
 	p.cache.tree, err = domain.LoadTree(p.ctx, p.db)
 	p.SetErr(err)
-	text := strings.ToLower(p.cache.text)
-	inTitle := make(map[string]bool, len(ids))
-	for _, id := range ids {
-		inTitle[id] = strings.Contains(strings.ToLower(p.cache.tree.Titles[id]), text)
+	backlinks := map[string]int{}
+	for _, link := range links {
+		if _, live := p.cache.tree.Paths[link.SourceID]; live {
+			backlinks[link.TargetID]++
+		}
 	}
-	p.cache.ids = domain.Live(p.cache.tree, ids, func(id string) string { return id }, func(a, b string) int {
-		return boolOrder(inTitle[b]) - boolOrder(inTitle[a])
+	text := strings.ToLower(p.cache.text)
+	for i := range rows { // set once: map lookups in the comparison cost 70 ms at 50,000 notes
+		rows[i].InTitle = strings.Contains(strings.ToLower(p.cache.tree.Titles[rows[i].ID]), text)
+		rows[i].Backlinks = backlinks[rows[i].ID]
+	}
+	live := domain.Live(p.cache.tree, rows, func(c candidate) string { return c.ID }, func(a, b candidate) int {
+		return cmp.Or(
+			boolOrder(b.InTitle)-boolOrder(a.InTitle),
+			boolOrder(b.InHeading)-boolOrder(a.InHeading),
+			b.Backlinks-a.Backlinks,
+			b.UpdatedAt.Compare(a.UpdatedAt),
+		)
 	})
+	p.cache.ids = make([]string, len(live))
+	for i, c := range live {
+		p.cache.ids[i] = c.ID
+	}
 }
 
 func (p *run) loadMatches() {
@@ -213,18 +251,18 @@ func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, te
 }
 
 // Candidates indexes the notes written since the last search, then gives the condition on mn (metadata_notes) that
-// keeps the notes holding every gram of text: a few more share them, the caller checks the text once opened.
-// None for a single letter: every note.
+// keeps the notes holding every gram of text, and those grams for mn.headings: a few more share them, the caller
+// checks the text once opened. None for a single letter: every note, and no grams.
 // TODO: a 2-letter text ("go") opens about a note in 30 more than hold it (16-bit blinds), fine at 50,000 notes.
-func Candidates(ctx context.Context, db bun.IDB, text string) (string, []any, error) {
+func Candidates(ctx context.Context, db bun.IDB, text string) (string, []any, []int16, error) {
 	if err := noteindex.Fill(ctx, db); err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	grams, err := noteindex.Query(domain.UserID(ctx), text)
 	if err != nil || grams == nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
-	return " AND mn.grams @> ?::smallint[]", []any{pgdialect.Array(grams)}, nil
+	return " AND mn.grams @> ?::smallint[]", []any{pgdialect.Array(grams)}, grams, nil
 }
 
 func boolOrder(b bool) int {

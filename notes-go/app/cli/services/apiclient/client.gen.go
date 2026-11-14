@@ -1242,6 +1242,8 @@ type ClientInterface interface {
 
 	// GetApiSearch Find notes by title or content
 	//
+	// The text in the title first, then in a heading, then the notes with the most backlinks, the latest edited, by path.
+	//
 	// Corresponds with GET /api/search (the `GetApiSearch` operationId).
 	GetApiSearch(ctx context.Context, params *GetApiSearchParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2386,6 +2388,8 @@ func (c *Client) PostApiRestore(ctx context.Context, body PostApiRestoreJSONRequ
 }
 
 // GetApiSearch Find notes by title or content
+//
+// The text in the title first, then in a heading, then the notes with the most backlinks, the latest edited, by path.
 //
 // Corresponds with GET /api/search (the `GetApiSearch` operationId).
 func (c *Client) GetApiSearch(ctx context.Context, params *GetApiSearchParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -5731,6 +5735,8 @@ type ClientWithResponsesInterface interface {
 	PostApiRestoreWithResponse(ctx context.Context, body PostApiRestoreJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiRestoreResponse, error)
 
 	// GetApiSearchWithResponse Find notes by title or content
+	//
+	// The text in the title first, then in a heading, then the notes with the most backlinks, the latest edited, by path.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -10442,6 +10448,8 @@ func (c *ClientWithResponses) PostApiRestoreWithResponse(ctx context.Context, bo
 }
 
 // GetApiSearchWithResponse Find notes by title or content
+//
+// The text in the title first, then in a heading, then the notes with the most backlinks, the latest edited, by path.
 //
 // Returns a wrapper object for the known response body format(s).
 //

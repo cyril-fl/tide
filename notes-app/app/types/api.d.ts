@@ -2874,7 +2874,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Find notes by title or content */
+        /**
+         * Find notes by title or content
+         * @description The text in the title first, then in a heading, then the notes with the most backlinks, the latest edited, by path.
+         */
         get: {
             parameters: {
                 query: {

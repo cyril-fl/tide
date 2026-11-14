@@ -10,6 +10,7 @@ import (
 
 // Handler finds notes by title or content: GET /api/search?q=&limit=&offset=, X-Total-Count counting the matches.
 // @Summary  Find notes by title or content
+// @Description The text in the title first, then in a heading, then the notes with the most backlinks, the latest edited, by path.
 // @Tags     search
 // @Produce  json
 // @Param    q      query string  true  "text to find"

@@ -150,3 +150,66 @@ func TestSearchNotes(t *testing.T) {
 		}
 	}
 }
+
+func TestSearchOrder(t *testing.T) {
+	ctx := context.Background()
+	env := postgrey.NewEnvironment()
+	env.ReadEnv()
+	db := env.Connect()
+	defer db.Close()
+
+	schema := createschema.Process(ctx, db)
+	schema.Run()
+	if schema.HasErr() {
+		t.Fatalf("create schema: %v", schema.GetErr())
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx, tx = testaccount.New(t, ctx, tx)
+
+	// Unique per run so real notes cannot match; the targets of the links come before the notes linking to them.
+	word := fmt.Sprintf("zq%d", time.Now().UnixNano())
+	ids := map[string]string{}
+	for _, note := range [][2]string{
+		{"Old", word}, {"Recent", word}, {"B path", word}, {"A path", word},
+		{"Cited once", word}, {"Cited twice", word}, {"Heading", "## The " + word + " part"}, {"Title " + word, "x"},
+		{"Linker 1", "[[Cited twice]] [[Cited once]]"}, {"Linker 2", "[[Cited twice]]"},
+		{"Trashed 1", "[[Cited once]]"}, {"Trashed 2", "[[Cited once]]"},
+	} {
+		process := createnote.Process(ctx, tx, createnote.Input{Content: "# " + note[0] + "\n\n" + note[1]})
+		process.Run()
+		if process.HasErr() {
+			t.Fatalf("note %s: %v", note[0], process.GetErr())
+		}
+		ids[note[0]] = process.GetResult().ID
+	}
+	trash := deleteitems.Process(ctx, tx, domain.NOTE, []string{ids["Trashed 1"], ids["Trashed 2"]})
+	trash.Run()
+	if trash.HasErr() {
+		t.Fatalf("trash: %v", trash.GetErr())
+	}
+	if _, err := tx.NewRaw("UPDATE items SET created_at = now() - interval '1 day' WHERE id = ?", ids["Old"]).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	// Title, heading, backlinks from live notes (Cited once has 1, not 3), latest edited, path. A single letter has
+	// no grams: no heading criterion, Heading falls back to its path.
+	for text, want := range map[string]string{
+		word: "Title " + word + ",Heading,Cited twice,Cited once,A path,B path,Recent,Old",
+		"z":  "Title " + word + ",Cited twice,Cited once,A path,B path,Heading,Recent,Old",
+	} {
+		search := Process(ctx, tx, text)
+		search.Run()
+		var titles []string
+		for _, match := range search.GetResult() {
+			titles = append(titles, match.Title)
+		}
+		if search.HasErr() || strings.Join(titles, ",") != want {
+			t.Errorf("search %q = %v, %v; want %s", text, titles, search.GetErr(), want)
+		}
+	}
+}

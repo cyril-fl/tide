@@ -121,7 +121,7 @@ func (p *run) queryCandidates() {
 	}
 
 	if text := strings.TrimSpace(p.search.Text); text != "" {
-		grams, gramArgs, err := searchnotes.Candidates(p.ctx, p.db, text)
+		grams, gramArgs, _, err := searchnotes.Candidates(p.ctx, p.db, text)
 		if err != nil {
 			p.SetErr(err)
 			return

@@ -1430,6 +1430,12 @@ paths:
       - graph
   /api/graph/notes:
     get:
+      parameters:
+      - description: 'false: no layout, the notes without x and y, sorted by id'
+        in: query
+        name: layout
+        schema:
+          type: boolean
       responses:
         "200":
           content:

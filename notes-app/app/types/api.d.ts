@@ -713,7 +713,10 @@ export interface paths {
         /** Read every note with its tags, and the links between them, laid out */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description false: no layout, the notes without x and y, sorted by id */
+                    layout?: boolean;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;

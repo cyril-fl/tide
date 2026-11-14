@@ -31,15 +31,20 @@ func Handler(db bun.IDB) http.HandlerFunc {
 }
 
 // Notes gives every live note with its tags, and the [[links]] between them, laid out: GET /api/graph/notes.
-// The account's layout is kept by the server, computed again only when the graph changed.
+// The account's layout is kept by the server, computed again only when the graph changed; layout=false skips it.
 // @Summary  Read every note with its tags, and the links between them, laid out
 // @Tags     graph
 // @Produce  json
+// @Param    layout query bool false "false: no layout, the notes without x and y, sorted by id"
 // @Success  200 {object} readgraph.Result
 // @Failure  500 {object} respond.Failure
 // @Router   /api/graph/notes [get]
 func Notes(db bun.IDB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("layout") == "false" {
+			layout(w, readgraph.Process(r.Context(), db, true))
+			return
+		}
 		layout(w, layoutgraph.Process(r.Context(), db, ""))
 	}
 }

@@ -42,15 +42,14 @@ func loadPage(ctx context.Context, target navigator.Target) (navigator.Page, err
 }
 
 // notesPage lists every note with how many [[links]] and tags join it to the others, like the web graph, through
-// GET /api/graph/notes.
-// TODO: the route also lays the graph out (and saves the layout when the graph changed), which the CLI does not show,
-// add a way to skip it if it slows the CLI down on a big account.
+// GET /api/graph/notes without the layout, which the CLI does not show.
 func notesPage(ctx context.Context) (navigator.Page, error) {
 	client, err := apiclient.Read().Client()
 	if err != nil {
 		return navigator.Page{}, err
 	}
-	response, err := client.GetApiGraphNotesWithResponse(ctx)
+	layout := false
+	response, err := client.GetApiGraphNotesWithResponse(ctx, &apiclient.GetApiGraphNotesParams{Layout: &layout})
 	if err != nil {
 		return navigator.Page{}, err
 	}

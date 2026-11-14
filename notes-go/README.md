@@ -193,7 +193,7 @@ go run ./cmd/notes-server serve --origin http://localhost:3000   # ou directemen
 | Dossiers | `GET`, `POST /folders`, `GET`, `PATCH`, `DELETE /folders/{id}` | `title`, `parent_id` (création), `pinned` |
 | Parcourir | `GET /items?parent=<uuid>` (racine sans `parent`), `POST /move` | `ids`, `parent_id` (racine sans `parent_id`) |
 | Tags | `GET`, `POST /tags`, `GET`, `PATCH`, `DELETE /tags/{value}` | `values` (création), `value` (renommage) |
-| Graphe | `GET /graph` (tags comptés), `GET /graph/notes` (notes et tags qui les relient) | |
+| Graphe | `GET /graph` (tags comptés), `GET /graph/notes` (notes et tags qui les relient, disposés ; `?layout=false` sans la disposition) | |
 | Recherche | `GET /search?q=<texte>`, `GET /recent` | |
 | Corbeille | `GET`, `DELETE /trash` (tout), `DELETE /trash/{id}` (une suppression et ce qui est parti avec), `POST /restore` | `ids` (restauration) |
 | Export / import | `GET /export` (zip ; `?files=false` laisse les images de `_files/` vides, seulement nommées), `POST /import?parent=<uuid>` (zip en corps, `Content-Type: application/zip`, ou formulaire `multipart/form-data` de fichiers `files` nommés par leur chemin, `dossier/note.md` ; racine sans `parent`) | |

@@ -566,6 +566,11 @@ func TestTagsAndGraph(t *testing.T) {
 	if _, ok := notes.TagPositions[first]; tagged != 2 || notes.Links == nil || !ok {
 		t.Errorf("graph notes: a and b carry %s laid out %d times, want 2; links %v; tag laid out %v", first, tagged, notes.Links, ok)
 	}
+	var bare laidOut
+	c.do("GET", "/api/graph/notes?layout=false", "", http.StatusOK, &bare)
+	if len(bare.Notes) != len(notes.Notes) || bare.Notes[0].X != 0 || bare.TagPositions != nil {
+		t.Errorf("graph notes without layout = %+v, want %d notes not laid out", bare, len(notes.Notes))
+	}
 	var near laidOut
 	c.do("GET", "/api/notes/"+a.ID+"/graph", "", http.StatusOK, &near)
 	if _, ok := near.TagPositions[first]; len(near.Notes) != 2 || near.Notes[0].ID != a.ID || near.Notes[0].X == 0 || !ok {

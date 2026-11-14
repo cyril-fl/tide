@@ -564,6 +564,12 @@ type PostApiFilesParams struct {
 	Name *string `form:"name,omitempty" json:"name,omitempty"`
 }
 
+// GetApiGraphNotesParams defines parameters for GetApiGraphNotes.
+type GetApiGraphNotesParams struct {
+	// Layout false: no layout, the notes without x and y, sorted by id
+	Layout *bool `form:"layout,omitempty" json:"layout,omitempty"`
+}
+
 // PostApiImportJSONBody defines parameters for PostApiImport.
 type PostApiImportJSONBody = []int
 
@@ -869,7 +875,7 @@ type ClientInterface interface {
 	// GetApiGraphNotes Read every note with its tags, and the links between them, laid out
 	//
 	// Corresponds with GET /api/graph/notes (the `GetApiGraphNotes` operationId).
-	GetApiGraphNotes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetApiGraphNotes(ctx context.Context, params *GetApiGraphNotesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiImportWithBody Import markdown files from a zip or a form of files
 	//
@@ -1496,8 +1502,8 @@ func (c *Client) GetApiGraph(ctx context.Context, reqEditors ...RequestEditorFn)
 // GetApiGraphNotes Read every note with its tags, and the links between them, laid out
 //
 // Corresponds with GET /api/graph/notes (the `GetApiGraphNotes` operationId).
-func (c *Client) GetApiGraphNotes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetApiGraphNotesRequest(c.Server)
+func (c *Client) GetApiGraphNotes(ctx context.Context, params *GetApiGraphNotesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiGraphNotesRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2993,7 +2999,7 @@ func NewGetApiGraphRequest(server string) (*http.Request, error) {
 }
 
 // NewGetApiGraphNotesRequest constructs an http.Request for the GetApiGraphNotes method
-func NewGetApiGraphNotesRequest(server string) (*http.Request, error) {
+func NewGetApiGraphNotesRequest(server string, params *GetApiGraphNotesParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3009,6 +3015,33 @@ func NewGetApiGraphNotesRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Layout != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "layout", *params.Layout, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -5013,7 +5046,7 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/graph/notes (the `GetApiGraphNotes` operationId).
-	GetApiGraphNotesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiGraphNotesResponse, error)
+	GetApiGraphNotesWithResponse(ctx context.Context, params *GetApiGraphNotesParams, reqEditors ...RequestEditorFn) (*GetApiGraphNotesResponse, error)
 
 	// PostApiImportWithBodyWithResponse Import markdown files from a zip or a form of files
 	//
@@ -9097,8 +9130,8 @@ func (c *ClientWithResponses) GetApiGraphWithResponse(ctx context.Context, reqEd
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /api/graph/notes (the `GetApiGraphNotes` operationId).
-func (c *ClientWithResponses) GetApiGraphNotesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiGraphNotesResponse, error) {
-	rsp, err := c.GetApiGraphNotes(ctx, reqEditors...)
+func (c *ClientWithResponses) GetApiGraphNotesWithResponse(ctx context.Context, params *GetApiGraphNotesParams, reqEditors ...RequestEditorFn) (*GetApiGraphNotesResponse, error) {
+	rsp, err := c.GetApiGraphNotes(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

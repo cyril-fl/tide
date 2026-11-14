@@ -4,8 +4,10 @@ package huhform
 import (
 	"io"
 	"os"
+	"slices"
 
 	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
@@ -50,11 +52,43 @@ func fit(fields []huh.Field, width, height int) *huh.Form {
 }
 
 func build(fields []huh.Field) *huh.Form {
-	form := huh.NewForm(huh.NewGroup(fields...)).WithKeyMap(keyMap(!hasSelect(fields))).WithTheme(huh.ThemeFunc(theme))
+	keys := keyMap()
+	form := huh.NewForm(huh.NewGroup(fields...)).WithKeyMap(keys).WithTheme(huh.ThemeFunc(theme))
+	form = form.WithViewHook(func(v tea.View) tea.View { return withCancel(form, keys, v) })
 	if Input != nil {
 		form = form.WithInput(Input).WithOutput(io.Discard)
 	}
 	return form
+}
+
+// withCancel runs after every key: esc leaves the form unless the field uses it (a list closing its filter),
+// and the help line, the last one when no error replaces it, shows the cancel key: huh lists only the field's keys.
+func withCancel(form *huh.Form, keys *huh.KeyMap, v tea.View) tea.View {
+	keys.Quit = cancel(escTaken(form.KeyBinds()))
+	if v.Content == "" || len(form.Errors()) > 0 {
+		return v
+	}
+	help := form.Help()
+	v.Content += help.Styles.ShortSeparator.Render(help.ShortSeparator) + help.ShortHelpView([]key.Binding{keys.Quit})
+	return v
+}
+
+// escTaken tells whether one of the field's keys is esc.
+func escTaken(binds []key.Binding) bool {
+	for _, bind := range binds {
+		if bind.Enabled() && slices.Contains(bind.Keys(), string(plumtypes.KEY_ESC)) {
+			return true
+		}
+	}
+	return false
+}
+
+// cancel is the key leaving the form without saving: esc, or ctrl+c alone when the field takes esc.
+func cancel(escTaken bool) key.Binding {
+	if escTaken {
+		return shortcut("Cancel", plumtypes.SHORT_CTRL_C)
+	}
+	return shortcut("Cancel", plumtypes.KEY_ESC, plumtypes.SHORT_CTRL_C)
 }
 
 func lastText(fields []huh.Field) *huh.Text {
@@ -66,24 +100,10 @@ func lastText(fields []huh.Field) *huh.Text {
 	return nil
 }
 
-// hasSelect tells a form with a list: esc closes its filter, so it cannot leave the form.
-func hasSelect(fields []huh.Field) bool {
-	for _, field := range fields {
-		switch field.(type) {
-		case *huh.Select[string], *huh.MultiSelect[string]:
-			return true
-		}
-	}
-	return false
-}
-
 // keyMap makes the content field behave like an editor: enter adds a line, ctrl+enter moves on.
-// tab stays as a fallback for terminals that cannot tell ctrl+enter from enter. esc leaves without saving, like ctrl+c.
-func keyMap(escQuits bool) *huh.KeyMap {
+// tab stays as a fallback for terminals that cannot tell ctrl+enter from enter. withCancel sets the quit key.
+func keyMap() *huh.KeyMap {
 	keys := huh.NewDefaultKeyMap()
-	if escQuits {
-		keys.Quit = shortcut("Cancel", plumtypes.KEY_ESC, plumtypes.SHORT_CTRL_C)
-	}
 	keys.Input.Prev = shortcut("Back", plumtypes.KEY_SHIFT_TAB)
 	keys.Input.Next = shortcut("Next", plumtypes.KEY_ENTER, plumtypes.KEY_TAB)
 	keys.Input.Submit = shortcut("Submit", plumtypes.KEY_ENTER)

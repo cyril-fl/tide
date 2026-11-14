@@ -1,10 +1,15 @@
 package huhform
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listfolders"
 )
 
@@ -31,12 +36,30 @@ func TestFolderOptions(t *testing.T) {
 	}
 }
 
-func TestEscQuits(t *testing.T) {
-	var content string
-	text := []huh.Field{huh.NewText().Value(&content)}
-	list := []huh.Field{huh.NewSelect[string]().Options(huh.NewOptions("a")...)}
+func TestCancel(t *testing.T) {
+	filter := key.NewBinding(key.WithKeys("esc"))
+	closed := key.NewBinding(key.WithKeys("esc"), key.WithDisabled())
 
-	if hasSelect(text) || !hasSelect(list) {
-		t.Errorf("hasSelect = %v, %v; want false for a text, true for a list", hasSelect(text), hasSelect(list))
+	if escTaken([]key.Binding{closed}) || !escTaken([]key.Binding{closed, filter}) {
+		t.Error("escTaken: want esc free while the filter key is off, taken once it is on")
+	}
+	if keys := cancel(false).Keys(); !slices.Contains(keys, "esc") {
+		t.Errorf("cancel keys = %v, want esc", keys)
+	}
+	if keys := cancel(true).Keys(); slices.Contains(keys, "esc") {
+		t.Errorf("cancel keys with esc taken = %v, want ctrl+c only", keys)
+	}
+}
+
+func TestCancelHelp(t *testing.T) {
+	var content string
+	keys := keyMap()
+	form := huh.NewForm(huh.NewGroup(huh.NewText().Value(&content))).WithKeyMap(keys)
+	form.Init()
+
+	view := form.View()
+	got := withCancel(form, keys, tea.View{Content: view}).Content
+	if lipgloss.Height(got) != lipgloss.Height(view) || !strings.HasSuffix(ansi.Strip(got), "⎋ Cancel") {
+		t.Errorf("help line = %q, want esc Cancel at its end, on the same line", got[strings.LastIndex(got, "\n")+1:])
 	}
 }

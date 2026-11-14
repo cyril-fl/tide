@@ -807,19 +807,12 @@ async function deleteData() {
                   v-for="column in plans"
                   :key="column"
                   class="w-24 px-2 py-2 font-medium"
-                  :class="{ 'bg-primary/5 text-primary': column !== 'base' }"
+                  :class="{ 'bg-primary/10 text-primary': me && plan === column }"
                 >
-                  <div class="flex flex-col items-center gap-1">
-                    <span class="inline-flex items-center gap-1"
-                      ><UIcon v-if="column !== 'base'" :name="icons.pro" />{{ $t(`settings.plans.${column}`) }}</span
-                    >
-                    <UBadge
-                      v-if="me && plan === column"
-                      :label="$t('settings.currentPlan')"
-                      size="sm"
-                      variant="subtle"
-                    />
-                  </div>
+                  <span class="inline-flex items-center gap-1"
+                    ><UIcon v-if="column !== 'base'" :name="icons.pro" />{{ $t(`settings.plans.${column}`) }}</span
+                  >
+                  <span v-if="me && plan === column" class="sr-only">{{ $t('settings.currentPlan') }}</span>
                 </th>
               </tr>
             </thead>
@@ -835,7 +828,7 @@ async function deleteData() {
                   v-for="column in plans"
                   :key="column"
                   class="px-2 text-center"
-                  :class="{ 'bg-primary/5': column !== 'base' }"
+                  :class="{ 'bg-primary/10': me && plan === column }"
                 >
                   <UIcon
                     v-if="unlocked(features[feature], column)"

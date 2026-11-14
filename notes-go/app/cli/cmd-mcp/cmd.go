@@ -1,55 +1,40 @@
-// Package cmdmcp serves the account's notes to an agent over MCP, a third front end on the
-// shared processes next to the CLI and the API.
+// Package cmdmcp serves the account's notes to an agent over MCP, a client of the API like the rest of the CLI:
+// the rules (titles, tags, links, trash, encryption) are those of the server.
 package cmdmcp
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"path"
 	"strings"
 	"testing/fstest"
 
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/hashtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/counttags"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfile"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteitems"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deletetag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/editfolder"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/editnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/edittag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/exportnotes"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/importnotes"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listbrokenlinks"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listfiles"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listrecent"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listtrash"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listversions"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/moveitems"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readfile"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readneighbors"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readtag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readversion"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resolveitem"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/restoreitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/searchnotes"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 )
 
-var (
-	errNotFound = errors.New("no note or folder of this name")
-	errBadPath  = errors.New("not the relative path of a .md file")
-)
+var errBadPath = errors.New("not the relative path of a .md file")
 
 // item is a note or a folder as an agent needs it: no timestamps, no model, nothing to read twice.
 type item struct {
@@ -198,289 +183,239 @@ type importFile struct {
 
 // Serve speaks MCP on stdin and stdout: nothing else may be printed there.
 func Serve(cobra *cobra.Command, _ []string) error {
+	// The account is the session's, as for every client of the API: the handlers act for it.
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
 	server := mcp.NewServer(&mcp.Implementation{Name: "notes", Title: "Notes", Version: cobra.Root().Version}, nil)
-	// The account comes from the CLI session, in the command's context: the handlers act for it.
-	AddTools(server, cobra.Context())
+	AddTools(server, client)
 	return server.Run(cobra.Context(), &mcp.StdioTransport{})
 }
 
-// AddTools gives the server the tools acting for the account of ctx.
-func AddTools(server *mcp.Server, ctx context.Context) {
+// AddTools gives the server the tools acting through client, for the account of its session.
+func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_notes",
 		Description: "Find the notes whose title or content contains a text, with the line where it was found: the first 50, title matches first, unless limit says otherwise.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, []searchnotes.Match, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, []searchnotes.Match, error) {
 		limit := searchLimit
 		if args.Limit != nil {
 			limit = max(*args.Limit, 0)
 		}
-		process := searchnotes.Process(ctx, postgrey.GetDb(), args.Text).Page(limit, 0)
-		process.Run()
-		if process.HasErr() {
-			return nil, nil, process.GetErr()
-		}
-		return nil, process.GetResult(), nil
+		matches, err := decode[[]searchnotes.Match](client.GetApiSearch(ctx, &apiclient.GetApiSearchParams{Q: args.Text, Limit: &limit}))
+		return nil, matches, err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "recent_notes",
 		Description: "List the notes changed most recently, newest first.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []listrecent.Recent, error) {
-		process := listrecent.Process(ctx, postgrey.GetDb())
-		process.Run()
-		if process.HasErr() {
-			return nil, nil, process.GetErr()
-		}
-		return nil, process.GetResult(), nil
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []listrecent.Recent, error) {
+		recent, err := decode[[]listrecent.Recent](client.GetApiRecent(ctx))
+		return nil, recent, err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "read_note",
 		Description: "Read a note: its content, its path and its tags.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args noteArgs) (*mcp.CallToolResult, note, error) {
-		id, err := resolve(ctx, domain.NOTE, args.Note)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args noteArgs) (*mcp.CallToolResult, note, error) {
+		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
 		if err != nil {
 			return nil, note{}, err
 		}
-		read, err := readNote(ctx, id)
+		read, err := readNote(decode[readitem.Result](client.GetApiNotesId(ctx, id)))
 		return nil, read, err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_folder",
 		Description: "List the notes and folders directly inside a folder.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args folderArgs) (*mcp.CallToolResult, []item, error) {
-		parentID, err := resolveFolder(ctx, args.Folder)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args folderArgs) (*mcp.CallToolResult, []item, error) {
+		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
 			return nil, nil, err
 		}
-
-		process := listitems.Process(ctx, postgrey.GetDb(), parentID, "")
-		process.Run()
-		if process.HasErr() {
-			return nil, nil, process.GetErr()
-		}
-
-		return nil, made(process.GetResult()...), nil
+		return made(decode[[]domain.Item](client.GetApiItems(ctx, &apiclient.GetApiItemsParams{Parent: &parentID})))
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_note",
 		Description: "Create a note from markdown content.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args createArgs) (*mcp.CallToolResult, note, error) {
-		parentID, err := resolveFolder(ctx, args.Folder)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args createArgs) (*mcp.CallToolResult, note, error) {
+		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
 			return nil, note{}, err
 		}
-
-		process := createnote.Process(ctx, postgrey.GetDb(), createnote.Input{Content: args.Content, ParentID: parentID, Tags: args.Tags})
-		process.Run()
-		if process.HasErr() {
-			return nil, note{}, process.GetErr()
+		created, err := decode[domain.Item](client.PostApiNotes(ctx, apiclient.CreatenoteInput{Content: args.Content, ParentId: &parentID, Tags: &args.Tags}))
+		if err != nil {
+			return nil, note{}, err
 		}
-		// Read back: the process answers the item alone, without the path nor the tags it parsed.
-		created, err := readNote(ctx, process.GetResult().ID)
-		return nil, created, err
+		// Read back: the API answers the item alone, without the path nor the tags it parsed.
+		read, err := readNote(decode[readitem.Result](client.GetApiNotesId(ctx, created.ID)))
+		return nil, read, err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "edit_note",
 		Description: "Replace the content of a note. Read it first: nothing is kept of the old content. A locked note refuses.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args editArgs) (*mcp.CallToolResult, note, error) {
-		id, err := resolve(ctx, domain.NOTE, args.Note)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args editArgs) (*mcp.CallToolResult, note, error) {
+		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
 		if err != nil {
 			return nil, note{}, err
 		}
-
-		process := editnote.Process(ctx, postgrey.GetDb(), editnote.Input{ID: id, Content: args.Content, Tags: args.Tags})
-		process.Run()
-		if process.HasErr() {
-			return nil, note{}, process.GetErr()
+		input := apiclient.EditnoteBody{Content: &args.Content}
+		// PATCH makes the tags exactly those given, the content's #tags kept with them: tags add, as in create_note.
+		if len(args.Tags) > 0 {
+			tags := append(hashtag.Parse(args.Content), args.Tags...)
+			input.Tags = &tags
 		}
-		edited, err := readNote(ctx, id)
+		edited, err := readNote(decode[readitem.Result](client.PatchApiNotesId(ctx, id, input)))
 		return nil, edited, err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_folder",
 		Description: "Create a folder.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args createFolderArgs) (*mcp.CallToolResult, item, error) {
-		parentID, err := resolveFolder(ctx, args.Folder)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args createFolderArgs) (*mcp.CallToolResult, item, error) {
+		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
 			return nil, item{}, err
 		}
-
-		process := createfolder.Process(ctx, postgrey.GetDb(), createfolder.Input{Title: args.Title, ParentID: parentID})
-		process.Run()
-		if process.HasErr() {
-			return nil, item{}, process.GetErr()
-		}
-		return nil, one(process.GetResult()), nil
+		created, err := decode[domain.Item](client.PostApiFolders(ctx, apiclient.CreatefolderInput{Title: args.Title, ParentId: &parentID}))
+		return nil, one(created), err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "rename_folder",
 		Description: "Change the title of a folder.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args renameFolderArgs) (*mcp.CallToolResult, item, error) {
-		id, err := resolve(ctx, domain.FOLDER, args.Folder)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameFolderArgs) (*mcp.CallToolResult, item, error) {
+		id, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, args.Folder)
 		if err != nil {
 			return nil, item{}, err
 		}
-
-		process := editfolder.Process(ctx, postgrey.GetDb(), editfolder.Input{ID: id, Title: args.Title})
-		process.Run()
-		if process.HasErr() {
-			return nil, item{}, process.GetErr()
-		}
-		return nil, one(process.GetResult()), nil
+		renamed, err := decode[domain.Item](client.PatchApiFoldersId(ctx, id, apiclient.EditfolderBody{Title: &args.Title}))
+		return nil, one(renamed), err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "move_item",
 		Description: "Move a note or a folder into another folder. A folder takes its content with it.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args moveArgs) (*mcp.CallToolResult, []item, error) {
-		id, err := resolve(ctx, "", args.Item)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args moveArgs) (*mcp.CallToolResult, []item, error) {
+		id, err := apiclient.Resolve(ctx, client, "", args.Item)
 		if err != nil {
 			return nil, nil, err
 		}
-		parentID, err := resolveFolder(ctx, args.Folder)
+		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
 			return nil, nil, err
 		}
-
-		process := moveitems.Process(ctx, postgrey.GetDb(), moveitems.Input{IDs: []string{id}, ParentID: parentID})
-		process.Run()
-		if process.HasErr() {
-			return nil, nil, process.GetErr()
-		}
-		return nil, made(process.GetResult()...), nil
+		return made(decode[[]domain.Item](client.PostApiMove(ctx, apiclient.MoveitemsInput{Ids: []string{id}, ParentId: &parentID})))
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_note",
 		Description: "Move a note to the trash, where restore_item can take it back.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args noteArgs) (*mcp.CallToolResult, []item, error) {
-		return deleteItem(ctx, domain.NOTE, args.Note)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args noteArgs) (*mcp.CallToolResult, []item, error) {
+		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
+		if err != nil {
+			return nil, nil, err
+		}
+		return made(decode[[]domain.Item](client.DeleteApiNotesId(ctx, id)))
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_folder",
 		Description: "Move a folder and everything inside it to the trash, where restore_item can take it back.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args folderArgs) (*mcp.CallToolResult, []item, error) {
-		return deleteItem(ctx, domain.FOLDER, args.Folder)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args folderArgs) (*mcp.CallToolResult, []item, error) {
+		id, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, args.Folder)
+		if err != nil {
+			return nil, nil, err
+		}
+		return made(decode[[]domain.Item](client.DeleteApiFoldersId(ctx, id)))
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_trash",
 		Description: "List what is in the trash, last removed first, with the uuid restore_item takes.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []listtrash.Trashed, error) {
-		process := listtrash.Process(ctx, postgrey.GetDb())
-		process.Run()
-		if process.HasErr() {
-			return nil, nil, process.GetErr()
-		}
-		return nil, process.GetResult(), nil
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []listtrash.Trashed, error) {
+		trash, err := decode[[]listtrash.Trashed](client.GetApiTrash(ctx))
+		return nil, trash, err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "restore_item",
 		Description: "Take a note or a folder out of the trash, with everything removed at the same time as it.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args trashedArgs) (*mcp.CallToolResult, []item, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args trashedArgs) (*mcp.CallToolResult, []item, error) {
 		// No resolve: a trashed item has no path to look up.
-		process := restoreitems.Process(ctx, postgrey.GetDb(), []string{args.Item})
-		process.Run()
-		if process.HasErr() {
-			return nil, nil, process.GetErr()
-		}
-		return nil, made(process.GetResult()...), nil
+		return made(decode[[]domain.Item](client.PostApiRestore(ctx, apiclient.RestoreBody{Ids: []string{args.Item}})))
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "tags",
 		Description: "List the notes carrying a tag, with their path. Without a tag, the account's tags, most used first. Tags of a note are set by create_note and edit_note.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args tagsArgs) (*mcp.CallToolResult, tags, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagsArgs) (*mcp.CallToolResult, tags, error) {
 		if args.Tag == "" {
-			process := counttags.Process(ctx, postgrey.GetDb())
-			process.Run()
-			return nil, tags{Tags: process.GetResult()}, process.GetErr()
+			counts, err := decode[[]counttags.TagCount](client.GetApiGraph(ctx))
+			return nil, tags{Tags: counts}, err
 		}
-
-		process := readtag.Process(ctx, postgrey.GetDb(), args.Tag)
-		process.Run()
-		if process.HasErr() {
-			return nil, tags{}, process.GetErr()
+		result, err := decode[readtag.Result](client.GetApiTagsValue(ctx, args.Tag, nil))
+		if err != nil {
+			return nil, tags{}, err
 		}
-		result := process.GetResult()
 		return nil, tags{Tag: &result.Tag, Notes: result.Notes}, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "rename_tag",
 		Description: "Rename a tag on every note carrying it, in their text too.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, domain.Tag, error) {
-		process := edittag.Process(ctx, postgrey.GetDb(), args.Tag, args.To)
-		process.Run()
-		if process.HasErr() {
-			return nil, domain.Tag{}, process.GetErr()
-		}
-		return nil, process.GetResult(), nil
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, domain.Tag, error) {
+		renamed, err := decode[domain.Tag](client.PatchApiTagsValue(ctx, args.Tag, apiclient.EdittagBody{Value: args.To}))
+		return nil, renamed, err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_tag",
 		Description: "Remove a tag from every note carrying it, in their text too. A note holding nothing but the tag goes to the trash.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args tagArgs) (*mcp.CallToolResult, []domain.Tag, error) {
-		process := deletetag.Process(ctx, postgrey.GetDb(), []string{args.Tag})
-		process.Run()
-		if process.HasErr() {
-			return nil, nil, process.GetErr()
-		}
-		return nil, process.GetResult(), nil
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagArgs) (*mcp.CallToolResult, []domain.Tag, error) {
+		deleted, err := decode[[]domain.Tag](client.DeleteApiTagsValue(ctx, args.Tag))
+		return nil, deleted, err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "note_history",
 		Description: "List the earlier texts of a note, newest first, or read one: what edit_note replaced.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args historyArgs) (*mcp.CallToolResult, history, error) {
-		id, err := resolve(ctx, domain.NOTE, args.Note)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args historyArgs) (*mcp.CallToolResult, history, error) {
+		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
 		if err != nil {
 			return nil, history{}, err
 		}
-
 		if args.Version == "" {
-			process := listversions.Process(ctx, postgrey.GetDb(), id)
-			process.Run()
-			return nil, history{Versions: process.GetResult()}, process.GetErr()
+			versions, err := decode[[]domain.NoteVersion](client.GetApiNotesIdVersions(ctx, id))
+			return nil, history{Versions: versions}, err
 		}
-		process := readversion.Process(ctx, postgrey.GetDb(), id, args.Version)
-		process.Run()
-		if process.HasErr() {
-			return nil, history{}, process.GetErr()
+		version, err := decode[domain.NoteVersion](client.GetApiNotesIdVersionsVersion(ctx, id, args.Version))
+		if err != nil {
+			return nil, history{}, err
 		}
-		version := process.GetResult()
 		return nil, history{Version: &version}, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "note_links",
 		Description: "List the notes a note links to, those linking to it, and those sharing its tags. Without a note, the broken links of every note.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args linksArgs) (*mcp.CallToolResult, links, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args linksArgs) (*mcp.CallToolResult, links, error) {
 		if args.Note == "" {
-			process := listbrokenlinks.Process(ctx, postgrey.GetDb())
-			process.Run()
-			return nil, links{Broken: process.GetResult()}, process.GetErr()
+			broken, err := decode[[]listbrokenlinks.Link](client.GetApiLinksBroken(ctx))
+			return nil, links{Broken: broken}, err
 		}
-
-		id, err := resolve(ctx, domain.NOTE, args.Note)
+		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
 		if err != nil {
 			return nil, links{}, err
 		}
-		process := readneighbors.Process(ctx, postgrey.GetDb(), id)
-		process.Run()
-		if process.HasErr() {
-			return nil, links{}, process.GetErr()
+		result, err := decode[readneighbors.Result](client.GetApiNotesIdNeighbors(ctx, id))
+		if err != nil {
+			return nil, links{}, err
 		}
-		result := process.GetResult()
 		return nil, links{Links: result.Links, Backlinks: result.Backlinks, Neighbors: result.Neighbors}, nil
 	})
 
@@ -488,84 +423,81 @@ func AddTools(server *mcp.Server, ctx context.Context) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "read_file",
 		Description: "Read an image or attachment a note cites. Without a file, list the account's files, largest first.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args fileArgs) (*mcp.CallToolResult, any, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args fileArgs) (*mcp.CallToolResult, any, error) {
 		if args.File == "" {
-			process := listfiles.Process(ctx, postgrey.GetDb())
-			process.Run()
-			return nil, process.GetResult(), process.GetErr()
+			files, err := decode[[]domain.File](client.GetApiFiles(ctx))
+			return nil, files, err
 		}
-
-		// Silo is opened here, not at start: without S3, every other tool still works.
-		store, err := silo.New(ctx)
+		response, err := client.GetApiFilesIdWithResponse(ctx, args.File)
 		if err != nil {
 			return nil, nil, err
 		}
-		process := readfile.Process(ctx, postgrey.GetDb(), store, args.File)
-		process.Run()
-		if process.HasErr() {
-			return nil, nil, process.GetErr()
+		if response.StatusCode() != http.StatusOK {
+			return nil, nil, apiclient.Fail(response.HTTPResponse, response.Body)
 		}
-		body := process.GetBody()
-		defer body.Close()
-		data, err := io.ReadAll(body)
-		if err != nil {
-			return nil, nil, err
-		}
-		return &mcp.CallToolResult{Content: []mcp.Content{fileContent(process.GetResult(), data)}}, nil, nil
+		content := fileContent(args.File, response.HTTPResponse.Header.Get("Content-Type"), response.Body)
+		return &mcp.CallToolResult{Content: []mcp.Content{content}}, nil, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "attach_file",
 		Description: "Store an image or attachment and answer the markdown citing it, to put in a note with create_note or edit_note.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args attachArgs) (*mcp.CallToolResult, attached, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args attachArgs) (*mcp.CallToolResult, attached, error) {
 		data, err := base64.StdEncoding.DecodeString(args.Data)
 		if err != nil {
 			return nil, attached{}, fmt.Errorf("data is not base64: %w", err)
 		}
-		store, err := silo.New(ctx)
+		// The server reads the type from the bytes, not from this header.
+		file, err := decode[domain.File](client.PostApiFilesWithBody(ctx, &apiclient.PostApiFilesParams{Name: &args.Name}, "application/octet-stream", bytes.NewReader(data)))
 		if err != nil {
 			return nil, attached{}, err
 		}
-
-		process := createfile.Process(ctx, postgrey.GetDb(), store, createfile.Input{Name: args.Name, Data: data})
-		process.Run()
-		if process.HasErr() {
-			return nil, attached{}, process.GetErr()
-		}
-		file := process.GetResult()
 		return nil, attached{ID: file.ID, Markdown: citation(file, args.Name)}, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "export_notes",
 		Description: "Export notes as markdown files, [[links]] written back, their folders as directories.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args exportArgs) (*mcp.CallToolResult, []exported, error) {
-		folderID, err := resolveFolder(ctx, args.Folder)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args exportArgs) (*mcp.CallToolResult, []exported, error) {
+		folderID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
 			return nil, nil, err
 		}
 		ids := make([]string, 0, len(args.Items))
 		for _, ref := range args.Items {
-			id, err := resolve(ctx, "", ref)
+			id, err := apiclient.Resolve(ctx, client, "", ref)
 			if err != nil {
 				return nil, nil, err
 			}
 			ids = append(ids, id)
 		}
 
-		process := exportnotes.Process(ctx, postgrey.GetDb(), folderID, ids...)
-		process.Run()
-		if process.HasErr() {
-			return nil, nil, process.GetErr()
+		// TODO: the zip carries the bytes of every image the notes cite, only to be named here; an export without
+		// them when an agent exports a big account.
+		params := apiclient.GetApiExportParams{Parent: &folderID}
+		if len(ids) > 0 {
+			params.Id = &ids // An empty list would still send id=.
 		}
-		return nil, exportedFiles(process.GetResult()), nil
+		response, err := client.GetApiExportWithResponse(ctx, &params)
+		if err != nil {
+			return nil, nil, err
+		}
+		if response.StatusCode() != http.StatusOK {
+			return nil, nil, apiclient.Fail(response.HTTPResponse, response.Body)
+		}
+		archive, err := zip.NewReader(bytes.NewReader(response.Body), int64(len(response.Body)))
+		if err != nil {
+			return nil, nil, err
+		}
+		files, err := exportedFiles(archive)
+		return nil, files, err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "import_notes",
 		Description: "Import markdown files as notes, their directories as folders, all or nothing: a folder name already taken refuses.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args importArgs) (*mcp.CallToolResult, importnotes.Result, error) {
-		parentID, err := resolveFolder(ctx, args.Folder)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args importArgs) (*mcp.CallToolResult, importnotes.Result, error) {
+		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
 			return nil, importnotes.Result{}, err
 		}
@@ -573,27 +505,46 @@ func AddTools(server *mcp.Server, ctx context.Context) {
 		if err != nil {
 			return nil, importnotes.Result{}, err
 		}
-
-		// Silo even for text: a note linking to another whose bytes look like a PDF stores it as a file.
-		store, err := silo.New(ctx)
-		if err != nil {
+		var body bytes.Buffer
+		archive := zip.NewWriter(&body)
+		if err := archive.AddFS(dir); err != nil {
 			return nil, importnotes.Result{}, err
 		}
-		process := importnotes.Process(ctx, postgrey.GetDb(), store, importnotes.Input{Dir: dir, ParentID: parentID})
-		process.Run()
-		return nil, process.GetResult(), process.GetErr()
+		if err := archive.Close(); err != nil {
+			return nil, importnotes.Result{}, err
+		}
+		result, err := decode[importnotes.Result](client.PostApiImportWithBody(ctx, &apiclient.PostApiImportParams{Parent: &parentID}, "application/zip", &body))
+		return nil, result, err
 	})
 }
 
-// fileContent shows an image or plays an audio to the agent; anything else comes as a resource of its type.
-func fileContent(file domain.File, data []byte) mcp.Content {
-	switch {
-	case strings.HasPrefix(file.ContentType, "image/"):
-		return &mcp.ImageContent{Data: data, MIMEType: file.ContentType}
-	case strings.HasPrefix(file.ContentType, "audio/"):
-		return &mcp.AudioContent{Data: data, MIMEType: file.ContentType}
+// decode reads a JSON answer into the type of the process behind the route, the result shapes staying those of the
+// processes; any status but 2xx is the API's error.
+func decode[T any](response *http.Response, err error) (T, error) {
+	var out T
+	if err != nil {
+		return out, err
 	}
-	return &mcp.EmbeddedResource{Resource: &mcp.ResourceContents{URI: domain.FileURL(file.ID), MIMEType: file.ContentType, Blob: data}}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return out, err
+	}
+	if response.StatusCode/100 != 2 {
+		return out, apiclient.Fail(response, body)
+	}
+	return out, json.Unmarshal(body, &out)
+}
+
+// fileContent shows an image or plays an audio to the agent; anything else comes as a resource of its type.
+func fileContent(id, contentType string, data []byte) mcp.Content {
+	switch {
+	case strings.HasPrefix(contentType, "image/"):
+		return &mcp.ImageContent{Data: data, MIMEType: contentType}
+	case strings.HasPrefix(contentType, "audio/"):
+		return &mcp.AudioContent{Data: data, MIMEType: contentType}
+	}
+	return &mcp.EmbeddedResource{Resource: &mcp.ResourceContents{URI: domain.FileURL(id), MIMEType: contentType, Blob: data}}
 }
 
 // citation is the markdown of a file in a note, under the name given (the stored one is sealed): an image shown, anything else linked.
@@ -605,20 +556,31 @@ func citation(file domain.File, name string) string {
 	return link
 }
 
-// exportedFiles leaves the directories out, implied by the paths of what they hold, and names a file by the id read_file takes.
-func exportedFiles(files []exportnotes.File) []exported {
+// exportedFiles reads the zip of GET /api/export: the directories left out, implied by the paths of what they hold,
+// a note with its text, and a file of exportnotes.FilesDir named by the id read_file takes, its bytes left out.
+func exportedFiles(archive *zip.Reader) ([]exported, error) {
 	out := []exported{}
-	for _, file := range files {
+	for _, entry := range archive.File {
+		name := entry.Name
 		switch {
-		case file.Dir:
-		case file.Key != "":
-			// exportnotes names it <id><ext> in its FilesDir.
-			out = append(out, exported{Path: file.Path, File: strings.TrimSuffix(path.Base(file.Path), path.Ext(file.Path))})
+		case strings.HasSuffix(name, "/"):
+		case path.Dir(name) == exportnotes.FilesDir && path.Ext(name) != ".md":
+			// exportnotes names it <id><ext> in its FilesDir; a note is always a .md.
+			out = append(out, exported{Path: name, File: strings.TrimSuffix(path.Base(name), path.Ext(name))})
 		default:
-			out = append(out, exported{Path: file.Path, Content: file.Content})
+			file, err := entry.Open()
+			if err != nil {
+				return nil, err
+			}
+			content, err := io.ReadAll(file)
+			file.Close()
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, exported{Path: name, Content: string(content)})
 		}
 	}
-	return out
+	return out, nil
 }
 
 // importDir makes a directory of the notes, refusing a path that would climb out of it: an agent sends text, not the
@@ -634,63 +596,36 @@ func importDir(files []importFile) (fstest.MapFS, error) {
 	return dir, nil
 }
 
-// deleteItem trashes one note or folder, named by uuid or by path.
-func deleteItem(ctx context.Context, kind domain.Kind, ref string) (*mcp.CallToolResult, []item, error) {
-	id, err := resolve(ctx, kind, ref)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	process := deleteitems.Process(ctx, postgrey.GetDb(), kind, []string{id})
-	process.Run()
-	if process.HasErr() {
-		return nil, nil, process.GetErr()
-	}
-	return nil, made(process.GetResult()...), nil
-}
-
-// one turns an item the processes answer into what the agent reads.
+// one turns an item the API answers into what the agent reads.
 func one(found domain.Item) item {
 	return item{ID: found.ID, Kind: string(found.Kind), Title: string(found.Title)}
 }
 
-func made(found ...domain.Item) []item {
+// made turns the items of an answer into what the agent reads, for a tool answering them.
+func made(found []domain.Item, err error) (*mcp.CallToolResult, []item, error) {
+	if err != nil {
+		return nil, nil, err
+	}
 	items := make([]item, 0, len(found))
 	for _, found := range found {
 		items = append(items, one(found))
 	}
-	return items
+	return nil, items, nil
 }
 
-// resolve turns a path into the uuid the processes take; a uuid goes through untouched.
-func resolve(ctx context.Context, kind domain.Kind, ref string) (string, error) {
-	process := resolveitem.Process(ctx, postgrey.GetDb(), kind, []string{ref})
-	process.Run()
-	if process.HasErr() {
-		return "", process.GetErr()
-	}
-	if len(process.GetResult()) == 0 {
-		return "", errNotFound
-	}
-	return process.GetResult()[0], nil
-}
-
-// resolveFolder keeps "" as "": the processes read it as the root.
-func resolveFolder(ctx context.Context, ref string) (string, error) {
+// resolveFolder keeps "" as "": the API reads it as the root.
+func resolveFolder(ctx context.Context, client *apiclient.ClientWithResponses, ref string) (string, error) {
 	if ref == "" {
 		return "", nil
 	}
-	return resolve(ctx, domain.FOLDER, ref)
+	return apiclient.Resolve(ctx, client, apiclient.FOLDER, ref)
 }
 
-func readNote(ctx context.Context, id string) (note, error) {
-	process := readitem.Process(ctx, postgrey.GetDb(), domain.NOTE, id)
-	process.Run()
-	if process.HasErr() {
-		return note{}, process.GetErr()
+// readNote turns the note the API answers into what the agent reads.
+func readNote(result readitem.Result, err error) (note, error) {
+	if err != nil {
+		return note{}, err
 	}
-
-	result := process.GetResult()
 	return note{
 		ID:       result.Item.ID,
 		Title:    string(result.Item.Title),

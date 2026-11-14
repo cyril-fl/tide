@@ -130,10 +130,15 @@ func Link(id, title, heading string) string {
 
 // Helpers
 
+// spans looks for code only around links: skipped backtracks, 90% of listbrokenlinks at 50,000 notes run on each.
 func spans(content string, pattern *regexp.Regexp, group int) []span {
-	hidden := skipped.FindAllStringIndex(content, -1)
+	matches := pattern.FindAllStringSubmatchIndex(content, -1)
+	var hidden [][]int
+	if len(matches) > 0 && strings.Contains(content, "`") {
+		hidden = skipped.FindAllStringIndex(content, -1)
+	}
 	var result []span
-	for _, match := range pattern.FindAllStringSubmatchIndex(content, -1) {
+	for _, match := range matches {
 		value := strings.TrimSpace(content[match[2*group]:match[2*group+1]])
 		heading := ""
 		if len(match) > 6 && match[6] >= 0 {

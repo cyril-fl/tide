@@ -11,6 +11,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteitems"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/editnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
 )
@@ -47,10 +48,10 @@ func TestBrokenLinks(t *testing.T) {
 	for _, note := range []struct{ key, content string }{
 		{"Twin1", "# Twin"},
 		{"Twin2", "# twin"},
-		{"Single", "# Single\n\n## Here"},
+		{"Single", "# Single\n\n## Here\n\n## Old (Draft)"},
 		{"Gone", "# Gone"},
 		// Single and Gone resolve on creation, the rest waits.
-		{"Source", "# Source\n\n[[Twin#h]] [[Nowhere]] [[Single]] [[Single#Here]] [[Single#Away]] [[Gone]] [[#Top]] [[#Gone (old)]] [[Source]] `[[Code]]`\n\n## Top\n\n![](" + kept + ") ![](" + gone + ")"},
+		{"Source", "# Source\n\n[[Twin#h]] [[Nowhere]] [[Single]] [[Single#Here]] [[Single#old draft]] [[Single#Away]] [[Gone]] [[#Top]] [[#Gone (old)]] [[Source]] `[[Code]]`\n\n## Top\n\n![](" + kept + ") ![](" + gone + ")"},
 	} {
 		process := createnote.Process(ctx, tx, createnote.Input{Content: note.content})
 		process.Run()
@@ -82,5 +83,20 @@ func TestBrokenLinks(t *testing.T) {
 	want := []string{"ambiguous:Twin#h", "unresolved:Nowhere", "unresolved:#Gone (old)", "unresolved:Source", "unresolved:Single#Away", "missing:Gone", "file:" + gone}
 	if !slices.Equal(got, want) {
 		t.Errorf("links = %q, want %q", got, want)
+	}
+
+	// Single edited: its headings are indexed again, [[Single#Here]] breaks.
+	edit := editnote.Process(ctx, tx, editnote.Input{ID: ids["Single"], Content: "# Single\n\n## Old (Draft)"})
+	edit.Run()
+	if edit.HasErr() {
+		t.Fatalf("edit: %v", edit.GetErr())
+	}
+	again := Process(ctx, tx)
+	again.Run()
+	if again.HasErr() {
+		t.Fatalf("list again: %v", again.GetErr())
+	}
+	if !slices.ContainsFunc(again.GetResult(), func(link Link) bool { return link.Target == "Single#Here" && link.Kind == UNRESOLVED }) {
+		t.Errorf("links after edit = %+v, want unresolved:Single#Here", again.GetResult())
 	}
 }

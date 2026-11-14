@@ -43,6 +43,7 @@ type run struct {
 type cache struct {
 	notes    []readgraph.Note
 	contents map[string]string
+	headings map[string][]string // the heading_names of the notes a link points to a heading of
 	files    map[string]bool
 	result   []Link
 }
@@ -95,18 +96,32 @@ func (p *run) loadNotes() {
 	p.cache.notes = graph.GetResult().Notes
 }
 
-// loadTargets opens the notes a link points to a heading of: their headings are checked, they may have no link.
+// loadTargets reads the blinds of the headings of the notes a link points to a heading of, from their index: they are
+// not opened (#169).
 func (p *run) loadTargets() {
+	p.cache.headings = map[string][]string{}
 	var ids []string
 	for _, content := range p.cache.contents {
 		for _, link := range wikilink.HeadingLinks(content) {
-			if _, ok := p.cache.contents[link.ID]; !ok {
-				ids = append(ids, link.ID)
-			}
+			ids = append(ids, link.ID)
 		}
 	}
-	if len(ids) > 0 {
-		p.open("mn.item_id::text IN (?)", bun.In(ids))
+	if p.HasErr() || len(ids) == 0 {
+		return
+	}
+
+	var rows []struct {
+		ID       string   `bun:"id"`
+		Headings []string `bun:"heading_names,array"`
+	}
+	p.SetErr(p.db.NewRaw(`
+		SELECT mn.item_id AS id, mn.heading_names
+		FROM metadata_notes AS mn
+		JOIN items AS i ON i.id = mn.item_id
+		WHERE i.user_id = ? AND i.deleted_at IS NULL AND mn.item_id::text IN (?)`, domain.UserID(p.ctx), bun.In(ids)).
+		Scan(p.ctx, &rows))
+	for _, row := range rows {
+		p.cache.headings[row.ID] = row.Headings
 	}
 }
 
@@ -170,7 +185,15 @@ func (p *run) check() {
 			}
 		}
 		for _, link := range wikilink.HeadingLinks(content) {
-			if live[link.ID] && !hasHeading(p.cache.contents[link.ID], link.Heading) {
+			if !live[link.ID] {
+				continue
+			}
+			blind, err := secret.Blind(domain.UserID(p.ctx), noteindex.HeadingName(link.Heading))
+			if err != nil {
+				p.SetErr(err)
+				return
+			}
+			if !slices.Contains(p.cache.headings[link.ID], blind) {
 				add(link.Label, UNRESOLVED)
 			}
 		}
@@ -213,8 +236,7 @@ func (p *run) open(where string, args ...any) {
 
 // hasHeading tells whether content has heading, as the app compares them: any case, no parentheses.
 func hasHeading(content, heading string) bool {
-	plain := strings.NewReplacer("(", "", ")", "")
 	return slices.ContainsFunc(notetitle.Headings(content), func(h string) bool {
-		return strings.EqualFold(strings.TrimSpace(plain.Replace(h)), strings.TrimSpace(plain.Replace(heading)))
+		return strings.EqualFold(noteindex.HeadingName(h), noteindex.HeadingName(heading))
 	})
 }

@@ -190,6 +190,7 @@ func getIndexes(tx bun.Tx) []*bun.CreateIndexQuery {
 		// noteindex: a search, the links waiting for a title, and the notes noteindex.Fill has left to do.
 		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_grams").Using("gin").Column("grams"),
 		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_waiting").Using("gin").Column("waiting"),
+		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_headings").Using("gin").Column("headings"),
 		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_unindexed").Column("item_id").Where("grams IS NULL"),
 	}
 }
@@ -231,12 +232,16 @@ var triggers = []string{
 		NEW.grams := NULL;
 		NEW.waiting := NULL;
 		NEW.linked := NULL;
+		NEW.headings := NULL;
+		NEW.heading_names := NULL;
 		RETURN NEW;
 	END $$ LANGUAGE plpgsql`,
 	`CREATE OR REPLACE TRIGGER metadata_notes_unindex BEFORE UPDATE OF content ON metadata_notes FOR EACH ROW
 		WHEN (NEW.content IS DISTINCT FROM OLD.content) EXECUTE FUNCTION unindex_note()`,
 	// linked came after grams (#167): the notes indexed without it are indexed again, once.
 	`UPDATE metadata_notes SET grams = NULL WHERE grams IS NOT NULL AND linked IS NULL`,
+	// heading_names came after grams (#169): the same, once.
+	`UPDATE metadata_notes SET grams = NULL WHERE grams IS NOT NULL AND heading_names IS NULL`,
 }
 
 // Interface

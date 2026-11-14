@@ -1,6 +1,6 @@
 // Package noteindex keeps on each note what finds it without opening it (#145): the blinds of the grams of its title
-// and content for searchnotes, the blinds of the titles its [[links]] wait for for linknotes, and whether it has a link
-// or a file for listbrokenlinks. A trigger of createschema empties them when the content changes, whoever writes it;
+// and content for searchnotes, the blinds of the titles its [[links]] wait for for linknotes, whether it has a link
+// or a file and the blinds of its headings for listbrokenlinks, the blinds of the grams of its headings (#169). A trigger of createschema empties them when the content changes, whoever writes it;
 // Fill makes them again before they are read.
 package noteindex
 
@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/notetitle"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/wikilink"
 	"github.com/uptrace/bun"
@@ -73,6 +74,27 @@ func Linked(content string) bool {
 	return len(wikilink.Parse(content)) > 0 || len(wikilink.IDs(content)) > 0 || domain.FilePattern.MatchString(content)
 }
 
+// HeadingName gives heading as a [[Note#Heading]] names it: no parentheses, trimmed. Blind ignores the case.
+func HeadingName(heading string) string {
+	return strings.TrimSpace(strings.NewReplacer("(", "", ")", "").Replace(heading))
+}
+
+// Headings gives the blinds of the grams of the headings of content, and the blind of each heading's HeadingName.
+func Headings(userID, content string) ([]int16, []string, error) {
+	var grams []string
+	names := []string{}
+	for _, heading := range notetitle.Headings(content) {
+		grams = append(grams, Grams(heading)...)
+		name, err := secret.Blind(userID, HeadingName(heading))
+		if err != nil {
+			return nil, nil, err
+		}
+		names = append(names, name)
+	}
+	blinds, err := secret.BlindGrams(userID, grams)
+	return blinds, names, err
+}
+
 // Fill indexes the notes of the account of ctx, trashed too, whose content changed since their last Fill (grams NULL).
 // A note written again meanwhile keeps NULL: the content compared is the one indexed.
 func Fill(ctx context.Context, db bun.IDB) error {
@@ -98,6 +120,9 @@ func Fill(ctx context.Context, db bun.IDB) error {
 			Grams   []int16  `bun:"grams,array,type:smallint[]"`
 			Waiting []string `bun:"waiting,array,type:text[]"`
 			Linked  bool     `bun:"linked"`
+
+			Headings     []int16  `bun:"headings,array,type:smallint[]"`
+			HeadingNames []string `bun:"heading_names,array,type:text[]"`
 		}
 		indexes := make([]index, len(rows))
 		for i, row := range rows {
@@ -109,13 +134,19 @@ func Fill(ctx context.Context, db bun.IDB) error {
 			if err != nil {
 				return err
 			}
-			indexes[i] = index{ItemID: row.ID, Sealed: row.Sealed, Grams: grams, Waiting: waiting, Linked: Linked(string(row.Content))}
+			headings, names, err := Headings(userID, string(row.Content))
+			if err != nil {
+				return err
+			}
+			indexes[i] = index{ItemID: row.ID, Sealed: row.Sealed, Grams: grams, Waiting: waiting, Linked: Linked(string(row.Content)),
+				Headings: headings, HeadingNames: names}
 		}
 		_, err = db.NewUpdate().
 			With("indexed", db.NewValues(&indexes)).
 			Model((*domain.MetadataNote)(nil)).
 			TableExpr("indexed").
 			Set("grams = indexed.grams, waiting = indexed.waiting, linked = indexed.linked").
+			Set("headings = indexed.headings, heading_names = indexed.heading_names").
 			Where("mn.item_id = indexed.item_id AND mn.content = indexed.sealed").
 			Exec(ctx)
 		if err != nil || len(rows) < chunk {

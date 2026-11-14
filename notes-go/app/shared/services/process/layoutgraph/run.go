@@ -167,7 +167,7 @@ func (p *run) saveLayout() {
 	}
 }
 
-// applyLayout puts each node at its place in % of the view, and each spring's pull on its tag or link.
+// applyLayout puts each node at its place in % of the view, the weight of each tag and the pull of each link.
 func (p *run) applyLayout() {
 	if p.HasErr() {
 		return
@@ -177,15 +177,17 @@ func (p *run) applyLayout() {
 	edges := forcelayout.Edges(p.cache.notes, p.cache.links)
 	k := 0
 	p.cache.result.TagPositions = map[string]forcelayout.Point{}
+	p.cache.result.TagWeights = map[string]float64{}
 	for i := range p.cache.result.Notes {
 		note := &p.cache.result.Notes[i]
 		note.X, note.Y = round(fitted[note.ID].X), round(fitted[note.ID].Y)
-		note.TagStrengths = make([]float64, len(note.Tags))
-		for j, tag := range note.Tags {
-			note.TagStrengths[j] = round(edges[k].Strength)
+		for _, tag := range note.Tags {
+			if _, ok := p.cache.result.TagWeights[tag]; !ok {
+				p.cache.result.TagWeights[tag] = round(edges[k].Strength * float64(len(note.Tags)))
+				at := fitted[forcelayout.TagNode(tag)]
+				p.cache.result.TagPositions[tag] = forcelayout.Point{X: round(at.X), Y: round(at.Y)}
+			}
 			k++
-			at := fitted[forcelayout.TagNode(tag)]
-			p.cache.result.TagPositions[tag] = forcelayout.Point{X: round(at.X), Y: round(at.Y)}
 		}
 	}
 	for i := range p.cache.result.Links {

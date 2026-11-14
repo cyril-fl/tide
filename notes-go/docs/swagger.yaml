@@ -527,12 +527,6 @@ components:
           type: string
         path:
           type: string
-        tag_strengths:
-          description: in the order of Tags
-          items:
-            type: number
-          type: array
-          uniqueItems: false
         tags:
           items:
             type: string
@@ -564,6 +558,10 @@ components:
         tag_positions:
           additionalProperties:
             $ref: '#/components/schemas/forcelayout.Point'
+          type: object
+        tag_weights:
+          additionalProperties:
+            type: number
           type: object
       required:
       - links

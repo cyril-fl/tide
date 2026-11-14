@@ -40,8 +40,13 @@ const tags = computed(() => {
 const isTag = (id: string) => id.startsWith('#');
 // The springs of the layout, drawn: a link pulling little is drawn faint.
 const edges = computed<Edge[]>(() => [
-  ...props.graph.notes.flatMap(({ id, tags = [], tag_strengths = [] }) =>
-    tags.map((tag, i) => ({ source: id, target: tagNode(tag), strength: tag_strengths[i] ?? 1, tag: true })),
+  ...props.graph.notes.flatMap(({ id, tags = [] }) =>
+    tags.map((tag) => ({
+      source: id,
+      target: tagNode(tag),
+      strength: (props.graph.tag_weights?.[tag] ?? 1) / tags.length, // a tag's weight, shared among the note's tags
+      tag: true,
+    })),
   ),
   ...props.graph.links.map(({ source, target, strength }) => ({ source, target, strength: strength ?? 1, tag: false })),
 ]);

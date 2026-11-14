@@ -55,9 +55,10 @@ func TestLayoutGraph(t *testing.T) {
 		if n.X < 8 || n.X > 92 || n.Y < 8 || n.Y > 92 {
 			t.Errorf("%s at %v, %v: out of the view", n.Path, n.X, n.Y)
 		}
-		if len(n.TagStrengths) != len(n.Tags) {
-			t.Errorf("%s: %d strengths for %d tags", n.Path, len(n.TagStrengths), len(n.Tags))
-		}
+	}
+	// go is on 2 notes of 4, log(4/2)/log(4); web on one, the rarest.
+	if first.TagWeights["go"] != 0.5 || first.TagWeights["web"] != 1 || len(first.TagWeights) != 2 {
+		t.Errorf("tag weights %v, want go 0.5 and web 1", first.TagWeights)
 	}
 	if len(first.Links) != 1 || first.Links[0].Strength != 1 {
 		t.Errorf("links %+v, want Source-Target at full strength", first.Links)

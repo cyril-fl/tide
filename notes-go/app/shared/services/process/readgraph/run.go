@@ -12,15 +12,14 @@ import (
 )
 
 // Note is a node of the graph, with its tags: the tags are nodes too, joined to their notes.
-// Laid out (layoutgraph): its place in % of the view, never 0 (a margin keeps it off the edges), and the pull of each tag.
+// Laid out (layoutgraph): its place in % of the view, never 0 (a margin keeps it off the edges).
 type Note struct {
-	ID           string      `json:"id"`
-	Title        secret.Text `json:"title" swaggertype:"string"`
-	Path         string      `json:"path"`
-	Tags         []string    `json:"tags,omitempty" binding:"optional"`
-	X            float64     `json:"x,omitempty" binding:"optional"`
-	Y            float64     `json:"y,omitempty" binding:"optional"`
-	TagStrengths []float64   `json:"tag_strengths,omitempty" binding:"optional"` // in the order of Tags
+	ID    string      `json:"id"`
+	Title secret.Text `json:"title" swaggertype:"string"`
+	Path  string      `json:"path"`
+	Tags  []string    `json:"tags,omitempty" binding:"optional"`
+	X     float64     `json:"x,omitempty" binding:"optional"`
+	Y     float64     `json:"y,omitempty" binding:"optional"`
 }
 
 // Link is a [[link]] between two notes, once per pair (Source < Target) whichever way it goes. Laid out: its pull.
@@ -30,12 +29,14 @@ type Link struct {
 	Strength float64 `json:"strength,omitempty" binding:"optional"`
 }
 
-// Result is every live note, with its tags, and the [[links]] between them. Laid out: the place of each tag, by name.
+// Result is every live note, with its tags, and the [[links]] between them. Laid out: the place of each tag, by name,
+// and its weight: a tag pulls a note by its weight / the note's tags, sent once per tag, not once per note.
 // Its size follows the tags put on notes, not the pairs of notes sharing one (n² for a tag on n notes).
 type Result struct {
 	Notes        []Note                       `json:"notes"`
 	Links        []Link                       `json:"links"`
 	TagPositions map[string]forcelayout.Point `json:"tag_positions,omitempty" binding:"optional"`
+	TagWeights   map[string]float64           `json:"tag_weights,omitempty" binding:"optional"`
 }
 
 // tagRow is a tag with its notes, live or not.

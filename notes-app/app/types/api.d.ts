@@ -3419,8 +3419,6 @@ export interface components {
         "readgraph.Note": {
             id: string;
             path: string;
-            /** @description in the order of Tags */
-            tag_strengths?: number[];
             tags?: string[];
             title: string;
             x?: number;
@@ -3431,6 +3429,9 @@ export interface components {
             notes: components["schemas"]["readgraph.Note"][];
             tag_positions?: {
                 [key: string]: components["schemas"]["forcelayout.Point"];
+            };
+            tag_weights?: {
+                [key: string]: number;
             };
         };
         "readitem.Result": {

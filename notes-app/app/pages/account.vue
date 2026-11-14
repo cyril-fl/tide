@@ -13,7 +13,7 @@ const baseURL = useRuntimeConfig().public.apiBase;
 const input = useTemplateRef('input');
 
 const { data: me } = useMe();
-// The advanced mode's settings nav leads back on its own: the plain settings page needs this link.
+// The advanced mode's settings nav leads back on its own: the plain settings page needs the footer's.
 const { has } = usePro();
 
 const avatarSrc = computed(() => me.value?.avatar && imageSrc(`/api/files/${me.value.avatar}`, baseURL));
@@ -158,17 +158,7 @@ function day(at: string) {
 </script>
 
 <template>
-  <div class="p-8">
-    <UButton
-      v-if="!has('settingsNav')"
-      :label="$t('common.settings')"
-      :icon="icons.back"
-      to="/settings"
-      color="neutral"
-      variant="ghost"
-      size="sm"
-      class="mb-2 -ms-2.5"
-    />
+  <div class="flex min-h-full flex-col p-8">
     <PageHeader :title="$t('account.title')" />
 
     <section class="mb-8">
@@ -337,5 +327,15 @@ function day(at: string) {
         />
       </div>
     </section>
+
+    <!-- The footer of the notes and folders: the advanced mode's settings nav leads back on its own. -->
+    <footer
+      v-if="!has('settingsNav')"
+      class="sticky bottom-0 z-10 -mx-8 -mb-8 mt-auto border-t border-default bg-default px-8"
+    >
+      <div class="flex h-9 items-center text-xs text-muted">
+        <PathNav :crumbs="[{ label: $t('common.settings'), to: '/settings' }, { label: $t('account.title') }]" />
+      </div>
+    </footer>
   </div>
 </template>

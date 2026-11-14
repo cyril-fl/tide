@@ -1,6 +1,6 @@
 <script setup lang="ts">
-/** The folder path, '/A/B', as a breadcrumb, with the history's back and forward buttons. */
-const props = defineProps<{ path: string }>();
+/** The folder path, '/A/B', as a breadcrumb, with the history's back and forward buttons. A page outside the folders passes its own crumbs. */
+const props = defineProps<{ path?: string; crumbs?: { label: string; to?: string }[] }>();
 
 const { icons } = useIcons();
 const { t } = useI18n();
@@ -9,8 +9,9 @@ const destinations = useDestinations();
 
 // TODO: matches folders by path, a folder name holding '/' gets no link; ask the API for the ancestors' ids if that matters.
 const breadcrumb = computed(() => {
+  if (props.crumbs) return props.crumbs;
   const byPath = new Map(destinations.value.map((folder) => [folder.label, folder.value]));
-  const names = props.path.split('/').filter(Boolean);
+  const names = (props.path ?? '').split('/').filter(Boolean);
   return [
     { label: t('common.notes'), to: '/' },
     ...names.map((name, index) => {

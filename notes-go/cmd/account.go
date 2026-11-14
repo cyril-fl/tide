@@ -86,11 +86,8 @@ var cmdAccountPurge = &cobra.Command{
 	RunE:    cmdaccount.Purge,
 }
 
-// noAccount is what runs without a logged-in account: the admin's commands, and the API, which logs each request in
-// itself.
-var noAccount = map[*cobra.Command]bool{cmdUser: true, cmdUserAdd: true, cmdUserPerf: true, cmdResetPassword: true, cmdRotateSecret: true, cmdServe: true}
-
-// apiClients talk to the server through its API, never to the base.
+// apiClients talk to the server through its API, never to the base; only the admin's commands and the API itself
+// (#149) open it.
 var apiClients = map[*cobra.Command]bool{
 	cmdLogin: true, cmdLogout: true, cmdWhoami: true,
 	cmdCreateNote: true, cmdCreateFloder: true, cmdCreateTag: true,
@@ -98,7 +95,7 @@ var apiClients = map[*cobra.Command]bool{
 	cmdEditNote: true, cmdEditFloder: true, cmdEditTag: true,
 	cmdDeleteNote: true, cmdDeleteFloder: true, cmdDeleteTag: true,
 	cmdTrash: true, cmdRestore: true, cmdRecent: true, cmdSearch: true, cmdMove: true, cmdGraph: true, cmdFinder: true,
-	cmdExport: true, cmdImport: true, cmdAccountPurge: true,
+	cmdExport: true, cmdImport: true, cmdAccountPurge: true, cmdMCP: true,
 }
 
 func init() {

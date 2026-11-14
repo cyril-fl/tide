@@ -255,7 +255,7 @@ func TestLogin(t *testing.T) {
 	if session := apiclient.Read(); session.URL != server {
 		t.Errorf("server kept = %q, want %q", session.URL, server)
 	}
-	if _, err := WithAccount(ctx); err != nil {
+	if _, err := withAccount(ctx); err != nil {
 		t.Errorf("act for the account: %v; want the session kept", err)
 	}
 }
@@ -297,7 +297,7 @@ func TestPurge(t *testing.T) {
 	if _, err := run(t, ctx, Login, "", server); err != nil {
 		t.Fatal(err)
 	}
-	ctx, err := WithAccount(ctx)
+	ctx, err := withAccount(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,8 +329,8 @@ func TestPurge(t *testing.T) {
 func TestSession(t *testing.T) {
 	ctx := setup(t)
 
-	if _, err := WithAccount(ctx); !errors.Is(err, domain.ErrNoUser) {
-		t.Errorf("no session: err = %v, want %v", err, domain.ErrNoUser)
+	if _, err := withAccount(ctx); !errors.Is(err, readsession.ErrNoSession) {
+		t.Errorf("no session: err = %v, want %v", err, readsession.ErrNoSession)
 	}
 	if _, err := run(t, ctx, Purge, ""); !errors.Is(err, apiclient.ErrNoSession) {
 		t.Errorf("purge with no session: err = %v, want %v", err, apiclient.ErrNoSession)
@@ -353,7 +353,7 @@ func TestSession(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	withAccount, err := WithAccount(ctx)
+	withAccount, err := withAccount(ctx)
 	if err != nil || domain.UserID(withAccount) != session.GetResult().User.ID {
 		t.Fatalf("user = %q, err = %v; want %q", domain.UserID(withAccount), err, session.GetResult().User.ID)
 	}
@@ -405,21 +405,31 @@ func TestPrintToken(t *testing.T) {
 	}
 
 	t.Setenv("NOTES_SESSION", token+"\n")
-	if readToken() != token {
-		t.Errorf("readToken() = %q, want NOTES_SESSION's", readToken())
+	if read := apiclient.Read().Token; read != token {
+		t.Errorf("token = %q, want NOTES_SESSION's", read)
 	}
-	if _, err := WithAccount(ctx); err != nil {
+	if _, err := withAccount(ctx); err != nil {
 		t.Errorf("act through NOTES_SESSION: %v", err)
 	}
 	if _, err := run(t, ctx, Logout, ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := WithAccount(ctx); !errors.Is(err, domain.ErrNoUser) {
-		t.Errorf("NOTES_SESSION after logout: err = %v, want %v", err, domain.ErrNoUser)
+	if _, err := withAccount(ctx); !errors.Is(err, readsession.ErrNoSession) {
+		t.Errorf("NOTES_SESSION after logout: err = %v, want %v", err, readsession.ErrNoSession)
 	}
 
 	t.Setenv("NOTES_SESSION", "")
-	if _, err := WithAccount(ctx); err != nil {
+	if _, err := withAccount(ctx); err != nil {
 		t.Errorf("the file's session after logging NOTES_SESSION out: %v, want it kept", err)
 	}
+}
+
+// withAccount acts for the account of the CLI's session, as the API does for the token the CLI sends it.
+func withAccount(ctx context.Context) (context.Context, error) {
+	session := readsession.Process(ctx, postgrey.GetDb(), apiclient.Read().Token)
+	session.Run()
+	if session.HasErr() {
+		return ctx, session.GetErr()
+	}
+	return domain.WithUser(ctx, session.GetResult().ID), nil
 }

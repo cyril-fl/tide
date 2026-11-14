@@ -28,6 +28,8 @@ func TestNeedsDb(t *testing.T) {
 		"shell __complete": {request, false},
 		"login":            {cmdLogin, false},
 		"add note":         {cmdCreateNote, false},
+		"mcp":              {cmdMCP, false},
+		"serve":            {cmdServe, true},
 	}
 
 	for name, test := range tests {

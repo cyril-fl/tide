@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"charm.land/huh/v2"
-	cmdaccount "github.com/cyril-fl/notes/notes-go/app/cli/cmd-account"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/purgeitems"
@@ -47,13 +46,7 @@ var cmdRoot = &cobra.Command{
 		// Startup is the "cron": no daemon, the trash is emptied whenever the CLI runs.
 		purge := purgeitems.Process(cobra.Context(), postgrey.GetDb())
 		purge.Run()
-		if purge.HasErr() || noAccount[cobra] {
-			return purge.GetErr()
-		}
-
-		ctx, err := cmdaccount.WithAccount(cobra.Context())
-		cobra.SetContext(ctx)
-		return err
+		return purge.GetErr()
 	},
 	PersistentPostRunE: func(cobra *cobra.Command, args []string) error {
 		if db := postgrey.GetDb(); db != nil {
@@ -90,8 +83,8 @@ var groups = []struct {
 	{cobra.Group{ID: "browse", Title: "Browse:"}, []string{"finder", "recent", "search", "graph"}},
 	{cobra.Group{ID: "trash", Title: "Trash:"}, []string{"trash", "restore"}},
 	{cobra.Group{ID: "files", Title: "Markdown files:"}, []string{"import", "export"}},
-	{cobra.Group{ID: "account", Title: "Account:"}, []string{"login", "logout", "whoami", "account"}},
-	{cobra.Group{ID: "admin", Title: "Admin (on the server):"}, []string{"user", "reset-password", "rotate-secret", "serve", "mcp"}},
+	{cobra.Group{ID: "account", Title: "Account:"}, []string{"login", "logout", "whoami", "account", "mcp"}},
+	{cobra.Group{ID: "admin", Title: "Admin (on the server):"}, []string{"user", "reset-password", "rotate-secret", "serve"}},
 }
 
 func groupCommands() {

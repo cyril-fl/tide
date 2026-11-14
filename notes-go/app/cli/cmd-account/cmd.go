@@ -4,7 +4,6 @@ package cmdaccount
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,35 +13,14 @@ import (
 
 	"charm.land/huh/v2"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/adduser"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resetpassword"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/rotatesecret"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/seedperf"
 	"github.com/spf13/cobra"
 )
-
-// readToken is the token of notes login, or of NOTES_SESSION: the commands not yet clients of the API read it in
-// the base.
-func readToken() string {
-	return apiclient.Read().Token
-}
-
-// WithAccount gives ctx the account of the CLI's session: every command but these here acts for it.
-func WithAccount(ctx context.Context) (context.Context, error) {
-	session := readsession.Process(ctx, postgrey.GetDb(), readToken())
-	session.Run()
-	if errors.Is(session.GetErr(), readsession.ErrNoSession) {
-		return ctx, fmt.Errorf("%w: run notes login <url>", domain.ErrNoUser)
-	}
-	if session.HasErr() {
-		return ctx, session.GetErr()
-	}
-	return domain.WithUser(ctx, session.GetResult().ID), nil
-}
 
 // Login asks the account's name and password and keeps the server and the session in the user's config folder, or
 // with --print-token prints a session of its own, for NOTES_SESSION, and keeps nothing.

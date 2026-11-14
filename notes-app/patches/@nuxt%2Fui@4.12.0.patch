@@ -1,0 +1,46 @@
+diff --git a/dist/runtime/components/EditorSuggestionMenu.d.vue.ts b/dist/runtime/components/EditorSuggestionMenu.d.vue.ts
+index 794200abbde0b72c2036463625b27465c4da9c78..79bb1ce2e30c0fee011ad38da691b1ebb155dbfd 100644
+--- a/dist/runtime/components/EditorSuggestionMenu.d.vue.ts
++++ b/dist/runtime/components/EditorSuggestionMenu.d.vue.ts
+@@ -29,7 +29,7 @@ type EditorSuggestionMenuActionItem<H extends EditorCustomHandlers = EditorCusto
+     [key: string]: any;
+ } & EditorItem<H>;
+ export type EditorSuggestionMenuItem<H extends EditorCustomHandlers = EditorCustomHandlers> = EditorSuggestionMenuLabelItem | EditorSuggestionMenuSeparatorItem | EditorSuggestionMenuActionItem<H>;
+-export interface EditorSuggestionMenuProps<T extends EditorSuggestionMenuItem = EditorSuggestionMenuItem> extends Partial<Pick<EditorMenuOptions<T>, 'editor' | 'char' | 'pluginKey' | 'filterFields' | 'limit' | 'options' | 'suggestion' | 'appendTo'>> {
++export interface EditorSuggestionMenuProps<T extends EditorSuggestionMenuItem = EditorSuggestionMenuItem> extends Partial<Pick<EditorMenuOptions<T>, 'editor' | 'char' | 'pluginKey' | 'filterFields' | 'ignoreFilter' | 'limit' | 'options' | 'suggestion' | 'appendTo'>> {
+     /**
+      * @defaultValue 'md'
+      */
+diff --git a/dist/runtime/components/EditorSuggestionMenu.vue b/dist/runtime/components/EditorSuggestionMenu.vue
+index 60029ea8899835fa2f905bdc13f38d970d8b7092..9d2b7df27e0624c0dc0a5f55a4e1f65e942877ac 100644
+--- a/dist/runtime/components/EditorSuggestionMenu.vue
++++ b/dist/runtime/components/EditorSuggestionMenu.vue
+@@ -19,6 +19,7 @@ const props = defineProps({
+   char: { type: String, required: false, default: "/" },
+   pluginKey: { type: String, required: false, default: "suggestionMenu" },
+   filterFields: { type: Array, required: false },
++  ignoreFilter: { type: Boolean, required: false },
+   limit: { type: Number, required: false },
+   options: { type: Object, required: false },
+   suggestion: { type: Object, required: false },
+@@ -41,6 +42,7 @@ onMounted(async () => {
+     pluginKey: props.pluginKey,
+     items: toRef(() => props.items),
+     filterFields: props.filterFields,
++    ignoreFilter: props.ignoreFilter,
+     limit: props.limit,
+     options: props.options,
+     suggestion: props.suggestion,
+diff --git a/dist/runtime/components/EditorSuggestionMenu.vue.d.ts b/dist/runtime/components/EditorSuggestionMenu.vue.d.ts
+index 794200abbde0b72c2036463625b27465c4da9c78..79bb1ce2e30c0fee011ad38da691b1ebb155dbfd 100644
+--- a/dist/runtime/components/EditorSuggestionMenu.vue.d.ts
++++ b/dist/runtime/components/EditorSuggestionMenu.vue.d.ts
+@@ -29,7 +29,7 @@ type EditorSuggestionMenuActionItem<H extends EditorCustomHandlers = EditorCusto
+     [key: string]: any;
+ } & EditorItem<H>;
+ export type EditorSuggestionMenuItem<H extends EditorCustomHandlers = EditorCustomHandlers> = EditorSuggestionMenuLabelItem | EditorSuggestionMenuSeparatorItem | EditorSuggestionMenuActionItem<H>;
+-export interface EditorSuggestionMenuProps<T extends EditorSuggestionMenuItem = EditorSuggestionMenuItem> extends Partial<Pick<EditorMenuOptions<T>, 'editor' | 'char' | 'pluginKey' | 'filterFields' | 'limit' | 'options' | 'suggestion' | 'appendTo'>> {
++export interface EditorSuggestionMenuProps<T extends EditorSuggestionMenuItem = EditorSuggestionMenuItem> extends Partial<Pick<EditorMenuOptions<T>, 'editor' | 'char' | 'pluginKey' | 'filterFields' | 'ignoreFilter' | 'limit' | 'options' | 'suggestion' | 'appendTo'>> {
+     /**
+      * @defaultValue 'md'
+      */

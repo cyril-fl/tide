@@ -3,6 +3,7 @@
 FROM --platform=$BUILDPLATFORM oven/bun:1.4.4 AS web
 WORKDIR /src
 COPY notes-app/package.json notes-app/bun.lock ./
+COPY notes-app/patches ./patches
 RUN bun install --frozen-lockfile
 COPY notes-app .
 # Empty API base: the app calls /api on its own origin.

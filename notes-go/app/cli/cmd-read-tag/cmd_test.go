@@ -1,0 +1,63 @@
+package cmdreadtag
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listtag"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readtag"
+	"github.com/spf13/cobra"
+)
+
+// --list through the API prints what listtag gives in the base, in each format, with no tag and with some.
+func TestListTags(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	for _, tags := range [][]string{nil, {"go", "sql"}} {
+		if tags != nil {
+			note := createnote.Process(ctx, tx, createnote.Input{Content: "# Ideas", Tags: tags})
+			note.Run()
+			if note.HasErr() {
+				t.Fatal(note.GetErr())
+			}
+		}
+		process := listtag.Process(ctx, tx)
+		process.Run()
+		if process.HasErr() {
+			t.Fatal(process.GetErr())
+		}
+
+		for _, format := range []struct{ yaml, json bool }{{}, {yaml: true}, {json: true}} {
+			want, _ := apitest.Stdout(t, func() error { printTags(process.GetResult(), format.yaml, format.json); return nil })
+			command := &cobra.Command{}
+			command.SetContext(ctx)
+			got, err := apitest.Stdout(t, func() error { return listTags(command, format.yaml, format.json) })
+			if err != nil || got != want {
+				t.Errorf("%v %+v: printed %q, err = %v; want %q", tags, format, got, err, want)
+			}
+		}
+	}
+}
+
+func TestLoadTag(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	note := createnote.Process(ctx, tx, createnote.Input{Content: "# Ideas", Tags: []string{"go"}})
+	note.Run()
+	if note.HasErr() {
+		t.Fatal(note.GetErr())
+	}
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	output, err := loadTag(ctx, client, "go")
+	if err != nil || !strings.Contains(output, "/Ideas") || !strings.Contains(output, note.GetResult().ID) {
+		t.Errorf("output %q, err = %v; want the note's path and uuid", output, err)
+	}
+	if _, err := loadTag(ctx, client, "nothing"); err == nil || !strings.HasPrefix(err.Error(), readtag.ErrNotFound.Error()) {
+		t.Errorf("unknown tag: err = %v, want %v", err, readtag.ErrNotFound)
+	}
+}

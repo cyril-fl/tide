@@ -2,15 +2,15 @@ package cmdreadtag
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"charm.land/huh/v2"
 
 	cmdedittag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-tag"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
@@ -38,8 +38,12 @@ func Read(cobra *cobra.Command, args []string) error {
 
 // showTag shows the tag, then the path and uuid of each note carrying it; ctrl+e renames it.
 func showTag(cobra *cobra.Command, value string) error {
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
 	for {
-		output, err := loadTag(cobra.Context(), value)
+		output, err := loadTag(cobra.Context(), client, value)
 		if err != nil {
 			return err
 		}
@@ -49,20 +53,27 @@ func showTag(cobra *cobra.Command, value string) error {
 			return err
 		}
 		// An aborted form goes back to the view unchanged; a rename reloads under the new value.
+		// TODO: ctrl+e still renames in the base, move it to PATCH /api/tags/{value} with edit tag (#148).
 		if value, err = cmdedittag.Interactive(cobra.Context(), value); err != nil && !errors.Is(err, huh.ErrUserAborted) {
 			return err
 		}
 	}
 }
 
-func loadTag(ctx context.Context, value string) (string, error) {
-	process := readtag.Process(ctx, postgrey.GetDb(), value)
-	process.Run()
-	if process.HasErr() {
-		return "", process.GetErr()
+// loadTag decodes into the domain types, not the generated ones: the output stays that of readtag.
+func loadTag(ctx context.Context, client *apiclient.ClientWithResponses, value string) (string, error) {
+	response, err := client.GetApiTagsValueWithResponse(ctx, value, nil)
+	if err != nil {
+		return "", err
+	}
+	if response.JSON200 == nil {
+		return "", apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	var result readtag.Result
+	if err := json.Unmarshal(response.Body, &result); err != nil {
+		return "", err
 	}
 
-	result := process.GetResult()
 	header := style.Title().Render(string(result.Tag.Value)) + "\n\n"
 	if len(result.Notes) == 0 {
 		return header + style.Empty().Render("No note carries this tag"), nil
@@ -76,14 +87,28 @@ func loadTag(ctx context.Context, value string) (string, error) {
 }
 
 func listTags(cobra *cobra.Command, asYAML bool, asJSON bool) error {
-	process := listtag.Process(cobra.Context(), postgrey.GetDb())
-	process.Run()
-
-	if !process.HasErr() {
-		printTags(process.GetResult(), asYAML, asJSON)
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	response, err := client.GetApiTagsWithResponse(cobra.Context())
+	if err != nil {
+		return err
+	}
+	if response.JSON200 == nil {
+		return apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	var tags []domain.Tag
+	if err := json.Unmarshal(response.Body, &tags); err != nil {
+		return err
+	}
+	// The API answers [], --json printed null for no tag when it read the base: kept as it was.
+	if len(tags) == 0 {
+		tags = nil
 	}
 
-	return process.GetErr()
+	printTags(tags, asYAML, asJSON)
+	return nil
 }
 
 // printTags keeps the plain output to values only: ids are for scripts, through --yaml/--json.

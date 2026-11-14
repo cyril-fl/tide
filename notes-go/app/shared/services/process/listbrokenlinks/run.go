@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/noteindex"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/notetitle"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readgraph"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
@@ -55,8 +56,9 @@ func Process(ctx context.Context, db bun.IDB) *run {
 }
 
 func (p *run) Run() {
-	p.loadNotes()
 	p.loadContents()
+	p.loadNotes()
+	p.loadTargets()
 	p.loadFiles()
 	p.check()
 }
@@ -69,8 +71,21 @@ func (p *run) GetResult() []Link {
 
 // Methods
 
-// loadNotes reads the live notes, their titles and paths, sorted by path: the graph's nodes.
+// loadContents opens only the notes with a link or a file to check, found by their index: opening every live note
+// costs 0.5 s at 50,000 notes.
+func (p *run) loadContents() {
+	p.SetErr(noteindex.Fill(p.ctx, p.db))
+	p.cache.contents = map[string]string{}
+	p.open("mn.linked")
+}
+
+// loadNotes reads the live notes, their titles and paths, sorted by path: the graph's nodes. None when no note has
+// anything to check.
 func (p *run) loadNotes() {
+	if p.HasErr() || len(p.cache.contents) == 0 {
+		return
+	}
+
 	graph := readgraph.Process(p.ctx, p.db, false)
 	graph.Run()
 	if graph.HasErr() {
@@ -80,25 +95,18 @@ func (p *run) loadNotes() {
 	p.cache.notes = graph.GetResult().Notes
 }
 
-// TODO: opens every live note on each call, 0.6 s at 50,000 notes; a flag kept by linknotes if it is opened often.
-func (p *run) loadContents() {
-	if p.HasErr() {
-		return
+// loadTargets opens the notes a link points to a heading of: their headings are checked, they may have no link.
+func (p *run) loadTargets() {
+	var ids []string
+	for _, content := range p.cache.contents {
+		for _, link := range wikilink.HeadingLinks(content) {
+			if _, ok := p.cache.contents[link.ID]; !ok {
+				ids = append(ids, link.ID)
+			}
+		}
 	}
-
-	var rows []struct {
-		ID      string      `bun:"id"`
-		Content secret.Text `bun:"content"`
-	}
-	p.SetErr(p.db.NewRaw(`
-		SELECT mn.item_id AS id, mn.content
-		FROM metadata_notes AS mn
-		JOIN items AS i ON i.id = mn.item_id
-		WHERE i.user_id = ? AND i.deleted_at IS NULL`, domain.UserID(p.ctx)).
-		Scan(p.ctx, &rows))
-	p.cache.contents = make(map[string]string, len(rows))
-	for _, row := range rows {
-		p.cache.contents[row.ID] = string(row.Content)
+	if len(ids) > 0 {
+		p.open("mn.item_id::text IN (?)", bun.In(ids))
 	}
 }
 
@@ -181,6 +189,27 @@ func (p *run) check() {
 }
 
 // Helpers
+
+// open adds to the contents the live notes of the account that match where.
+func (p *run) open(where string, args ...any) {
+	if p.HasErr() {
+		return
+	}
+
+	var rows []struct {
+		ID      string      `bun:"id"`
+		Content secret.Text `bun:"content"`
+	}
+	p.SetErr(p.db.NewRaw(`
+		SELECT mn.item_id AS id, mn.content
+		FROM metadata_notes AS mn
+		JOIN items AS i ON i.id = mn.item_id
+		WHERE i.user_id = ? AND i.deleted_at IS NULL AND `+where, append([]any{domain.UserID(p.ctx)}, args...)...).
+		Scan(p.ctx, &rows))
+	for _, row := range rows {
+		p.cache.contents[row.ID] = string(row.Content)
+	}
+}
 
 // hasHeading tells whether content has heading, as the app compares them: any case, no parentheses.
 func hasHeading(content, heading string) bool {

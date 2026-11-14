@@ -1,6 +1,7 @@
 // Package noteindex keeps on each note what finds it without opening it (#145): the blinds of the grams of its title
-// and content for searchnotes, and the blinds of the titles its [[links]] wait for for linknotes. A trigger of
-// createschema empties both when the content changes, whoever writes it; Fill makes them again before they are read.
+// and content for searchnotes, the blinds of the titles its [[links]] wait for for linknotes, and whether it has a link
+// or a file for listbrokenlinks. A trigger of createschema empties them when the content changes, whoever writes it;
+// Fill makes them again before they are read.
 package noteindex
 
 import (
@@ -67,6 +68,11 @@ func Waiting(userID, content string) ([]string, error) {
 	return blinds, nil
 }
 
+// Linked tells whether content has what listbrokenlinks checks: a [[link]], a link to a note, the address of a file.
+func Linked(content string) bool {
+	return len(wikilink.Parse(content)) > 0 || len(wikilink.IDs(content)) > 0 || domain.FilePattern.MatchString(content)
+}
+
 // Fill indexes the notes of the account of ctx, trashed too, whose content changed since their last Fill (grams NULL).
 // A note written again meanwhile keeps NULL: the content compared is the one indexed.
 func Fill(ctx context.Context, db bun.IDB) error {
@@ -91,6 +97,7 @@ func Fill(ctx context.Context, db bun.IDB) error {
 			Sealed  string   `bun:"sealed,type:text"`
 			Grams   []int16  `bun:"grams,array,type:smallint[]"`
 			Waiting []string `bun:"waiting,array,type:text[]"`
+			Linked  bool     `bun:"linked"`
 		}
 		indexes := make([]index, len(rows))
 		for i, row := range rows {
@@ -102,13 +109,13 @@ func Fill(ctx context.Context, db bun.IDB) error {
 			if err != nil {
 				return err
 			}
-			indexes[i] = index{ItemID: row.ID, Sealed: row.Sealed, Grams: grams, Waiting: waiting}
+			indexes[i] = index{ItemID: row.ID, Sealed: row.Sealed, Grams: grams, Waiting: waiting, Linked: Linked(string(row.Content))}
 		}
 		_, err = db.NewUpdate().
 			With("indexed", db.NewValues(&indexes)).
 			Model((*domain.MetadataNote)(nil)).
 			TableExpr("indexed").
-			Set("grams = indexed.grams, waiting = indexed.waiting").
+			Set("grams = indexed.grams, waiting = indexed.waiting, linked = indexed.linked").
 			Where("mn.item_id = indexed.item_id AND mn.content = indexed.sealed").
 			Exec(ctx)
 		if err != nil || len(rows) < chunk {

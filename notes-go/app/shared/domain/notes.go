@@ -59,6 +59,7 @@ type MetadataNote struct {
 	Pinned   bool        `bun:",notnull"`
 	Grams    []int16     `bun:",array,type:smallint[]"` // noteindex: blinds of its grams, NULL until noteindex.Fill
 	Waiting  []string    `bun:",array,type:text[]"`     // noteindex: blinds of the titles its [[links]] wait for
+	Linked   bool        // noteindex: its text has a link or a file listbrokenlinks checks, NULL until noteindex.Fill
 	Tags     []Tag       `bun:"m2m:notes_on_tags,join:Note=Tag"`
 }
 

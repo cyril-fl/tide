@@ -230,10 +230,13 @@ var triggers = []string{
 	BEGIN
 		NEW.grams := NULL;
 		NEW.waiting := NULL;
+		NEW.linked := NULL;
 		RETURN NEW;
 	END $$ LANGUAGE plpgsql`,
 	`CREATE OR REPLACE TRIGGER metadata_notes_unindex BEFORE UPDATE OF content ON metadata_notes FOR EACH ROW
 		WHEN (NEW.content IS DISTINCT FROM OLD.content) EXECUTE FUNCTION unindex_note()`,
+	// linked came after grams (#167): the notes indexed without it are indexed again, once.
+	`UPDATE metadata_notes SET grams = NULL WHERE grams IS NOT NULL AND linked IS NULL`,
 }
 
 // Interface

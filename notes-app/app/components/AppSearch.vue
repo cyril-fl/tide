@@ -110,7 +110,9 @@ const proActions = computed<CommandPaletteItem[]>(() => {
   }));
   return [
     ...actions,
-    { label: t('search.replace.action'), icon: icons.replace, onSelect: replaceEverywhere },
+    ...(has('replaceEverywhere')
+      ? [{ label: t('search.replace.action'), icon: icons.replace, onSelect: replaceEverywhere }]
+      : []),
     { label: t('search.theme'), icon: icons.appearance, children },
   ];
 });

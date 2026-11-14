@@ -489,6 +489,7 @@
     "savedSearches": "Smart folders: searches replayed, shown in the sidebar",
     "sidebarOrder": "Reorder the lists of the sidebar, in the settings",
     "hideFolders": "Hide the folders of the sidebar",
+    "replaceEverywhere": "Replace a text in every note, from the Cmd K palette",
     "search": "Search and the Cmd K palette",
     "themes": "Color themes, in light and dark mode",
     "importExport": "Import a zip, .md files or an Obsidian vault; export everything, a folder or a selection",

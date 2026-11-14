@@ -738,15 +738,15 @@ test('the search bar finds and replaces in the note (#113)', async ({ page }) =>
     .toBe(`# ${box.prefix} search\n\nbaz bar baz\n\n\`\`\`js\nbaz()\n\`\`\``);
 });
 
-// Pro: the palette replaces a text in every note after confirming the count, the locked note left as it is.
-test('the Pro palette replaces a text in every note (#113)', async ({ page }) => {
+// Ultra: the palette replaces a text in every note after confirming the count, the locked note left as it is.
+test('the Ultra palette replaces a text in every note (#113)', async ({ page }) => {
   const word = `${box.prefix}word`;
   const one = await box.note(`${word} and ${word}`);
   const two = await box.note(`a ${word}`);
   const locked = await box.note(`${word} locked`);
   await box.api.patch(`/api/notes/${locked.id}`, { data: { readonly: true } });
   try {
-    await box.api.patch('/api/me', { data: { plan: 'pro' } });
+    await box.api.patch('/api/me', { data: { plan: 'ultra' } });
     await page.goto('/');
     await expect(page.getByRole('button', { name: /Rechercher/ })).toBeVisible();
     await page.keyboard.press('ControlOrMeta+k');

@@ -737,3 +737,32 @@ test('the search bar finds and replaces in the note (#113)', async ({ page }) =>
     .poll(() => box.content(note.id), { timeout: 5000 })
     .toBe(`# ${box.prefix} search\n\nbaz bar baz\n\n\`\`\`js\nbaz()\n\`\`\``);
 });
+
+// Pro: the palette replaces a text in every note after confirming the count, the locked note left as it is.
+test('the Pro palette replaces a text in every note (#113)', async ({ page }) => {
+  const word = `${box.prefix}word`;
+  const one = await box.note(`${word} and ${word}`);
+  const two = await box.note(`a ${word}`);
+  const locked = await box.note(`${word} locked`);
+  await box.api.patch(`/api/notes/${locked.id}`, { data: { readonly: true } });
+  try {
+    await box.api.patch('/api/me', { data: { plan: 'pro' } });
+    await page.goto('/');
+    await expect(page.getByRole('button', { name: /Rechercher/ })).toBeVisible();
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.getByRole('option', { name: 'Remplacer dans toutes les notes' }).click();
+    await page.getByRole('dialog').getByRole('textbox').fill(word);
+    await page.getByRole('dialog').getByRole('button', { name: 'Valider' }).click();
+    await page.getByRole('dialog').getByRole('textbox').fill('done');
+    await page.getByRole('dialog').getByRole('button', { name: 'Tout remplacer' }).click();
+    await expect(page.getByRole('dialog')).toContainText('3 occurrences dans 2 notes.');
+    await expect(page.getByRole('dialog')).toContainText('Une note verrouillée reste telle quelle.');
+    await page.getByRole('dialog').getByRole('button', { name: 'Tout remplacer' }).click();
+    await expect(page.getByText('2 notes modifiées', { exact: true })).toBeVisible();
+    expect(await box.content(one.id)).toBe('done and done');
+    expect(await box.content(two.id)).toBe('a done');
+    expect(await box.content(locked.id)).toBe(`${word} locked`);
+  } finally {
+    await box.api.patch('/api/me', { data: { plan: 'base' } });
+  }
+});

@@ -1,4 +1,5 @@
 import { Extension, type Range } from '@tiptap/core';
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey, type EditorState } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Editor } from '@tiptap/vue-3';
@@ -61,13 +62,27 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
     return (editor.getAttributes('linkCard').href ?? editor.getAttributes('link').href) as string | undefined;
   }
 
-  // The notes offered after [[: picked, the link points to the note's id right away.
-  const { data: notes } = useLazyAsyncData('notes', () => api<NoteRef[]>('/api/notes'));
+  // The notes offered after [[, found by the API on the text before #: the whole list weighs 7 MB at 50,000 notes (#150).
+  // Picked, the link points to the note's id right away.
+  const query = ref('');
+  const search = refDebounced(
+    computed(() => query.value.split('#')[0]!.trim()),
+    150,
+  );
+  const { data: notes } = useLazyAsyncData(
+    'link-notes',
+    () => api<NoteRef[]>('/api/notes', { query: { q: search.value }, quiet: true }),
+    { watch: [search] },
+  );
   const { data: neighbors } = useNeighbors(id);
   const { has } = usePro();
-  // The menu's own filter keeps the order of these items between equal matches.
   const noteItems = computed(() =>
-    linkTargets(notes.value, id.value, has('linkSuggestions') ? neighbors.value?.neighbors : undefined).map((note) => ({
+    linkTargets(
+      notes.value,
+      id.value,
+      has('linkSuggestions') ? neighbors.value?.neighbors : undefined,
+      search.value,
+    ).map((note) => ({
       kind: 'wikiLink',
       label: note.title,
       description: note.path,
@@ -76,8 +91,7 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
     })),
   );
 
-  // [[Note# offers the headings of that note, read as soon as the text names it: the menu reads its items on a key only.
-  const query = ref('');
+  // [[Note# offers the headings of that note, read as soon as the text names it.
   const headingNote = computed(() => {
     const name = query.value.split('#')[0]!.trim().toLowerCase();
     return noteItems.value.find((note) => note.label.toLowerCase() === name);
@@ -93,30 +107,64 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
       if (headingNote.value?.id === noteId) headings.value = headingsOf(detail?.content ?? '');
     },
   );
-  // [[# offers the headings of the note itself, read from the text being written. A boolean: new items on each key reset the menu.
+  // [[# offers the headings of the note itself, read from the text being written.
   const ownHeadings = ref<string[]>([]);
-  const ownQuery = computed(() => query.value.startsWith('#'));
+  // The menu does not filter its items: it reads them on a key only, before the API answers. The headings are filtered here.
   const linkItems = computed(() => {
-    if (ownQuery.value)
-      return ownHeadings.value.map((heading) => ({
+    const hash = query.value.indexOf('#');
+    if (hash < 0) return noteItems.value;
+    const typed = query.value.slice(hash + 1).toLowerCase();
+    const holding = (list: string[]) => list.filter((heading) => heading.toLowerCase().includes(typed));
+    if (hash === 0)
+      return holding(ownHeadings.value).map((heading) => ({
         kind: 'wikiLink',
         label: `#${heading}`,
         icon: icons.heading1,
         id: null,
       }));
     const note = headingNote.value;
-    if (!note) return noteItems.value;
-    return noteItems.value.concat(
-      headings.value.map((heading) => ({ ...note, label: `${note.label}#${heading}`, icon: icons.heading1, heading })),
-    );
+    if (!note) return [];
+    return holding(headings.value).map((heading) => ({
+      ...note,
+      label: `${note.label}#${heading}`,
+      icon: icons.heading1,
+      heading,
+    }));
   });
 
   // The other notes the API would pick from, by path or by title whatever its case, as linknotes.Resolve.
-  function candidates(target: string) {
-    return noteItems.value.filter((note) =>
-      target.startsWith('/') ? note.description === target : note.label.toLowerCase() === target.toLowerCase(),
+  function candidates(notes: NoteRef[], target: string) {
+    return notes.filter(
+      (note) =>
+        note.id !== id.value &&
+        (target.startsWith('/') ? note.path === target : note.title.toLowerCase() === target.toLowerCase()),
     );
   }
+
+  // The target of a waiting [[link]], its heading left out.
+  function waitingTarget(node: ProseMirrorNode) {
+    return node.type.name === 'wikiLink' && !node.attrs.id ? (node.attrs.target.split('#')[0].trim() as string) : '';
+  }
+
+  // The waiting [[links]] of the text: the notes the API would pick from are read for their targets alone.
+  const waiting = ref<string[]>([]);
+  const { data: pending } = useLazyAsyncData(
+    'link-candidates',
+    async () =>
+      new Map(
+        await Promise.all(
+          waiting.value.map(
+            async (target) =>
+              [
+                target,
+                candidates(await api<NoteRef[]>('/api/notes', { query: { q: target }, quiet: true }), target),
+              ] as const,
+          ),
+        ),
+      ),
+    { watch: [waiting] },
+  );
+  const pendingCandidates = (target: string) => pending.value?.get(target) ?? [];
 
   // A waiting [[link]] that several notes answer gets wikilink-ambiguous, redrawn when the notes change.
   const ambiguousKey = new PluginKey('ambiguousLinks');
@@ -126,16 +174,28 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
       return [
         new Plugin({
           key: ambiguousKey,
-          view: (view) => ({
-            destroy: watch(noteItems, () => view.dispatch(view.state.tr.setMeta(ambiguousKey, true))),
-          }),
+          view: (view) => {
+            const collect = (state: EditorState) => {
+              const targets = new Set<string>();
+              state.doc.descendants((node) => {
+                const target = waitingTarget(node);
+                if (target) targets.add(target);
+              });
+              const sorted = [...targets].sort();
+              if (sorted.join('\n') !== waiting.value.join('\n')) waiting.value = sorted;
+            };
+            collect(view.state);
+            return {
+              update: (view) => collect(view.state),
+              destroy: watch(pending, () => view.dispatch(view.state.tr.setMeta(ambiguousKey, true))),
+            };
+          },
           props: {
             decorations: (state) => {
               const decorations: Decoration[] = [];
               state.doc.descendants((node, pos) => {
-                const target =
-                  node.type.name === 'wikiLink' && !node.attrs.id && node.attrs.target.split('#')[0].trim();
-                if (target && candidates(target).length > 1)
+                const target = waitingTarget(node);
+                if (target && pendingCandidates(target).length > 1)
                   decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: 'wikilink-ambiguous' }));
               });
               return DecorationSet.create(state.doc, decorations);
@@ -165,7 +225,7 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
     const heading = link.dataset.heading ? `#${encodeURIComponent(link.dataset.heading)}` : '';
     if (link.dataset.note) return navigateTo(`/notes/${link.dataset.note}${heading}`);
     const target = link.dataset.wikilink!.split('#')[0]!.trim();
-    const paths = candidates(target).map((note) => note.description);
+    const paths = pendingCandidates(target).map((note) => note.path);
     toast.add(
       paths.length > 1
         ? {
@@ -249,12 +309,13 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
         char: '[[',
         pluginKey: 'wikiLinkMenu',
         items: linkItems,
-        filterFields: ['label', 'description'],
+        // TODO: patches/ makes @nuxt/ui 4.12 pass ignoreFilter to its menu, drop the patch once Nuxt UI does.
+        ignoreFilter: true,
         suggestion: {
           allowSpaces: true,
           // ![[ embeds the note picked.
           allowedPrefixes: [' ', '!'],
-          // The menu filters its items alone: the typed text is read here, for the headings after #.
+          // The typed text is read here, for the search and the headings after #.
           allow: ({ state, range }: { state: EditorState; range: Range }) => {
             query.value = state.doc.textBetween(range.from + 2, range.to);
             if (query.value.startsWith('#')) {

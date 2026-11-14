@@ -22,7 +22,7 @@ const [tag] = await get('/api/graph');
 const { notes: tagged } = await get(`/api/tags/${encodeURIComponent(tag.value)}`);
 const note = tagged[0];
 const word = 'projet';
-const notes = (await get('/api/notes')).length;
+const { notes } = await get('/api/me/stats');
 
 const rows = [];
 const format = (ms) =>
@@ -40,7 +40,7 @@ for (const path of [
   '/api/folders',
   '/api/graph',
   '/api/graph/notes',
-  '/api/notes',
+  `/api/notes?q=${word}`,
   `/api/notes/${note.id}/neighbors`,
   `/api/search?q=${word}`,
   `/api/tags/${encodeURIComponent(tag.value)}`,

@@ -3,7 +3,6 @@ package huhform
 import (
 	"testing"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listfolders"
@@ -19,7 +18,7 @@ func TestFitFillsHeight(t *testing.T) {
 	for name, fields := range tests {
 		form := fit(fields, 80, 30)
 		form.Init()
-		if got := lipgloss.Height(withCancel(tea.View{Content: form.View()}).Content); got != 30 {
+		if got := lipgloss.Height(form.View()); got != 30 {
 			t.Errorf("%s: height = %d, want 30", name, got)
 		}
 	}

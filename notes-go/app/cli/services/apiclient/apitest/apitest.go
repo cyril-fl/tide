@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/cyril-fl/notes/notes-go/app/api"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/password"
@@ -55,16 +56,16 @@ func Serve(t *testing.T) (context.Context, bun.Tx) {
 	return ctx, savepoint
 }
 
-// Stdout returns what print writes to stdout.
+// Stdout returns what print writes to stdout, through fmt or lipgloss (screen.Print).
 func Stdout(t *testing.T, print func() error) (string, error) {
 	t.Helper()
 	out, writer, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-	before := os.Stdout
-	os.Stdout = writer
-	defer func() { os.Stdout = before }()
+	before, beforeLipgloss := os.Stdout, lipgloss.Writer.Forward
+	os.Stdout, lipgloss.Writer.Forward = writer, writer
+	defer func() { os.Stdout, lipgloss.Writer.Forward = before, beforeLipgloss }()
 
 	printErr := print()
 	writer.Close()

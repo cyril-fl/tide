@@ -1,12 +1,12 @@
 package cmdtrash
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listtrash"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
@@ -14,29 +14,42 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Trash lists what was removed, each removal once with how many items went with it, and when it is purged.
+// Trash lists what was removed, each removal once with how many items went with it, and when it is purged, through
+// GET /api/trash and the retention of GET /api/me.
 func Trash(cobra *cobra.Command, args []string) error {
 	var asJSON bool
 	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"json": &asJSON}); err != nil {
 		return err
 	}
-
-	process := listtrash.Process(cobra.Context(), postgrey.GetDb())
-	process.Run()
-	if process.HasErr() {
-		return process.GetErr()
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	response, err := client.GetApiTrashWithResponse(cobra.Context())
+	if err != nil {
+		return err
+	}
+	if response.JSON200 == nil {
+		return apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	// Decoded into the process's type, not the generated one: the output stays that of listtrash.
+	var trash []listtrash.Trashed
+	if err := json.Unmarshal(response.Body, &trash); err != nil {
+		return err
 	}
 
 	if asJSON {
-		screen.PrintJSON(process.GetResult())
+		screen.PrintJSON(trash)
 		return nil
 	}
-
-	var user domain.User
-	if err := postgrey.GetDb().NewSelect().Model(&user).Where("id = ?", domain.UserID(cobra.Context())).Scan(cobra.Context()); err != nil {
+	me, err := client.GetApiMeWithResponse(cobra.Context())
+	if err != nil {
 		return err
 	}
-	screen.Print(output(process.GetResult(), user.TrashRetentionDays, time.Now()))
+	if me.JSON200 == nil {
+		return apiclient.Fail(me.HTTPResponse, me.Body)
+	}
+	screen.Print(output(trash, me.JSON200.TrashRetentionDays, time.Now()))
 	return nil
 }
 

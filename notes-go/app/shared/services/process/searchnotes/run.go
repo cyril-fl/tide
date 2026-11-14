@@ -142,8 +142,12 @@ func (p *run) loadMatches() {
 
 // Helpers
 
-// batch is how many notes Matches opens at once.
-const batch = 200
+// batch is how many notes Matches opens first, maxBatch at once: each read opens 4 times more, a page takes one
+// read and a search without a limit not hundreds of them.
+const (
+	batch    = 200
+	maxBatch = 12800
+)
 
 // Matches opens the notes of ids, in their order, and keeps those holding text in their title or content whatever
 // its case: limit of them from offset, every one when limit is 0. No text: every note, none opened for its content.
@@ -170,8 +174,8 @@ func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, te
 	}
 	found := at
 	var matches []Match
-	for at < len(ids) && (limit <= 0 || found < offset+limit) {
-		opened := ids[at:min(at+batch, len(ids))]
+	for size := batch; at < len(ids) && (limit <= 0 || found < offset+limit); size = min(size*4, maxBatch) {
+		opened := ids[at:min(at+size, len(ids))]
 		var rows []row
 		err := db.NewRaw(`
 			SELECT `+columns+`

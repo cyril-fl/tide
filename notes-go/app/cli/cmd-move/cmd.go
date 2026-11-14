@@ -4,25 +4,29 @@ import (
 	"fmt"
 
 	millflagsmove "github.com/cyril-fl/notes/notes-go/app/cli/cmd-move/services/mill"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/moveitems"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/spf13/cobra"
 )
 
-// Move puts notes and folders into the --parent folder, or at the root without it.
+// Move puts notes and folders into the --parent folder, or at the root without it, through POST /api/move.
 func Move(cobra *cobra.Command, args []string) error {
-	resolver := millflagsmove.New(millflagsmove.Template{Ctx: cobra.Context(), Db: postgrey.GetDb(), Flags: cobra.Flags(), IDs: args})
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	resolver := millflagsmove.New(millflagsmove.Template{Ctx: cobra.Context(), Client: client, Flags: cobra.Flags(), IDs: args})
 	input := resolver.Resolve()
 	if resolver.HasErr() {
 		return resolver.GetErr()
 	}
 
-	process := moveitems.Process(cobra.Context(), postgrey.GetDb(), input)
-	process.Run()
-
-	if !process.HasErr() {
-		fmt.Printf("Successfully moved %d item(s)\n", len(process.GetResult()))
+	response, err := client.PostApiMoveWithResponse(cobra.Context(), apiclient.MoveitemsInput{Ids: input.IDs, ParentId: &input.ParentID})
+	if err != nil {
+		return err
 	}
-
-	return process.GetErr()
+	if response.JSON200 == nil {
+		return apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	fmt.Printf("Successfully moved %d item(s)\n", len(*response.JSON200))
+	return nil
 }

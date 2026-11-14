@@ -12,7 +12,7 @@ var cmdMove = &cobra.Command{
 	Long:    cmd.Move.Long,
 	Example: cmd.Move.Example,
 	Args:    cobra.MinimumNArgs(1),
-	RunE:    resolved("", cmdmove.Move),
+	RunE:    apiResolved("", cmdmove.Move),
 }
 
 func init() {

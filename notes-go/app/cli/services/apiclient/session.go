@@ -82,3 +82,15 @@ func Fail(response *http.Response, body []byte) error {
 	}
 	return errors.New(response.Status)
 }
+
+// Deleted reads the answer of a DELETE: true when deleted, false when there was nothing to delete, which the batch
+// commands skip.
+func Deleted(response *http.Response, body []byte) (bool, error) {
+	switch response.StatusCode {
+	case http.StatusNoContent:
+		return true, nil
+	case http.StatusNotFound:
+		return false, nil
+	}
+	return false, Fail(response, body)
+}

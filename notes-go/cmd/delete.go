@@ -6,7 +6,7 @@ import (
 	cmddeletefolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-delete-folder"
 	cmddeletenote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-delete-note"
 	cmddeletetag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-delete-tag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 )
 
 var cmdDelete = &cobra.Command{
@@ -22,7 +22,7 @@ var cmdDeleteNote = &cobra.Command{
 	Long:    cmd.DeleteNote.Long,
 	Example: cmd.DeleteNote.Example,
 	Args:    cobra.MinimumNArgs(1),
-	RunE:    resolved(domain.NOTE, cmddeletenote.Delete),
+	RunE:    apiResolved(apiclient.NOTE, cmddeletenote.Delete),
 }
 
 var cmdDeleteFloder = &cobra.Command{
@@ -31,7 +31,7 @@ var cmdDeleteFloder = &cobra.Command{
 	Long:    cmd.DeleteFolder.Long,
 	Example: cmd.DeleteFolder.Example,
 	Args:    cobra.MinimumNArgs(1),
-	RunE:    resolved(domain.FOLDER, cmddeletefolder.Delete),
+	RunE:    apiResolved(apiclient.FOLDER, cmddeletefolder.Delete),
 }
 
 var cmdDeleteTag = &cobra.Command{

@@ -11,7 +11,7 @@ var cmdLogin = &cobra.Command{
 	Short:   cmd.Login.Short,
 	Long:    cmd.Login.Long,
 	Example: cmd.Login.Example,
-	Args:    cobra.NoArgs,
+	Args:    cobra.ExactArgs(1),
 	RunE:    cmdaccount.Login,
 }
 
@@ -79,9 +79,12 @@ var cmdAccountPurge = &cobra.Command{
 	RunE:    cmdaccount.Purge,
 }
 
-// noAccount is what runs without a logged-in account: logging in, the admin's commands, and the API, which logs
-// each request in itself.
-var noAccount = map[*cobra.Command]bool{cmdUser: true, cmdLogin: true, cmdLogout: true, cmdUserAdd: true, cmdUserPerf: true, cmdResetPassword: true, cmdRotateSecret: true, cmdServe: true}
+// noAccount is what runs without a logged-in account: the admin's commands, and the API, which logs each request in
+// itself.
+var noAccount = map[*cobra.Command]bool{cmdUser: true, cmdUserAdd: true, cmdUserPerf: true, cmdResetPassword: true, cmdRotateSecret: true, cmdServe: true}
+
+// apiClients talk to the server through its API, never to the base.
+var apiClients = map[*cobra.Command]bool{cmdLogin: true, cmdLogout: true}
 
 func init() {
 	plumcliutilsargs.Makeflags(cmdLogin, cmd.Login.Flags)

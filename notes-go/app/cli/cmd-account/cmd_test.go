@@ -5,13 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"charm.land/huh/v2"
+	"github.com/cyril-fl/notes/notes-go/app/api"
+	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
@@ -21,6 +23,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resetpassword"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
 	"github.com/spf13/cobra"
 )
 
@@ -35,6 +38,9 @@ func TestSameName(t *testing.T) {
 		}
 	}
 }
+
+// server is the URL of the API on the test base, for login and logout, clients of the API.
+var server string
 
 // The commands commit on postgrey.GetDb(), not in a rolled-back transaction: each account made here is deleted
 // at the end.
@@ -51,15 +57,18 @@ func setup(t *testing.T) context.Context {
 	}
 	previous := postgrey.GetDb()
 	postgrey.SetDb(db)
+	http := httptest.NewServer(api.New(db, silo.NewMemory(), "", ""))
+	server = http.URL
 	t.Cleanup(func() {
+		http.Close()
 		postgrey.SetDb(previous)
 		db.Close()
 	})
 
-	// os.UserConfigDir: HOME on macOS, XDG_CONFIG_HOME on Linux. The session file of the user stays untouched.
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	// The session file of the user, under HOME, stays untouched.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("NOTES_URL", "")
+	t.Setenv("NOTES_SESSION", "")
 	return ctx
 }
 
@@ -222,13 +231,13 @@ func TestLogin(t *testing.T) {
 	if _, err := run(t, ctx, AddUser, "a password\n", name); err != nil {
 		t.Fatal(err)
 	}
-	file, err := sessionFile()
+	file, err := apiclient.SessionFile()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	keys(t, name+"\r", "the wrong one\r")
-	if _, err := run(t, ctx, Login, ""); !errors.Is(err, createsession.ErrBadCredentials) {
+	if _, err := run(t, ctx, Login, "", server); err == nil || err.Error() != createsession.ErrBadCredentials.Error() {
 		t.Errorf("wrong password: err = %v, want %v", err, createsession.ErrBadCredentials)
 	}
 	if _, err := os.Stat(file); !errors.Is(err, os.ErrNotExist) {
@@ -236,12 +245,15 @@ func TestLogin(t *testing.T) {
 	}
 
 	keys(t, name+"\r", "a password\r")
-	printed, err := run(t, ctx, Login, "")
+	printed, err := run(t, ctx, Login, "", server)
 	if err != nil || printed != "Logged in as "+name+"\n" {
 		t.Fatalf("printed %q, err = %v; want logged in", printed, err)
 	}
 	if info, err := os.Stat(file); err != nil || info.Mode().Perm() != 0o600 {
 		t.Errorf("session file: %v, %v; want it readable by the user only", info, err)
+	}
+	if session := apiclient.Read(); session.URL != server {
+		t.Errorf("server kept = %q, want %q", session.URL, server)
 	}
 	if _, err := WithAccount(ctx); err != nil {
 		t.Errorf("act for the account: %v; want the session kept", err)
@@ -256,7 +268,7 @@ func TestPurge(t *testing.T) {
 		t.Fatal(err)
 	}
 	keys(t, name+"\r", "a password\r")
-	if _, err := run(t, ctx, Login, ""); err != nil {
+	if _, err := run(t, ctx, Login, "", server); err != nil {
 		t.Fatal(err)
 	}
 	ctx, err := WithAccount(ctx)
@@ -307,14 +319,11 @@ func TestSession(t *testing.T) {
 	if session.HasErr() {
 		t.Fatal(session.GetErr())
 	}
-	file, err := sessionFile()
+	file, err := apiclient.SessionFile()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(file, []byte(session.GetResult().Token+"\n"), 0o600); err != nil {
+	if err := (apiclient.Session{URL: server, Token: session.GetResult().Token}).Save(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -346,10 +355,10 @@ func TestPrintToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	keys(t, name+"\r", "a password\r")
-	if _, err := run(t, ctx, Login, ""); err != nil {
+	if _, err := run(t, ctx, Login, "", server); err != nil {
 		t.Fatal(err)
 	}
-	file, err := sessionFile()
+	file, err := apiclient.SessionFile()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,9 +369,9 @@ func TestPrintToken(t *testing.T) {
 		cobra.Flags().Bool("print-token", true, "")
 		return Login(cobra, args)
 	}
-	printed, err := run(t, ctx, command, "")
+	printed, err := run(t, ctx, command, "", server)
 	token := strings.TrimSpace(printed)
-	if err != nil || token == "" || token == string(kept) {
+	if err != nil || token == "" || strings.Contains(string(kept), token) {
 		t.Fatalf("printed %q, err = %v; want a new token", printed, err)
 	}
 	if now, _ := os.ReadFile(file); string(now) != string(kept) {

@@ -66,9 +66,10 @@ var cmdRoot = &cobra.Command{
 	},
 }
 
-// needsDb is false for what only prints help or shell completion: those must work with the database down.
+// needsDb is false for what only prints help or shell completion, and for the clients of the API: those must work
+// with the database down.
 func needsDb(command *cobra.Command) bool {
-	if !command.HasParent() {
+	if !command.HasParent() || apiClients[command] {
 		return false
 	}
 	for ; command != nil; command = command.Parent() {

@@ -93,22 +93,21 @@ plus simple reste d'ailleurs de faire tourner l'agent sur le serveur, où la bas
 
 Il n'y a **ni port, ni jeton d'API, ni mot de passe à passer**. `notes mcp` parle à Postgres comme le
 reste de la CLI, et agit pour le compte de la **session CLI de la machine** — le jeton écrit par
-`notes login` dans `~/Library/Application Support/notes/session` (macOS) ou
-`~/.config/notes/session` (Linux), en `0600`.
+`notes login <url>` dans `~/.config/notes/session.json`, en `0600`.
 
 L'agent n'est donc jamais « connecté » à quoi que ce soit, et ne voit ni mot de passe ni jeton : il
 appelle `create_note`, et le serveur agit déjà pour le compte. La seule chose à faire est un
 `notes login`, **une fois**, sur la machine et sous l'utilisateur Unix qui lancera l'agent :
 
 ```sh
-notes login
+notes login https://notes.example.ts.net
 ```
 
 - La session est **par utilisateur Unix**, pas par machine : si l'agent tourne sous un utilisateur de
   service ou sous `root`, c'est sous celui-là qu'il faut se connecter.
 - Elle dure **30 jours glissants**, chaque usage la relance : un agent qui s'en sert régulièrement ne
   la perd pas. Expirée, les outils répondent `not logged in, or the session expired`, et il suffit de
-  refaire `notes login`.
+  refaire `notes login <url>`.
 - `notes logout` la supprime : à ne pas lancer sur une machine dont un agent dépend.
 
 ### Quand on ne peut pas se connecter là où l'agent tourne
@@ -118,11 +117,11 @@ persistant pour le fichier. Il prend alors le jeton dans **`NOTES_SESSION`**, lu
 (le fichier reste le cas normal). Le jeton se demande là où l'on peut se connecter :
 
 ```sh
-notes login --print-token
+notes login https://notes.example.ts.net --print-token
 ```
 
 Il crée une session **à part**, l'affiche et n'écrit rien : celle de la machine n'est pas touchée.
-Le formulaire s'affiche sur stderr, stdout ne porte que le jeton : `NOTES_SESSION=$(notes login
+Le formulaire s'affiche sur stderr, stdout ne porte que le jeton : `NOTES_SESSION=$(notes login <url>
 --print-token)` le range directement dans une variable, sans qu'il passe par l'écran. Le
 jeton n'est lié à aucune machine (la base n'en garde que le hash), il se donne donc à l'agent par son
 environnement :

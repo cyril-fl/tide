@@ -310,10 +310,10 @@ commands:
     long: "Serve the notes of the logged-in account to an agent over MCP on stdin and stdout: search, read, create, edit, move, trash and restore. It talks to the database like the rest of the CLI, listens on no port, and acts for the account of this CLI session (notes login)."
     example: "notes mcp"
   login:
-    use: "login"
-    short: "Log the CLI in to an account"
-    long: "Ask the account's name and password, and keep the session in the user's config folder (readable by the user only). Every other command then acts for this account. With --print-token, print a new session token instead and keep nothing: an agent that cannot log in where it runs gets it through NOTES_SESSION, which wins over the file. The token opens the whole account."
-    example: "notes login\nexport NOTES_SESSION=$(notes login --print-token)"
+    use: "login <url>"
+    short: "Log the CLI in to an account on a server"
+    long: "Ask the account's name and password, log in on the server at <url>, and keep the server and the session in ~/.config/notes/session.json (readable by the user only). Every other command then acts for this account. With --print-token, print a new session token instead and keep nothing: an agent that cannot log in where it runs gets it through NOTES_SESSION, and the server through NOTES_URL, which win over the file. The token opens the whole account."
+    example: "notes login https://notes.example.ts.net\nexport NOTES_SESSION=$(notes login https://notes.example.ts.net --print-token)"
     args:
       - name: "print-token"
         shorthand: ""
@@ -322,7 +322,7 @@ commands:
         type: "bool"
   logout:
     use: "logout"
-    short: "Log the CLI out"
+    short: "Log the CLI out, on the server too"
   user:
     use: "user"
     short: "Manage the accounts (admin, on the server)"

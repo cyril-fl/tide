@@ -47,8 +47,8 @@ Chaque note, dossier et tag appartient à un compte, et un compte ne voit jamais
 
 ```sh
 notes user add cyril            # demande le mot de passe deux fois (8 caractères au moins)
-notes login                     # nom et mot de passe, puis toutes les commandes agissent pour ce compte
-notes logout
+notes login https://notes.example.ts.net  # nom et mot de passe sur ce serveur, puis toutes les commandes agissent pour ce compte
+notes logout                    # coupe aussi la session sur le serveur
 notes reset-password cyril      # mot de passe oublié : nouveau mot de passe, tous les appareils déconnectés
 notes rotate-secret             # rechiffre les clés des comptes par un nouveau NOTES_SECRET (voir Chiffrement)
 notes account purge             # vide le compte connecté (notes, dossiers, tags, images), après avoir tapé son nom
@@ -56,7 +56,7 @@ notes account purge             # vide le compte connecté (notes, dossiers, tag
 
 - **Scripts :** `--password-stdin` lit le mot de passe sur l'entrée standard, pour `user add` et `reset-password`.
 - **Admin :** le drapeau est posé par le premier compte créé dans une base vide, quelle que soit la façon. Pour le déplacer ou en ajouter un, il faut toucher la base : `UPDATE users SET admin = true WHERE name = '<nom>'`.
-- **Session de la CLI :** elle est gardée dans `~/.config/notes/session` sous Linux et `~/Library/Application Support/notes/session` sous macOS, lisible par l'utilisateur seul. Elle dure 30 jours, prolongés à chaque usage. `NOTES_SESSION`, si elle est posée, passe avant ce fichier : `notes login --print-token` crée une session à part et n'affiche que son jeton, pour un agent qui ne peut pas se connecter là où il tourne (voir `MCP.md`). `notes logout` avec la variable ne coupe que cette session. Le jeton ouvre le compte entier, il ne va dans aucun fichier versionné.
+- **Session de la CLI :** l'URL du serveur et le jeton sont gardés dans `~/.config/notes/session.json`, lisible par l'utilisateur seul. La session dure 30 jours, prolongés à chaque usage. `NOTES_URL` et `NOTES_SESSION`, si elles sont posées, passent avant ce fichier : `notes login <url> --print-token` crée une session à part et n'affiche que son jeton, pour un agent qui ne peut pas se connecter là où il tourne (voir `MCP.md`). `notes logout` avec la variable ne coupe que cette session. Le jeton ouvre le compte entier, il ne va dans aucun fichier versionné.
 
 Les commandes `note` et `folder`, ainsi que `move`, `finder` et `graph`, acceptent un UUID ou un chemin :
 

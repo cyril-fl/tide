@@ -51,6 +51,8 @@ var trees Versioned[Tree]
 
 // LoadTree gives the Tree of the account of ctx. Titles are sealed: paths are made here, not in SQL.
 // Cached (one query, not 75 ms of decryption at 50,000 items): reading it opens nothing.
+// TODO: the read after a write opens every title again, 100 ms at 50,000 items, once per write (measured, #155);
+// only the rows changed since the cached version if writes ever come by hundreds.
 func LoadTree(ctx context.Context, db bun.IDB) (Tree, error) {
 	return trees.Load(ctx, db, func() (Tree, error) { return readTree(ctx, db) })
 }

@@ -138,8 +138,7 @@ func TestListItems(t *testing.T) {
 
 	// The order is cached: reversed by hand, the next page follows it, until a write changes items_version.
 	reverse := func() {
-		cached, _ := orders.Load(domain.UserID(ctx))
-		account := cached.(*cachedOrders)
+		account, _ := orders.Load(ctx, tx, func() (*cachedOrders, error) { return nil, errors.New("not cached") })
 		ids := slices.Clone(account.ids[orderKey{id, ""}])
 		slices.Reverse(ids)
 		account.ids[orderKey{id, ""}] = ids

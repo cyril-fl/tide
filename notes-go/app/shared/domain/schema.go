@@ -2,7 +2,6 @@ package domain
 
 import (
 	"bytes"
-	"context"
 	"slices"
 	"sync"
 
@@ -17,80 +16,11 @@ func RegisterModels(db *bun.DB) {
 }
 
 // LiveCTE gives every live item of an account, as "live" (id): append a query on it, the account's id as first argument.
-// It walks down from the roots, so a trashed folder hides its whole subtree. Paths gives their paths.
+// It walks down from the roots, so a trashed folder hides its whole subtree. LoadTree gives their paths.
 const LiveCTE = `WITH RECURSIVE live AS (
 	SELECT id FROM items WHERE parent_id IS NULL AND deleted_at IS NULL AND user_id = ?
 	UNION ALL SELECT child.id FROM items AS child JOIN live ON child.parent_id = live.id WHERE child.deleted_at IS NULL
 ) `
-
-// Paths gives every live item of the account of ctx its path from its root (/Projects/Go/Ideas), by id: a trashed
-// folder hides its whole subtree, so an id missing from it is not live. Titles are sealed: paths are made here, not in SQL.
-// Cached per account while users.items_version stays the same (one query, not 75 ms of decryption at 50,000 items):
-// the map is shared, do not modify it.
-func Paths(ctx context.Context, db bun.IDB) (map[string]string, error) {
-	cached, err := loadPaths(ctx, db)
-	return cached.paths, err
-}
-
-// Titles gives every live item of the account of ctx its title in clear, by id, from the cache of Paths: reading them
-// opens nothing. Shared, do not modify it.
-func Titles(ctx context.Context, db bun.IDB) (map[string]string, error) {
-	cached, err := loadPaths(ctx, db)
-	return cached.titles, err
-}
-
-func loadPaths(ctx context.Context, db bun.IDB) (cachedPaths, error) {
-	userID := UserID(ctx)
-	// The version before the items: a write committed between the two only makes the next call rebuild.
-	var version int64
-	if err := db.NewSelect().Model((*User)(nil)).Column("items_version").Where("id = ?", userID).Scan(ctx, &version); err != nil {
-		return cachedPaths{}, err
-	}
-	if cached, ok := pathsCache.Load(userID); ok && cached.(cachedPaths).version == version {
-		return cached.(cachedPaths), nil
-	}
-
-	var items []Item
-	err := db.NewSelect().Model(&items).Column("id", "parent_id", "title").Where("user_id = ?", userID).Scan(ctx)
-	if err != nil {
-		return cachedPaths{}, err
-	}
-
-	children := map[string][]Item{}
-	for _, item := range items {
-		parent := ""
-		if item.ParentID != nil {
-			parent = *item.ParentID
-		}
-		children[parent] = append(children[parent], item)
-	}
-	paths, titles := map[string]string{}, map[string]string{}
-	var walk func(parent, prefix string)
-	walk = func(parent, prefix string) {
-		for _, item := range children[parent] {
-			title := string(item.Title)
-			titles[item.ID] = title
-			if title == "" {
-				title = "untitled"
-			}
-			paths[item.ID] = prefix + "/" + title
-			walk(item.ID, paths[item.ID])
-		}
-	}
-	walk("", "")
-	cached := cachedPaths{version: version, paths: paths, titles: titles}
-	pathsCache.Store(userID, cached)
-	return cached, nil
-}
-
-// pathsCache keeps the last Paths of each account, by account id. Titles in clear: in memory only, never written.
-var pathsCache sync.Map
-
-type cachedPaths struct {
-	version int64
-	paths   map[string]string
-	titles  map[string]string
-}
 
 // collators are pooled: a collate.Collator is not safe for concurrent use.
 // The root order is the same for fr and en (CLDR has no fr-FR rules), so the account's locale is not needed.

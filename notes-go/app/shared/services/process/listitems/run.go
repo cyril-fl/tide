@@ -101,29 +101,25 @@ func (p *run) loadOrder() {
 		return
 	}
 
-	// The version before the items, as in domain.Paths: a write committed between the two only makes the next call rebuild.
-	userID := domain.UserID(p.ctx)
-	var version int64
-	if err := p.db.NewSelect().Model((*domain.User)(nil)).Column("items_version").Where("id = ?", userID).Scan(p.ctx, &version); err != nil {
+	account, err := orders.Load(p.ctx, p.db, func() (*cachedOrders, error) {
+		return &cachedOrders{ids: map[orderKey][]string{}}, nil
+	})
+	if err != nil {
 		p.SetErr(err)
 		return
 	}
-	cached, ok := orders.Load(userID)
-	if !ok || cached.(*cachedOrders).version != version {
-		cached = &cachedOrders{version: version, ids: map[orderKey][]string{}}
-		orders.Store(userID, cached)
-	}
-	account, key := cached.(*cachedOrders), orderKey{p.cache.parentID, p.kind}
+	key := orderKey{p.cache.parentID, p.kind}
 	account.mu.Lock()
-	p.cache.order, ok = account.ids[key]
+	order, ok := account.ids[key]
 	account.mu.Unlock()
 	if ok {
+		p.cache.order = order
 		return
 	}
 
 	// By id under the same title: the order stays the same from one page to the next.
-	var order []domain.Item
-	query := p.db.NewSelect().Model(&order).Column("id", "kind").OrderExpr("kind = ? DESC, id", domain.FOLDER)
+	var children []domain.Item
+	query := p.db.NewSelect().Model(&children).Column("id", "kind").OrderExpr("kind = ? DESC, id", domain.FOLDER)
 	if err := p.children(query).Scan(p.ctx); err != nil {
 		p.SetErr(toDomainErr(err))
 		return
@@ -135,7 +131,7 @@ func (p *run) loadOrder() {
 	}
 	// A child's path is its parent's, then "/" and its title; the root's is "".
 	prefix := len(paths[p.cache.parentID]) + 1
-	domain.SortFold(order, func(i domain.Item) string {
+	domain.SortFold(children, func(i domain.Item) string {
 		if path := paths[i.ID]; len(path) >= prefix {
 			return path[prefix:]
 		}
@@ -144,8 +140,8 @@ func (p *run) loadOrder() {
 		return boolOrder(b.Kind == domain.FOLDER) - boolOrder(a.Kind == domain.FOLDER)
 	})
 
-	p.cache.order = make([]string, len(order))
-	for i, item := range order {
+	p.cache.order = make([]string, len(children))
+	for i, item := range children {
 		p.cache.order[i] = item.ID
 	}
 	account.mu.Lock()
@@ -209,14 +205,13 @@ func (p *run) children(query *bun.SelectQuery) *bun.SelectQuery {
 	return query
 }
 
-// orders keeps, by account id, the sorted children ids of the folders listed since items_version last changed:
-// a new version drops them all, so an account holds at most about twice its items. Ids only, no title.
-var orders sync.Map
+// orders keeps, by account, the sorted children ids of the folders listed since its items last changed: a change
+// drops them all, so an account holds at most about twice its items. Ids only, no title.
+var orders domain.Versioned[*cachedOrders]
 
 type cachedOrders struct {
-	version int64
-	mu      sync.Mutex
-	ids     map[orderKey][]string // shared, do not modify
+	mu  sync.Mutex
+	ids map[orderKey][]string // shared, do not modify
 }
 
 type orderKey struct {

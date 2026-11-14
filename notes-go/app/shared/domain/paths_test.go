@@ -111,3 +111,45 @@ func TestPathsCache(t *testing.T) {
 	sql("deleted by the CLI", "DELETE FROM items WHERE id = ?", noteID)
 	paths("deleted by the CLI", "")
 }
+
+// Live drops the rows missing from the tree and sorts the others by first, then by path; Page cuts them.
+func TestLiveAndPage(t *testing.T) {
+	tree := domain.Tree{Paths: map[string]string{"a": "/Zoo", "b": "/abricot", "c": "/Été"}}
+	type row struct {
+		id     string
+		pinned bool
+	}
+	rows := []row{{"a", false}, {"trashed", false}, {"b", false}, {"c", true}}
+	id := func(r row) string { return r.id }
+
+	byPath := domain.Live(tree, rows, id, nil)
+	if want := []row{{"b", false}, {"c", true}, {"a", false}}; !reflect.DeepEqual(byPath, want) {
+		t.Errorf("by path: got %v, want %v", byPath, want)
+	}
+	pinnedFirst := domain.Live(tree, rows, id, func(a, b row) int {
+		if a.pinned == b.pinned {
+			return 0
+		}
+		if a.pinned {
+			return -1
+		}
+		return 1
+	})
+	if want := []row{{"c", true}, {"b", false}, {"a", false}}; !reflect.DeepEqual(pinnedFirst, want) {
+		t.Errorf("pinned first: got %v, want %v", pinnedFirst, want)
+	}
+
+	for _, c := range []struct {
+		limit, offset int
+		want          []row
+	}{
+		{0, 0, byPath},
+		{2, 0, byPath[:2]},
+		{2, 2, byPath[2:]},
+		{2, 9, []row{}},
+	} {
+		if got := domain.Page(byPath, c.limit, c.offset); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("page %d from %d: got %v, want %v", c.limit, c.offset, got, c.want)
+		}
+	}
+}

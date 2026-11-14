@@ -919,6 +919,99 @@ func TestAccountsAreApart(t *testing.T) {
 	}
 }
 
+// An API token works on the notes like the account, never on the account itself, and stops when revoked or expired.
+func TestAPITokens(t *testing.T) {
+	c := newClient(t)
+	var created struct {
+		Token    string `json:"token"`
+		APIToken struct {
+			ID        string    `json:"id"`
+			Name      string    `json:"name"`
+			ExpiresAt time.Time `json:"expires_at"`
+		} `json:"api_token"`
+	}
+	c.do("POST", "/api/me/tokens", `{"name":"script backup"}`, http.StatusCreated, &created)
+	if !strings.HasPrefix(created.Token, "notes_") || created.APIToken.Name != "script backup" || time.Until(created.APIToken.ExpiresAt) < 89*24*time.Hour {
+		t.Fatalf("created = %+v, want a notes_ token of 90 days", created)
+	}
+	c.do("POST", "/api/me/tokens", `{"name":"x","expires_in":"2d"}`, http.StatusBadRequest, nil)
+	c.do("POST", "/api/me/tokens", `{"name":" "}`, http.StatusBadRequest, nil)
+
+	// The list never gives the token nor its hash back.
+	list := c.raw("/api/me/tokens")
+	if !strings.Contains(list, created.APIToken.ID) || strings.Contains(list, created.Token) || strings.Contains(list, password.TokenHash(created.Token)) || strings.Contains(list, "hash") {
+		t.Errorf("list = %s, want the token without its secret", list)
+	}
+
+	send := func(token, method, path, body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(method, path, strings.NewReader(body))
+		r.Host = "localhost:8080"
+		r.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		c.api.ServeHTTP(w, r)
+		return w
+	}
+	w := send(created.Token, "POST", "/api/notes", `{"content":"# by token"}`)
+	if w.Code != http.StatusCreated || len(w.Result().Cookies()) != 0 {
+		t.Errorf("note by token: status = %d, cookies = %v; want 201 without a cookie: %s", w.Code, w.Result().Cookies(), w.Body)
+	}
+	if w := send(created.Token, "GET", "/api/me", ""); w.Code != http.StatusOK {
+		t.Errorf("GET /api/me by token: status = %d, want 200", w.Code)
+	}
+	var used []struct {
+		LastUsedAt time.Time `json:"last_used_at"`
+	}
+	c.do("GET", "/api/me/tokens", "", http.StatusOK, &used)
+	if len(used) != 1 || used[0].LastUsedAt.IsZero() {
+		t.Errorf("tokens = %+v, want last_used_at set", used)
+	}
+	for _, route := range [][3]string{
+		{"GET", "/api/me/tokens", ""},
+		{"POST", "/api/me/tokens", `{"name":"more"}`},
+		{"DELETE", "/api/me/tokens/" + created.APIToken.ID, ""},
+		{"PATCH", "/api/me", `{"locale":"en"}`},
+		{"PATCH", "/api/me/password", `{"current":"a","new":"b"}`},
+		{"DELETE", "/api/me/data", ""},
+		{"POST", "/api/logout", ""},
+		{"GET", "/api/users", ""},
+		{"POST", "/api/invites", ""},
+	} {
+		if w := send(created.Token, route[0], route[1], route[2]); w.Code != http.StatusForbidden {
+			t.Errorf("%s %s by token: status = %d, want 403", route[0], route[1], w.Code)
+		}
+	}
+	if w := send("notes_unknown", "GET", "/api/notes", ""); w.Code != http.StatusUnauthorized {
+		t.Errorf("unknown token: status = %d, want 401", w.Code)
+	}
+
+	// Another account neither sees nor revokes it.
+	if other := c.other(t).raw("/api/me/tokens"); other != "[]\n" {
+		t.Errorf("other account's tokens = %q, want none", other)
+	}
+	c.other(t).do("DELETE", "/api/me/tokens/"+created.APIToken.ID, "", http.StatusNotFound, nil)
+
+	c.do("DELETE", "/api/me/tokens/"+created.APIToken.ID, "", http.StatusNoContent, nil)
+	c.do("DELETE", "/api/me/tokens/"+created.APIToken.ID, "", http.StatusNotFound, nil)
+	if w := send(created.Token, "GET", "/api/notes", ""); w.Code != http.StatusUnauthorized {
+		t.Errorf("revoked token: status = %d, want 401", w.Code)
+	}
+
+	// An expired token is refused before purgesessions deletes it.
+	c.do("POST", "/api/me/tokens", `{"name":"short","expires_in":"7d"}`, http.StatusCreated, &created)
+	if _, err := c.db.NewUpdate().Model((*domain.APIToken)(nil)).Set("expires_at = current_timestamp - interval '1 minute'").Where("id = ?", created.APIToken.ID).Exec(c.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if w := send(created.Token, "GET", "/api/notes", ""); w.Code != http.StatusUnauthorized {
+		t.Errorf("expired token: status = %d, want 401", w.Code)
+	}
+	// No limit: no expires_at.
+	created.APIToken.ExpiresAt = time.Time{}
+	c.do("POST", "/api/me/tokens", `{"name":"forever","expires_in":"never"}`, http.StatusCreated, &created)
+	if !created.APIToken.ExpiresAt.IsZero() {
+		t.Errorf("never: expires_at = %v, want none", created.APIToken.ExpiresAt)
+	}
+}
+
 func TestLogin(t *testing.T) {
 	c := newClient(t)
 	name := unique("login")

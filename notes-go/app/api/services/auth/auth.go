@@ -8,7 +8,9 @@ import (
 
 	"github.com/cyril-fl/notes/notes-go/app/api/services/respond"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createapitoken"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createsession"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readapitoken"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
 	"github.com/uptrace/bun"
 )
@@ -20,7 +22,7 @@ const Cookie = "notes_session"
 var public = map[string]bool{"POST /api/login": true, "POST /api/signup": true, "GET /api/add-user": true}
 
 // New runs next with the account of the request's session in its context: the cookie, or a
-// "Authorization: Bearer <token>" header for scripts. Without a valid one, 401.
+// "Authorization: Bearer <token>" header for scripts, a session token or an API token. Without a valid one, 401.
 func New(db bun.IDB, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if public[r.Method+" "+r.URL.Path] || r.Method == http.MethodOptions {
@@ -29,6 +31,10 @@ func New(db bun.IDB, next http.Handler) http.Handler {
 		}
 
 		token := Token(r)
+		if strings.HasPrefix(token, createapitoken.Prefix) {
+			apiToken(db, next, w, r, token)
+			return
+		}
 		session := readsession.Process(r.Context(), db, token)
 		session.Run()
 		if session.HasErr() {
@@ -39,6 +45,38 @@ func New(db bun.IDB, next http.Handler) http.Handler {
 		SetCookie(w, token, time.Now().Add(createsession.Lifetime))
 		next.ServeHTTP(w, r.WithContext(domain.WithUser(r.Context(), session.GetResult().ID)))
 	})
+}
+
+// apiToken runs next for the account of an API token, without a cookie: a script has no use of one. The token
+// works on the notes and refuses the account's own routes with 403.
+func apiToken(db bun.IDB, next http.Handler, w http.ResponseWriter, r *http.Request, token string) {
+	process := readapitoken.Process(r.Context(), db, token)
+	process.Run()
+	if process.HasErr() {
+		respond.Error(w, process.GetErr())
+		return
+	}
+	if account(r) {
+		respond.JSON(w, http.StatusForbidden, respond.Failure{Error: "an API token cannot manage the account: log in"})
+		return
+	}
+	next.ServeHTTP(w, r.WithContext(domain.WithUser(r.Context(), process.GetResult().ID)))
+}
+
+// account tells the routes that manage the account, refused to an API token: its tokens, password, settings, data,
+// logout, and the admin's. Reading the account and its stats stays allowed. The mux has not matched the route yet,
+// so this goes by path; the mux redirects an unclean path (//, ..) instead of serving it.
+func account(r *http.Request) bool {
+	path := r.URL.Path
+	if r.Method == http.MethodGet && (path == "/api/me" || path == "/api/me/stats") {
+		return false
+	}
+	for _, prefix := range []string{"/api/me", "/api/logout", "/api/users", "/api/invites"} {
+		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // Token is the request's session token, "" without one.

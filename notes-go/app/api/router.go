@@ -62,6 +62,9 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("GET /api/me/stats", apilogin.Stats(db))
 	mux.Handle("DELETE /api/me/data", apilogin.DeleteData(db))
 	mux.Handle("PATCH /api/me/password", apilogin.EditPassword(db))
+	mux.Handle("GET /api/me/tokens", apilogin.Tokens(db))
+	mux.Handle("POST /api/me/tokens", apilogin.AddToken(db))
+	mux.Handle("DELETE /api/me/tokens/{id}", apilogin.RevokeToken(db))
 
 	mux.Handle("GET /api/add-user", apiusers.Modes(db, addUserMode))
 	mux.Handle("POST /api/signup", apiusers.Signup(db, addUserMode))

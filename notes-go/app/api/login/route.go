@@ -11,10 +11,13 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/api/services/throttle"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/countnotes"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createapitoken"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createsession"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteapitoken"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deletesession"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/editpassword"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/edituser"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listapitokens"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/purgeaccount"
 	"github.com/uptrace/bun"
 )
@@ -200,6 +203,83 @@ func Stats(db bun.IDB) http.HandlerFunc {
 func DeleteData(db bun.IDB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		process := purgeaccount.Process(r.Context(), db)
+		process.Run()
+		if process.HasErr() {
+			respond.Error(w, process.GetErr())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// Tokens lists the API tokens of the account logged in, never the tokens themselves: GET /api/me/tokens.
+// @Summary  List the API tokens of the account logged in
+// @Tags     account
+// @Produce  json
+// @Success  200 {array} domain.APIToken
+// @Failure  401 {object} respond.Failure
+// @Failure  403 {object} respond.Failure
+// @Failure  500 {object} respond.Failure
+// @Router   /api/me/tokens [get]
+func Tokens(db bun.IDB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		process := listapitokens.Process(r.Context(), db)
+		process.Run()
+		if process.HasErr() {
+			respond.Error(w, process.GetErr())
+			return
+		}
+		respond.List(w, http.StatusOK, process.GetResult())
+	}
+}
+
+// AddToken gives the account logged in a new API token, shown once in the answer: POST /api/me/tokens.
+// @Summary  Create an API token for the account logged in
+// @Tags     account
+// @Accept   json
+// @Produce  json
+// @Param    body body createapitoken.Input true "body"
+// @Success  201 {object} createapitoken.Result
+// @Failure  400 {object} respond.Failure
+// @Failure  401 {object} respond.Failure
+// @Failure  403 {object} respond.Failure
+// @Failure  500 {object} respond.Failure
+// @Router   /api/me/tokens [post]
+func AddToken(db bun.IDB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input createapitoken.Input
+		if !respond.Decode(w, r, &input) {
+			return
+		}
+
+		process := createapitoken.Process(r.Context(), db, input)
+		process.Run()
+		if process.HasErr() {
+			respond.Error(w, process.GetErr())
+			return
+		}
+		respond.JSON(w, http.StatusCreated, process.GetResult())
+	}
+}
+
+// RevokeToken revokes an API token of the account logged in: DELETE /api/me/tokens/{id}.
+// @Summary  Revoke an API token of the account logged in
+// @Tags     account
+// @Param    id path string true "uuid"
+// @Success  204
+// @Failure  401 {object} respond.Failure
+// @Failure  403 {object} respond.Failure
+// @Failure  404 {object} respond.Failure
+// @Failure  500 {object} respond.Failure
+// @Router   /api/me/tokens/{id} [delete]
+func RevokeToken(db bun.IDB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := respond.ID(w, r)
+		if !ok {
+			return
+		}
+
+		process := deleteapitoken.Process(r.Context(), db, id)
 		process.Run()
 		if process.HasErr() {
 			respond.Error(w, process.GetErr())

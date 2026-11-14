@@ -12,11 +12,13 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/hashtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/adduser"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createapitoken"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfile"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createsession"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createtag"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteapitoken"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deletetag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteuser"
@@ -63,6 +65,7 @@ var statuses = []struct {
 		editnote.ErrNoValue, editnote.ErrNoContent,
 		edituser.ErrInvalidLocale, edituser.ErrInvalidTheme, edituser.ErrInvalidColorMode, edituser.ErrInvalidView, edituser.ErrInvalidPlan, edituser.ErrInvalidRetention, edituser.ErrInvalidNeighbors, edituser.ErrInvalidAvatar, edituser.ErrInvalidSnippet, edituser.ErrInvalidSavedSearch, edituser.ErrInvalidSidebar,
 		adduser.ErrNoName, adduser.ErrShortPassword, editpassword.ErrWrongPassword,
+		createapitoken.ErrNoName, createapitoken.ErrInvalidLifetime,
 		edittag.ErrNoValue,
 		hashtag.ErrInvalid,
 		listitems.ErrInvalidID, listitems.ErrInvalidKind, listitems.ErrInvalidPage,
@@ -80,7 +83,7 @@ var statuses = []struct {
 		adduser.ErrBadInvite,
 	}},
 	{http.StatusNotFound, []error{
-		deleteuser.ErrNotFound, editfolder.ErrNotFound, editnote.ErrNotFound, emptytrash.ErrNotFound, edittag.ErrNotFound, exportnotes.ErrNotFound, exportnotes.ErrFolderNotFound, pinnote.ErrNotFound, readfile.ErrNotFound, readitem.ErrNotFound, readsavedsearch.ErrNotFound, readtag.ErrNotFound, resetpassword.ErrNotFound, resolveitem.ErrNotFound,
+		deleteapitoken.ErrNotFound, deleteuser.ErrNotFound, editfolder.ErrNotFound, editnote.ErrNotFound, emptytrash.ErrNotFound, edittag.ErrNotFound, exportnotes.ErrNotFound, exportnotes.ErrFolderNotFound, pinnote.ErrNotFound, readfile.ErrNotFound, readitem.ErrNotFound, readsavedsearch.ErrNotFound, readtag.ErrNotFound, resetpassword.ErrNotFound, resolveitem.ErrNotFound,
 	}},
 	{http.StatusUnsupportedMediaType, []error{
 		createfile.ErrFileType,

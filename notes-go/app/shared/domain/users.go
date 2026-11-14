@@ -121,6 +121,20 @@ type Session struct {
 	ExpiresAt time.Time `bun:",notnull"`
 }
 
+// APIToken lets a script or an agent act for the account without a login: notes, folders, tags and files, never
+// the account itself (auth refuses it there). The client keeps the token, the base only its hash.
+type APIToken struct {
+	bun.BaseModel `bun:"table:api_tokens,alias:at" json:"-"`
+
+	ID         string    `bun:",pk,type:uuid,default:gen_random_uuid()" json:"id"`
+	UserID     string    `bun:",notnull,type:uuid" json:"-"`
+	Name       string    `bun:",notnull" json:"name"`
+	TokenHash  string    `bun:",notnull,unique" json:"-"`
+	CreatedAt  time.Time `bun:",notnull,default:current_timestamp" json:"created_at"`
+	LastUsedAt time.Time `bun:",nullzero" json:"last_used_at,omitzero" binding:"optional"` // never used when absent
+	ExpiresAt  time.Time `bun:",nullzero" json:"expires_at,omitzero" binding:"optional"`   // no limit when absent
+}
+
 // Invite is a link an admin hands out so someone creates their own account: the base keeps the hash of its token,
 // and the token sealed, which only the admin panel reads back.
 type Invite struct {

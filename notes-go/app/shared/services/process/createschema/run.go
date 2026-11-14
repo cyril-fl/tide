@@ -131,6 +131,8 @@ func getTables(tx bun.Tx) []*bun.CreateTableQuery {
 		tx.NewCreateTable().Model((*domain.User)(nil)),
 		tx.NewCreateTable().Model((*domain.Session)(nil)).
 			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.APIToken)(nil)).
+			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
 		tx.NewCreateTable().Model((*domain.Invite)(nil)).
 			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
 		tx.NewCreateTable().Model((*domain.Item)(nil)).

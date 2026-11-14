@@ -40,14 +40,23 @@ func TestPurgeExpiredOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	tokens := []domain.APIToken{
+		{UserID: domain.UserID(ctx), Name: "expired", TokenHash: "expired-token-" + now.String(), ExpiresAt: now.Add(-time.Minute)},
+		{UserID: domain.UserID(ctx), Name: "live", TokenHash: "live-token-" + now.String(), ExpiresAt: now.Add(time.Hour)},
+		{UserID: domain.UserID(ctx), Name: "never", TokenHash: "never-token-" + now.String()},
+	}
+	if _, err := tx.NewInsert().Model(&tokens).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+
 	purge := Process(ctx, tx)
 	purge.Run()
 	if purge.HasErr() {
 		t.Fatalf("purge: %v", purge.GetErr())
 	}
 	// Other expired sessions of the base may be purged too: at least ours.
-	if purge.GetResult() < 1 {
-		t.Errorf("purged = %d, want at least 1", purge.GetResult())
+	if purge.GetResult() < 2 {
+		t.Errorf("purged = %d, want at least 2", purge.GetResult())
 	}
 
 	var left []string
@@ -56,5 +65,13 @@ func TestPurgeExpiredOnly(t *testing.T) {
 	}
 	if len(left) != 1 || left[0] != sessions[1].TokenHash {
 		t.Errorf("sessions left = %v, want only %q", left, sessions[1].TokenHash)
+	}
+
+	var names []string
+	if err := tx.NewSelect().Model((*domain.APIToken)(nil)).Column("name").Where("user_id = ?", domain.UserID(ctx)).Order("name").Scan(ctx, &names); err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 2 || names[0] != "live" || names[1] != "never" {
+		t.Errorf("API tokens left = %v, want live and never", names)
 	}
 }

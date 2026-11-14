@@ -94,7 +94,7 @@ func Serve(cobra *cobra.Command, args []string) error {
 		sessions := purgesessions.Process(ctx, db)
 		sessions.Run()
 		if sessions.HasErr() && ctx.Err() == nil {
-			log.Printf("purge sessions: %v", sessions.GetErr())
+			log.Printf("purge sessions and API tokens: %v", sessions.GetErr())
 		}
 		invites := purgeinvites.Process(ctx, db)
 		invites.Run()

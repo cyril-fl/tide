@@ -46,6 +46,32 @@ components:
       - notes
       - value
       type: object
+    createapitoken.Input:
+      properties:
+        expires_in:
+          description: ExpiresIn is how long the token works, 90d when left out.
+          enum:
+          - 7d
+          - 30d
+          - 90d
+          - 1y
+          - never
+          type: string
+        name:
+          type: string
+      required:
+      - name
+      type: object
+    createapitoken.Result:
+      properties:
+        api_token:
+          $ref: '#/components/schemas/domain.APIToken'
+        token:
+          type: string
+      required:
+      - api_token
+      - token
+      type: object
     createfolder.Input:
       properties:
         parent_id:
@@ -124,6 +150,25 @@ components:
           uniqueItems: false
       required:
       - values
+      type: object
+    domain.APIToken:
+      properties:
+        created_at:
+          type: string
+        expires_at:
+          description: no limit when absent
+          type: string
+        id:
+          type: string
+        last_used_at:
+          description: never used when absent
+          type: string
+        name:
+          type: string
+      required:
+      - created_at
+      - id
+      - name
       type: object
     domain.File:
       properties:
@@ -1919,6 +1964,121 @@ paths:
                 $ref: '#/components/schemas/respond.Failure'
           description: Internal Server Error
       summary: Count the notes of the account logged in and their size in the base
+      tags:
+      - account
+  /api/me/tokens:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/domain.APIToken'
+                type: array
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Unauthorized
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: List the API tokens of the account logged in
+      tags:
+      - account
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/createapitoken.Input'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/createapitoken.Result'
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Unauthorized
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Create an API token for the account logged in
+      tags:
+      - account
+  /api/me/tokens/{id}:
+    delete:
+      parameters:
+      - description: uuid
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Unauthorized
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Revoke an API token of the account logged in
       tags:
       - account
   /api/move:

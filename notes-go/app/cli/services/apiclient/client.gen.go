@@ -16,6 +16,33 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for CreateapitokenInputExpiresIn.
+const (
+	N1y   CreateapitokenInputExpiresIn = "1y"
+	N30d  CreateapitokenInputExpiresIn = "30d"
+	N7d   CreateapitokenInputExpiresIn = "7d"
+	N90d  CreateapitokenInputExpiresIn = "90d"
+	Never CreateapitokenInputExpiresIn = "never"
+)
+
+// Valid indicates whether the value is a known member of the CreateapitokenInputExpiresIn enum.
+func (e CreateapitokenInputExpiresIn) Valid() bool {
+	switch e {
+	case N1y:
+		return true
+	case N30d:
+		return true
+	case N7d:
+		return true
+	case N90d:
+		return true
+	case Never:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DomainKind.
 const (
 	FOLDER DomainKind = "folder"
@@ -86,6 +113,22 @@ type CounttagsTagCount struct {
 	Value string `json:"value"`
 }
 
+// CreateapitokenInput defines model for createapitoken.Input.
+type CreateapitokenInput struct {
+	// ExpiresIn ExpiresIn is how long the token works, 90d when left out.
+	ExpiresIn *CreateapitokenInputExpiresIn `json:"expires_in,omitempty"`
+	Name      string                        `json:"name"`
+}
+
+// CreateapitokenInputExpiresIn ExpiresIn is how long the token works, 90d when left out.
+type CreateapitokenInputExpiresIn string
+
+// CreateapitokenResult defines model for createapitoken.Result.
+type CreateapitokenResult struct {
+	ApiToken DomainAPIToken `json:"api_token"`
+	Token    string         `json:"token"`
+}
+
 // CreatefolderInput defines model for createfolder.Input.
 type CreatefolderInput struct {
 	ParentId *string `json:"parent_id,omitempty"`
@@ -128,6 +171,19 @@ type DeleteitemsBody struct {
 // DeletetagBody defines model for deletetag.Body.
 type DeletetagBody struct {
 	Values []string `json:"values"`
+}
+
+// DomainAPIToken defines model for domain.APIToken.
+type DomainAPIToken struct {
+	CreatedAt string `json:"created_at"`
+
+	// ExpiresAt no limit when absent
+	ExpiresAt *string `json:"expires_at,omitempty"`
+	Id        string  `json:"id"`
+
+	// LastUsedAt never used when absent
+	LastUsedAt *string `json:"last_used_at,omitempty"`
+	Name       string  `json:"name"`
 }
 
 // DomainFile defines model for domain.File.
@@ -683,6 +739,9 @@ type PatchApiMeJSONRequestBody = EdituserInput
 // PatchApiMePasswordJSONRequestBody defines body for PatchApiMePassword for application/json ContentType.
 type PatchApiMePasswordJSONRequestBody = EditpasswordInput
 
+// PostApiMeTokensJSONRequestBody defines body for PostApiMeTokens for application/json ContentType.
+type PostApiMeTokensJSONRequestBody = CreateapitokenInput
+
 // PostApiMoveJSONRequestBody defines body for PostApiMove for application/json ContentType.
 type PostApiMoveJSONRequestBody = MoveitemsInput
 
@@ -994,6 +1053,30 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/me/stats (the `GetApiMeStats` operationId).
 	GetApiMeStats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiMeTokens List the API tokens of the account logged in
+	//
+	// Corresponds with GET /api/me/tokens (the `GetApiMeTokens` operationId).
+	GetApiMeTokens(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiMeTokensWithBody Create an API token for the account logged in
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/me/tokens (the `PostApiMeTokens` operationId).
+	PostApiMeTokensWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiMeTokens Create an API token for the account logged in
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/me/tokens (the `PostApiMeTokens` operationId).
+	PostApiMeTokens(ctx context.Context, body PostApiMeTokensJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteApiMeTokensId Revoke an API token of the account logged in
+	//
+	// Corresponds with DELETE /api/me/tokens/{id} (the `DeleteApiMeTokensId` operationId).
+	DeleteApiMeTokensId(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiMoveWithBody Move items into a folder, or to the root without parent_id
 	//
@@ -1806,6 +1889,70 @@ func (c *Client) PatchApiMePassword(ctx context.Context, body PatchApiMePassword
 // Corresponds with GET /api/me/stats (the `GetApiMeStats` operationId).
 func (c *Client) GetApiMeStats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiMeStatsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetApiMeTokens List the API tokens of the account logged in
+//
+// Corresponds with GET /api/me/tokens (the `GetApiMeTokens` operationId).
+func (c *Client) GetApiMeTokens(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiMeTokensRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiMeTokensWithBody Create an API token for the account logged in
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/me/tokens (the `PostApiMeTokens` operationId).
+func (c *Client) PostApiMeTokensWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiMeTokensRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiMeTokens Create an API token for the account logged in
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/me/tokens (the `PostApiMeTokens` operationId).
+func (c *Client) PostApiMeTokens(ctx context.Context, body PostApiMeTokensJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiMeTokensRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteApiMeTokensId Revoke an API token of the account logged in
+//
+// Corresponds with DELETE /api/me/tokens/{id} (the `DeleteApiMeTokensId` operationId).
+func (c *Client) DeleteApiMeTokensId(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiMeTokensIdRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3617,6 +3764,107 @@ func NewGetApiMeStatsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetApiMeTokensRequest constructs an http.Request for the GetApiMeTokens method
+func NewGetApiMeTokensRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/me/tokens")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostApiMeTokensRequest calls the generic PostApiMeTokens builder with application/json body
+func NewPostApiMeTokensRequest(server string, body PostApiMeTokensJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiMeTokensRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiMeTokensRequestWithBody constructs an http.Request for the PostApiMeTokens method, with any body, and a specified content type
+func NewPostApiMeTokensRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/me/tokens")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteApiMeTokensIdRequest constructs an http.Request for the DeleteApiMeTokensId method
+func NewDeleteApiMeTokensIdRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/me/tokens/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewPostApiMoveRequest calls the generic PostApiMove builder with application/json body
 func NewPostApiMoveRequest(server string, body PostApiMoveJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -5271,6 +5519,34 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/me/stats (the `GetApiMeStats` operationId).
 	GetApiMeStatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiMeStatsResponse, error)
+
+	// GetApiMeTokensWithResponse List the API tokens of the account logged in
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/me/tokens (the `GetApiMeTokens` operationId).
+	GetApiMeTokensWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiMeTokensResponse, error)
+
+	// PostApiMeTokensWithBodyWithResponse Create an API token for the account logged in
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/me/tokens (the `PostApiMeTokens` operationId).
+	PostApiMeTokensWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiMeTokensResponse, error)
+
+	// PostApiMeTokensWithResponse Create an API token for the account logged in
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/me/tokens (the `PostApiMeTokens` operationId).
+	PostApiMeTokensWithResponse(ctx context.Context, body PostApiMeTokensJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiMeTokensResponse, error)
+
+	// DeleteApiMeTokensIdWithResponse Revoke an API token of the account logged in
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/me/tokens/{id} (the `DeleteApiMeTokensId` operationId).
+	DeleteApiMeTokensIdWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteApiMeTokensIdResponse, error)
 
 	// PostApiMoveWithBodyWithResponse Move items into a folder, or to the root without parent_id
 	//
@@ -7047,6 +7323,199 @@ func (r GetApiMeStatsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetApiMeStatsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetApiMeTokensResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]DomainAPIToken
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *RespondFailure
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetApiMeTokensResponse) GetJSON200() *[]DomainAPIToken {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetApiMeTokensResponse) GetJSON401() *RespondFailure {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetApiMeTokensResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r GetApiMeTokensResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r GetApiMeTokensResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiMeTokensResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiMeTokensResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiMeTokensResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiMeTokensResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *CreateapitokenResult
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *RespondFailure
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r PostApiMeTokensResponse) GetJSON201() *CreateapitokenResult {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostApiMeTokensResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r PostApiMeTokensResponse) GetJSON401() *RespondFailure {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PostApiMeTokensResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PostApiMeTokensResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PostApiMeTokensResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiMeTokensResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiMeTokensResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiMeTokensResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteApiMeTokensIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *RespondFailure
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r DeleteApiMeTokensIdResponse) GetJSON401() *RespondFailure {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r DeleteApiMeTokensIdResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteApiMeTokensIdResponse) GetJSON404() *RespondFailure {
+	return r.JSON404
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r DeleteApiMeTokensIdResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteApiMeTokensIdResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteApiMeTokensIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteApiMeTokensIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteApiMeTokensIdResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -9540,6 +10009,58 @@ func (c *ClientWithResponses) GetApiMeStatsWithResponse(ctx context.Context, req
 	return ParseGetApiMeStatsResponse(rsp)
 }
 
+// GetApiMeTokensWithResponse List the API tokens of the account logged in
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/me/tokens (the `GetApiMeTokens` operationId).
+func (c *ClientWithResponses) GetApiMeTokensWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiMeTokensResponse, error) {
+	rsp, err := c.GetApiMeTokens(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiMeTokensResponse(rsp)
+}
+
+// PostApiMeTokensWithBodyWithResponse Create an API token for the account logged in
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/me/tokens (the `PostApiMeTokens` operationId).
+func (c *ClientWithResponses) PostApiMeTokensWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiMeTokensResponse, error) {
+	rsp, err := c.PostApiMeTokensWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiMeTokensResponse(rsp)
+}
+
+// PostApiMeTokensWithResponse Create an API token for the account logged in
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/me/tokens (the `PostApiMeTokens` operationId).
+func (c *ClientWithResponses) PostApiMeTokensWithResponse(ctx context.Context, body PostApiMeTokensJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiMeTokensResponse, error) {
+	rsp, err := c.PostApiMeTokens(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiMeTokensResponse(rsp)
+}
+
+// DeleteApiMeTokensIdWithResponse Revoke an API token of the account logged in
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/me/tokens/{id} (the `DeleteApiMeTokensId` operationId).
+func (c *ClientWithResponses) DeleteApiMeTokensIdWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteApiMeTokensIdResponse, error) {
+	rsp, err := c.DeleteApiMeTokensId(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiMeTokensIdResponse(rsp)
+}
+
 // PostApiMoveWithBodyWithResponse Move items into a folder, or to the root without parent_id
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -11205,6 +11726,157 @@ func ParseGetApiMeStatsResponse(rsp *http.Response) (*GetApiMeStatsResponse, err
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiMeTokensResponse parses an HTTP response from a GetApiMeTokensWithResponse call
+func ParseGetApiMeTokensResponse(rsp *http.Response) (*GetApiMeTokensResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiMeTokensResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []DomainAPIToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiMeTokensResponse parses an HTTP response from a PostApiMeTokensWithResponse call
+func ParsePostApiMeTokensResponse(rsp *http.Response) (*PostApiMeTokensResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiMeTokensResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CreateapitokenResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteApiMeTokensIdResponse parses an HTTP response from a DeleteApiMeTokensIdWithResponse call
+func ParseDeleteApiMeTokensIdResponse(rsp *http.Response) (*DeleteApiMeTokensIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteApiMeTokensIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest RespondFailure

@@ -19,7 +19,7 @@ type Neighbor struct {
 	ID     string      `json:"id"`
 	Title  secret.Text `json:"title" swaggertype:"string"`
 	Path   string      `json:"path"`
-	Tags   []string    `bun:",array" json:"tags"`
+	Tags   []string    `bun:",array" json:"tags"` // read as ids, shown as values
 	Shared int         `json:"shared"`
 }
 
@@ -32,13 +32,15 @@ type Linked struct {
 	Content secret.Text `json:"-"`
 }
 
-// Result is the center note (path, content, tags), its neighbors (most shared tags first),
-// the notes its [[links]] name, and the notes naming it.
+// Result is the center note (path, content, tags), its neighbors (most shared tags first, at most the
+// neighbors_limit of the account, all of them counted in NeighborsTotal), the notes its [[links]] name, and the notes
+// naming it.
 type Result struct {
-	Note      readitem.Result `json:"note"`
-	Neighbors []Neighbor      `json:"neighbors"`
-	Links     []Linked        `json:"links"`
-	Backlinks []Linked        `json:"backlinks"`
+	Note           readitem.Result `json:"note"`
+	Neighbors      []Neighbor      `json:"neighbors"`
+	NeighborsTotal int             `json:"neighbors_total"`
+	Links          []Linked        `json:"links"`
+	Backlinks      []Linked        `json:"backlinks"`
 }
 
 type run struct {
@@ -97,36 +99,54 @@ func (p *run) loadTree() {
 	p.SetErr(err)
 }
 
-// loadNeighbors joins the tag links with themselves: same tag, other note; the tree keeps the live ones.
-// The tags come sealed, opened and ordered here.
+// loadNeighbors joins the tag links with themselves: same tag, other note. Ids only: the tree keeps the live notes
+// and names them, and only the closest ones are kept, a note of a wide tag has 12,000 of them.
 func (p *run) loadNeighbors() {
 	if p.HasErr() {
 		return
 	}
 
+	userID, id := domain.UserID(p.ctx), p.cache.result.Note.Item.ID
+	var limit int
+	if err := p.db.NewSelect().Model((*domain.User)(nil)).Column("neighbors_limit").Where("id = ?", userID).Scan(p.ctx, &limit); err != nil {
+		p.SetErr(err)
+		return
+	}
 	var rows []Neighbor
 	p.SetErr(p.db.NewRaw(`
-		SELECT i.id, i.title, array_agg(t.value) AS tags, count(*) AS shared
+		SELECT i.id, array_agg(center.tag_id) AS tags, count(*) AS shared
 		FROM notes_on_tags AS center
 		JOIN notes_on_tags AS other ON other.tag_id = center.tag_id AND other.note_id <> center.note_id
-		JOIN tags AS t ON t.id = center.tag_id
 		JOIN items AS i ON i.id = other.note_id
 		WHERE center.note_id = ? AND i.user_id = ? AND i.deleted_at IS NULL
-		GROUP BY i.id, i.title`, p.cache.result.Note.Item.ID, domain.UserID(p.ctx)).
+		GROUP BY i.id`, id, userID).
 		Scan(p.ctx, &rows))
 	if p.HasErr() {
 		return
 	}
+	live := domain.Live(p.cache.tree, rows, func(n Neighbor) string { return n.ID }, func(a, b Neighbor) int { return b.Shared - a.Shared })
+	p.cache.result.NeighborsTotal = len(live)
+	p.cache.result.Neighbors = domain.Page(live, limit, 0)
 
-	p.cache.result.Neighbors = domain.Live(p.cache.tree, rows, func(n Neighbor) string { return n.ID }, func(a, b Neighbor) int { return b.Shared - a.Shared })
+	// The tags of the center, opened once each, not once per neighbor.
+	var tags []domain.Tag
+	p.SetErr(p.db.NewRaw(`
+		SELECT t.id, t.value
+		FROM tags AS t
+		JOIN notes_on_tags AS nt ON nt.tag_id = t.id
+		WHERE nt.note_id = ? AND t.user_id = ?`, id, userID).
+		Scan(p.ctx, &tags))
+	values := make(map[string]string, len(tags))
+	for _, tag := range tags {
+		values[tag.ID] = string(tag.Value)
+	}
 	for i := range p.cache.result.Neighbors {
 		neighbor := &p.cache.result.Neighbors[i]
-		neighbor.Path = p.cache.tree.Paths[neighbor.ID]
-		if !p.HasErr() {
-			var err error
-			neighbor.Tags, err = domain.OpenTags(neighbor.Tags)
-			p.SetErr(err)
+		neighbor.Title, neighbor.Path = secret.Text(p.cache.tree.Titles[neighbor.ID]), p.cache.tree.Paths[neighbor.ID]
+		for t, tagID := range neighbor.Tags {
+			neighbor.Tags[t] = values[tagID]
 		}
+		domain.SortFold(neighbor.Tags, func(v string) string { return v }, nil)
 	}
 }
 

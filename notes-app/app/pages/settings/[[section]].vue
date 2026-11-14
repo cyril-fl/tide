@@ -156,6 +156,15 @@ async function changeRetention(next: number) {
   me.value = await api<User>('/api/me', { method: 'PATCH', body: { trash_retention_days: next } });
 }
 
+// As domain.NeighborsLimits: 0 shows them all.
+const neighborsLimits = computed(() =>
+  [20, 50, 100, 0].map((n) => ({ label: n ? String(n) : t('settings.neighborsAll'), value: n })),
+);
+
+async function changeNeighborsLimit(next: number) {
+  me.value = await api<User>('/api/me', { method: 'PATCH', body: { neighbors_limit: next } });
+}
+
 const { confirm, snippet: editSnippet, importNotes } = useDialogs();
 const { addSavedSearch } = useSavedSearches();
 
@@ -395,6 +404,21 @@ async function deleteData() {
               size="sm"
               :ui="{ label: 'max-sm:sr-only' }"
               :aria-label="$t('settings.mode')"
+            />
+          </li>
+          <li class="flex flex-wrap items-center gap-4 px-4 py-3">
+            <div class="flex-1 basis-48">
+              <p class="text-sm">{{ $t('settings.neighbors') }}</p>
+              <p class="text-xs text-muted">{{ $t('settings.neighborsDescription') }}</p>
+            </div>
+            <USelectMenu
+              :model-value="me?.neighbors_limit"
+              :items="neighborsLimits"
+              value-key="value"
+              :search-input="false"
+              :aria-label="$t('settings.neighbors')"
+              class="w-56"
+              @update:model-value="changeNeighborsLimit"
             />
           </li>
         </ul>

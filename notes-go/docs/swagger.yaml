@@ -272,6 +272,11 @@ components:
         name:
           description: unique case-insensitive, see createschema
           type: string
+        neighbors_limit:
+          description: |-
+            The most notes sharing a tag that a note shows around it, one of NeighborsLimits, 0 for all of them.
+            An insert of 0 gets the default: only an update sets it.
+          type: integer
         plan:
           description: the features of the web app, one of Plans
           type: string
@@ -303,6 +308,7 @@ components:
       - id
       - locale
       - name
+      - neighbors_limit
       - plan
       - saved_searches
       - snippets
@@ -367,6 +373,9 @@ components:
           type: string
         name:
           type: string
+        neighbors_limit:
+          description: one of domain.NeighborsLimits
+          type: integer
         plan:
           type: string
         saved_searches:
@@ -618,6 +627,7 @@ components:
         shared:
           type: integer
         tags:
+          description: read as ids, shown as values
           items:
             type: string
           type: array
@@ -648,12 +658,15 @@ components:
             $ref: '#/components/schemas/readneighbors.Neighbor'
           type: array
           uniqueItems: false
+        neighbors_total:
+          type: integer
         note:
           $ref: '#/components/schemas/readitem.Result'
       required:
       - backlinks
       - links
       - neighbors
+      - neighbors_total
       - note
       type: object
     readtag.Note:

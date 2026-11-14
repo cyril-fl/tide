@@ -25,11 +25,14 @@ type User struct {
 	Plan         string `bun:",notnull,default:'base'" json:"plan"`         // the features of the web app, one of Plans
 	Admin        bool   `bun:",notnull,default:false" json:"admin"`         // may create, invite and delete accounts; the first account of the base gets it
 	// Days before the trash is purged, 0 to never purge. An insert of 0 gets the default: only an update sets it.
-	TrashRetentionDays int           `bun:",notnull,default:30" json:"trash_retention_days"`
-	Avatar             string        `bun:",type:uuid,nullzero" json:"avatar,omitempty"` // the id of a File of the account, purgefiles keeps it
-	Snippets           Snippets      `bun:",type:jsonb,notnull,default:'[]'" json:"snippets"`
-	SavedSearches      SavedSearches `bun:",type:jsonb,notnull,default:'[]'" json:"saved_searches"`
-	CreatedAt          time.Time     `bun:",notnull,default:current_timestamp" json:"created_at"`
+	TrashRetentionDays int `bun:",notnull,default:30" json:"trash_retention_days"`
+	// The most notes sharing a tag that a note shows around it, one of NeighborsLimits, 0 for all of them.
+	// An insert of 0 gets the default: only an update sets it.
+	NeighborsLimit int           `bun:",notnull,default:50" json:"neighbors_limit"`
+	Avatar         string        `bun:",type:uuid,nullzero" json:"avatar,omitempty"` // the id of a File of the account, purgefiles keeps it
+	Snippets       Snippets      `bun:",type:jsonb,notnull,default:'[]'" json:"snippets"`
+	SavedSearches  SavedSearches `bun:",type:jsonb,notnull,default:'[]'" json:"saved_searches"`
+	CreatedAt      time.Time     `bun:",notnull,default:current_timestamp" json:"created_at"`
 	// Bumped by the triggers of createschema at every write that changes a path, from any process: Paths reads it to
 	// know its cache is still right. From a sequence, so a rolled-back write never hands its number to another.
 	ItemsVersion int64 `bun:",notnull,default:0" json:"-"`
@@ -92,6 +95,9 @@ var (
 	Views      = []string{"list", "grid"}
 	Plans      = []string{"base", "pro"}
 )
+
+// NeighborsLimits are the choices of User.NeighborsLimit, the first one by default; 0 shows them all.
+var NeighborsLimits = []int{50, 20, 100, 0}
 
 // Session is a login of a device: the client keeps the token, the base only its hash.
 type Session struct {

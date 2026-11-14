@@ -95,6 +95,16 @@ func TestNeighbors(t *testing.T) {
 		t.Errorf("second neighbor = %+v, want One sharing 1", one)
 	}
 
+	// The account's limit keeps the closest neighbors, all of them still counted.
+	if _, err := tx.NewRaw("UPDATE users SET neighbors_limit = 1 WHERE id = ?", domain.UserID(ctx)).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	process = Process(ctx, tx, ids["Center"])
+	process.Run()
+	if got := process.GetResult(); process.HasErr() || len(got.Neighbors) != 1 || got.Neighbors[0].ID != ids["Two"] || got.NeighborsTotal != 2 {
+		t.Errorf("limited = %+v of %d, %v; want Two of 2", got.Neighbors, got.NeighborsTotal, process.GetErr())
+	}
+
 	// A note citing Center is a backlink with the line of the link, shown with its label.
 	source := createnote.Process(ctx, tx, createnote.Input{Content: "# Source\n\nsee [[Center]] here"})
 	source.Run()

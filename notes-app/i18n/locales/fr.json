@@ -137,6 +137,7 @@
     "links": "Liens",
     "backlinks": "Rétroliens",
     "sameTags": "Mêmes tags",
+    "others": "{n} autre note : | {n} autres notes :",
     "title": "Notes liées ({total})",
     "showGraph": "Voir le graphe",
     "emptyTitle": "Aucune note liée pour l'instant.",
@@ -308,6 +309,9 @@
     "retentionDescription": "Les éléments supprimés sont effacés pour de bon après ce délai.",
     "retentionDays": "{n} jour | {n} jours",
     "retentionNever": "Jamais effacés",
+    "neighbors": "Notes aux mêmes tags",
+    "neighborsDescription": "Le nombre de notes partageant un tag affichées autour d'une note, dans les notes liées et son graphe.",
+    "neighborsAll": "Toutes",
     "mode": "Mode",
     "modeDescription": "Clair, sombre, ou celui du système.",
     "sidebar": {

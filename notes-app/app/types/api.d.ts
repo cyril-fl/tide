@@ -3322,6 +3322,11 @@ export interface components {
             locale: string;
             /** @description unique case-insensitive, see createschema */
             name: string;
+            /**
+             * @description The most notes sharing a tag that a note shows around it, one of NeighborsLimits, 0 for all of them.
+             *     An insert of 0 gets the default: only an update sets it.
+             */
+            neighbors_limit: number;
             /** @description the features of the web app, one of Plans */
             plan: string;
             saved_searches: components["schemas"]["domain.SavedSearch"][];
@@ -3360,6 +3365,8 @@ export interface components {
             color_mode?: string;
             locale?: string;
             name?: string;
+            /** @description one of domain.NeighborsLimits */
+            neighbors_limit?: number;
             plan?: string;
             /** @description the whole list, it replaces the saved one */
             saved_searches?: components["schemas"]["domain.SavedSearch"][];
@@ -3457,6 +3464,7 @@ export interface components {
             id: string;
             path: string;
             shared: number;
+            /** @description read as ids, shown as values */
             tags: string[];
             title: string;
         };
@@ -3464,6 +3472,7 @@ export interface components {
             backlinks: components["schemas"]["readneighbors.Linked"][];
             links: components["schemas"]["readneighbors.Linked"][];
             neighbors: components["schemas"]["readneighbors.Neighbor"][];
+            neighbors_total: number;
             note: components["schemas"]["readitem.Result"];
         };
         "readtag.Note": {

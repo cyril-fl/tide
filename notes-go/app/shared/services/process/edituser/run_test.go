@@ -32,6 +32,7 @@ func TestInvalidInput(t *testing.T) {
 		{Input{Plan: text("max")}, ErrInvalidPlan},
 		{Input{TrashRetentionDays: days(-1)}, ErrInvalidRetention},
 		{Input{TrashRetentionDays: days(MaxRetentionDays + 1)}, ErrInvalidRetention},
+		{Input{NeighborsLimit: days(30)}, ErrInvalidNeighbors},
 		{Input{Name: text(" ")}, adduser.ErrNoName},
 		{Input{Snippets: &[]domain.Snippet{{Name: " ", Content: "x"}}}, ErrInvalidSnippet},
 		{Input{Snippets: &[]domain.Snippet{{Name: "big", Content: string(make([]byte, MaxSnippetSize+1))}}}, ErrInvalidSnippet},
@@ -77,17 +78,17 @@ func TestEditUser(t *testing.T) {
 	if process.HasErr() {
 		t.Fatalf("edit: %v", process.GetErr())
 	}
-	if got := process.GetResult(); got.Locale != "en" || got.ID == "" || got.Theme != "notes" || got.ColorMode != "system" || got.TrashRetentionDays != 30 || got.Plan != "base" {
+	if got := process.GetResult(); got.Locale != "en" || got.ID == "" || got.Theme != "notes" || got.ColorMode != "system" || got.TrashRetentionDays != 30 || got.NeighborsLimit != 50 || got.Plan != "base" {
 		t.Errorf("result = %+v, want locale en with ID and the default settings", got)
 	}
 
-	process = Process(ctx, tx, Input{View: &view, TrashRetentionDays: &never, Plan: &plan})
+	process = Process(ctx, tx, Input{View: &view, TrashRetentionDays: &never, NeighborsLimit: &never, Plan: &plan})
 	process.Run()
 	if process.HasErr() {
 		t.Fatalf("edit: %v", process.GetErr())
 	}
-	if got := process.GetResult(); got.Locale != "en" || got.View != "grid" || got.TrashRetentionDays != 0 || got.Plan != "pro" {
-		t.Errorf("result = %+v, want locale kept, view grid, retention 0, plan pro", got)
+	if got := process.GetResult(); got.Locale != "en" || got.View != "grid" || got.TrashRetentionDays != 0 || got.NeighborsLimit != 0 || got.Plan != "pro" {
+		t.Errorf("result = %+v, want locale kept, view grid, retention 0, every neighbor, plan pro", got)
 	}
 
 	if got := process.GetResult(); len(got.Snippets) != 0 {

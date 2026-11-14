@@ -22,7 +22,9 @@ const sections = computed(() =>
   ].filter((section) => section.notes.length),
 );
 
-const total = computed(() => sections.value.reduce((sum, section) => sum + section.notes.length, 0));
+// The notes sharing a tag beyond the account's limit (neighbors_limit): counted, and found on the pages of the tags.
+const others = computed(() => (data.value ? data.value.neighbors_total - data.value.neighbors.length : 0));
+const total = computed(() => sections.value.reduce((sum, section) => sum + section.notes.length, 0) + others.value);
 </script>
 
 <template>
@@ -61,6 +63,12 @@ const total = computed(() => sections.value.reduce((sum, section) => sum + secti
         <div v-for="section in sections" :key="section.title">
           <h2 class="mb-2 text-xs font-medium text-muted">{{ section.title }}</h2>
           <NoteList :notes="section.notes" />
+          <p v-if="others && section.notes === data?.neighbors" class="mt-2 text-xs text-muted">
+            {{ $t('related.others', others) }}
+            <NuxtLink v-for="tag in data.note.tags" :key="tag" :to="tagPath(tag)" class="mr-1 text-primary"
+              >#{{ tag }}</NuxtLink
+            >
+          </p>
         </div>
       </div>
     </template>

@@ -145,8 +145,11 @@ test('the language of the interface is a setting of the account', async ({ page 
   }
 });
 
-// A theme and the trash retention are saved to the account, then set back as they were.
-test('the settings save the theme and the trash retention to the account', async ({ page, request }) => {
+// A theme, the trash retention and the limit of neighbors are saved to the account, then set back as they were.
+test('the settings save the theme, the trash retention and the limit of neighbors to the account', async ({
+  page,
+  request,
+}) => {
   const api = { headers: { Origin: APP } };
   const me = async () => (await request.get(`${API}/api/me`, api)).json();
   const before = await me();
@@ -162,11 +165,18 @@ test('the settings save the theme and the trash retention to the account', async
     await page.getByRole('button', { name: 'Durée de conservation' }).click();
     await page.getByRole('option', { name: 'Jamais effacés' }).click();
 
-    await expect.poll(me).toMatchObject({ theme: 'dracula', trash_retention_days: 0 });
+    await page.getByRole('button', { name: 'Notes aux mêmes tags' }).click();
+    await page.getByRole('option', { name: 'Toutes' }).click();
+
+    await expect.poll(me).toMatchObject({ theme: 'dracula', trash_retention_days: 0, neighbors_limit: 0 });
   } finally {
     await request.patch(`${API}/api/me`, {
       ...api,
-      data: { theme: before.theme, trash_retention_days: before.trash_retention_days },
+      data: {
+        theme: before.theme,
+        trash_retention_days: before.trash_retention_days,
+        neighbors_limit: before.neighbors_limit,
+      },
     });
   }
 });

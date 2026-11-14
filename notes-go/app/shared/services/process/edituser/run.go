@@ -37,6 +37,7 @@ var (
 	ErrInvalidView        = errors.New("unknown view")
 	ErrInvalidPlan        = errors.New("unknown plan")
 	ErrInvalidRetention   = fmt.Errorf("the trash retention is between 0 and %d days", MaxRetentionDays)
+	ErrInvalidNeighbors   = errors.New("unknown limit of neighbors")
 	ErrInvalidAvatar      = errors.New("the avatar is not an image of the account")
 	ErrInvalidSnippet     = fmt.Errorf("a snippet needs a name, at most %d of them of %d bytes each", MaxSnippets, MaxSnippetSize)
 	ErrInvalidSavedSearch = fmt.Errorf("a saved search needs a name and a known tag/folder mode, at most %d of them", MaxSavedSearches)
@@ -50,6 +51,7 @@ type Input struct {
 	View               *string               `json:"view,omitempty" binding:"optional"`
 	Plan               *string               `json:"plan,omitempty" binding:"optional"`
 	TrashRetentionDays *int                  `json:"trash_retention_days,omitempty" binding:"optional"`
+	NeighborsLimit     *int                  `json:"neighbors_limit,omitempty" binding:"optional"` // one of domain.NeighborsLimits
 	Name               *string               `json:"name,omitempty" binding:"optional"`
 	Avatar             *string               `json:"avatar,omitempty" binding:"optional"`         // the id of an image of the account, "" for none
 	Snippets           *[]domain.Snippet     `json:"snippets,omitempty" binding:"optional"`       // the whole list, it replaces the saved one
@@ -106,6 +108,8 @@ func (p *run) checkInput() {
 		p.SetErr(fmt.Errorf("%w: %q", ErrInvalidPlan, *p.input.Plan))
 	case p.input.TrashRetentionDays != nil && (*p.input.TrashRetentionDays < 0 || *p.input.TrashRetentionDays > MaxRetentionDays):
 		p.SetErr(fmt.Errorf("%w: %d", ErrInvalidRetention, *p.input.TrashRetentionDays))
+	case p.input.NeighborsLimit != nil && !slices.Contains(domain.NeighborsLimits, *p.input.NeighborsLimit):
+		p.SetErr(fmt.Errorf("%w: %d", ErrInvalidNeighbors, *p.input.NeighborsLimit))
 	case p.input.Name != nil && strings.TrimSpace(*p.input.Name) == "":
 		p.SetErr(adduser.ErrNoName)
 	case !validSnippets(p.input.Snippets):
@@ -160,6 +164,9 @@ func (p *run) updateUser() {
 		}
 		if p.input.TrashRetentionDays != nil {
 			query.Set("trash_retention_days = ?", *p.input.TrashRetentionDays)
+		}
+		if p.input.NeighborsLimit != nil {
+			query.Set("neighbors_limit = ?", *p.input.NeighborsLimit)
 		}
 		if p.input.Name != nil {
 			query.Set("name = ?", strings.TrimSpace(*p.input.Name))

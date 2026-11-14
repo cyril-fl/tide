@@ -137,6 +137,7 @@
     "links": "Links",
     "backlinks": "Backlinks",
     "sameTags": "Same tags",
+    "others": "{n} more note: | {n} more notes:",
     "title": "Related notes ({total})",
     "showGraph": "Show the graph",
     "emptyTitle": "No related note yet.",
@@ -308,6 +309,9 @@
     "retentionDescription": "Deleted items are erased for good after this delay.",
     "retentionDays": "{n} day | {n} days",
     "retentionNever": "Never erased",
+    "neighbors": "Notes with the same tags",
+    "neighborsDescription": "How many notes sharing a tag show around a note, in its related notes and its graph.",
+    "neighborsAll": "All of them",
     "mode": "Mode",
     "modeDescription": "Light, dark, or the system's.",
     "sidebar": {

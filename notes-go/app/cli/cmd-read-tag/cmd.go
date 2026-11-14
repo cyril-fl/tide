@@ -101,11 +101,6 @@ func listTags(cobra *cobra.Command, asYAML bool, asJSON bool) error {
 	if err := json.Unmarshal(response.Body, &tags); err != nil {
 		return err
 	}
-	// The API answers [], --json printed null for no tag when it read the base: kept as it was.
-	if len(tags) == 0 {
-		tags = nil
-	}
-
 	printTags(tags, asYAML, asJSON)
 	return nil
 }

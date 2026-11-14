@@ -7,28 +7,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Delete moves notes to the trash, by uuid, through DELETE /api/notes/{id}; an unknown one is skipped.
-// TODO: one request per note, so a failure halfway leaves the first ones in the trash, add a batch route if it matters.
+// Delete moves notes to the trash, by uuid, in one DELETE /api/notes; an unknown one is skipped.
 func Delete(cobra *cobra.Command, args []string) error {
 	client, err := apiclient.Read().Client()
 	if err != nil {
 		return err
 	}
-	count := 0
-	for _, id := range args {
-		response, err := client.DeleteApiNotesIdWithResponse(cobra.Context(), id)
-		if err != nil {
-			return err
-		}
-		deleted, err := apiclient.Deleted(response.HTTPResponse, response.Body)
-		if err != nil {
-			return err
-		}
-		if deleted {
-			count++
-		}
+	response, err := client.DeleteApiNotesWithResponse(cobra.Context(), apiclient.DeleteitemsBody{Ids: args})
+	if err != nil {
+		return err
+	}
+	if response.JSON200 == nil {
+		return apiclient.Fail(response.HTTPResponse, response.Body)
 	}
 
-	fmt.Printf("Successfully deleted %d note(s)\n", count)
+	fmt.Printf("Successfully deleted %d note(s)\n", len(*response.JSON200))
 	return nil
 }

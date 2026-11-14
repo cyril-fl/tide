@@ -31,8 +31,8 @@ func TestDelete(t *testing.T) {
 	printed, err := apitest.Stdout(t, func() error {
 		return Delete(command, []string{folder.GetResult().ID, "00000000-0000-0000-0000-000000000000"})
 	})
-	if err != nil || printed != "Successfully deleted 1 folder(s) and their content\n" {
-		t.Errorf("printed %q, err = %v; want 1 folder", printed, err)
+	if err != nil || printed != "Successfully deleted 2 item(s): folders and their content\n" {
+		t.Errorf("printed %q, err = %v; want the folder and its note", printed, err)
 	}
 	inside := readitem.Process(ctx, tx, domain.NOTE, note.GetResult().ID)
 	inside.Run()

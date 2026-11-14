@@ -7,31 +7,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Delete moves folders and their whole content to the trash, by uuid, through DELETE /api/folders/{id}; an unknown one
-// is skipped.
-// TODO: one request per folder, so a failure halfway leaves the first ones in the trash, add a batch route if it
-// matters.
+// Delete moves folders and their whole content to the trash, by uuid, in one DELETE /api/folders; an unknown
+// one is skipped.
 func Delete(cobra *cobra.Command, args []string) error {
 	client, err := apiclient.Read().Client()
 	if err != nil {
 		return err
 	}
-	count := 0
-	for _, id := range args {
-		response, err := client.DeleteApiFoldersIdWithResponse(cobra.Context(), id)
-		if err != nil {
-			return err
-		}
-		deleted, err := apiclient.Deleted(response.HTTPResponse, response.Body)
-		if err != nil {
-			return err
-		}
-		if deleted {
-			count++
-		}
+	response, err := client.DeleteApiFoldersWithResponse(cobra.Context(), apiclient.DeleteitemsBody{Ids: args})
+	if err != nil {
+		return err
+	}
+	if response.JSON200 == nil {
+		return apiclient.Fail(response.HTTPResponse, response.Body)
 	}
 
-	// The API does not count the content: the folders only.
-	fmt.Printf("Successfully deleted %d folder(s) and their content\n", count)
+	fmt.Printf("Successfully deleted %d item(s): folders and their content\n", len(*response.JSON200))
 	return nil
 }

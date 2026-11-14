@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
@@ -97,6 +98,21 @@ var (
 	Views      = []string{"list", "grid"}
 	Plans      = []string{"base", "pro", "ultra"}
 )
+
+// Features are the plans the API routes of the paid features need, each plan including those before it: the levels
+// of notes-app/app/utils/features.ts, users_test.go checks they match. A feature of the app without a route is not here.
+var Features = map[string]string{
+	"noteHistory":       "pro",
+	"brokenLinks":       "pro",
+	"storageFiles":      "pro",
+	"savedSearches":     "pro",
+	"replaceEverywhere": "ultra",
+}
+
+// Unlocked tells whether an account of plan has feature; an unknown plan has the base features, as in the web app.
+func Unlocked(feature, plan string) bool {
+	return slices.Index(Plans, Features[feature]) <= max(slices.Index(Plans, plan), 0)
+}
 
 // SidebarSection is a list of the web app's sidebar, one of SidebarSectionIDs, shown or hidden.
 type SidebarSection struct {

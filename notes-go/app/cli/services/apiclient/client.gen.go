@@ -5958,6 +5958,8 @@ type GetApiFilesResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *[]DomainFile
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
 	// JSON500 the response for an HTTP 500 `application/json` response
 	JSON500 *RespondFailure
 }
@@ -5965,6 +5967,11 @@ type GetApiFilesResponse struct {
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetApiFilesResponse) GetJSON200() *[]DomainFile {
 	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetApiFilesResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
 }
 
 // GetJSON500 returns the response for an HTTP 500 `application/json` response
@@ -6887,6 +6894,8 @@ type GetApiLinksBrokenResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *[]ListbrokenlinksLink
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
 	// JSON500 the response for an HTTP 500 `application/json` response
 	JSON500 *RespondFailure
 }
@@ -6894,6 +6903,11 @@ type GetApiLinksBrokenResponse struct {
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetApiLinksBrokenResponse) GetJSON200() *[]ListbrokenlinksLink {
 	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetApiLinksBrokenResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
 }
 
 // GetJSON500 returns the response for an HTTP 500 `application/json` response
@@ -8126,6 +8140,8 @@ type GetApiNotesIdVersionsResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *[]DomainNoteVersion
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *RespondFailure
 	// JSON500 the response for an HTTP 500 `application/json` response
@@ -8135,6 +8151,11 @@ type GetApiNotesIdVersionsResponse struct {
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetApiNotesIdVersionsResponse) GetJSON200() *[]DomainNoteVersion {
 	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetApiNotesIdVersionsResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8252,6 +8273,8 @@ type GetApiNotesIdVersionsVersionResponse struct {
 	JSON200 *DomainNoteVersion
 	// JSON400 the response for an HTTP 400 `application/json` response
 	JSON400 *RespondFailure
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *RespondFailure
 	// JSON500 the response for an HTTP 500 `application/json` response
@@ -8266,6 +8289,11 @@ func (r GetApiNotesIdVersionsVersionResponse) GetJSON200() *DomainNoteVersion {
 // GetJSON400 returns the response for an HTTP 400 `application/json` response
 func (r GetApiNotesIdVersionsVersionResponse) GetJSON400() *RespondFailure {
 	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetApiNotesIdVersionsVersionResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8410,6 +8438,8 @@ type PostApiReplaceResponse struct {
 	JSON200 *ReplacenotesResult
 	// JSON400 the response for an HTTP 400 `application/json` response
 	JSON400 *RespondFailure
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
 	// JSON413 the response for an HTTP 413 `application/json` response
 	JSON413 *RespondFailure
 	// JSON500 the response for an HTTP 500 `application/json` response
@@ -8424,6 +8454,11 @@ func (r PostApiReplaceResponse) GetJSON200() *ReplacenotesResult {
 // GetJSON400 returns the response for an HTTP 400 `application/json` response
 func (r PostApiReplaceResponse) GetJSON400() *RespondFailure {
 	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PostApiReplaceResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
 }
 
 // GetJSON413 returns the response for an HTTP 413 `application/json` response
@@ -8668,6 +8703,8 @@ type GetApiSearchesIdResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *[]RunsavedsearchMatch
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *RespondFailure
 	// JSON500 the response for an HTTP 500 `application/json` response
@@ -8679,6 +8716,11 @@ type GetApiSearchesIdResponse struct {
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetApiSearchesIdResponse) GetJSON200() *[]RunsavedsearchMatch {
 	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetApiSearchesIdResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -10729,6 +10771,13 @@ func ParseGetApiFilesResponse(rsp *http.Response) (*GetApiFilesResponse, error) 
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest RespondFailure
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -11423,6 +11472,13 @@ func ParseGetApiLinksBrokenResponse(rsp *http.Response) (*GetApiLinksBrokenRespo
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest RespondFailure
@@ -12360,6 +12416,13 @@ func ParseGetApiNotesIdVersionsResponse(rsp *http.Response) (*GetApiNotesIdVersi
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest RespondFailure
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -12463,6 +12526,13 @@ func ParseGetApiNotesIdVersionsVersionResponse(rsp *http.Response) (*GetApiNotes
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest RespondFailure
@@ -12576,6 +12646,13 @@ func ParsePostApiReplaceResponse(rsp *http.Response) (*PostApiReplaceResponse, e
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
 		var dest RespondFailure
@@ -12770,6 +12847,13 @@ func ParseGetApiSearchesIdResponse(rsp *http.Response) (*GetApiSearchesIdRespons
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest RespondFailure

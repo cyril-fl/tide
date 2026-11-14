@@ -1035,6 +1035,12 @@ paths:
                   $ref: '#/components/schemas/domain.File'
                 type: array
           description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
         "500":
           content:
             application/json:
@@ -1745,6 +1751,12 @@ paths:
                   $ref: '#/components/schemas/listbrokenlinks.Link'
                 type: array
           description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
         "500":
           content:
             application/json:
@@ -2432,6 +2444,12 @@ paths:
                   $ref: '#/components/schemas/domain.NoteVersion'
                 type: array
           description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
         "404":
           content:
             application/json:
@@ -2528,6 +2546,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/respond.Failure'
           description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
         "404":
           content:
             application/json:
@@ -2651,6 +2675,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/respond.Failure'
           description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
         "413":
           content:
             application/json:
@@ -2838,6 +2868,12 @@ paths:
                 after them that may match'
               schema:
                 type: integer
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
         "404":
           content:
             application/json:

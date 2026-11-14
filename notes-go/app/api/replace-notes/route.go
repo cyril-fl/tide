@@ -18,6 +18,7 @@ import (
 // @Success  200 {object} replacenotes.Result
 // @Failure  400 {object} respond.Failure
 // @Failure  413 {object} respond.Failure
+// @Failure  403 {object} respond.Failure
 // @Failure  500 {object} respond.Failure
 // @Router   /api/replace [post]
 func Handler(db bun.IDB) http.HandlerFunc {

@@ -161,12 +161,18 @@ test('after a conflict in the same place, the dialog asks which text to keep', a
   await expect
     .poll(() => box.content(note.id), { timeout: 5000 })
     .toBe(`# ${box.prefix} conflit\n\nTexte ici\n\nAilleurs`);
-  const versions: { id: string; conflict: boolean }[] = await (
-    await box.api.get(`/api/notes/${note.id}/versions`)
-  ).json();
-  const kept = versions.find((version) => version.conflict);
-  const version = await (await box.api.get(`/api/notes/${note.id}/versions/${kept?.id}`)).json();
-  expect(version.content).toContain('Texte ici');
+  // The history is read through the API of a Pro account: the text was kept whatever the plan.
+  try {
+    await box.api.patch('/api/me', { data: { plan: 'pro' } });
+    const versions: { id: string; conflict: boolean }[] = await (
+      await box.api.get(`/api/notes/${note.id}/versions`)
+    ).json();
+    const kept = versions.find((version) => version.conflict);
+    const version = await (await box.api.get(`/api/notes/${note.id}/versions/${kept?.id}`)).json();
+    expect(version.content).toContain('Texte ici');
+  } finally {
+    await box.api.patch('/api/me', { data: { plan: 'base' } });
+  }
 });
 
 // Past the API's 10 MB, the toast gives the limit in French, not the API's message (#58). The API's answer

@@ -13,6 +13,7 @@ import (
 // @Tags     graph
 // @Produce  json
 // @Success  200 {array} listbrokenlinks.Link
+// @Failure  403 {object} respond.Failure
 // @Failure  500 {object} respond.Failure
 // @Router   /api/links/broken [get]
 func Handler(db bun.IDB) http.HandlerFunc {

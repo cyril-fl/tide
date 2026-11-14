@@ -20,6 +20,7 @@ import (
 // @Success  200 {array} runsavedsearch.Match
 // @Header   200 {integer} X-Total-Count "the matches, not only the page: those read, and the notes after them that may match"
 // @Failure  404 {object} respond.Failure
+// @Failure  403 {object} respond.Failure
 // @Failure  500 {object} respond.Failure
 // @Router   /api/searches/{id} [get]
 func Handler(db bun.IDB) http.HandlerFunc {

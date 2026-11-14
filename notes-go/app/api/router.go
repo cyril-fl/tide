@@ -41,6 +41,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/api/services/auth"
 	"github.com/cyril-fl/notes/notes-go/app/api/services/compress"
 	"github.com/cyril-fl/notes/notes-go/app/api/services/guard"
+	"github.com/cyril-fl/notes/notes-go/app/api/services/plan"
 	apiusers "github.com/cyril-fl/notes/notes-go/app/api/users"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
@@ -85,9 +86,9 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("DELETE /api/notes/{id}", apideletenote.Handler(db))
 	mux.Handle("GET /api/notes/{id}/neighbors", apireadgraph.Neighbors(db))
 	mux.Handle("GET /api/notes/{id}/graph", apireadgraph.Graph(db))
-	mux.Handle("GET /api/notes/{id}/versions", apireadversions.Handler(db))
+	mux.Handle("GET /api/notes/{id}/versions", plan.Require(db, "noteHistory", apireadversions.Handler(db)))
 	mux.Handle("POST /api/notes/{id}/versions", apireadversions.Keep(db))
-	mux.Handle("GET /api/notes/{id}/versions/{version}", apireadversions.Read(db))
+	mux.Handle("GET /api/notes/{id}/versions/{version}", plan.Require(db, "noteHistory", apireadversions.Read(db)))
 
 	mux.Handle("GET /api/folders", apireadfolder.List(db))
 	mux.Handle("POST /api/folders", apicreatefolder.Handler(db))
@@ -109,10 +110,10 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 
 	mux.Handle("GET /api/graph", apireadgraph.Handler(db))
 	mux.Handle("GET /api/graph/notes", apireadgraph.Notes(db))
-	mux.Handle("GET /api/links/broken", apireadbrokenlinks.Handler(db))
-	mux.Handle("POST /api/replace", apireplacenotes.Handler(db))
+	mux.Handle("GET /api/links/broken", plan.Require(db, "brokenLinks", apireadbrokenlinks.Handler(db)))
+	mux.Handle("POST /api/replace", plan.Require(db, "replaceEverywhere", apireplacenotes.Handler(db)))
 	mux.Handle("GET /api/search", apisearch.Handler(db))
-	mux.Handle("GET /api/searches/{id}", apireadsearch.Handler(db))
+	mux.Handle("GET /api/searches/{id}", plan.Require(db, "savedSearches", apireadsearch.Handler(db)))
 	mux.Handle("GET /api/recent", apireadrecent.Handler(db))
 	mux.Handle("GET /api/pinned", apireadpinned.Handler(db))
 	mux.Handle("GET /api/trash", apireadtrash.Handler(db))
@@ -123,7 +124,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("POST /api/import", apiimport.Handler(db, store))
 
 	mux.Handle("POST /api/files", apicreatefile.Handler(db, store))
-	mux.Handle("GET /api/files", apireadfiles.Handler(db))
+	mux.Handle("GET /api/files", plan.Require(db, "storageFiles", apireadfiles.Handler(db)))
 	mux.Handle("GET /api/files/{id}", apireadfile.Handler(db, store))
 
 	return guard.New(origin, auth.New(db, compress.New(mux)))

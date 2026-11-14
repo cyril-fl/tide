@@ -168,6 +168,9 @@ func TestNotes(t *testing.T) {
 		ID      string `json:"id"`
 		Content string `json:"content"`
 	}
+	// The history is a Pro feature of the app, refused by the API to a base account.
+	c.do("GET", path+"/versions", "", http.StatusForbidden, nil)
+	c.do("PATCH", "/api/me", `{"plan":"pro"}`, http.StatusOK, nil)
 	c.do("GET", path+"/versions", "", http.StatusOK, &versions)
 	if len(versions) != 1 || versions[0].Content != "" {
 		t.Errorf("versions = %+v, want 1 without its text", versions)
@@ -896,6 +899,9 @@ func TestAccountsAreApart(t *testing.T) {
 	alice.do("POST", "/api/notes", fmt.Sprintf(`{"content":"# Secret #privé","parent_id":%q}`, folder.ID), http.StatusCreated, &note)
 
 	bob := alice.other(t)
+	for _, account := range []*client{alice, bob} {
+		account.do("PATCH", "/api/me", `{"plan":"pro"}`, http.StatusOK, nil)
+	}
 	bob.do("GET", "/api/notes/"+note.ID, "", http.StatusNotFound, nil)
 	bob.do("GET", "/api/folders/"+folder.ID, "", http.StatusNotFound, nil)
 	bob.do("PATCH", "/api/notes/"+note.ID, `{"content":"# volé"}`, http.StatusNotFound, nil)

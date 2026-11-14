@@ -148,6 +148,15 @@ export interface paths {
                         "application/json": components["schemas"]["domain.File"][];
                     };
                 };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
                 /** @description Internal Server Error */
                 500: {
                     headers: {
@@ -1105,6 +1114,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["listbrokenlinks.Link"][];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
                     };
                 };
                 /** @description Internal Server Error */
@@ -2282,6 +2300,15 @@ export interface paths {
                         "application/json": components["schemas"]["domain.NoteVersion"][];
                     };
                 };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
                 /** @description Not Found */
                 404: {
                     headers: {
@@ -2414,6 +2441,15 @@ export interface paths {
                 };
                 /** @description Bad Request */
                 400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2644,6 +2680,15 @@ export interface paths {
                 };
                 /** @description Bad Request */
                 400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2919,6 +2964,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["runsavedsearch.Match"][];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
                     };
                 };
                 /** @description Not Found */

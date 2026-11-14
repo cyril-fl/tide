@@ -46,6 +46,11 @@ func Serve(t *testing.T) (context.Context, bun.Tx) {
 	if _, err := savepoint.NewInsert().Model(&session).Exec(ctx); err != nil {
 		t.Fatal(err)
 	}
+	// Every plan: these tests check the client, the router tests check the plans.
+	plan := domain.Plans[len(domain.Plans)-1]
+	if _, err := savepoint.NewUpdate().Model((*domain.User)(nil)).Set("plan = ?", plan).Where("id = ?", domain.UserID(ctx)).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
 	server := httptest.NewServer(api.New(savepoint, silo.NewMemory(), "", ""))
 	t.Cleanup(server.Close)
 

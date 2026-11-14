@@ -17,6 +17,7 @@ import (
 // @Param    id path string true "uuid"
 // @Success  200 {array} domain.NoteVersion
 // @Failure  404 {object} respond.Failure
+// @Failure  403 {object} respond.Failure
 // @Failure  500 {object} respond.Failure
 // @Router   /api/notes/{id}/versions [get]
 func Handler(db bun.IDB) http.HandlerFunc {
@@ -45,6 +46,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 // @Success  200 {object} domain.NoteVersion
 // @Failure  400 {object} respond.Failure
 // @Failure  404 {object} respond.Failure
+// @Failure  403 {object} respond.Failure
 // @Failure  500 {object} respond.Failure
 // @Router   /api/notes/{id}/versions/{version} [get]
 func Read(db bun.IDB) http.HandlerFunc {

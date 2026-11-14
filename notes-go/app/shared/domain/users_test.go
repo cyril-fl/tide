@@ -55,3 +55,41 @@ func TestSidebarSectionsMatchApp(t *testing.T) {
 		t.Errorf("sidebar.ts has %v, domain.SidebarSectionIDs %v", app, SidebarSectionIDs)
 	}
 }
+
+// The routes of a paid feature need the plan the web app shows it from in features.ts: else one side unlocks it alone.
+func TestFeaturesMatchApp(t *testing.T) {
+	file, err := os.ReadFile("../../../../notes-app/app/utils/features.ts")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := map[string]string{}
+	block := regexp.MustCompile(`(?s)features = \{(.*?)\n\}`).FindStringSubmatch(string(file))
+	if block == nil {
+		t.Fatal("no features in features.ts")
+	}
+	for _, match := range regexp.MustCompile(`(?m)^  (\w+): '(\w+)',$`).FindAllStringSubmatch(block[1], -1) {
+		app[match[1]] = match[2]
+	}
+	for feature, plan := range Features {
+		if app[feature] != plan {
+			t.Errorf("features.ts has %s: %q, domain.Features %q", feature, app[feature], plan)
+		}
+	}
+}
+
+func TestUnlocked(t *testing.T) {
+	for _, c := range []struct {
+		feature, plan string
+		want          bool
+	}{
+		{"noteHistory", "base", false},
+		{"noteHistory", "pro", true},
+		{"replaceEverywhere", "pro", false},
+		{"replaceEverywhere", "ultra", true},
+		{"noteHistory", "unknown", false},
+	} {
+		if got := Unlocked(c.feature, c.plan); got != c.want {
+			t.Errorf("Unlocked(%q, %q) = %v, want %v", c.feature, c.plan, got, c.want)
+		}
+	}
+}

@@ -13,6 +13,7 @@ import (
 // @Tags     files
 // @Produce  json
 // @Success  200 {array} domain.File
+// @Failure  403 {object} respond.Failure
 // @Failure  500 {object} respond.Failure
 // @Router   /api/files [get]
 func Handler(db bun.IDB) http.HandlerFunc {

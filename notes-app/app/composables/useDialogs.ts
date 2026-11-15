@@ -43,6 +43,7 @@ function createDialogs() {
     savedSearch: (props: { title: string; value?: SavedSearch }) =>
       savedSearchDialog.open(props).result as Promise<SavedSearch | undefined>,
     importNotes: () => importDialog.open().result as Promise<void>,
-    resolveConflict: (parts: MergePart[]) => conflictDialog.open({ parts }).result as Promise<string>,
+    resolveConflict: (parts: MergePart[], fork?: boolean) =>
+      conflictDialog.open({ parts, fork }).result as Promise<string>,
   };
 }

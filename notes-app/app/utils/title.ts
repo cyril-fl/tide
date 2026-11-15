@@ -6,17 +6,20 @@ export function displayTitle(title: string | undefined, untitled: string) {
 const fence = /^[ \t]*(```|~~~)/;
 const heading = /^ {0,3}#{1,6}[ \t]+(?=\S)/;
 
-/** The markdown with title in its first heading, as the API reads it (code skipped), else a heading added on top. */
+/** The index of the line of the title, the first heading as the API reads it (code skipped); -1 for none. */
+export function titleLine(lines: string[]) {
+  let code = false;
+  return lines.findIndex((line) => {
+    if (fence.test(line)) code = !code;
+    return !code && heading.test(line);
+  });
+}
+
+/** The markdown with title in its first heading, else a heading added on top. */
 export function retitle(markdown: string, title: string) {
   const lines = markdown.split('\n');
-  let code = false;
-  for (const [index, line] of lines.entries()) {
-    if (fence.test(line)) code = !code;
-    const marks = !code && line.match(heading)?.[0];
-    if (marks) {
-      lines[index] = marks + title;
-      return lines.join('\n');
-    }
-  }
-  return markdown ? `# ${title}\n\n${markdown}` : `# ${title}`;
+  const index = titleLine(lines);
+  if (index < 0) return markdown ? `# ${title}\n\n${markdown}` : `# ${title}`;
+  lines[index] = lines[index]!.match(heading)![0] + title;
+  return lines.join('\n');
 }

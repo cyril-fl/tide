@@ -3,7 +3,8 @@ import type { Choice, MergePart } from '~/utils/merge';
 
 // After a 409 with changes in the same place (#78): the merged text, each conflict at its place with the text typed here,
 // the other device's and a choice. Closes with the text chosen; the text typed here is already kept in the history.
-const props = defineProps<{ parts: MergePart[] }>();
+// fork: the merge of a fork into its original, the fork's text against the original's.
+const props = defineProps<{ parts: MergePart[]; fork?: boolean }>();
 const emit = defineEmits<{ close: [text: string] }>();
 
 const phone = useMediaQuery('(max-width: 639px)');
@@ -32,7 +33,7 @@ const keepTheirs = () =>
 <template>
   <UModal
     :title="$t('conflict.title', { count: left })"
-    :description="$t('conflict.description')"
+    :description="$t(fork ? 'conflict.forkDescription' : 'conflict.description')"
     :fullscreen="phone"
     :dismissible="false"
     :close="false"
@@ -48,9 +49,9 @@ const keepTheirs = () =>
             :class="choices[indexOf(part)] ? 'border-default' : 'border-warning'"
             :aria-label="$t('conflict.block', { number: indexOf(part) + 1 })"
           >
-            <span class="text-xs text-muted">{{ $t('conflict.here') }}</span>
+            <span class="text-xs text-muted">{{ $t(fork ? 'conflict.fork' : 'conflict.here') }}</span>
             <pre class="font-sans whitespace-pre-wrap">{{ part.mine.join('\n') }}</pre>
-            <span class="text-xs text-muted">{{ $t('conflict.elsewhere') }}</span>
+            <span class="text-xs text-muted">{{ $t(fork ? 'conflict.original' : 'conflict.elsewhere') }}</span>
             <pre class="font-sans whitespace-pre-wrap">{{ part.theirs.join('\n') }}</pre>
             <div class="flex flex-wrap gap-2">
               <UButton

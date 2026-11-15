@@ -100,10 +100,10 @@ async function fork() {
     timeStyle: 'short',
   });
   const title = t('history.forkTitle', { title: displayTitle(note.item.title, t('untitled')), date });
-  const item = await api<Item>('/api/notes', {
+  // Beside the note, which the fork remembers: its merge brings the fork's changes back.
+  const item = await api<Item>(`/api/notes/${props.noteId}/forks`, {
     method: 'POST',
-    body: { content: retitle(text.value, title), parent_id: note.item.parent_id },
-    invalid: { [NO_PARENT]: t('items.parentInTrash') },
+    body: { content: retitle(text.value, title) },
   });
   open.value = false;
   await navigateTo(`/notes/${item.id}`);

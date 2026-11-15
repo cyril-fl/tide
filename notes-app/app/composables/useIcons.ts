@@ -80,6 +80,7 @@ export function useIcons() {
     history: 'i-reicon-history',
     compare: 'i-reicon-document-copy',
     fork: 'i-reicon-sitemap',
+    merge: 'i-lucide-git-merge', // Reicon has none
     restore: 'i-reicon-recovery-convert',
 
     // Graph

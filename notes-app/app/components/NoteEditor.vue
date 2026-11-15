@@ -2,7 +2,7 @@
 import type { Editor } from '@tiptap/vue-3';
 import type { FetchError } from 'ofetch';
 import type { RouteLocationNormalized } from 'vue-router';
-import type { Item, ItemDetail, NotesGraph } from '~/types/items';
+import type { ForkOrigin, Item, ItemDetail, NotesGraph } from '~/types/items';
 import type { Changes } from '~/utils/saver';
 
 const { icons } = useIcons();
@@ -32,6 +32,8 @@ const loading = ref(!!props.noteId);
 const notFound = ref(false);
 // Locked read-only: the API refuses its content, the editor and the source mode only read.
 const readonly = ref(false);
+// A fork made from the history: the note it merges back into.
+const forkOf = ref<string>();
 
 const failed = ref(false);
 const saving = ref(false);
@@ -180,6 +182,7 @@ async function load() {
     links = linkedNotes(initialContent.value);
     title.value = note.item.title;
     readonly.value = !!note.readonly;
+    forkOf.value = note.fork_of;
     remember(note);
     place(note);
     isEmpty.value = false;
@@ -232,6 +235,43 @@ async function restoreVersion(content: string) {
   await saver.flush();
   saver.push({ restore: true });
   setText(content);
+}
+// A fork back into its original: a three-way merge by lines from the fork's base, its title line left out, conflicts
+// asked in the conflicts dialog. The API saves it as a restore, the original's text kept in its history, and moves
+// the base to this text, so a second merge does not replay these changes. Changed meanwhile (409): merged again once.
+async function mergeBack(again = true): Promise<void> {
+  await saver.flush();
+  if (failed.value) return;
+  const [origin, fork] = await Promise.all([
+    api<ForkOrigin>(`/api/notes/${id.value}/fork`),
+    api<ItemDetail>(`/api/notes/${id.value}`),
+  ]);
+  const original = await api<ItemDetail>(`/api/notes/${origin.fork_of}`, { quiet: [404] }).catch((error) => {
+    if ((error as FetchError).status !== 404) throw error;
+  });
+  if (!original) return void toast.add({ title: t('fork.originGone'), color: 'error' });
+  if (original.readonly) return void toast.add({ title: t('fork.originLocked'), color: 'warning' });
+
+  const parts = mergeFork(origin.base, fork.content ?? '', original.content ?? '');
+  const content = parts.every((part) => 'lines' in part) ? mergedText(parts) : await resolveConflict(parts, true);
+  try {
+    await api(`/api/notes/${id.value}/merge`, {
+      method: 'POST',
+      body: { content, base: fork.content ?? '', updated_at: original.item.updated_at ?? original.item.created_at },
+      quiet: again ? [409] : false,
+      conflict: {
+        'trash or deleted': t('fork.originGone'),
+        'read-only': t('fork.originLocked'),
+        'changed elsewhere': t('fork.originChanged'),
+      },
+      tooLarge: t('note.tooLarge'),
+    });
+  } catch (error) {
+    if (again && (error as FetchError).status === 409) return mergeBack(false);
+    return;
+  }
+  const open = { label: t('fork.openOriginal'), onClick: () => void navigateTo(`/notes/${origin.fork_of}`) };
+  toast.add({ title: t('fork.merged'), color: 'success', actions: [open] });
 }
 // Replaces the text as if typed.
 function setText(content: string) {
@@ -487,6 +527,16 @@ const status = computed(() => {
           :readonly="readonly"
           @restore="restoreVersion"
         />
+        <UTooltip v-if="forkOf && has('noteHistory')" :text="$t('fork.merge')">
+          <UButton
+            :icon="icons.merge"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :aria-label="$t('fork.merge')"
+            @click="mergeBack()"
+          />
+        </UTooltip>
         <UTooltip v-if="has('sourceMode')" :text="source === undefined ? $t('note.source') : $t('note.editor')">
           <UButton
             :icon="icons.source"

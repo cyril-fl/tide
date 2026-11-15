@@ -31,3 +31,4 @@ export type SavedSearchResult = Schemas['runsavedsearch.Match'];
 export type Tag = Schemas['domain.Tag'];
 export type NoteFile = Schemas['domain.File'];
 export type NoteVersion = Schemas['domain.NoteVersion'];
+export type ForkOrigin = Schemas['readfork.Result'];

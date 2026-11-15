@@ -517,9 +517,20 @@
     "importExport": "Importer un zip, des fichiers .md ou un coffre Obsidian ; exporter tout, un dossier ou une sélection",
     "trash": "La corbeille, pour restaurer une note ou un dossier supprimé"
   },
+  "fork": {
+    "merge": "Fusionner dans la note d'origine",
+    "merged": "Copie fusionnée dans la note d'origine, son ancien texte gardé dans l'historique.",
+    "openOriginal": "Ouvrir",
+    "originGone": "La note d'origine est dans la corbeille ou supprimée : rien à fusionner.",
+    "originLocked": "La note d'origine est verrouillée : déverrouille-la pour y fusionner cette copie.",
+    "originChanged": "La note d'origine a encore changé pendant la fusion : réessaie."
+  },
   "conflict": {
     "title": "Conflits ({count} à résoudre)",
     "description": "La note a changé au même endroit ici et sur un autre appareil. Ton texte est aussi gardé dans l'historique.",
+    "forkDescription": "La copie et la note d'origine ont changé au même endroit. Le texte remplacé reste dans l'historique de la note d'origine.",
+    "fork": "Copie",
+    "original": "Note d'origine",
     "block": "Conflit {number}",
     "here": "Ici",
     "elsewhere": "Autre appareil",

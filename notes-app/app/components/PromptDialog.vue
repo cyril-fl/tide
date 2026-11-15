@@ -5,6 +5,8 @@ const props = defineProps<{
   placeholder?: string;
   action?: string;
   multiline?: boolean;
+  // The text as typed, its spaces kept, and empty allowed.
+  raw?: boolean;
   // A second way out, between cancel and the action: the dialog closes, then runs it.
   alternative?: { label: string; icon?: string; onSelect: () => void };
 }>();
@@ -13,7 +15,8 @@ const emit = defineEmits<{ close: [value?: string] }>();
 const text = ref(props.value ?? '');
 
 function submit() {
-  if (text.value.trim()) emit('close', text.value.trim());
+  if (props.raw) emit('close', text.value);
+  else if (text.value.trim()) emit('close', text.value.trim());
 }
 </script>
 
@@ -51,7 +54,7 @@ function submit() {
             alternative.onSelect();
           "
         />
-        <UButton type="submit" form="prompt" :label="action ?? $t('common.confirm')" :disabled="!text.trim()" />
+        <UButton type="submit" form="prompt" :label="action ?? $t('common.confirm')" :disabled="!raw && !text.trim()" />
       </div>
     </template>
   </UModal>

@@ -61,10 +61,15 @@ async function changeTheme(theme: string) {
 
 /** Counts first, then replaces once the exact numbers are confirmed: the API changes every note at once. */
 async function replaceEverywhere() {
-  const find = await prompt({ title: t('search.replace.find'), value: term.value.trim() || undefined });
-  if (!find) return;
-  const replace = await prompt({ title: t('search.replace.with', { find }), action: t('search.replace.submit') });
-  if (!replace) return;
+  const find = await prompt({ title: t('search.replace.find'), value: term.value.trim() || undefined, raw: true });
+  if (!find?.trim()) return;
+  // Empty: the text is removed from every note.
+  const replace = await prompt({
+    title: t('search.replace.with', { find }),
+    action: t('search.replace.submit'),
+    raw: true,
+  });
+  if (replace === undefined) return;
   const replaceNotes = (dryRun: boolean) =>
     api<ReplaceResult>('/api/replace', { method: 'POST', body: { find, replace, dry_run: dryRun } });
   const count = await replaceNotes(true);

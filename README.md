@@ -63,7 +63,7 @@ notes login https://notes.example.ts.net
 
 - `postgres` (`note-postgres`): PostgreSQL 18, on `127.0.0.1:5432`.
 - `silo` (`note-silo`): image storage, on `127.0.0.1:9000` (console on `9001`).
-- `api` (`note-api`): `notes-server serve`, on http://localhost:8080 (profile `api`, started by `make up`).
+- `api` (`note-api`): `notes-server serve`, on http://localhost:8080, and its MCP over HTTP on http://localhost:8081/mcp (profile `api`, started by `make up`).
 - `libredb` (`note-libredb`): LibreDB Studio, a web interface to explore the database, on http://localhost:3001.
 - `app` (`note-app`): a Go container, to run Go against the stack.
 
@@ -81,7 +81,7 @@ docker compose -f compose.prod.yaml pull && docker compose -f compose.prod.yaml 
 
 The image only contains `notes-server`, the only binary that talks to Postgres and Silo. It runs the API and the web app, and carries the admin's commands (`user add`, `user reset-password`, `rotate-secret`), which you run in the container with `docker exec`. The `notes` CLI is a client of the API.
 
-Notes listens over HTTP on `NOTES_LISTEN` (`127.0.0.1:8080` by default). The session cookie requires HTTPS: the proxy in front provides it. `WEB_ORIGIN` is the exact address the browser types. LibreDB Studio listens on `LIBREDB_LISTEN` (`127.0.0.1:3001`): connect to `note-postgres:5432` with the `POSTGRES_USER` user.
+Notes listens over HTTP on `NOTES_LISTEN` (`127.0.0.1:8080` by default). The session cookie requires HTTPS: the proxy in front provides it. `WEB_ORIGIN` is the exact address the browser types. The MCP for agents listens on `NOTES_MCP_LISTEN` (`127.0.0.1:8081`): only `/mcp` is there, an API token required, so a tunnel can open it to the Internet for the Claude app while the rest stays private (see [`notes-go/MCP.md`](./notes-go/MCP.md)). LibreDB Studio listens on `LIBREDB_LISTEN` (`127.0.0.1:3001`): connect to `note-postgres:5432` with the `POSTGRES_USER` user.
 
 At startup, Notes adds the tables and columns of new versions to the database. A rename or a type change is still done by hand; the commit message says so.
 

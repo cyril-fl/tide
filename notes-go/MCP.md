@@ -4,8 +4,10 @@
 donne à un agent (Claude Code, Claude Desktop, tout client MCP) des outils pour chercher, lire,
 écrire, ranger et supprimer les notes d'un compte, avec leurs fichiers, leur historique et leurs liens.
 
-Ce n'est pas une API HTTP : il n'écoute sur aucun port et n'a pas de routes. C'est un client de l'API,
-comme le reste de la CLI : chaque outil devient une requête au serveur, avec le jeton de la session. Les trois points à comprendre sont donc ailleurs : **comment l'agent le lance**,
+`notes mcp` n'écoute sur aucun port et n'a pas de routes. C'est un client de l'API,
+comme le reste de la CLI : chaque outil devient une requête au serveur, avec le jeton de la session.
+Pour un agent qui ne peut pas lancer de commande, l'app Claude sur téléphone par exemple, le serveur sert
+les mêmes outils en HTTP, authentifiés par un jeton d'API : section 4. Les trois points à comprendre sont donc ailleurs : **comment l'agent le lance**,
 **pour quel compte il agit**, et **ce qu'il peut faire**.
 
 ## 1. Comment l'agent le lance
@@ -192,12 +194,79 @@ chiffrement) s'applique pareil des trois côtés.
 - **Ce qui n'est pas exposé** : le graphe complet (`note_links` en donne le voisinage note par note),
   les plans, la gestion des comptes, la création d'un tag seul, le vidage de la corbeille.
 
+### Ce que le client demande avant d'agir
+
+Chaque outil porte des annotations MCP, pour que le client demande confirmation au bon moment
+(« autoriser une fois / toujours / refuser ») : c'est lui qui la propose, pas le serveur.
+
+- `readOnlyHint` : les lectures (`search_notes`, `recent_notes`, `read_note`, `list_folder`, `tags`,
+  `list_trash`, `note_history`, `note_links`, `read_file`, `export_notes`), qui ne changent rien.
+- `destructiveHint` : ce qui supprime ou écrase (`edit_note`, `replace_notes`, `delete_note`,
+  `delete_folder`, `delete_tag`). Les autres écritures l'ont à `false` : elles ajoutent, déplacent ou renomment.
+- `idempotentHint` : un second appel identique ne change rien de plus (`edit_note`, les suppressions,
+  `move_item`, les renommages, `restore_item`) ; pas `create_note`, `create_folder`, `replace_notes`,
+  `attach_file` ni `import_notes`.
+- `openWorldHint` à `false` partout : les outils ne touchent qu'aux notes du compte.
+
+## 4. Depuis le téléphone : le MCP en HTTP
+
+L'app Claude (téléphone, web, Desktop) n'appelle pas le serveur MCP depuis l'appareil mais **depuis le
+cloud d'Anthropic** : il doit être joignable depuis Internet, Tailscale seul ne suffit pas. Pour ça,
+`notes-server serve --mcp-addr <adresse>` sert les mêmes outils en HTTP (transport « streamable HTTP »),
+sur une **adresse à part** qui n'a qu'une route, `/mcp`. C'est cette adresse, et elle seule, qu'on ouvre
+à Internet : l'API et l'app restent derrière Tailscale ou le proxy habituel.
+
+`compose.prod.yaml` l'active sur le port 8081 du conteneur, publié sur `NOTES_MCP_LISTEN`
+(`127.0.0.1:8081` par défaut, donc fermé tant qu'aucun tunnel ne pointe dessus).
+
+### Le jeton
+
+Chaque requête porte `Authorization: Bearer notes_…`, un **jeton d'API** du compte, créé par
+`notes add token "Claude téléphone" --expires 30d` ou dans Réglages > Compte de l'app (montré une seule
+fois). Sans jeton, avec un jeton inconnu, expiré ou révoqué, ou avec un jeton de **session**, la
+réponse est 401 avant tout outil : seul un jeton d'API se révoque à part (`notes remove token <uuid>`)
+et reste interdit sur les routes du compte (jetons, mot de passe, réglages). L'agent a sinon tous les
+droits du compte sur ses notes, comme `notes mcp`. Le serveur ne garde aucune session MCP entre deux
+requêtes, et ne journalise pas les jetons.
+
+### L'ouvrir à Internet
+
+Le serveur parle HTTP simple : le tunnel ou le proxy devant fournit le HTTPS. Trois façons, au choix :
+
+- **Tailscale Funnel**, sur un port à part pour que l'app reste privée sur 443 :
+  `tailscale funnel --bg --https=8443 http://127.0.0.1:8081`, puis l'URL
+  `https://<machine>.<tailnet>.ts.net:8443/mcp`.
+- **Cloudflare Tunnel** : un tunnel dont le service est `http://127.0.0.1:8081`
+  (`cloudflared tunnel --url http://127.0.0.1:8081` pour un essai), puis `https://<nom>/mcp`.
+- **Un proxy HTTPS** déjà exposé (Caddy, nginx) : une seule route, `/mcp` vers `127.0.0.1:8081`,
+  rien d'autre. Anthropic publie les IP d'où viennent ses appels : le proxy peut ne laisser passer qu'elles.
+
+### Le déclarer dans Claude
+
+Réglages > Connecteurs > « Add custom connector » : l'URL ci-dessus (finie par `/mcp`), et dans
+« Request headers » l'en-tête `Authorization` avec la valeur `Bearer notes_…`. Le connecteur apparaît
+ensuite sur le téléphone avec le même compte Claude. ChatGPT exige OAuth, pas encore servi (#175).
+
+Pour vérifier depuis un terminal, sans client :
+
+```sh
+curl -s https://<adresse>/mcp -H 'Authorization: Bearer notes_…' \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+La liste des outils en JSON : il marche. `401` : le jeton (inconnu, expiré, révoqué, ou une session).
+Rien : le tunnel ou `--mcp-addr`.
+
 ## Vérifier que ça marche
 
 Le test `app/cli/cmd-mcp/cmd_test.go` branche un client MCP en mémoire sur le serveur MCP, lui-même
 client d'une vraie API sur la base de test. Il vérifie que les vingt-trois outils sont annoncés avec un
-schéma et une description — ce que le SDK ne sait pas déduire seul d'une structure d'arguments mal
+schéma, une description et leurs annotations — ce que le SDK ne sait pas déduire seul d'une structure d'arguments mal
 formée — puis les appelle un à un.
+
+`http_test.go` sert les outils en HTTP et vérifie le 401 sans jeton, avec une session, un jeton
+inconnu, expiré ou révoqué, puis un aller-retour avec un jeton valide.
 
 ```sh
 make test ARGS=./app/cli/cmd-mcp/

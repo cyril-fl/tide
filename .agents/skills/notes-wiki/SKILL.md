@@ -1,13 +1,13 @@
 ---
 name: notes-wiki
-description: Bring the GitHub wiki of Notes (../notes.wiki) up to the latest tag, catching up every version since the last one it knows - a Versions.md section, the current version on Home.md, the pages the change touches (Application-web, Titres-et-tags, Thème, Données), screenshots of a new screen, then commit and push the wiki. Use only when the user asks for it, never on your own after a fix or a tag: when the user says "wiki", "mets à jour le wiki", "doc utilisateur".
+description: Bring the GitHub wiki of Notes (../notes.wiki) up to the latest tag, catching up every version since the last one it knows - a Versions.md section, the current version on Home.md, the pages the change touches (Web-app, Titles-and-tags, Theme, Data), screenshots of a new screen, then commit and push the wiki. Use only when the user asks for it, never on your own after a fix or a tag: when the user says "wiki", "mets à jour le wiki", "doc utilisateur".
 context: fork
 model: sonnet
 ---
 
 # Update the wiki
 
-The wiki is a separate repo, `../notes.wiki` (from `develop/`), in French. It is updated only when the user asks, since doing it after every tag cost too much time and tokens: it catches up all the tags since the last version it knows.
+The wiki is a separate repo, `../notes.wiki` (from `develop/`), in English. It is updated only when the user asks, since doing it after every tag cost too much time and tokens: it catches up all the tags since the last version it knows.
 
 ## Start from GitHub
 
@@ -23,21 +23,21 @@ Work on `origin/master`. If the local `master` is behind, `git pull --ff-only`; 
 
 Find what changed since the last version the wiki knows (`grep -m1 '^## v' Versions.md`): `git tag -l --format='%(contents)'` of each newer tag, and `git log --format='%h %s' <last>..HEAD` in `develop/` (skip `test:`, `chore:`, `style:` unless the user sees it).
 
-- **`Versions.md`**: one section per tag, newest first, above the previous one: `## vX.Y.Z : <titre court> (<j> <mois abrégé> <année>)`, then bullets saying what the user gets. A manual step (an `ALTER`, an env var) goes in its bullet.
-- **`Home.md`**: `Version actuelle : **vX.Y.Z**.`
+- **`Versions.md`**: one section per tag, newest first, above the previous one: `## vX.Y.Z: <short title> (<d> <abbreviated month> <year>)`, then bullets saying what the user gets. A manual step (an `ALTER`, an env var) goes in its bullet.
+- **`Home.md`**: `Current version: **vX.Y.Z**.`
 - **The page of the feature**, so that it describes the app as it is now, not as a changelog:
-  - `Application-web.md`: screens, shortcuts, settings (in their section), Pro mode.
-  - `Titres-et-tags.md`: titles, tags, `[[links]]`.
-  - `Thème.md`: themes, modes, fonts.
-  - `Données.md`: a new column or table in the mermaid diagram and the table list, encryption.
+  - `Web-app.md`: screens, shortcuts, settings (in their section), Pro mode.
+  - `Titles-and-tags.md`: titles, tags, `[[links]]`.
+  - `Theme.md`: themes, modes, fonts.
+  - `Data.md`: a new column or table in the mermaid diagram and the table list, encryption.
   A new page also goes into `_Sidebar.md` and the page list of `Home.md`.
 - Never: CLI commands, API routes or installation (they live in the READMEs), Tailscale addresses or the user's network setup.
 
-Check each claim against the code or the i18n strings (`notes-app/i18n/locales/fr.json`) for the exact labels; the tag message alone is too short.
+Check each claim against the code or the i18n strings (`notes-app/i18n/locales/en.json`) for the exact labels; the tag message alone is too short.
 
 ## Screenshots
 
-A new screen or a visible change gets a PNG in `images/` (`app-<sujet>.png`), linked from its page with an alt text in French. Use the `notes-app-screenshot` skill. For a shot that needs content or a click:
+A new screen or a visible change gets a PNG in `images/` (`app-<topic>.png`), linked from its page with an alt text in English. Use the `notes-app-screenshot` skill. For a shot that needs content or a click:
 
 - write a throwaway Playwright script in the session scratchpad, run from `notes-app/` with `NODE_PATH=$PWD/node_modules` (CommonJS `require`);
 - create demo notes in a folder of the e2e account (`POST /api/folders`, `POST /api/notes` with `parent_id` and `content`), set the settings the shot needs (`PATCH /api/me`, e.g. `pro`), then in `finally` delete the folder (`DELETE /api/folders/{id}`, then `DELETE /api/trash/{id}`) and put back only the settings changed;

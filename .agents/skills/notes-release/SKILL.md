@@ -15,7 +15,7 @@ Two halves: you make the commits and the READMEs (they need judgment), then the 
 - Before each commit, `git diff --cached` holds only this change, and nothing in it needs a file left out (a component, a type, a route of uncommitted work): otherwise the commit does not build on its own.
 - Generated files (`notes-go/docs/swagger.yaml`, `notes-app/app/types/api.d.ts`) follow the same rule: regenerate them only when they hold nothing of another agent's, else stage your hunks.
 - lefthook runs gofmt, Prettier and actionlint on staged files, and checks the prefix.
-- READMEs in French, in their own `docs:` commit or with the change: `notes-go/README.md` (CLI, API), `notes-app/README.md` (the app).
+- READMEs in English, in their own `docs:` commit or with the change: `notes-go/README.md` (CLI, API), `notes-app/README.md` (the app).
 
 ## 2. Checks, tag, issues, handoff (notes-release-checker)
 

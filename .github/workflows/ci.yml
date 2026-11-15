@@ -114,7 +114,8 @@ jobs:
         working-directory: notes-go
         run: docker compose --profile api logs api; cat /tmp/notes-app.log
 
-  # The image of image.yml, amd64 only and not pushed, run from compose.prod.yaml: a broken Dockerfile shows before the tag.
+  # The image of image.yml, amd64 only and not pushed, run from compose.prod.yaml: a broken Dockerfile shows before the tag,
+  # and a compose.prod.yaml that pulls another name than the repository's fails here.
   image:
     runs-on: ubuntu-latest
     steps:
@@ -124,7 +125,7 @@ jobs:
         with:
           context: .
           load: true
-          tags: ghcr.io/cyril-fl/notes:ci
+          tags: ghcr.io/${{ github.repository }}:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
       # Not secrets: a throwaway base.

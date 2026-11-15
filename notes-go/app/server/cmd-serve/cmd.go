@@ -28,6 +28,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/purgeitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/purgesessions"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/spf13/cobra"
 	"github.com/uptrace/bun"
 )
@@ -186,7 +187,7 @@ func Serve(cobra *cobra.Command, args []string) error {
 // addHost creates the account of NOTES_HOST_NAME and NOTES_HOST_PASSWORD on a base with no account yet: a server
 // put up from a compose file is reachable at once, without a shell on it. It does nothing once an account exists.
 func addHost(ctx context.Context, db bun.IDB) error {
-	name, pass := os.Getenv("NOTES_HOST_NAME"), os.Getenv("NOTES_HOST_PASSWORD")
+	name, pass := os.Getenv(config.Env("HOST_NAME")), os.Getenv(config.Env("HOST_PASSWORD"))
 	if name == "" || pass == "" {
 		return nil
 	}

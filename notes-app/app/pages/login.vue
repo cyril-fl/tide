@@ -8,6 +8,7 @@ definePageMeta({ layout: false });
 const api = useApi();
 const route = useRoute();
 const { t } = useI18n();
+const { appName } = useAppConfig();
 
 // What this server allows: a base without an account waits for its first one, so the page hands over to the sign-up
 // at once. In the public mode the sign-up is just offered; in the invitation mode it takes an invitation link.
@@ -47,7 +48,7 @@ async function login() {
 <template>
   <main class="flex min-h-dvh items-center justify-center bg-muted p-4">
     <form class="w-full max-w-xs space-y-4 rounded-xl bg-default p-6" @submit.prevent="login">
-      <h1 class="text-xl font-semibold tracking-tight">{{ $t('common.notes') }}</h1>
+      <h1 class="text-xl font-semibold tracking-tight">{{ appName }}</h1>
       <UFormField :label="$t('login.name')">
         <UInput v-model="name" autocomplete="username" autofocus class="w-full" />
       </UFormField>

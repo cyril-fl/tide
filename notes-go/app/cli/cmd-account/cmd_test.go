@@ -23,6 +23,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createtag"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/spf13/cobra"
 )
 
@@ -66,8 +67,8 @@ func setup(t *testing.T) context.Context {
 
 	// The session file of the user, under HOME, stays untouched.
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("NOTES_URL", "")
-	t.Setenv("NOTES_SESSION", "")
+	t.Setenv(config.Env("URL"), "")
+	t.Setenv(config.Env("SESSION"), "")
 	return ctx
 }
 
@@ -199,7 +200,7 @@ func TestWhoami(t *testing.T) {
 		t.Errorf("printed %q, err = %v; want %q", printed, err, want)
 	}
 
-	t.Setenv("NOTES_SESSION", "expired")
+	t.Setenv(config.Env("SESSION"), "expired")
 	if _, err := run(t, ctx, Whoami, ""); err == nil || err.Error() != readsession.ErrNoSession.Error() {
 		t.Errorf("unknown token: err = %v, want %v", err, readsession.ErrNoSession)
 	}
@@ -323,7 +324,7 @@ func TestPrintToken(t *testing.T) {
 		t.Errorf("session file rewritten by --print-token")
 	}
 
-	t.Setenv("NOTES_SESSION", token+"\n")
+	t.Setenv(config.Env("SESSION"), token+"\n")
 	if read := apiclient.Read().Token; read != token {
 		t.Errorf("token = %q, want NOTES_SESSION's", read)
 	}
@@ -337,7 +338,7 @@ func TestPrintToken(t *testing.T) {
 		t.Errorf("NOTES_SESSION after logout: err = %v, want %v", err, readsession.ErrNoSession)
 	}
 
-	t.Setenv("NOTES_SESSION", "")
+	t.Setenv(config.Env("SESSION"), "")
 	if _, err := withAccount(ctx); err != nil {
 		t.Errorf("the file's session after logging NOTES_SESSION out: %v, want it kept", err)
 	}

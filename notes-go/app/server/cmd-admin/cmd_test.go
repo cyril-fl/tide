@@ -18,6 +18,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createsession"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resetpassword"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/spf13/cobra"
 )
 
@@ -178,7 +179,7 @@ func TestAskPassword(t *testing.T) {
 
 func TestRotateSecret(t *testing.T) {
 	ctx := setup(t)
-	t.Setenv("NOTES_OLD_SECRET", "b2xkIHNlY3JldCBvZiB0aGUgc2VydmVyLCAzMiBieXQ=")
+	t.Setenv(config.Env("OLD_SECRET"), "b2xkIHNlY3JldCBvZiB0aGUgc2VydmVyLCAzMiBieXQ=")
 
 	printed, err := run(t, ctx, RotateSecret, "")
 	if err != nil || !strings.HasPrefix(printed, "Successfully sealed ") {

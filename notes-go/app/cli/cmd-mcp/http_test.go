@@ -13,6 +13,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createapitoken"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -28,7 +29,7 @@ func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
 // TestHandler serves the tools over HTTP for an API token only, and acts for its account.
 func TestHandler(t *testing.T) {
 	ctx, tx := apitest.Serve(t)
-	api, err := url.Parse(os.Getenv("NOTES_URL"))
+	api, err := url.Parse(os.Getenv(config.Env("URL")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +55,7 @@ func TestHandler(t *testing.T) {
 	}
 
 	for name, token := range map[string]string{
-		"none": "", "session": os.Getenv("NOTES_SESSION"), "unknown": createapitoken.Prefix + "nope",
+		"none": "", "session": os.Getenv(config.Env("SESSION")), "unknown": createapitoken.Prefix + "nope",
 		"expired": expired, "revoked": revoked,
 	} {
 		request, _ := http.NewRequest(http.MethodPost, server.URL, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
@@ -90,7 +91,7 @@ func TestHandler(t *testing.T) {
 // A read-only token gets the reading tools only.
 func TestHandlerReadOnly(t *testing.T) {
 	ctx, tx := apitest.Serve(t)
-	api, err := url.Parse(os.Getenv("NOTES_URL"))
+	api, err := url.Parse(os.Getenv(config.Env("URL")))
 	if err != nil {
 		t.Fatal(err)
 	}

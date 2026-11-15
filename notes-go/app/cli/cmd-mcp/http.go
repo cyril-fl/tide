@@ -10,6 +10,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/server/oauth"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createapitoken"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -49,7 +50,7 @@ func Handler(api http.Handler, version string) http.Handler {
 			return
 		}
 
-		server := mcp.NewServer(&mcp.Implementation{Name: "notes", Title: "Notes", Version: version}, nil)
+		server := mcp.NewServer(&mcp.Implementation{Name: config.Current.Name, Title: config.Title(), Version: version}, nil)
 		AddTools(server, client, readOnly)
 		mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, options).ServeHTTP(w, r)
 	})

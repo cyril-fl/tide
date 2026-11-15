@@ -12,11 +12,12 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createsession"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readapitoken"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/uptrace/bun"
 )
 
 // Cookie holds the session token of the web app: HttpOnly, page scripts never see it.
-const Cookie = "notes_session"
+var Cookie = config.Current.Name + "_session"
 
 // ReadOnlyHeader is set to "true" on the answers to a read-only API token.
 const ReadOnlyHeader = "Notes-Read-Only"

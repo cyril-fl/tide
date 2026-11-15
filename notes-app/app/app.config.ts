@@ -1,4 +1,6 @@
 export default defineAppConfig({
+  // The name of the app, in the tab title and on the login page.
+  appName: 'Notes',
   ui: {
     // The theme: each key takes a Tailwind palette or one declared in main.css.
     colors: { primary: 'notes', secondary: 'slate', neutral: 'plain' },

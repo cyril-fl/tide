@@ -3,12 +3,12 @@ commands:
   create:
     use: "add"
     short: "Add a new note, folder, tag, or API token"
-    example: "notes add [--note | --folder | --tag] [options]"
+    example: "{name} add [--note | --folder | --tag] [options]"
   create-note:
     use: "note"
     short: "Add a new note"
     long: "Add a new note. A form opens for the content when --content is not given. The title is the first heading of the content, or its first words."
-    example: "notes add note --content \"# Ideas\" --tag go,sql\ncat ideas.md | notes add note --content - --parent /Projects"
+    example: "{name} add note --content \"# Ideas\" --tag go,sql\ncat ideas.md | {name} add note --content - --parent /Projects"
     args:
       - name: "content"
         shorthand: "c"
@@ -39,7 +39,7 @@ commands:
     use: "folder"
     short: "Add a new folder"
     long: "Add a new folder. A form opens for the title when --title is not given."
-    example: "notes add folder --title \"Projects\" --parent /Work"
+    example: "{name} add folder --title \"Projects\" --parent /Work"
     args:
       - name: "title"
         shorthand: "t"
@@ -63,7 +63,7 @@ commands:
     use: "token <name>"
     short: "Add an API token to the account"
     long: "Create a named API token for scripts and agents, and print it once on stdout: the server keeps only its hash. It acts on the notes, folders, tags and files like the account (Authorization: Bearer <token>), never on the account itself: its tokens, password or settings. It expires after --expires: 7d, 30d, 90d, 1y or never. --read-only refuses it every change, and gives the MCP its reading tools only."
-    example: "notes add token \"script backup\"\nnotes add token \"Claude phone\" --expires 30d\nnotes add token \"reader\" --read-only"
+    example: "{name} add token \"script backup\"\n{name} add token \"Claude phone\" --expires 30d\n{name} add token \"reader\" --read-only"
     args:
       - name: "expires"
         shorthand: ""
@@ -82,12 +82,12 @@ commands:
     use: "note <uuid|path>"
     short: "Show an existing note"
     long: "Show the path of a note, then its content rendered as markdown."
-    example: "notes show note <uuid>\nnotes show note /Projects/Go/Ideas"
+    example: "{name} show note <uuid>\n{name} show note /Projects/Go/Ideas"
   read-folder:
     use: "folder <uuid|path>"
     short: "Show an existing folder"
     long: "Show the title and path of a folder, then its subfolders and notes."
-    example: "notes show folder <uuid>\nnotes show folder /Projects --json"
+    example: "{name} show folder <uuid>\n{name} show folder /Projects --json"
     args:
       - name: "json"
         shorthand: ""
@@ -98,7 +98,7 @@ commands:
     use: "tag [<value>]"
     short: "Show an existing tag"
     long: "Show a tag and the notes carrying it, or every tag with --list (--yaml/--json apply to --list)."
-    example: "notes show tag go\nnotes show tag --list --json"
+    example: "{name} show tag go\n{name} show tag --list --json"
     args:
       - name: "list"
         shorthand: "l"
@@ -119,7 +119,7 @@ commands:
     use: "token"
     short: "List the API tokens of the account"
     long: "List the API tokens of the account: name, uuid, creation, last use and expiry. The tokens themselves are never shown again."
-    example: "notes show token\nnotes show token --json"
+    example: "{name} show token\n{name} show token --json"
     args:
       - name: "yaml"
         shorthand: ""
@@ -138,7 +138,7 @@ commands:
     use: "note <uuid|path>"
     short: "Edit an existing note"
     long: "Edit an existing note. Without content, tag, pin or lock flags, a form opens with the current content. The title follows the first heading of the content, or its first words. --pin or --lock alone leaves the text and its last change date as they are. A locked note refuses content and tag changes until --unlock."
-    example: "notes edit note /Projects/Go/Ideas --tag go --untag sql\ncat ideas.md | notes edit note <uuid> --content -\nnotes edit note /Projects/Go/Ideas --pin\nnotes edit note /Projects/Go/Ideas --lock"
+    example: "{name} edit note /Projects/Go/Ideas --tag go --untag sql\ncat ideas.md | {name} edit note <uuid> --content -\n{name} edit note /Projects/Go/Ideas --pin\n{name} edit note /Projects/Go/Ideas --lock"
     args:
       - name: "content"
         shorthand: "c"
@@ -184,7 +184,7 @@ commands:
     use: "folder <uuid|path>"
     short: "Edit an existing folder"
     long: "Edit an existing folder. A form opens with the current title when no flag is given. --pin alone leaves the title as it is."
-    example: "notes edit folder <uuid> --title \"Projects\"\nnotes edit folder /Projects --pin"
+    example: "{name} edit folder <uuid> --title \"Projects\"\n{name} edit folder /Projects --pin"
     args:
       - name: "title"
         shorthand: "t"
@@ -211,12 +211,12 @@ commands:
     use: "note"
     short: "Move notes to the trash"
     long: "Move notes to the trash. They are purged for good after the trash retention of the account, 30 days by default."
-    example: "notes remove note <uuid|path> [<uuid|path>...]"
+    example: "{name} remove note <uuid|path> [<uuid|path>...]"
   delete-folder:
     use: "folder"
     short: "Move folders and their content to the trash"
     long: "Move folders, their subfolders and notes to the trash. They are purged for good after the trash retention of the account, 30 days by default."
-    example: "notes remove folder <uuid|path> [<uuid|path>...]"
+    example: "{name} remove folder <uuid|path> [<uuid|path>...]"
   delete-tag:
     use: "tag"
     short: "Delete an existing tag"
@@ -224,12 +224,12 @@ commands:
     use: "token <uuid>"
     short: "Revoke an API token of the account"
     long: "Revoke an API token: it stops working at once. Its uuid is in notes show token."
-    example: "notes remove token 3f2a4b1c-0d9e-4a8b-9c7d-1e2f3a4b5c6d"
+    example: "{name} remove token 3f2a4b1c-0d9e-4a8b-9c7d-1e2f3a4b5c6d"
   move:
     use: "move <uuid|path>..."
     short: "Move existing notes or folders to a new location"
     long: "Move notes and folders into the folder given by --parent, or to the root without it."
-    example: "notes move <uuid> /Inbox/Ideas --parent /Projects"
+    example: "{name} move <uuid> /Inbox/Ideas --parent /Projects"
     args:
       - name: "parent"
         shorthand: "p"
@@ -245,17 +245,17 @@ commands:
     use: "finder [<uuid|path>]"
     short: "Browse folders and notes"
     long: "Browse folders and notes from a folder (the root by default): open, edit, create, delete and filter them."
-    example: "notes finder\nnotes finder /Projects"
+    example: "{name} finder\n{name} finder /Projects"
   show-graph:
     use: "graph [<uuid|path>]"
     short: "Walk the notes linked by [[links]] and the tags they share"
     long: "Center on a note to see its [[links]], its backlinks and the notes sharing its tags, most shared first, and move from note to note. Without a note, start from every note."
-    example: "notes graph\nnotes graph /Projects/Go/Ideas"
+    example: "{name} graph\n{name} graph /Projects/Go/Ideas"
   trash:
     use: "trash"
     short: "List the removed notes and folders"
     long: "List what was removed, each removal once with what went with it, and when it is purged."
-    example: "notes trash\nnotes trash --json"
+    example: "{name} trash\n{name} trash --json"
     args:
       - name: "json"
         shorthand: ""
@@ -266,12 +266,12 @@ commands:
     use: "restore <uuid>..."
     short: "Take notes and folders out of the trash"
     long: "Take items out of the trash, with everything removed at the same time. An item whose folder is still in the trash cannot come back alone."
-    example: "notes restore <uuid> [<uuid>...]"
+    example: "{name} restore <uuid> [<uuid>...]"
   search:
     use: "search <text>"
     short: "Find notes by their title or content"
     long: "List the notes whose title or content contains the text (case-insensitive), title matches first, 50 of them unless --limit says otherwise. Enter opens a note."
-    example: "notes search recette\nnotes search \"pâte brisée\"\nnotes search recette --json\nnotes search recette --limit 0"
+    example: "{name} search recette\n{name} search \"pâte brisée\"\n{name} search recette --json\n{name} search recette --limit 0"
     args:
       - name: "limit"
         shorthand: ""
@@ -287,7 +287,7 @@ commands:
     use: "recent"
     short: "List the last changed notes"
     long: "List the last changed notes, most recent first. Enter opens a note."
-    example: "notes recent\nnotes recent --json"
+    example: "{name} recent\n{name} recent --json"
     args:
       - name: "json"
         shorthand: ""
@@ -298,12 +298,12 @@ commands:
     use: "export <directory> [<uuid|path>]"
     short: "Write notes out as markdown files"
     long: "Write the notes of a folder (all of them without one) into a new or empty directory: a folder becomes a directory, a note a <title>.md file with its text. Links to notes are written back as [[Title]]."
-    example: "notes export ~/notes-backup\nnotes export ~/projets /Projects"
+    example: "{name} export ~/notes-backup\n{name} export ~/projets /Projects"
   import:
     use: "import <directory>"
     short: "Add markdown files as notes"
     long: "Add every .md file of a directory as a note, and its subdirectories as folders, all or nothing. Hidden files and other files are skipped; a text without a heading gets its file name as title. A folder name already taken in the same place stops the import."
-    example: "notes import ~/notes-backup --parent /Archive\nnotes import ~/Obsidian/vault"
+    example: "{name} import ~/notes-backup --parent /Archive\n{name} import ~/Obsidian/vault"
     args:
       - name: "parent"
         shorthand: "p"
@@ -313,8 +313,8 @@ commands:
   serve:
     use: "serve"
     short: "Run the HTTP API"
-    long: "Run the HTTP API. It has no authentication: keep it on the loopback. Web pages can only call it from --origin. Accounts are created by invitation of an admin, unless --add-user-mode=public. --mcp-addr also serves the MCP tools over HTTP to agents (the Claude app, ChatGPT), authenticated by an API token or OAuth. NOTES_HOST_NAME and NOTES_HOST_PASSWORD create the first account on an empty base."
-    example: "notes-server serve --origin http://localhost:3000"
+    long: "Run the HTTP API. It has no authentication: keep it on the loopback. Web pages can only call it from --origin. Accounts are created by invitation of an admin, unless --add-user-mode=public. --mcp-addr also serves the MCP tools over HTTP to agents (the Claude app, ChatGPT), authenticated by an API token or OAuth. {NAME}_HOST_NAME and {NAME}_HOST_PASSWORD create the first account on an empty base."
+    example: "{name}-server serve --origin http://localhost:3000"
     args:
       - name: "addr"
         shorthand: ""
@@ -354,18 +354,18 @@ commands:
   mcp:
     use: "mcp"
     short: "Serve the account's notes to an agent (MCP, stdio)"
-    long: "Serve the notes of the logged-in account to an agent over MCP on stdin and stdout: search, read, create, edit, move, trash and restore. It is a client of the API like the rest of the CLI, listens on no port, and acts on the server and for the account of this CLI session (notes login, or NOTES_URL and NOTES_SESSION)."
-    example: "notes mcp"
+    long: "Serve the notes of the logged-in account to an agent over MCP on stdin and stdout: search, read, create, edit, move, trash and restore. It is a client of the API like the rest of the CLI, listens on no port, and acts on the server and for the account of this CLI session ({name} login, or {NAME}_URL and {NAME}_SESSION)."
+    example: "{name} mcp"
   login:
     use: "login <url>"
     short: "Log the CLI in to an account on a server"
-    long: "Ask the account's name and password, log in on the server at <url>, and keep the server and the session in ~/.config/notes/session.json (readable by the user only). Every other command then acts for this account. With --print-token, print a new session token instead and keep nothing: an agent that cannot log in where it runs gets it through NOTES_SESSION, and the server through NOTES_URL, which win over the file. The token opens the whole account."
-    example: "notes login https://notes.example.ts.net\nexport NOTES_SESSION=$(notes login https://notes.example.ts.net --print-token)"
+    long: "Ask the account's name and password, log in on the server at <url>, and keep the server and the session in ~/.config/{name}/session.json (readable by the user only). Every other command then acts for this account. With --print-token, print a new session token instead and keep nothing: an agent that cannot log in where it runs gets it through {NAME}_SESSION, and the server through {NAME}_URL, which win over the file. The token opens the whole account."
+    example: "{name} login https://notes.example.ts.net\nexport {NAME}_SESSION=$({name} login https://notes.example.ts.net --print-token)"
     args:
       - name: "print-token"
         shorthand: ""
         value: ""
-        usage: "Print a new session token for NOTES_SESSION instead of keeping it"
+        usage: "Print a new session token for {NAME}_SESSION instead of keeping it"
         type: "bool"
   logout:
     use: "logout"
@@ -380,7 +380,7 @@ commands:
     use: "add <name>"
     short: "Create an account"
     long: "Create an account; the password is asked twice, or read from stdin with --password-stdin."
-    example: "notes-server user add cyril\necho \"$PASSWORD\" | notes-server user add cyril --password-stdin"
+    example: "{name}-server user add cyril\necho \"$PASSWORD\" | {name}-server user add cyril --password-stdin"
     args:
       - name: "password-stdin"
         shorthand: ""
@@ -391,7 +391,7 @@ commands:
     use: "perf <name> [notes]"
     short: "Create an account of generated notes, to measure the app at scale (hidden)"
     long: "Create the account with [notes] generated notes (50000 by default): one big folder and 30 small ones, 1 to 4 tags per note among 150 on a Zipf law, a few [[links]]. Nothing is done when the account exists. The password is read from stdin with --password-stdin. Used by make perf."
-    example: "echo perf-password | notes-server user perf perf --password-stdin"
+    example: "echo perf-password | {name}-server user perf perf --password-stdin"
     args:
       - name: "password-stdin"
         shorthand: ""
@@ -402,7 +402,7 @@ commands:
     use: "reset-password <name>"
     short: "Give an account a new password"
     long: "Give an account a new password, for a forgotten one, and log all its devices out: the way back in when no admin can log in any more."
-    example: "notes-server user reset-password cyril"
+    example: "{name}-server user reset-password cyril"
     args:
       - name: "password-stdin"
         shorthand: ""
@@ -411,9 +411,9 @@ commands:
         type: "bool"
   rotate-secret:
     use: "rotate-secret"
-    short: "Seal the keys of the accounts by a new NOTES_SECRET"
-    long: "Seal the key of every account, sealed by NOTES_OLD_SECRET, by NOTES_SECRET instead. Put the new secret in NOTES_SECRET and the old one in NOTES_OLD_SECRET, after make backup; the notes are not rewritten. Then the same NOTES_SECRET goes in .env.docker, and make api."
-    example: "NOTES_OLD_SECRET=<old> notes-server rotate-secret"
+    short: "Seal the keys of the accounts by a new {NAME}_SECRET"
+    long: "Seal the key of every account, sealed by {NAME}_OLD_SECRET, by {NAME}_SECRET instead. Put the new secret in {NAME}_SECRET and the old one in {NAME}_OLD_SECRET, after make backup; the notes are not rewritten. Then the same {NAME}_SECRET goes in .env.docker, and make api."
+    example: "{NAME}_OLD_SECRET=<old> {name}-server rotate-secret"
   account:
     use: "account"
     short: "Manage the account logged in"
@@ -421,11 +421,11 @@ commands:
     use: "purge"
     short: "Delete every note, folder, tag and image of the account"
     long: "Delete for good every note, folder, tag and image of the account logged in, the trash included. The account and its settings stay. Type the account's name to confirm."
-    example: "notes account purge"
+    example: "{name} account purge"
   root:
     short: "The root of the notes system"
-    long: "The root of the notes system, used to access the main functionality. A client of the API of a notes-server: notes login <url> first."
+    long: "The root of the {name} system, used to access the main functionality. A client of the API of a {name}-server: {name} login <url> first."
   server-root:
-    use: "notes-server"
+    use: "{name}-server"
     short: "The server of the notes system"
-    long: "The server of the notes system: the API and the web app, and the commands of its admin, on the base."
+    long: "The server of the {name} system: the API and the web app, and the commands of its admin, on the base."

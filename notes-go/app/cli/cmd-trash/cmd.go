@@ -8,6 +8,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
+	"github.com/cyril-fl/notes/notes-go/config"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/spf13/cobra"
 )
@@ -52,7 +53,7 @@ func Trash(cobra *cobra.Command, args []string) error {
 }
 
 func output(trash []apiclient.ListtrashTrashed, retention int, now time.Time) (string, error) {
-	header := style.Header("Trash", "notes restore <uuid> brings an item back", info(len(trash), retention)) + "\n"
+	header := style.Header("Trash", config.Current.Name+" restore <uuid> brings an item back", info(len(trash), retention)) + "\n"
 	if len(trash) == 0 {
 		return header + style.Empty().Render("The trash is empty"), nil
 	}

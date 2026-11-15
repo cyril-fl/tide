@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime/debug"
 	"strings"
 
@@ -113,20 +114,55 @@ func load() (*config, error) {
 	return current, nil
 }
 
+// Env is the name of the app's environment variable key: NOTES_<key>, the prefix from the name.
+func Env(key string) string {
+	return strings.ToUpper(Current.Name) + "_" + key
+}
+
+// Title is the name of the app as shown: Notes.
+func Title() string {
+	return strings.ToUpper(Current.Name[:1]) + Current.Name[1:]
+}
+
+// Dir is the user's folder of the app, ~/.config/notes: its session and its .env.
+func Dir() (string, error) {
+	home, err := os.UserHomeDir()
+	return filepath.Join(home, ".config", Current.Name), err
+}
+
+// expand writes the name into the texts of the commands, which say {name} for the program and {NAME} for the prefix
+// of its environment variables.
+func (c *config) expand() {
+	replacer := strings.NewReplacer("{name}", c.Name, "{NAME}", strings.ToUpper(c.Name))
+	commands := reflect.ValueOf(&c.Commands).Elem()
+	for i := range commands.NumField() {
+		params := commands.Field(i).Addr().Interface().(*plumcliconfig.Cmdparams)
+		params.Use, params.Short, params.Long, params.Example = replacer.Replace(params.Use), replacer.Replace(params.Short), replacer.Replace(params.Long), replacer.Replace(params.Example)
+		for j := range params.Flags {
+			params.Flags[j].Usage = replacer.Replace(params.Flags[j].Usage)
+		}
+	}
+}
+
 // loadEnv reads the user file first: godotenv never overwrites a value, so the .env of whatever
 // project the CLI runs from cannot point it at another database.
 func loadEnv() {
-	if home, err := os.UserHomeDir(); err == nil {
-		godotenv.Load(filepath.Join(home, ".config", "notes", ".env"))
+	if dir, err := Dir(); err == nil {
+		godotenv.Load(filepath.Join(dir, ".env"))
 	}
 	godotenv.Load()
 }
 
 func init() {
+	// The name of the user's folder, for loadEnv: the CONFIG_FILE it may set is read after.
+	if err := yaml.Unmarshal(embedded, &Current); err != nil {
+		panic(fmt.Errorf("embedded config: %w", err))
+	}
 	loadEnv()
 	loaded, err := load()
 	if err != nil {
 		panic(err)
 	}
 	Current = *loaded
+	Current.expand()
 }

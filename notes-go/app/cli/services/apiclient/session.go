@@ -10,9 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cyril-fl/notes/notes-go/config"
 )
 
-var ErrNoSession = errors.New("not logged in: run notes login <url>")
+var ErrNoSession = errors.New("not logged in: run " + config.Current.Name + " login <url>")
 
 // Session is the server and the session token of notes login, or of NOTES_URL and NOTES_SESSION.
 type Session struct {
@@ -22,11 +24,11 @@ type Session struct {
 
 // SessionFile keeps the session, readable by the user only: the token opens the whole account.
 func SessionFile() (string, error) {
-	home, err := os.UserHomeDir()
+	dir, err := config.Dir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "notes", "session.json"), nil
+	return filepath.Join(dir, "session.json"), nil
 }
 
 // Read takes NOTES_URL and NOTES_SESSION first, each on its own, for an agent that cannot run notes login where it
@@ -38,10 +40,10 @@ func Read() Session {
 			_ = json.Unmarshal(data, &session)
 		}
 	}
-	if url := strings.TrimSpace(os.Getenv("NOTES_URL")); url != "" {
+	if url := strings.TrimSpace(os.Getenv(config.Env("URL"))); url != "" {
 		session.URL = url
 	}
-	if token := strings.TrimSpace(os.Getenv("NOTES_SESSION")); token != "" {
+	if token := strings.TrimSpace(os.Getenv(config.Env("SESSION"))); token != "" {
 		session.Token = token
 	}
 	return session

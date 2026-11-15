@@ -22,6 +22,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/uptrace/bun"
 )
 
@@ -29,13 +30,13 @@ import (
 const Prefix = "enc1:"
 
 var (
-	ErrNoKey     = errors.New("NOTES_SECRET must be set to 32 random bytes in base64: openssl rand -base64 32")
+	ErrNoKey     = errors.New(config.Env("SECRET") + " must be set to 32 random bytes in base64: openssl rand -base64 32")
 	ErrNotLoaded = errors.New("the key of the account is not loaded")
-	ErrCorrupt   = errors.New("a value of the base cannot be decrypted: is NOTES_SECRET the one it was written with?")
+	ErrCorrupt   = errors.New("a value of the base cannot be decrypted: is " + config.Env("SECRET") + " the one it was written with?")
 )
 
 var master = sync.OnceValues(func() (cipher.AEAD, error) {
-	return newAEAD(os.Getenv("NOTES_SECRET"))
+	return newAEAD(os.Getenv(config.Env("SECRET")))
 })
 
 // keys are the keys of the accounts loaded, by account id: they never change, Rewrap only seals them again.

@@ -17,6 +17,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resetpassword"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/rotatesecret"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/seedperf"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/spf13/cobra"
 )
 
@@ -81,12 +82,12 @@ func ResetPassword(cobra *cobra.Command, args []string) error {
 
 // RotateSecret seals the keys of the accounts by NOTES_SECRET, in place of NOTES_OLD_SECRET.
 func RotateSecret(cobra *cobra.Command, args []string) error {
-	process := rotatesecret.Process(cobra.Context(), postgrey.GetDb(), os.Getenv("NOTES_OLD_SECRET"))
+	process := rotatesecret.Process(cobra.Context(), postgrey.GetDb(), os.Getenv(config.Env("OLD_SECRET")))
 	process.Run()
 	if process.HasErr() {
 		return process.GetErr()
 	}
-	fmt.Printf("Successfully sealed %d account keys by the new NOTES_SECRET: put it in .env.docker too, then make api\n", process.GetResult())
+	fmt.Printf("Successfully sealed %d account keys by the new %s: put it in .env.docker too, then make api\n", process.GetResult(), config.Env("SECRET"))
 	return nil
 }
 

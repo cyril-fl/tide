@@ -2,8 +2,9 @@
 import { en, fr } from '@nuxt/ui/locale';
 
 const { locale } = useI18n();
+const { appName } = useAppConfig();
 const uiLocale = computed(() => (locale.value === 'en' ? en : fr));
-useHead({ titleTemplate: (title) => (title ? `Notes - ${title}` : 'Notes') });
+useHead({ titleTemplate: (title) => (title ? `${appName} - ${title}` : appName) });
 </script>
 
 <template>

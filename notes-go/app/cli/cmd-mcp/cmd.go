@@ -19,6 +19,7 @@ import (
 
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/hashtag"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 )
@@ -192,7 +193,7 @@ func Serve(cobra *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	server := mcp.NewServer(&mcp.Implementation{Name: "notes", Title: "Notes", Version: cobra.Root().Version}, nil)
+	server := mcp.NewServer(&mcp.Implementation{Name: config.Current.Name, Title: config.Title(), Version: cobra.Root().Version}, nil)
 	AddTools(server, client, false)
 	return server.Run(cobra.Context(), &mcp.StdioTransport{})
 }

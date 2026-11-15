@@ -17,6 +17,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/uptrace/bun"
 )
 
@@ -56,8 +57,8 @@ func Serve(t *testing.T) (context.Context, bun.Tx) {
 
 	// The session file of the user, under HOME, stays untouched.
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("NOTES_URL", server.URL)
-	t.Setenv("NOTES_SESSION", token)
+	t.Setenv(config.Env("URL"), server.URL)
+	t.Setenv(config.Env("SESSION"), token)
 	return ctx, savepoint
 }
 

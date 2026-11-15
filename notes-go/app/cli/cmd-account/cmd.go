@@ -11,6 +11,7 @@ import (
 	"charm.land/huh/v2"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/spf13/cobra"
 )
 
@@ -70,7 +71,7 @@ func Logout(cobra *cobra.Command, args []string) error {
 	if code := response.StatusCode(); code != http.StatusNoContent && code != http.StatusUnauthorized {
 		return apiclient.Fail(response.HTTPResponse, response.Body)
 	}
-	if strings.TrimSpace(os.Getenv("NOTES_SESSION")) == "" {
+	if strings.TrimSpace(os.Getenv(config.Env("SESSION"))) == "" {
 		file, err := apiclient.SessionFile()
 		if err != nil {
 			return err

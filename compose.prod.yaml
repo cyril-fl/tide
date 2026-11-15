@@ -3,6 +3,7 @@
 # The server keeps its own copy (with a Makefile for init, update and backup): a change here goes there by hand.
 services:
   notes:
+    # The name image.yml publishes, ghcr.io/<the GitHub repository>: the CI checks they match.
     image: ghcr.io/cyril-fl/notes:${NOTES_VERSION:-latest}
     container_name: note-api
     environment:

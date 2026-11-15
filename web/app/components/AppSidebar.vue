@@ -220,7 +220,7 @@ const isOverRoot = useDropFolder(rootLink, () => null);
               <UTooltip :text="$t('sidebar.removeFavorite')">
                 <button
                   type="button"
-                  class="shrink-0 text-muted hover:text-default"
+                  class="shrink-0 text-primary hover:text-primary/70"
                   :aria-label="$t('sidebar.removeFavorite')"
                   @click="pinItem(folder, false)"
                 >
@@ -245,7 +245,7 @@ const isOverRoot = useDropFolder(rootLink, () => null);
                 <UTooltip :text="$t('sidebar.unpin')">
                   <button
                     type="button"
-                    class="shrink-0 text-muted hover:text-default"
+                    class="shrink-0 text-primary hover:text-primary/70"
                     :aria-label="$t('sidebar.unpin')"
                     @click="pinItem(note, false)"
                   >
@@ -330,9 +330,9 @@ const isOverRoot = useDropFolder(rootLink, () => null);
                   :to="tagPath(tag.value)"
                   :label="`#${tag.value}`"
                   size="xs"
-                  color="neutral"
+                  color="primary"
                   variant="soft"
-                  active-color="primary"
+                  active-variant="solid"
                   class="max-w-full font-normal"
                   :ui="{ label: 'truncate' }"
                 />

@@ -49,7 +49,7 @@ for (const theme of themes) {
         'a button': [dark ? grey(900) : '#ffffff', primary],
         'a selected row': [text, over(primary, bg, 0.15)],
       };
-      // The status colors of main.css; notes keeps those of Nuxt UI, Tailwind's.
+      // The status colors of main.css.
       for (const status of [theme.success, theme.info, theme.warning, theme.error]) {
         const color = palette[`${status}-${dark ? 400 : 500}`];
         if (!color) continue;

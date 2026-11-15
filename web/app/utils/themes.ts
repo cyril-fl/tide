@@ -11,7 +11,7 @@ const own = (id: string) => ({
 });
 
 export const themes = [
-  { id: 'notes', primary: 'notes', neutral: 'plain', success: 'green', info: 'blue', warning: 'yellow', error: 'red' },
+  own('notes'),
   own('dracula'),
   own('catppuccin'),
   own('nord'),

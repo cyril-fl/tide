@@ -9,37 +9,33 @@
   --font-mono: 'Geist Mono', ui-monospace, monospace;
 }
 
-/* Warm greys, used as the neutral color in app.config.ts. One scale serves both modes:
-   light reads text from 700 on white, dark reads its background from 900 and its text from 200. */
-@theme static {
-  --color-plain-50: #f7f7f5;
-  --color-plain-100: #f1f1ef;
-  --color-plain-200: #e3e2e0;
-  --color-plain-300: #d3d2cf;
-  --color-plain-400: #9b9a97;
-  --color-plain-500: #6c6c69;
-  --color-plain-600: #5f5e5b;
-  --color-plain-700: #373633;
-  --color-plain-800: #252525;
-  --color-plain-900: #191919;
-  --color-plain-950: #0f0f0f;
-}
-
 /* The themes of app/utils/themes.ts, an accent and its greys each, taken from the key colors of the open source schemes
-   of the same name (notes: the Tailwind blue on the plain greys; dracula: the darker backgrounds of OM Theme Default Dracula Italic, mirrored in light as cool lavender whites; tokyo: Tokyo Night with its red as the accent; vue: Vue Theme, its light side drawn from the same teal), the shades used for text and buttons darkened or lightened to reach WCAG AA (4.5:1) in both modes.
-   Static: Tailwind keeps them though no class uses them. The greys serve both modes, like plain. */
+   of the same name (notes: its own, the olive green #b5b35c of color-name.com, lightened, as the dark accent (400), the Greek blue #1269c7 as the light one (600), on greys tinted with the Greek blue in light and neutral ones from #171717 in dark; dracula: the darker backgrounds of OM Theme Default Dracula Italic, mirrored in light as cool lavender whites; tokyo: Tokyo Night with its red as the accent; vue: Vue Theme, its light side drawn from the same teal), the shades used for text and buttons darkened or lightened to reach WCAG AA (4.5:1) in both modes.
+   Static: Tailwind keeps them though no class uses them. The greys serve both modes: light reads its text from 700 on white, dark its background from 900 and its text from 200. */
 @theme static {
-  --color-notes-50: #eff6ff;
-  --color-notes-100: #dbeafe;
-  --color-notes-200: #bfdbfe;
-  --color-notes-300: #93c5fd;
-  --color-notes-400: #60a5fa;
-  --color-notes-500: #2c6def;
-  --color-notes-600: #245ce2;
-  --color-notes-700: #1d4ed8;
-  --color-notes-800: #1e40af;
-  --color-notes-900: #1e3a8a;
-  --color-notes-950: #172554;
+  --color-notes-50: #f7f7ec;
+  --color-notes-100: #eeedd4;
+  --color-notes-200: #dedcab;
+  --color-notes-300: #cbc983;
+  --color-notes-400: #c5c36b;
+  --color-notes-500: #1a78dc;
+  --color-notes-600: #1269c7;
+  --color-notes-700: #0f58a8;
+  --color-notes-800: #0d4888;
+  --color-notes-900: #0b3a6d;
+  --color-notes-950: #072546;
+
+  --color-notes-gray-50: #f6f8fb;
+  --color-notes-gray-100: #eef2f7;
+  --color-notes-gray-200: #dde4ee;
+  --color-notes-gray-300: #c5cfdc;
+  --color-notes-gray-400: #9aa6b6;
+  --color-notes-gray-500: #5f6b7b;
+  --color-notes-gray-600: #4b5563;
+  --color-notes-gray-700: #30343b;
+  --color-notes-gray-800: #262626;
+  --color-notes-gray-900: #171717;
+  --color-notes-gray-950: #0f0f0f;
 
   --color-dracula-50: #f7f2ff;
   --color-dracula-100: #ede3fe;
@@ -210,9 +206,57 @@
   --color-vue-gray-950: #001d25;
 }
 
-/* The status colors of the themes (success, info, warning, error), from the same schemes: their dark shade (400) is the
+/* The status colors of the themes (success, info, warning, error), from the same schemes (notes: sage, steel blue, ochre and terracotta, muted to sit with the olive): their dark shade (400) is the
    scheme's color, lightened if needed, their light shade (500) darkened, both to 4.5:1 on the theme's backgrounds. */
 @theme static {
+  --color-notes-success-50: #eef6ed;
+  --color-notes-success-100: #ddeddc;
+  --color-notes-success-200: #c7e2c5;
+  --color-notes-success-300: #abd3a7;
+  --color-notes-success-400: #8fc48a;
+  --color-notes-success-500: #36773a;
+  --color-notes-success-600: #306933;
+  --color-notes-success-700: #29592c;
+  --color-notes-success-800: #204723;
+  --color-notes-success-900: #18361a;
+  --color-notes-success-950: #102411;
+
+  --color-notes-info-50: #edf4fa;
+  --color-notes-info-100: #dbe9f5;
+  --color-notes-info-200: #c3dbee;
+  --color-notes-info-300: #a4c8e5;
+  --color-notes-info-400: #86b6dc;
+  --color-notes-info-500: #22668c;
+  --color-notes-info-600: #1e5a7b;
+  --color-notes-info-700: #1a4d69;
+  --color-notes-info-800: #143d54;
+  --color-notes-info-900: #0f2e3f;
+  --color-notes-info-950: #0a1f2a;
+
+  --color-notes-warning-50: #fbf4e7;
+  --color-notes-warning-100: #f6ead0;
+  --color-notes-warning-200: #f1dcb1;
+  --color-notes-warning-300: #e9ca89;
+  --color-notes-warning-400: #e2b862;
+  --color-notes-warning-500: #865f00;
+  --color-notes-warning-600: #765400;
+  --color-notes-warning-700: #654700;
+  --color-notes-warning-800: #503900;
+  --color-notes-warning-900: #3c2b00;
+  --color-notes-warning-950: #281d00;
+
+  --color-notes-error-50: #fcedeb;
+  --color-notes-error-100: #f9dcd7;
+  --color-notes-error-200: #f5c5bd;
+  --color-notes-error-300: #efa79b;
+  --color-notes-error-400: #ea8a7a;
+  --color-notes-error-500: #b43a2c;
+  --color-notes-error-600: #9e3327;
+  --color-notes-error-700: #872c21;
+  --color-notes-error-800: #6c231a;
+  --color-notes-error-900: #511a14;
+  --color-notes-error-950: #36110d;
+
   --color-dracula-success-50: #f0fff2;
   --color-dracula-success-100: #e1ffe4;
   --color-dracula-success-200: #c9ffd0;

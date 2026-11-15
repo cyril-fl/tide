@@ -4,6 +4,8 @@
 
 Notes live in folders and connect through their `[[links]]` and `#tags`. A Go server on PostgreSQL holds them, encrypted, and serves a web app, a CLI and an MCP server for AI agents.
 
+![A note in the Tide web app](https://raw.githubusercontent.com/wiki/cyril-fl/tide/images/app-note.png)
+
 ## Features
 
 - **Writing**: a rich markdown editor with a source mode, Mermaid diagrams and LaTeX formulas.

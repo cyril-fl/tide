@@ -3270,6 +3270,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/searches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run criteria not saved yet */
+        post: {
+            parameters: {
+                query?: {
+                    /** @description matches in the page, all when left out or 0 */
+                    limit?: number;
+                    /** @description matches skipped before the page */
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description criteria */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["domain.SavedSearch"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        /** @description the matches, not only the page: those read, and the notes after them that may match */
+                        "X-Total-Count"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["runsavedsearch.Match"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/searches/{id}": {
         parameters: {
             query?: never;

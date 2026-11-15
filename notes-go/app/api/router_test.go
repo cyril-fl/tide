@@ -1396,3 +1396,34 @@ func TestDeleteMany(t *testing.T) {
 	}
 	c.do("DELETE", "/api/tags", `{"values":[]}`, http.StatusBadRequest, nil)
 }
+
+// The smart folder dialog previews criteria not saved yet, a Pro feature like the saved searches.
+func TestPreviewSearch(t *testing.T) {
+	c := newClient(t)
+	tag := strings.ToLower(unique("preview"))
+	var note item
+	c.do("POST", "/api/notes", fmt.Sprintf(`{"content":"# %s\n\nhello","tags":[%q]}`, unique("note"), tag), http.StatusCreated, &note)
+	c.do("POST", "/api/notes", `{"content":"other"}`, http.StatusCreated, nil)
+	var tags []struct{ ID, Value string }
+	c.do("GET", "/api/tags", "", http.StatusOK, &tags)
+	var tagID string
+	for _, t := range tags {
+		if t.Value == tag {
+			tagID = t.ID
+		}
+	}
+
+	body := fmt.Sprintf(`{"id":"","name":"","tag_ids":[%q]}`, tagID)
+	c.do("POST", "/api/searches", body, http.StatusForbidden, nil)
+	c.do("PATCH", "/api/me", `{"plan":"pro"}`, http.StatusOK, nil)
+
+	var matches []struct {
+		ID string `json:"id"`
+	}
+	c.do("POST", "/api/searches?limit=3", body, http.StatusOK, &matches)
+	if len(matches) != 1 || matches[0].ID != note.ID {
+		t.Errorf("matches = %+v, want %s", matches, note.ID)
+	}
+	ids := strings.Repeat(`"x",`, 50) + `"x"`
+	c.do("POST", "/api/searches", `{"id":"","name":"","tag_ids":[`+ids+`]}`, http.StatusBadRequest, nil)
+}

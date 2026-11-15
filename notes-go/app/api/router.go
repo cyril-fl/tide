@@ -121,6 +121,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("GET /api/links/broken", plan.Require(db, "brokenLinks", apireadbrokenlinks.Handler(db)))
 	mux.Handle("POST /api/replace", plan.Require(db, "replaceEverywhere", apireplacenotes.Handler(db)))
 	mux.Handle("GET /api/search", apisearch.Handler(db))
+	mux.Handle("POST /api/searches", plan.Require(db, "savedSearches", apireadsearch.Preview(db)))
 	mux.Handle("GET /api/searches/{id}", plan.Require(db, "savedSearches", apireadsearch.Handler(db)))
 	mux.Handle("GET /api/recent", apireadrecent.Handler(db))
 	mux.Handle("GET /api/pinned", apireadpinned.Handler(db))

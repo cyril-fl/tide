@@ -3127,6 +3127,64 @@ paths:
       summary: Find notes by title or content
       tags:
       - search
+  /api/searches:
+    post:
+      parameters:
+      - description: matches in the page, all when left out or 0
+        in: query
+        name: limit
+        schema:
+          type: integer
+      - description: matches skipped before the page
+        in: query
+        name: offset
+        schema:
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/domain.SavedSearch'
+              description: criteria
+              summary: body
+        description: criteria
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/runsavedsearch.Match'
+                type: array
+          description: OK
+          headers:
+            X-Total-Count:
+              description: 'the matches, not only the page: those read, and the notes
+                after them that may match'
+              schema:
+                type: integer
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Run criteria not saved yet
+      tags:
+      - searches
   /api/searches/{id}:
     get:
       parameters:

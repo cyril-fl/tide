@@ -753,6 +753,15 @@ type GetApiSearchParams struct {
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// PostApiSearchesParams defines parameters for PostApiSearches.
+type PostApiSearchesParams struct {
+	// Limit matches in the page, all when left out or 0
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset matches skipped before the page
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // GetApiSearchesIdParams defines parameters for GetApiSearchesId.
 type GetApiSearchesIdParams struct {
 	// Limit matches in the page, all when left out or 0
@@ -830,6 +839,9 @@ type PostApiReplaceJSONRequestBody = ReplacenotesInput
 
 // PostApiRestoreJSONRequestBody defines body for PostApiRestore for application/json ContentType.
 type PostApiRestoreJSONRequestBody = RestoreBody
+
+// PostApiSearchesJSONRequestBody defines body for PostApiSearches for application/json ContentType.
+type PostApiSearchesJSONRequestBody = DomainSavedSearch
 
 // PostApiSignupJSONRequestBody defines body for PostApiSignup for application/json ContentType.
 type PostApiSignupJSONRequestBody = AdduserInput
@@ -1354,6 +1366,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/search (the `GetApiSearch` operationId).
 	GetApiSearch(ctx context.Context, params *GetApiSearchParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiSearchesWithBody Run criteria not saved yet
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/searches (the `PostApiSearches` operationId).
+	PostApiSearchesWithBody(ctx context.Context, params *PostApiSearchesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiSearches Run criteria not saved yet
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/searches (the `PostApiSearches` operationId).
+	PostApiSearches(ctx context.Context, params *PostApiSearchesParams, body PostApiSearchesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiSearchesId Run a saved search
 	//
@@ -2615,6 +2641,40 @@ func (c *Client) PostApiRestore(ctx context.Context, body PostApiRestoreJSONRequ
 // Corresponds with GET /api/search (the `GetApiSearch` operationId).
 func (c *Client) GetApiSearch(ctx context.Context, params *GetApiSearchParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiSearchRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiSearchesWithBody Run criteria not saved yet
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/searches (the `PostApiSearches` operationId).
+func (c *Client) PostApiSearchesWithBody(ctx context.Context, params *PostApiSearchesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiSearchesRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiSearches Run criteria not saved yet
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/searches (the `PostApiSearches` operationId).
+func (c *Client) PostApiSearches(ctx context.Context, params *PostApiSearchesParams, body PostApiSearchesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiSearchesRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5068,6 +5128,85 @@ func NewGetApiSearchRequest(server string, params *GetApiSearchParams) (*http.Re
 	return req, nil
 }
 
+// NewPostApiSearchesRequest calls the generic PostApiSearches builder with application/json body
+func NewPostApiSearchesRequest(server string, params *PostApiSearchesParams, body PostApiSearchesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiSearchesRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewPostApiSearchesRequestWithBody constructs an http.Request for the PostApiSearches method, with any body, and a specified content type
+func NewPostApiSearchesRequestWithBody(server string, params *PostApiSearchesParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/searches")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetApiSearchesIdRequest constructs an http.Request for the GetApiSearchesId method
 func NewGetApiSearchesIdRequest(server string, id string, params *GetApiSearchesIdParams) (*http.Request, error) {
 	var err error
@@ -6201,6 +6340,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/search (the `GetApiSearch` operationId).
 	GetApiSearchWithResponse(ctx context.Context, params *GetApiSearchParams, reqEditors ...RequestEditorFn) (*GetApiSearchResponse, error)
+
+	// PostApiSearchesWithBodyWithResponse Run criteria not saved yet
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/searches (the `PostApiSearches` operationId).
+	PostApiSearchesWithBodyWithResponse(ctx context.Context, params *PostApiSearchesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiSearchesResponse, error)
+
+	// PostApiSearchesWithResponse Run criteria not saved yet
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/searches (the `PostApiSearches` operationId).
+	PostApiSearchesWithResponse(ctx context.Context, params *PostApiSearchesParams, body PostApiSearchesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiSearchesResponse, error)
 
 	// GetApiSearchesIdWithResponse Run a saved search
 	//
@@ -9468,6 +9621,75 @@ func (r GetApiSearchResponse) ContentType() string {
 	return ""
 }
 
+// PostApiSearchesResponse200Headers the declared response headers of an HTTP 200 response for PostApiSearches
+type PostApiSearchesResponse200Headers struct {
+	XTotalCount *int
+}
+
+type PostApiSearchesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]RunsavedsearchMatch
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *PostApiSearchesResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostApiSearchesResponse) GetJSON200() *[]RunsavedsearchMatch {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostApiSearchesResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PostApiSearchesResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PostApiSearchesResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PostApiSearchesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiSearchesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiSearchesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiSearchesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // GetApiSearchesIdResponse200Headers the declared response headers of an HTTP 200 response for GetApiSearchesId
 type GetApiSearchesIdResponse200Headers struct {
 	XTotalCount *int
@@ -11320,6 +11542,32 @@ func (c *ClientWithResponses) GetApiSearchWithResponse(ctx context.Context, para
 		return nil, err
 	}
 	return ParseGetApiSearchResponse(rsp)
+}
+
+// PostApiSearchesWithBodyWithResponse Run criteria not saved yet
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/searches (the `PostApiSearches` operationId).
+func (c *ClientWithResponses) PostApiSearchesWithBodyWithResponse(ctx context.Context, params *PostApiSearchesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiSearchesResponse, error) {
+	rsp, err := c.PostApiSearchesWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiSearchesResponse(rsp)
+}
+
+// PostApiSearchesWithResponse Run criteria not saved yet
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/searches (the `PostApiSearches` operationId).
+func (c *ClientWithResponses) PostApiSearchesWithResponse(ctx context.Context, params *PostApiSearchesParams, body PostApiSearchesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiSearchesResponse, error) {
+	rsp, err := c.PostApiSearches(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiSearchesResponse(rsp)
 }
 
 // GetApiSearchesIdWithResponse Run a saved search
@@ -13917,6 +14165,66 @@ func ParseGetApiSearchResponse(rsp *http.Response) (*GetApiSearchResponse, error
 	switch {
 	case rsp.StatusCode == 200:
 		var headers GetApiSearchResponse200Headers
+		if values := rsp.Header.Values("X-Total-Count"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "X-Total-Count", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XTotalCount = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParsePostApiSearchesResponse parses an HTTP response from a PostApiSearchesWithResponse call
+func ParsePostApiSearchesResponse(rsp *http.Response) (*PostApiSearchesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiSearchesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []RunsavedsearchMatch
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers PostApiSearchesResponse200Headers
 		if values := rsp.Header.Values("X-Total-Count"); len(values) > 0 {
 			var value int
 			if err := runtime.BindStyledParameterWithOptions("simple", "X-Total-Count", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {

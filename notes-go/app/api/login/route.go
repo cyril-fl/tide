@@ -22,9 +22,6 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// failed counts the wrong passwords in a row, by address for the login and by account for a new password.
-var failed = throttle.New("too many wrong passwords, try again later")
-
 // Handler logs in: POST /api/login. The session token goes in an HttpOnly cookie, in the body only when the input
 // asks it (the CLI).
 // @Summary  Log in
@@ -46,7 +43,9 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		if !respond.Decode(w, r, &input) {
 			return
 		}
-		if failed.Blocked(w, key) {
+		// failed counts the wrong passwords in a row, by address for the login and by account for a new password.
+		failed := throttle.Passwords(db)
+		if failed.Blocked(w, r, key) {
 			return
 		}
 
@@ -54,12 +53,12 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process.Run()
 		if process.HasErr() {
 			if !errors.Is(process.GetErr(), createsession.ErrBadCredentials) {
-				failed.Forgive(key)
+				failed.Forgive(r.Context(), key)
 			}
 			respond.Error(w, process.GetErr())
 			return
 		}
-		failed.Reset(key)
+		failed.Reset(r.Context(), key)
 		result := process.GetResult()
 		auth.SetCookie(w, result.Token, result.ExpiresAt)
 		if !input.Token {
@@ -154,7 +153,9 @@ func EditPassword(db bun.IDB) http.HandlerFunc {
 		if !respond.Decode(w, r, &input) {
 			return
 		}
-		if failed.Blocked(w, key) {
+		// failed counts the wrong passwords in a row, by address for the login and by account for a new password.
+		failed := throttle.Passwords(db)
+		if failed.Blocked(w, r, key) {
 			return
 		}
 
@@ -162,12 +163,12 @@ func EditPassword(db bun.IDB) http.HandlerFunc {
 		process.Run()
 		if process.HasErr() {
 			if !errors.Is(process.GetErr(), editpassword.ErrWrongPassword) {
-				failed.Forgive(key)
+				failed.Forgive(r.Context(), key)
 			}
 			respond.Error(w, process.GetErr())
 			return
 		}
-		failed.Reset(key)
+		failed.Reset(r.Context(), key)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

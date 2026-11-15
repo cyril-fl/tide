@@ -28,9 +28,6 @@ import (
 // pendingInvites keeps the invitations still usable: neither used nor expired.
 const pendingInvites = "used_at IS NULL AND expires_at > current_timestamp"
 
-// created counts the accounts created by address in the public mode: one address cannot fill the server.
-var created = throttle.New("too many accounts created from this address, try again later")
-
 // Account is an account as the admin panel lists it: the settings of someone else are none of its business.
 type Account struct {
 	ID        string    `json:"id"`
@@ -108,7 +105,9 @@ func Signup(db bun.IDB, mode string) http.HandlerFunc {
 		}
 		address, _, _ := net.SplitHostPort(r.RemoteAddr)
 		throttled := mode == domain.AddUserModes[1]
-		if throttled && created.Blocked(w, address) {
+		// created counts the accounts created by address in the public mode: one address cannot fill the server.
+		created := throttle.New(db, "signup", "too many accounts created from this address, try again later")
+		if throttled && created.Blocked(w, r, address) {
 			return
 		}
 
@@ -116,7 +115,7 @@ func Signup(db bun.IDB, mode string) http.HandlerFunc {
 		process.Run()
 		if process.HasErr() {
 			if throttled {
-				created.Forgive(address)
+				created.Forgive(r.Context(), address)
 			}
 			respond.Error(w, process.GetErr())
 			return

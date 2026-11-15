@@ -1,92 +1,116 @@
 // Package throttle makes a key wait longer after each try in a row: wrong passwords at the login, accounts created
-// from one address at the sign-up.
+// from one address at the sign-up. The tries are kept in the base (throttles), so a restart forgets none.
 package throttle
 
 import (
+	"context"
+	"database/sql"
+	"errors"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/cyril-fl/notes/notes-go/app/api/services/respond"
+	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
 )
 
 // waits is how long to wait after 1, 2, 3... tries in a row, like an iPhone: a password cannot be guessed by trying them all.
 var waits = []time.Duration{0, 0, 0, 30 * time.Second, time.Minute, 5 * time.Minute, 15 * time.Minute, time.Hour}
 
-// Throttle counts the tries in a row of each key.
-// TODO: kept in memory, a restart of the API forgets it; enough behind Tailscale, store it if the API ever faces the internet.
+// forget is how long a key keeps its tries after the last one: its next try starts over, purgesessions drops the row.
+const forget = 24 * time.Hour
+
+// Throttle counts the tries in a row of each key, under its name.
 type Throttle struct {
-	sync.Mutex
-	now   func() time.Time
-	byKey map[string]strikes
+	db   bun.IDB
+	name string
+	now  func() time.Time
 	// message is the error of the 429.
 	message string
 }
 
-type strikes struct {
-	count int
-	last  time.Time
+// New gives a throttle whose keys are counted under name, and whose 429 says message.
+func New(db bun.IDB, name, message string) *Throttle {
+	return &Throttle{db: db, name: name, now: time.Now, message: message}
 }
 
-// New gives a throttle whose 429 says message.
-func New(message string) *Throttle {
-	return &Throttle{now: time.Now, byKey: map[string]strikes{}, message: message}
+// Passwords counts the wrong passwords, of an address at the login and of an account for a new password.
+func Passwords(db bun.IDB) *Throttle {
+	return New(db, "password", "too many wrong passwords, try again later")
 }
 
-// wait is how long key has left to wait before its next try.
-func (t *Throttle) wait(key string) time.Duration {
-	t.Lock()
-	defer t.Unlock()
-	return t.waitLocked(key)
-}
-
-func (t *Throttle) waitLocked(key string) time.Duration {
-	s := t.byKey[key]
-	if s.count == 0 {
-		return 0
+// Try counts a try for key before it runs, and gives 0; or, while key waits, how long it has left, without counting.
+// One statement: tries sent at once cannot all pass while argon2id runs. The caller resets on a good password,
+// forgives on another error.
+func (t *Throttle) Try(ctx context.Context, key string) (time.Duration, error) {
+	now := t.now()
+	seconds := make([]float64, len(waits))
+	for i, wait := range waits {
+		seconds[i] = wait.Seconds()
 	}
-	return max(waits[min(s.count, len(waits))-1]-t.now().Sub(s.last), 0)
-}
-
-// fail counts a try for key, t locked.
-func (t *Throttle) fail(key string) {
-	t.byKey[key] = strikes{count: t.byKey[key].count + 1, last: t.now()}
-}
-
-// Forgive takes back the try Blocked counted, when it did not count.
-func (t *Throttle) Forgive(key string) {
-	t.Lock()
-	defer t.Unlock()
-	s := t.byKey[key]
-	if s.count <= 1 {
-		delete(t.byKey, key)
-		return
+	var count int
+	err := t.db.NewRaw(`
+		INSERT INTO throttles AS th (key, count, last_at, expires_at) VALUES (?, 1, ?, ?)
+		ON CONFLICT (key) DO UPDATE SET
+			count = CASE WHEN th.expires_at <= excluded.last_at THEN 1 ELSE th.count + 1 END,
+			last_at = excluded.last_at, expires_at = excluded.expires_at
+		WHERE th.expires_at <= excluded.last_at
+			OR th.last_at + make_interval(secs => (?::float8[])[least(th.count, ?)]) <= excluded.last_at
+		RETURNING count`,
+		t.key(key), now, now.Add(forget), pgdialect.Array(seconds), len(waits)).Scan(ctx, &count)
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
 	}
-	s.count--
-	t.byKey[key] = s
-}
 
-func (t *Throttle) Reset(key string) {
-	t.Lock()
-	defer t.Unlock()
-	delete(t.byKey, key)
-}
-
-// Blocked answers 429 with Retry-After while key waits, else counts the try before it runs:
-// tries sent at once cannot all pass while argon2id runs. The caller resets on a good password, forgives on another error.
-func (t *Throttle) Blocked(w http.ResponseWriter, key string) bool {
-	t.Lock()
-	wait := t.waitLocked(key)
-	if wait == 0 {
-		t.fail(key)
+	var strikes domain.Throttle
+	if err := t.db.NewSelect().Model(&strikes).Where("key = ?", t.key(key)).Scan(ctx); err != nil {
+		return 0, err
 	}
-	t.Unlock()
+	// Never 0 here: the try was refused, the client must wait at least a second.
+	return max(waits[min(strikes.Count, len(waits))-1]-now.Sub(strikes.LastAt), time.Second), nil
+}
+
+// Forgive takes back the try Try counted, when it did not count.
+func (t *Throttle) Forgive(ctx context.Context, key string) {
+	_, err := t.db.NewRaw(`
+		WITH gone AS (DELETE FROM throttles WHERE key = ? AND count <= 1)
+		UPDATE throttles SET count = count - 1 WHERE key = ? AND count > 1`, t.key(key), t.key(key)).Exec(ctx)
+	if err != nil {
+		log.Printf("throttle: forgive: %v", err)
+	}
+}
+
+// Reset forgets the tries of key.
+func (t *Throttle) Reset(ctx context.Context, key string) {
+	if _, err := t.db.NewDelete().Model((*domain.Throttle)(nil)).Where("key = ?", t.key(key)).Exec(ctx); err != nil {
+		log.Printf("throttle: reset: %v", err)
+	}
+}
+
+// Blocked answers 429 with Retry-After while key waits, else counts the try (Try).
+func (t *Throttle) Blocked(w http.ResponseWriter, r *http.Request, key string) bool {
+	wait, err := t.Try(r.Context(), key)
+	if err != nil {
+		respond.Error(w, err)
+		return true
+	}
 	if wait == 0 {
 		return false
 	}
-	w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
+	w.Header().Set("Retry-After", RetryAfter(wait))
 	respond.JSON(w, http.StatusTooManyRequests, respond.Failure{Error: t.message})
 	return true
+}
+
+// RetryAfter is wait in whole seconds, rounded up, for the Retry-After header.
+func RetryAfter(wait time.Duration) string {
+	return strconv.Itoa(int(math.Ceil(wait.Seconds())))
+}
+
+func (t *Throttle) key(key string) string {
+	return t.name + " " + key
 }

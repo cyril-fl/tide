@@ -208,6 +208,17 @@ type APIToken struct {
 	ExpiresAt  time.Time   `bun:",nullzero" json:"expires_at,omitzero" binding:"optional"`   // no limit when absent
 }
 
+// Throttle counts the wrong tries in a row of a key (a password from an address...): kept in the base, a restart does
+// not forget them. ExpiresAt, a day after the last try, lets purgesessions drop it.
+type Throttle struct {
+	bun.BaseModel `bun:"table:throttles,alias:th"`
+
+	Key       string    `bun:",pk"`
+	Count     int       `bun:",notnull"`
+	LastAt    time.Time `bun:",notnull"`
+	ExpiresAt time.Time `bun:",notnull"`
+}
+
 // Invite is a link an admin hands out so someone creates their own account: the base keeps the hash of its token,
 // and the token sealed, which only the admin panel reads back.
 type Invite struct {

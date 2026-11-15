@@ -10,6 +10,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
+	"github.com/uptrace/bun"
 )
 
 func TestPurgeExpiredOnly(t *testing.T) {
@@ -54,6 +55,14 @@ func TestPurgeExpiredOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	throttles := []domain.Throttle{
+		{Key: "expired-" + now.String(), Count: 1, LastAt: now, ExpiresAt: now.Add(-time.Minute)},
+		{Key: "live-" + now.String(), Count: 1, LastAt: now, ExpiresAt: now.Add(time.Hour)},
+	}
+	if _, err := tx.NewInsert().Model(&throttles).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+
 	purge := Process(ctx, tx)
 	purge.Run()
 	if purge.HasErr() {
@@ -78,5 +87,13 @@ func TestPurgeExpiredOnly(t *testing.T) {
 	}
 	if len(hashes) != 2 || hashes[0] != tokens[1].TokenHash || hashes[1] != tokens[2].TokenHash {
 		t.Errorf("API tokens left = %v, want live and never", hashes)
+	}
+
+	var keys []string
+	if err := tx.NewSelect().Model((*domain.Throttle)(nil)).Column("key").Where("key IN (?)", bun.List([]string{throttles[0].Key, throttles[1].Key})).Scan(ctx, &keys); err != nil {
+		t.Fatal(err)
+	}
+	if len(keys) != 1 || keys[0] != throttles[1].Key {
+		t.Errorf("throttles left = %v, want only the live one", keys)
 	}
 }

@@ -762,7 +762,11 @@ test('the Pro history merges a fork back, a conflict resolved with the copy', as
       (text) => text.replace(/^un$/m, 'un copie'),
       (text) => text.replace(/^un$/m, 'un origine'),
       async (dialog) => {
-        await expect(dialog.getByRole('region', { name: 'Conflit 1' })).toContainText('un origine');
+        const conflict = dialog.getByRole('region', { name: 'Conflit 1' });
+        await expect(conflict).toContainText('un origine');
+        // Line by line: the arrow takes the copy's line into the result, then the choice keeps only the copy.
+        await conflict.getByRole('button', { name: 'Prendre cette ligne' }).first().click();
+        await expect(conflict.getByLabel('Résultat')).toHaveText('un copie');
         await dialog.getByRole('button', { name: 'Garder la copie' }).click();
         await dialog.getByRole('button', { name: 'Enregistrer' }).click();
       },

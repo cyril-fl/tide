@@ -534,6 +534,8 @@
     "fork": "Copie",
     "original": "Note d'origine",
     "block": "Conflit {number}",
+    "result": "Résultat",
+    "take": "Prendre cette ligne",
     "here": "Ici",
     "elsewhere": "Autre appareil",
     "mine": "La mienne",

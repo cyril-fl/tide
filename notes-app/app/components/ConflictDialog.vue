@@ -1,50 +1,55 @@
 <script setup lang="ts">
-import type { Change, Choice, MergePart } from '~/utils/merge';
+import type { Choice, MergePart } from '~/utils/merge';
 
 // After a 409 with changes in the same place (#78): the merged text, each conflict at its place with the text typed here,
-// the other device's and a choice. Closes with the text chosen; the text typed here is already kept in the history.
+// the other device's and the result between them, built from a choice or line by line with arrows, like a merge tool.
+// Closes with the text chosen; the text typed here is already kept in the history.
 // fork: the merge of a fork into its original, the fork's text against the original's; it can be cancelled (undefined).
 const props = defineProps<{ parts: MergePart[]; fork?: boolean }>();
 const emit = defineEmits<{ close: [text?: string] }>();
 
+const { icons } = useIcons();
 const phone = useMediaQuery('(max-width: 639px)');
-const conflicts = props.parts.filter((part) => !('lines' in part));
-const choices = ref<(Choice | undefined)[]>(conflicts.map(() => undefined));
-const left = computed(() => choices.value.filter((choice) => !choice).length);
+const conflicts = props.parts.filter((part): part is Exclude<MergePart, { lines: string[] }> => !('lines' in part));
+// Each conflict's lines from the other side to this one, the lines kept and whether it was resolved yet.
+const rows = conflicts.map((part) => conflictRows(part));
+const picks = ref(rows.map((lines) => lines.map((row) => row.kind === 'same')));
+const touched = ref(conflicts.map(() => false));
+const left = computed(() => touched.value.filter((done) => !done).length);
 const options: { choice: Choice; label: string }[] = [
   { choice: 'mine', label: props.fork ? 'conflict.keepFork' : 'conflict.mine' },
   { choice: 'theirs', label: props.fork ? 'conflict.keepOriginal' : 'conflict.theirs' },
   { choice: 'both', label: 'conflict.both' },
 ];
 
-// The index of each conflict among the parts, for its choice.
-const indexOf = (part: MergePart) => conflicts.indexOf(part);
-// Each conflict from the other side to this one: its lines removed shown on the other side, added on this one.
-const changes = conflicts.map((part) =>
-  'mine' in part ? lineChanges(part.theirs.join('\n'), part.mine.join('\n')) : [],
-);
-const sides = (part: MergePart) => {
-  const all = changes[indexOf(part)] ?? [];
-  return [
-    {
-      label: props.fork ? 'conflict.fork' : 'conflict.here',
-      changes: all.filter((change) => change.kind !== 'removed'),
-    },
-    {
-      label: props.fork ? 'conflict.original' : 'conflict.elsewhere',
-      changes: all.filter((change) => change.kind !== 'added'),
-    },
-  ];
+// The index of each conflict among the parts, for its lines.
+const indexOf = (part: MergePart) => conflicts.findIndex((conflict) => conflict === part);
+const pick = (conflict: number, choice: Choice) => {
+  picks.value[conflict] = choose(rows[conflict]!, choice);
+  touched.value[conflict] = true;
 };
-const tag = { same: 'span', removed: 'del', added: 'ins' } satisfies Record<Change['kind'], string>;
-const color = { same: '', removed: 'bg-error/10 text-error', added: 'bg-success/10 text-success' };
-const save = () => emit('close', mergedText(props.parts, choices.value as Choice[]));
+const toggle = (conflict: number, line: number) => {
+  picks.value[conflict]![line] = !picks.value[conflict]![line];
+  touched.value[conflict] = true;
+};
+const chosen = (conflict: number, choice: Choice) =>
+  touched.value[conflict] &&
+  choose(rows[conflict]!, choice).every((kept, line) => kept === picks.value[conflict]![line]);
+const result = (conflict: number) => pickedLines(rows[conflict]!, picks.value[conflict]!);
+const save = () =>
+  emit(
+    'close',
+    mergedText(
+      props.parts,
+      conflicts.map((_, conflict) => result(conflict)),
+    ),
+  );
 const keepTheirs = () =>
   emit(
     'close',
     mergedText(
       props.parts,
-      conflicts.map(() => 'theirs'),
+      rows.map((lines) => pickedLines(lines, choose(lines, 'theirs'))),
     ),
   );
 </script>
@@ -56,7 +61,7 @@ const keepTheirs = () =>
     :fullscreen="phone"
     :dismissible="false"
     :close="false"
-    :ui="{ content: 'sm:max-w-5xl' }"
+    :ui="{ content: 'sm:max-w-6xl' }"
   >
     <template #body>
       <div class="flex flex-col gap-2 text-sm">
@@ -65,20 +70,52 @@ const keepTheirs = () =>
           <section
             v-else
             class="flex flex-col gap-2 rounded-md border p-3"
-            :class="choices[indexOf(part)] ? 'border-default' : 'border-warning'"
+            :class="touched[indexOf(part)] ? 'border-default' : 'border-warning'"
             :aria-label="$t('conflict.block', { number: indexOf(part) + 1 })"
           >
-            <div class="grid gap-3 sm:grid-cols-2">
-              <div v-for="side in sides(part)" :key="side.label" class="flex min-w-0 flex-col gap-1">
-                <span class="text-xs text-muted">{{ $t(side.label) }}</span>
-                <component
-                  :is="tag[change.kind]"
-                  v-for="(change, line) in side.changes"
-                  :key="line"
-                  class="block whitespace-pre-wrap no-underline"
-                  :class="color[change.kind]"
-                  >{{ change.lines.join('\n') }}</component
-                >
+            <div class="grid gap-3 sm:grid-cols-3">
+              <div class="flex min-w-0 flex-col">
+                <span class="mb-1 text-xs text-muted">{{ $t(fork ? 'conflict.fork' : 'conflict.here') }}</span>
+                <template v-for="(row, line) in rows[indexOf(part)]" :key="line">
+                  <span v-if="row.kind === 'same'" class="whitespace-pre-wrap">{{ row.line || ' ' }}</span>
+                  <div v-else-if="row.kind === 'added'" class="flex items-start gap-1 bg-success/10 text-success">
+                    <ins class="min-w-0 flex-1 whitespace-pre-wrap no-underline">{{ row.line || ' ' }}</ins>
+                    <UButton
+                      :icon="icons.forward"
+                      size="xs"
+                      color="success"
+                      :variant="picks[indexOf(part)]![line] ? 'solid' : 'ghost'"
+                      :aria-label="$t('conflict.take')"
+                      :aria-pressed="picks[indexOf(part)]![line]"
+                      @click="toggle(indexOf(part), line)"
+                    />
+                  </div>
+                </template>
+              </div>
+              <div class="flex min-w-0 flex-col">
+                <span class="mb-1 text-xs text-muted">{{ $t('conflict.result') }}</span>
+                <pre
+                  class="min-h-6 flex-1 rounded-sm bg-elevated px-1 font-sans whitespace-pre-wrap"
+                  :aria-label="$t('conflict.result')"
+                  >{{ result(indexOf(part)).join('\n') }}</pre>
+              </div>
+              <div class="flex min-w-0 flex-col">
+                <span class="mb-1 text-xs text-muted">{{ $t(fork ? 'conflict.original' : 'conflict.elsewhere') }}</span>
+                <template v-for="(row, line) in rows[indexOf(part)]" :key="line">
+                  <span v-if="row.kind === 'same'" class="whitespace-pre-wrap">{{ row.line || ' ' }}</span>
+                  <div v-else-if="row.kind === 'removed'" class="flex items-start gap-1 bg-error/10 text-error">
+                    <UButton
+                      :icon="icons.back"
+                      size="xs"
+                      color="error"
+                      :variant="picks[indexOf(part)]![line] ? 'solid' : 'ghost'"
+                      :aria-label="$t('conflict.take')"
+                      :aria-pressed="picks[indexOf(part)]![line]"
+                      @click="toggle(indexOf(part), line)"
+                    />
+                    <del class="min-w-0 flex-1 whitespace-pre-wrap no-underline">{{ row.line || ' ' }}</del>
+                  </div>
+                </template>
               </div>
             </div>
             <div class="flex flex-wrap gap-2">
@@ -87,10 +124,10 @@ const keepTheirs = () =>
                 :key="option.choice"
                 :label="$t(option.label)"
                 size="xs"
-                :color="choices[indexOf(part)] === option.choice ? 'primary' : 'neutral'"
-                :variant="choices[indexOf(part)] === option.choice ? 'solid' : 'outline'"
-                :aria-pressed="choices[indexOf(part)] === option.choice"
-                @click="choices[indexOf(part)] = option.choice"
+                :color="chosen(indexOf(part), option.choice) ? 'primary' : 'neutral'"
+                :variant="chosen(indexOf(part), option.choice) ? 'solid' : 'outline'"
+                :aria-pressed="chosen(indexOf(part), option.choice)"
+                @click="pick(indexOf(part), option.choice)"
               />
             </div>
           </section>

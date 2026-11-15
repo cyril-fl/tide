@@ -35,21 +35,56 @@ export function mergeFork(base: string, mine: string, theirs: string): MergePart
 
 export type Choice = 'mine' | 'theirs' | 'both';
 
-/** The text of the parts, each conflict as chosen. */
-export function mergedText(parts: MergePart[], choices: Choice[] = []) {
+// A line of a conflict compared from the other side (theirs) to this one (mine): in both, only theirs, only mine.
+export type Row = { kind: Change['kind']; line: string };
+
+/** The lines of a conflict in order, from the other side to this one. */
+export function conflictRows(part: { mine: string[]; theirs: string[] }): Row[] {
+  return diffComm(part.theirs, part.mine).flatMap((block): Row[] =>
+    block.common
+      ? block.common.map((line) => ({ kind: 'same', line }))
+      : [
+          ...block.buffer1.map((line) => ({ kind: 'removed' as const, line })),
+          ...block.buffer2.map((line) => ({ kind: 'added' as const, line })),
+        ],
+  );
+}
+
+/** The lines a choice keeps: the lines in both always, this side's, the other's or all. */
+export const choose = (rows: Row[], choice: Choice) =>
+  rows.map((row) => row.kind === 'same' || choice === 'both' || (choice === 'mine') === (row.kind === 'added'));
+
+/**
+ * The text of a conflict from the lines kept. In a changed block this side's lines come first, then a blank line
+ * between the two sides, or two paragraphs would read as one.
+ */
+export function pickedLines(rows: Row[], picked: boolean[]): string[] {
+  const lines: string[] = [];
+  let mine: string[] = [];
+  let theirs: string[] = [];
+  const flush = () => {
+    lines.push(...mine, ...(mine.length && theirs.length ? [''] : []), ...theirs);
+    mine = [];
+    theirs = [];
+  };
+  rows.forEach((row, index) => {
+    if (row.kind === 'same') {
+      flush();
+      lines.push(row.line);
+    } else if (picked[index]) (row.kind === 'added' ? mine : theirs).push(row.line);
+  });
+  flush();
+  return lines;
+}
+
+/** The text of the parts, each conflict with its lines picked, all of them by default. */
+export function mergedText(parts: MergePart[], picks: string[][] = []) {
   let conflict = 0;
   return parts
     .flatMap((part) => {
       if ('lines' in part) return part.lines;
-      const choice = choices[conflict++];
-      if (choice === 'mine') return part.mine;
-      if (choice === 'theirs') return part.theirs;
-      // Both: a blank line between, or two paragraphs would read as one; the title line once if both sides hold it.
-      const title = part.mine[titleLine(part.mine)];
-      const index = titleLine(part.theirs);
-      const theirs =
-        title !== undefined && part.theirs[index] === title ? part.theirs.toSpliced(index, 1) : part.theirs;
-      return [...part.mine, '', ...theirs];
+      const rows = conflictRows(part);
+      return picks[conflict++] ?? pickedLines(rows, choose(rows, 'both'));
     })
     .join('\n');
 }

@@ -53,13 +53,15 @@ test('the Ultra tabs keep the open notes', async ({ page }) => {
 });
 
 // The Ultra split view (#128): ⌘ + click on a [[link]] opens its note beside, the context panel gives way, both
-// editors save, the panel survives a reload and closes by its button.
+// editors save, the panel survives a reload and closes by its button; a right click on a tab opens it beside again.
 test('the Ultra split view edits two notes side by side', async ({ page }) => {
   const beside = await box.note(`# Beside ${box.prefix}\n\nAutre`);
   const main = await box.note(`# Main ${box.prefix}\n\nVoir [Beside ${box.prefix}](note:${beside.id})`);
   const panel = page.getByRole('region', { name: 'Note à côté' });
   try {
     await box.api.patch('/api/me', { data: { plan: 'ultra' } });
+    await page.goto(`/notes/${beside.id}`);
+    await expect(page.getByRole('textbox').getByText('Autre')).toBeVisible();
     await page.goto(`/notes/${main.id}`);
     const mainEditor = page.locator(`[data-note-id="${main.id}"] .ProseMirror`);
     await expect(page.locator('#context-panel')).toHaveCount(1);
@@ -82,6 +84,12 @@ test('the Ultra split view edits two notes side by side', async ({ page }) => {
     await panel.getByRole('button', { name: 'Fermer la note à côté' }).click();
     await expect(panel).toHaveCount(0);
     await expect(page.locator('#context-panel')).toHaveCount(1);
+
+    const bar = page.getByRole('navigation', { name: 'Notes ouvertes' });
+    await bar.getByRole('link', { name: `Beside ${box.prefix}` }).click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Ouvrir à côté' }).click();
+    await expect(besideEditor.getByText('Autre là')).toBeVisible();
+    await expect(page).toHaveURL(`/notes/${main.id}`);
   } finally {
     await box.api.patch('/api/me', { data: { plan: 'base' } });
   }

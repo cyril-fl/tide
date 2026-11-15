@@ -10,6 +10,7 @@ defineProps<{ collapsed?: boolean }>();
 const api = useApi();
 const route = useRoute();
 const { createFolder, tagMenu, pinItem } = useItems();
+const { besideMenu } = useSplit();
 const searchOpen = useState('search-open', () => false);
 const colorMode = useColorMode();
 const { has } = usePro();
@@ -234,48 +235,54 @@ const isOverRoot = useDropFolder(rootLink, () => null);
 
           <section v-if="s.id === 'pinned' && s.shown && pinnedNotes.length">
             <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.pinned') }}</h2>
-            <div
+            <UContextMenu
               v-for="note in pinnedNotes"
               :key="note.id"
-              class="row"
-              :class="{ 'row-active': route.params.id === note.id }"
+              :items="besideMenu(note.id)"
+              :disabled="!besideMenu(note.id).length"
             >
-              <UTooltip :text="$t('sidebar.unpin')">
-                <button
-                  type="button"
-                  class="shrink-0 text-muted hover:text-default"
-                  :aria-label="$t('sidebar.unpin')"
-                  @click="pinItem(note, false)"
+              <div class="row" :class="{ 'row-active': route.params.id === note.id }">
+                <UTooltip :text="$t('sidebar.unpin')">
+                  <button
+                    type="button"
+                    class="shrink-0 text-muted hover:text-default"
+                    :aria-label="$t('sidebar.unpin')"
+                    @click="pinItem(note, false)"
+                  >
+                    <UIcon :name="icons.pin" class="block size-4" />
+                  </button>
+                </UTooltip>
+                <NuxtLink
+                  :to="`/notes/${note.id}`"
+                  class="flex min-w-0 flex-1 items-center gap-2 self-stretch leading-7"
                 >
-                  <UIcon :name="icons.pin" class="block size-4" />
-                </button>
-              </UTooltip>
-              <NuxtLink :to="`/notes/${note.id}`" class="flex min-w-0 flex-1 items-center gap-2 self-stretch leading-7">
+                  <span class="truncate">{{ displayTitle(note.title, $t('untitled')) }}</span>
+                  <!-- At the end of the row, in line with the chevrons of the folders. -->
+                  <span v-if="note.readonly" class="ml-auto flex size-5 shrink-0 items-center justify-center">
+                    <UIcon :name="icons.lock" :aria-label="$t('note.readonly')" class="size-3.5 text-muted" />
+                  </span>
+                </NuxtLink>
+              </div>
+            </UContextMenu>
+          </section>
+
+          <section v-if="s.id === 'recent' && s.shown && recentNotes.length">
+            <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.recent') }}</h2>
+            <UContextMenu
+              v-for="note in recentNotes"
+              :key="note.id"
+              :items="besideMenu(note.id)"
+              :disabled="!besideMenu(note.id).length"
+            >
+              <NuxtLink :to="`/notes/${note.id}`" class="row" :class="{ 'row-active': route.params.id === note.id }">
+                <UIcon :name="icons.recent" class="size-4 shrink-0 text-muted" />
                 <span class="truncate">{{ displayTitle(note.title, $t('untitled')) }}</span>
                 <!-- At the end of the row, in line with the chevrons of the folders. -->
                 <span v-if="note.readonly" class="ml-auto flex size-5 shrink-0 items-center justify-center">
                   <UIcon :name="icons.lock" :aria-label="$t('note.readonly')" class="size-3.5 text-muted" />
                 </span>
               </NuxtLink>
-            </div>
-          </section>
-
-          <section v-if="s.id === 'recent' && s.shown && recentNotes.length">
-            <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.recent') }}</h2>
-            <NuxtLink
-              v-for="note in recentNotes"
-              :key="note.id"
-              :to="`/notes/${note.id}`"
-              class="row"
-              :class="{ 'row-active': route.params.id === note.id }"
-            >
-              <UIcon :name="icons.recent" class="size-4 shrink-0 text-muted" />
-              <span class="truncate">{{ displayTitle(note.title, $t('untitled')) }}</span>
-              <!-- At the end of the row, in line with the chevrons of the folders. -->
-              <span v-if="note.readonly" class="ml-auto flex size-5 shrink-0 items-center justify-center">
-                <UIcon :name="icons.lock" :aria-label="$t('note.readonly')" class="size-3.5 text-muted" />
-              </span>
-            </NuxtLink>
+            </UContextMenu>
           </section>
 
           <section v-if="s.id === 'folders' && s.shown">

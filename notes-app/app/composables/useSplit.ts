@@ -1,6 +1,8 @@
 /** The Ultra split view: a second note beside the open one, on a wide screen and out of the focus mode, like the context panel. */
 export function useSplit() {
   const { has } = usePro();
+  const { icons } = useIcons();
+  const { t } = useI18n();
   const { beside } = useTabs();
   const route = useRoute();
   const focus = useState('focus', () => false);
@@ -17,5 +19,13 @@ export function useSplit() {
     beside.value = id;
   }
 
-  return { can, shown, openOther };
+  // What right-clicking a note offers wherever it is listed (tabs, sidebar, folders): opening it beside, not the
+  // notes already on screen. Away from a note, there is nothing to open it beside: it opens.
+  function besideMenu(id: string) {
+    if (!can.value || id === route.params.id || id === beside.value) return [];
+    const open = () => (route.path.startsWith('/notes/') ? openOther(id, false) : navigateTo(`/notes/${id}`));
+    return [[{ label: t('note.openBeside'), icon: icons.beside, onSelect: open }]];
+  }
+
+  return { can, shown, openOther, besideMenu };
 }

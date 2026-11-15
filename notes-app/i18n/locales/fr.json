@@ -163,6 +163,7 @@
     "closeTab": "Fermer l'onglet {title}",
     "beside": "Note à côté",
     "closeBeside": "Fermer la note à côté",
+    "openBeside": "Ouvrir à côté",
     "unsaved": "La note n'est pas enregistrée",
     "unsavedDescription": "Tes dernières modifications seront perdues.",
     "leaveAnyway": "Quitter quand même",

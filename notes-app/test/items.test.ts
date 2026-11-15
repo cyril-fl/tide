@@ -6,7 +6,13 @@ import { useItems } from '../app/composables/useItems.ts';
 type Call = { url: string; method?: string; body?: unknown };
 
 // The Nuxt auto-imports useItems reads, faked: an API that records its calls, dialogs that answer as told.
-function fake({ path = '/', pinned = [] as string[], answer = undefined as unknown, fails = false } = {}) {
+function fake({
+  path = '/',
+  pinned = [] as string[],
+  answer = undefined as unknown,
+  fails = false,
+  split = false,
+} = {}) {
   const calls: Call[] = [];
   const prompts: { alternative?: { label: string } }[] = [];
   const navigations: unknown[] = [];
@@ -33,6 +39,7 @@ function fake({ path = '/', pinned = [] as string[], answer = undefined as unkno
     refreshNuxtData: async () => void refreshes++,
     navigateTo: async (to: unknown) => void navigations.push(to),
     useTabs: () => ({ forget: (ids: string[]) => void forgotten.push(ids) }),
+    useSplit: () => ({ besideMenu: (id: string) => (split ? [[{ label: `beside ${id}` }]] : []) }),
   });
   return { calls, navigations, prompts, forgotten, refreshes: () => refreshes };
 }
@@ -127,6 +134,8 @@ test('a note offers to pin or unpin it, to share and export it, then to delete i
   assert.deepEqual(labels(useItems().itemMenu(note)), [['items.pin'], ...share]);
   fake({ pinned: ['n1'] });
   assert.deepEqual(labels(useItems().itemMenu(note)), [['items.unpin'], ...share]);
+  fake({ split: true });
+  assert.deepEqual(labels(useItems().itemMenu(note)), [['beside n1'], ['items.pin'], ...share]);
 });
 
 test('a folder offers what goes in it, favorite, rename, export, then delete', () => {

@@ -163,6 +163,7 @@
     "closeTab": "Close the tab {title}",
     "beside": "Note beside",
     "closeBeside": "Close the note beside",
+    "openBeside": "Open beside",
     "unsaved": "The note is not saved",
     "unsavedDescription": "Your last changes will be lost.",
     "leaveAnyway": "Leave anyway",

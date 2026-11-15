@@ -4437,10 +4437,13 @@ export interface components {
         };
         "readneighbors.Result": {
             backlinks: components["schemas"]["readneighbors.Linked"][];
+            forks: components["schemas"]["readneighbors.Linked"][];
             links: components["schemas"]["readneighbors.Linked"][];
             neighbors: components["schemas"]["readneighbors.Neighbor"][];
             neighbors_total: number;
             note: components["schemas"]["readitem.Result"];
+            /** @description a fork: the live note it merges back into, else empty */
+            original: components["schemas"]["readneighbors.Linked"][];
         };
         "readnotetags.Body": {
             ids: string[];

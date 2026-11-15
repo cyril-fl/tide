@@ -148,12 +148,14 @@
   "related": {
     "links": "Links",
     "backlinks": "Backlinks",
+    "original": "Forked from",
+    "forks": "Forks",
     "sameTags": "Same tags",
     "others": "{n} more note: | {n} more notes:",
     "title": "Related notes ({total})",
     "showGraph": "Show the graph",
     "emptyTitle": "No related note yet.",
-    "emptyDescription": "The [[…]] links, the backlinks and the notes with the same tags show up here."
+    "emptyDescription": "The [[…]] links, the backlinks, the forks and the notes with the same tags show up here."
   },
   "note": {
     "unsaved": "The note is not saved",

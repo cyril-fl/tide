@@ -531,10 +531,14 @@ type ReadneighborsNeighbor struct {
 // ReadneighborsResult defines model for readneighbors.Result.
 type ReadneighborsResult struct {
 	Backlinks      []ReadneighborsLinked   `json:"backlinks"`
+	Forks          []ReadneighborsLinked   `json:"forks"`
 	Links          []ReadneighborsLinked   `json:"links"`
 	Neighbors      []ReadneighborsNeighbor `json:"neighbors"`
 	NeighborsTotal int                     `json:"neighbors_total"`
 	Note           ReaditemResult          `json:"note"`
+
+	// Original a fork: the live note it merges back into, else empty
+	Original []ReadneighborsLinked `json:"original"`
 }
 
 // ReadnotetagsBody defines model for readnotetags.Body.

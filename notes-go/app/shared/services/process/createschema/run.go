@@ -193,6 +193,8 @@ func getIndexes(tx bun.Tx) []*bun.CreateIndexQuery {
 		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_grams").Using("gin").Column("grams"),
 		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_waiting").Using("gin").Column("waiting"),
 		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_headings").Using("gin").Column("headings"),
+		// readneighbors: the forks of a note.
+		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_fork_of").Column("fork_of").Where("fork_of IS NOT NULL"),
 		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_unindexed").Column("item_id").Where("grams IS NULL"),
 	}
 }

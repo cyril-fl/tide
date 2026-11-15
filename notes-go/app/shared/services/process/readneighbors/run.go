@@ -34,13 +34,15 @@ type Linked struct {
 
 // Result is the center note (path, content, tags), its neighbors (most shared tags first, at most the
 // neighbors_limit of the account, all of them counted in NeighborsTotal), the notes its [[links]] name, and the notes
-// naming it.
+// naming it, the note it was forked from and its own forks.
 type Result struct {
 	Note           readitem.Result `json:"note"`
 	Neighbors      []Neighbor      `json:"neighbors"`
 	NeighborsTotal int             `json:"neighbors_total"`
 	Links          []Linked        `json:"links"`
 	Backlinks      []Linked        `json:"backlinks"`
+	Original       []Linked        `json:"original"` // a fork: the live note it merges back into, else empty
+	Forks          []Linked        `json:"forks"`
 }
 
 type run struct {
@@ -70,6 +72,7 @@ func (p *run) Run() {
 	p.loadTree()
 	p.loadNeighbors()
 	p.loadLinks()
+	p.loadForks()
 }
 
 // Getters & Setters
@@ -195,4 +198,33 @@ func snippet(content, id string) string {
 		return searchnotes.Cut(before+wikilink.Unresolve(line[start:]), len(before))
 	}
 	return ""
+}
+
+// loadForks reads the forks made from the note; its original is in the tree already. Empty, not null, in JSON.
+func (p *run) loadForks() {
+	if p.HasErr() {
+		return
+	}
+
+	var rows []Linked
+	p.SetErr(p.db.NewRaw(`
+		SELECT i.id, i.title
+		FROM metadata_notes AS mn
+		JOIN items AS i ON i.id = mn.item_id
+		WHERE mn.fork_of = ? AND i.user_id = ? AND i.deleted_at IS NULL`, p.cache.result.Note.Item.ID, domain.UserID(p.ctx)).
+		Scan(p.ctx, &rows))
+	if p.HasErr() {
+		return
+	}
+	p.cache.result.Forks = domain.Live(p.cache.tree, rows, func(l Linked) string { return l.ID }, nil)
+	for i := range p.cache.result.Forks {
+		p.cache.result.Forks[i].Path = p.cache.tree.Paths[p.cache.result.Forks[i].ID]
+	}
+
+	p.cache.result.Original = []Linked{}
+	if id := p.cache.result.Note.ForkOf; id != "" {
+		if path, ok := p.cache.tree.Paths[id]; ok {
+			p.cache.result.Original = append(p.cache.result.Original, Linked{ID: id, Title: secret.Text(p.cache.tree.Titles[id]), Path: path})
+		}
+	}
 }

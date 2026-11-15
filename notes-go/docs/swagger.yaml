@@ -789,6 +789,11 @@ components:
             $ref: '#/components/schemas/readneighbors.Linked'
           type: array
           uniqueItems: false
+        forks:
+          items:
+            $ref: '#/components/schemas/readneighbors.Linked'
+          type: array
+          uniqueItems: false
         links:
           items:
             $ref: '#/components/schemas/readneighbors.Linked'
@@ -803,12 +808,20 @@ components:
           type: integer
         note:
           $ref: '#/components/schemas/readitem.Result'
+        original:
+          description: 'a fork: the live note it merges back into, else empty'
+          items:
+            $ref: '#/components/schemas/readneighbors.Linked'
+          type: array
+          uniqueItems: false
       required:
       - backlinks
+      - forks
       - links
       - neighbors
       - neighbors_total
       - note
+      - original
       type: object
     readnotetags.Body:
       properties:

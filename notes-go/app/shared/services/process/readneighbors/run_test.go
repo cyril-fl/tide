@@ -15,6 +15,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteitems"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/forknote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 )
 
@@ -115,6 +116,23 @@ func TestNeighbors(t *testing.T) {
 	process.Run()
 	if back := process.GetResult().Backlinks; process.HasErr() || len(back) != 1 || back[0].Snippet != "see [[Center]] here" {
 		t.Errorf("backlinks = %+v, %v; want Source with its line", back, process.GetErr())
+	}
+
+	// A fork of Center is among its forks, and Center is the fork's original; Center itself has none.
+	fork := forknote.Process(ctx, tx, forknote.Input{ID: ids["Center"], Content: "# Center fork"})
+	fork.Run()
+	if fork.HasErr() {
+		t.Fatalf("fork: %v", fork.GetErr())
+	}
+	process = Process(ctx, tx, ids["Center"])
+	process.Run()
+	if got := process.GetResult(); process.HasErr() || len(got.Forks) != 1 || got.Forks[0].ID != fork.GetResult().ID || len(got.Original) != 0 {
+		t.Errorf("forks = %+v, original = %+v, %v; want the fork, no original", got.Forks, got.Original, process.GetErr())
+	}
+	process = Process(ctx, tx, fork.GetResult().ID)
+	process.Run()
+	if got := process.GetResult(); process.HasErr() || len(got.Original) != 1 || got.Original[0].ID != ids["Center"] || got.Original[0].Path != "/Center" {
+		t.Errorf("original = %+v, %v; want Center", got.Original, process.GetErr())
 	}
 
 	missing := Process(ctx, tx, "00000000-0000-0000-0000-000000000000")

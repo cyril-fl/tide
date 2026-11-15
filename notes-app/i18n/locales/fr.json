@@ -148,12 +148,14 @@
   "related": {
     "links": "Liens",
     "backlinks": "Rétroliens",
+    "original": "Fork de",
+    "forks": "Forks",
     "sameTags": "Mêmes tags",
     "others": "{n} autre note : | {n} autres notes :",
     "title": "Notes liées ({total})",
     "showGraph": "Voir le graphe",
     "emptyTitle": "Aucune note liée pour l'instant.",
-    "emptyDescription": "Les liens [[…]], les rétroliens et les notes aux mêmes tags apparaissent ici."
+    "emptyDescription": "Les liens [[…]], les rétroliens, les forks et les notes aux mêmes tags apparaissent ici."
   },
   "note": {
     "unsaved": "La note n'est pas enregistrée",

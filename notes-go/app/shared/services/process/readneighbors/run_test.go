@@ -37,6 +37,25 @@ func TestSnippet(t *testing.T) {
 	}
 }
 
+func TestMention(t *testing.T) {
+	tests := map[string]struct {
+		content, title, want string
+		ok                   bool
+	}{
+		"whole word":       {"# A\n\nlearn Go now", "Go", "learn Go now", true},
+		"in a longer word": {"use Google", "Go", "", false},
+		"accented letter":  {"Gö and Ago", "Go", "", false},
+		"after a partial":  {"Google, then go.", "Go", "Google, then go.", true},
+		"another case":     {"see ÉTÉ here", "été", "see ÉTÉ here", true},
+	}
+
+	for name, test := range tests {
+		if got, ok := mention(test.content, test.title); got != test.want || ok != test.ok {
+			t.Errorf("%s: mention() = %q, %v, want %q, %v", name, got, ok, test.want, test.ok)
+		}
+	}
+}
+
 func TestNeighbors(t *testing.T) {
 	ctx := context.Background()
 	env := postgrey.NewEnvironment()
@@ -156,6 +175,20 @@ func TestNeighbors(t *testing.T) {
 	process.Run()
 	if got := process.GetResult(); process.HasErr() || len(got.Forks) != 0 || got.Merged != fork.GetResult().ID {
 		t.Errorf("forks = %+v, merged = %q, %v; want no fork, the trashed one merged", got.Forks, got.Merged, process.GetErr())
+	}
+
+	// Plain cites Center without a link; Partial only in longer words; Source links to it already.
+	for _, content := range []string{"# Plain\n\nread center today", "# Partial\n\nCentered, Centers"} {
+		note := createnote.Process(ctx, tx, createnote.Input{Content: content})
+		note.Run()
+		if note.HasErr() {
+			t.Fatalf("note %q: %v", content, note.GetErr())
+		}
+	}
+	process = Process(ctx, tx, ids["Center"])
+	process.Run()
+	if got := process.GetResult().Mentions; process.HasErr() || len(got) != 1 || got[0].Path != "/Plain" || got[0].Snippet != "read center today" {
+		t.Errorf("mentions = %+v, %v; want Plain with its line", got, process.GetErr())
 	}
 
 	missing := Process(ctx, tx, "00000000-0000-0000-0000-000000000000")

@@ -827,6 +827,13 @@ components:
             $ref: '#/components/schemas/readneighbors.Linked'
           type: array
           uniqueItems: false
+        mentions:
+          description: Mentions are the notes citing the title as a whole word without
+            a [[link]] to the note, the latest edited first.
+          items:
+            $ref: '#/components/schemas/readneighbors.Linked'
+          type: array
+          uniqueItems: false
         merged:
           description: Merged is the fork whose last merge into the note can still
             be undone (the note unchanged since), in the trash or not.
@@ -850,6 +857,7 @@ components:
       - backlinks
       - forks
       - links
+      - mentions
       - neighbors
       - neighbors_total
       - note

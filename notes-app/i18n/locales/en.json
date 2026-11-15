@@ -148,6 +148,7 @@
   "related": {
     "links": "Links",
     "backlinks": "Backlinks",
+    "mentions": "Unlinked mentions",
     "original": "Forked from",
     "forks": "Forks",
     "sameTags": "Same tags",

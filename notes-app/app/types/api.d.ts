@@ -4597,6 +4597,8 @@ export interface components {
             backlinks: components["schemas"]["readneighbors.Linked"][];
             forks: components["schemas"]["readneighbors.Linked"][];
             links: components["schemas"]["readneighbors.Linked"][];
+            /** @description Mentions are the notes citing the title as a whole word without a [[link]] to the note, the latest edited first. */
+            mentions: components["schemas"]["readneighbors.Linked"][];
             /** @description Merged is the fork whose last merge into the note can still be undone (the note unchanged since), in the trash or not. */
             merged?: string;
             neighbors: components["schemas"]["readneighbors.Neighbor"][];

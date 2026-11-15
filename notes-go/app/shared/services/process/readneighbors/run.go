@@ -3,6 +3,8 @@ package readneighbors
 import (
 	"context"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 
@@ -43,6 +45,8 @@ type Result struct {
 	Backlinks      []Linked        `json:"backlinks"`
 	Original       []Linked        `json:"original"` // a fork: the live note it merges back into, else empty
 	Forks          []Linked        `json:"forks"`
+	// Mentions are the notes citing the title as a whole word without a [[link]] to the note, the latest edited first.
+	Mentions []Linked `json:"mentions"`
 	// Merged is the fork whose last merge into the note can still be undone (the note unchanged since), in the trash or not.
 	Merged string `json:"merged,omitempty" binding:"optional"`
 }
@@ -75,6 +79,7 @@ func (p *run) Run() {
 	p.loadNeighbors()
 	p.loadLinks()
 	p.loadForks()
+	p.loadMentions()
 }
 
 // Getters & Setters
@@ -242,4 +247,108 @@ func (p *run) loadForks() {
 			p.cache.result.Original = append(p.cache.result.Original, Linked{ID: id, Title: secret.Text(p.cache.tree.Titles[id]), Path: path})
 		}
 	}
+}
+
+// mentionsLimit is how many unlinked mentions are shown: the notes are opened until that many are found, at most
+// mentionsOpened of them.
+const (
+	mentionsLimit  = 20
+	mentionsOpened = 500
+)
+
+// loadMentions opens the notes the index gives for the title, latest edited first, and keeps those citing it as a
+// whole word, but the note and its backlinks. None for a title under 3 letters. Empty, not null, in JSON.
+// TODO: only the mentionsOpened latest edited candidates are opened, as the grams do not keep the order of the words
+// (18,000 candidates opened in 600 ms for "Achat achat conférence soir" on the perf account); a positional index if older
+// mentions are missed.
+func (p *run) loadMentions() {
+	if p.HasErr() {
+		return
+	}
+
+	p.cache.result.Mentions = []Linked{}
+	note := p.cache.result.Note.Item
+	title := strings.TrimSpace(string(note.Title))
+	if utf8.RuneCountInString(title) < 3 {
+		return
+	}
+	query, args, _, err := searchnotes.Candidates(p.ctx, p.db, title)
+	if err != nil {
+		p.SetErr(err)
+		return
+	}
+	var rows []Linked
+	p.SetErr(p.db.NewRaw(`
+		SELECT i.id
+		FROM items AS i
+		JOIN metadata_notes AS mn ON mn.item_id = i.id
+		WHERE i.user_id = ? AND i.kind = ? AND i.deleted_at IS NULL AND i.id <> ?`+query+`
+		ORDER BY coalesce(i.updated_at, i.created_at) DESC
+		LIMIT ?`,
+		append(append([]any{domain.UserID(p.ctx), domain.NOTE, note.ID}, args...), mentionsOpened)...).
+		Scan(p.ctx, &rows))
+	if p.HasErr() {
+		return
+	}
+	linked := map[string]bool{}
+	for _, l := range p.cache.result.Backlinks {
+		linked[l.ID] = true
+	}
+	var ids []string
+	for _, l := range domain.Live(p.cache.tree, rows, func(l Linked) string { return l.ID }, nil) {
+		if !linked[l.ID] {
+			ids = append(ids, l.ID)
+		}
+	}
+
+	// Opened by growing batches, as searchnotes.Matches: a title in every note fills the page with the first one.
+	for at, size := 0, 50; at < len(ids) && len(p.cache.result.Mentions) < mentionsLimit; at, size = at+size, size*4 {
+		opened := ids[at:min(at+size, len(ids))]
+		var contents []Linked
+		if err := p.db.NewRaw(`
+			SELECT mn.item_id AS id, mn.content
+			FROM metadata_notes AS mn
+			JOIN items AS i ON i.id = mn.item_id
+			WHERE i.user_id = ? AND mn.item_id IN (?)`, domain.UserID(p.ctx), bun.In(opened)).
+			Scan(p.ctx, &contents); err != nil {
+			p.SetErr(err)
+			return
+		}
+		byID := make(map[string]string, len(contents))
+		for _, c := range contents {
+			byID[c.ID] = string(c.Content)
+		}
+		for _, id := range opened {
+			if s, ok := mention(byID[id], title); ok && len(p.cache.result.Mentions) < mentionsLimit {
+				p.cache.result.Mentions = append(p.cache.result.Mentions, Linked{ID: id, Title: secret.Text(p.cache.tree.Titles[id]), Path: p.cache.tree.Paths[id], Snippet: s})
+			}
+		}
+	}
+}
+
+// mention finds title in content as a whole word whatever its case, and gives its line cut around it: a letter on
+// either side is another word (unicode.IsLetter, as \b ignores accents: "Go" is not in "Google" nor "Gö").
+func mention(content, title string) (string, bool) {
+	lower := strings.ToLower(title)
+	for _, line := range strings.Split(content, "\n") {
+		low := strings.ToLower(line)
+		for from := 0; ; {
+			i := strings.Index(low[from:], lower)
+			if i < 0 {
+				break
+			}
+			at, end := from+i, from+i+len(lower)
+			before, _ := utf8.DecodeLastRuneInString(low[:at])
+			after, _ := utf8.DecodeRuneInString(low[end:])
+			if !unicode.IsLetter(before) && !unicode.IsLetter(after) {
+				if len(low) != len(line) {
+					line = low // a letter whose lower case has another length: the positions are those of low
+				}
+				head := wikilink.Unresolve(line[:at])
+				return searchnotes.Cut(head+wikilink.Unresolve(line[at:]), len(head)), true
+			}
+			from = at + 1
+		}
+	}
+	return "", false
 }

@@ -18,6 +18,7 @@ const sections = computed(() =>
   [
     { title: t('related.links'), notes: data.value?.links ?? [] },
     { title: t('related.backlinks'), notes: data.value?.backlinks ?? [] },
+    { title: t('related.mentions'), notes: data.value?.mentions ?? [] },
     { title: t('related.original'), notes: data.value?.original ?? [] },
     { title: t('related.forks'), notes: data.value?.forks ?? [] },
     { title: t('related.sameTags'), notes: data.value?.neighbors ?? [] },

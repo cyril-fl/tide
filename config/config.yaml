@@ -359,8 +359,8 @@ commands:
   login:
     use: "login <url>"
     short: "Log the CLI in to an account on a server"
-    long: "Ask the account's name and password, log in on the server at <url>, and keep the server and the session in ~/.config/{name}/session.json (readable by the user only). Every other command then acts for this account. With --print-token, print a new session token instead and keep nothing: an agent that cannot log in where it runs gets it through {NAME}_SESSION, and the server through {NAME}_URL, which win over the file. The token opens the whole account."
-    example: "{name} login https://notes.example.ts.net\nexport {NAME}_SESSION=$({name} login https://notes.example.ts.net --print-token)"
+    long: "Ask the account's name and password, log in on the server at <url>: the address of the web app (the server's WEB_ORIGIN), or http://127.0.0.1:8080 on the server itself (its TIDE_LISTEN). Then keep the server and the session in ~/.config/{name}/session.json (readable by the user only). Every other command then acts for this account. With --print-token, print a new session token instead and keep nothing: an agent that cannot log in where it runs gets it through {NAME}_SESSION, and the server through {NAME}_URL, which win over the file. The token opens the whole account."
+    example: "{name} login https://notes.example.ts.net\n{name} login http://127.0.0.1:8080\nexport {NAME}_SESSION=$({name} login https://notes.example.ts.net --print-token)"
     args:
       - name: "print-token"
         shorthand: ""

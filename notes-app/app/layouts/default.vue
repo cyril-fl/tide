@@ -51,14 +51,15 @@ watch([() => colorMode.preference, view], async ([mode, next]) => {
   me.value = await api<User>('/api/me', { method: 'PATCH', body: { color_mode: mode, view: next } });
 });
 
-// Single keys, like Notion or Linear: Nuxt UI skips them while typing in a field or the editor.
+// Option (Alt) + a letter: not a single key a stray hit fires; Cmd+N, Cmd+Shift+N and Cmd+T are the browser's.
+// Nuxt UI matches alt shortcuts on e.code, so the Mac's dead keys (Option+N types ˜) still match. It skips them while typing in a field or the editor.
 // Not in an open menu either (the / menu, the right click): it takes the focus out of the editor, the keys are for it.
 const outsideMenu = (handler: () => unknown) => () => document.activeElement?.closest('[role="menu"]') || handler();
 defineShortcuts({
   '/': outsideMenu(() => (searchOpen.value = true)),
-  n: outsideMenu(() => navigateTo(newNotePath(currentFolder(route)))),
-  shift_n: outsideMenu(() => createFolder(currentFolder(route))),
-  t: outsideMenu(() => (searchSnippets.value = searchOpen.value = true)),
+  alt_n: outsideMenu(() => navigateTo(newNotePath(currentFolder(route)))),
+  alt_shift_n: outsideMenu(() => createFolder(currentFolder(route))),
+  alt_t: outsideMenu(() => (searchSnippets.value = searchOpen.value = true)),
   'meta_\\': () => (collapsed.value = !collapsed.value),
   'meta_.': { usingInput: true, handler: () => has('focusMode') && (focus.value = !focus.value) },
 });

@@ -13,7 +13,7 @@ const { importNotes, prompt, confirm } = useDialogs();
 const toast = useToast();
 
 const open = useState('search-open', () => false);
-// The T shortcut opens the palette on the snippets alone.
+// The Option+T shortcut opens the palette on the snippets alone.
 const snippetsOnly = useState('search-snippets', () => false);
 watch(open, (isOpen) => isOpen || (snippetsOnly.value = false));
 const term = ref('');
@@ -137,14 +137,14 @@ const groups = computed<CommandPaletteGroup[]>(() => {
       id: 'actions',
       label: t('search.actions'),
       items: [
-        { label: t('common.newNote'), icon: icons.noteAdd, kbds: ['n'], to: newNotePath(currentFolder(route)) },
+        { label: t('common.newNote'), icon: icons.noteAdd, kbds: ['alt', 'n'], to: newNotePath(currentFolder(route)) },
         ...(snippets.value.length
-          ? [{ label: t('search.fromSnippet'), icon: icons.snippet, kbds: ['t'], children: snippets.value }]
+          ? [{ label: t('search.fromSnippet'), icon: icons.snippet, kbds: ['alt', 't'], children: snippets.value }]
           : []),
         {
           label: t('common.newFolder'),
           icon: icons.folderAdd,
-          kbds: ['shift', 'n'],
+          kbds: ['alt', 'shift', 'n'],
           onSelect: () => createFolder(currentFolder(route)),
         },
         { label: t('settings.import'), icon: icons.import, onSelect: () => importNotes() },

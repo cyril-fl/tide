@@ -211,7 +211,7 @@ test('snippets are made in the settings and used in the notes', async ({ page })
 
     await page.goto(`/folders/${box.folder.id}`);
     await expect(page.getByRole('heading', { name: box.prefix })).toBeVisible();
-    await page.keyboard.press('t');
+    await page.keyboard.press('Alt+t');
     await page.getByRole('option', { name: `${box.prefix} réunion` }).click();
     await expect(page).toHaveURL(/\/notes\/new\?/);
     await expect(editor.getByRole('heading', { name: 'Réunion' })).toBeVisible();

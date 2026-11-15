@@ -442,7 +442,7 @@ test('N opens a new note in the current folder, the theme button switches to dar
     await box.api.patch('/api/me', { data: { color_mode: 'light' } });
     await page.reload();
     await expect(page.getByRole('heading', { name: box.prefix })).toBeVisible();
-    await page.keyboard.press('n');
+    await page.keyboard.press('Alt+n');
     await expect(page).toHaveURL(new RegExp(`/notes/new\\?parent=${box.folder.id}`));
 
     await page.getByRole('button', { name: 'Thème sombre' }).click();

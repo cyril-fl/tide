@@ -735,6 +735,38 @@ test('the toolbar forks the current text, the note merges it and undoes the merg
   expect((await box.api.get(`/api/notes/${copy}`)).status()).toBe(200);
 });
 
+// A fork takes in what changed in its note (#180): a conflict resolved with the copy, the copy keeping its title, and the
+// next merge replays none of the original's changes.
+test('a fork updates from its original, a conflict kept with the copy, then merges back', async ({ page }) => {
+  const note = await box.note(`# ${box.prefix} rebase\n\nun\n\ndeux`);
+  await page.goto(`/notes/${note.id}`);
+  await page.getByRole('button', { name: 'Nouvelle note copiée de celle-ci' }).click();
+  await expect(page).not.toHaveURL(new RegExp(note.id));
+  const copy = page.url().split('/').pop()!;
+  const forked = await box.content(copy);
+  await box.api.patch(`/api/notes/${copy}`, { data: { content: forked.replace(/^un$/m, 'un copie') } });
+  await box.api.patch(`/api/notes/${note.id}`, {
+    data: { content: `# ${box.prefix} rebase\n\nun origine\n\ndeux origine` },
+  });
+  await page.reload();
+  await page.getByRole('button', { name: "Mettre à jour depuis l'origine" }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('region', { name: 'Conflit 1' })).toContainText('un origine');
+  await dialog.getByRole('button', { name: 'Garder la copie' }).click();
+  await dialog.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(page.getByText("Copie mise à jour depuis la note d'origine").first()).toBeVisible();
+  await expect(page.locator('.ProseMirror')).toContainText('deux origine');
+  const rebased = forked.replace(/^un$/m, 'un copie').replace(/^deux$/m, 'deux origine');
+  await expect.poll(() => box.content(copy)).toBe(rebased);
+
+  await page.goto(`/notes/${note.id}`);
+  await page.getByRole('button', { name: 'Fusionner une copie dans cette note' }).click();
+  await page.getByRole('menuitem', { name: `${box.prefix} rebase (version du` }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Fusionner' }).click();
+  await expect(page.getByText('Copie fusionnée dans cette note').first()).toBeVisible();
+  expect(await box.content(note.id)).toBe(`# ${box.prefix} rebase\n\nun copie\n\ndeux origine`);
+});
+
 // A fork merges back into its note (Pro): the fork's changes and the note's own, the note keeping its title.
 async function forkAndMerge(
   page: Page,

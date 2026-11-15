@@ -424,6 +424,18 @@ type ForknoteMergeBody struct {
 	UpdatedAt *string `json:"updated_at,omitempty"`
 }
 
+// ForknoteRebaseBody defines model for forknote.RebaseBody.
+type ForknoteRebaseBody struct {
+	// Base Base is the original's text the rebase started from, the base of the next merge.
+	Base string `json:"base"`
+
+	// Content Content is the rebased text, saved into the fork.
+	Content string `json:"content"`
+
+	// UpdatedAt UpdatedAt is updated_at of the fork as read, or its created_at: a 409 if it changed since.
+	UpdatedAt *string `json:"updated_at,omitempty"`
+}
+
 // ImportnotesResult defines model for importnotes.Result.
 type ImportnotesResult struct {
 	Folders int `json:"folders"`
@@ -843,6 +855,9 @@ type PostApiNotesIdForksJSONRequestBody = ForknoteBody
 
 // PostApiNotesIdMergeJSONRequestBody defines body for PostApiNotesIdMerge for application/json ContentType.
 type PostApiNotesIdMergeJSONRequestBody = ForknoteMergeBody
+
+// PostApiNotesIdRebaseJSONRequestBody defines body for PostApiNotesIdRebase for application/json ContentType.
+type PostApiNotesIdRebaseJSONRequestBody = ForknoteRebaseBody
 
 // PostApiNotesIdVersionsJSONRequestBody defines body for PostApiNotesIdVersions for application/json ContentType.
 type PostApiNotesIdVersionsJSONRequestBody = ReadversionsBody
@@ -1295,6 +1310,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/notes/{id}/neighbors (the `GetApiNotesIdNeighbors` operationId).
 	GetApiNotesIdNeighbors(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiNotesIdRebaseWithBody Rebase a fork on its original
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/notes/{id}/rebase (the `PostApiNotesIdRebase` operationId).
+	PostApiNotesIdRebaseWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiNotesIdRebase Rebase a fork on its original
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/notes/{id}/rebase (the `PostApiNotesIdRebase` operationId).
+	PostApiNotesIdRebase(ctx context.Context, id string, body PostApiNotesIdRebaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiNotesIdUnmerge Undo the last merge of a fork
 	//
@@ -2430,6 +2459,40 @@ func (c *Client) PostApiNotesIdMerge(ctx context.Context, id string, body PostAp
 // Corresponds with GET /api/notes/{id}/neighbors (the `GetApiNotesIdNeighbors` operationId).
 func (c *Client) GetApiNotesIdNeighbors(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiNotesIdNeighborsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiNotesIdRebaseWithBody Rebase a fork on its original
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/notes/{id}/rebase (the `PostApiNotesIdRebase` operationId).
+func (c *Client) PostApiNotesIdRebaseWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiNotesIdRebaseRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiNotesIdRebase Rebase a fork on its original
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/notes/{id}/rebase (the `PostApiNotesIdRebase` operationId).
+func (c *Client) PostApiNotesIdRebase(ctx context.Context, id string, body PostApiNotesIdRebaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiNotesIdRebaseRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4688,6 +4751,53 @@ func NewGetApiNotesIdNeighborsRequest(server string, id string) (*http.Request, 
 	return req, nil
 }
 
+// NewPostApiNotesIdRebaseRequest calls the generic PostApiNotesIdRebase builder with application/json body
+func NewPostApiNotesIdRebaseRequest(server string, id string, body PostApiNotesIdRebaseJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiNotesIdRebaseRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPostApiNotesIdRebaseRequestWithBody constructs an http.Request for the PostApiNotesIdRebase method, with any body, and a specified content type
+func NewPostApiNotesIdRebaseRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/notes/%s/rebase", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPostApiNotesIdUnmergeRequest constructs an http.Request for the PostApiNotesIdUnmerge method
 func NewPostApiNotesIdUnmergeRequest(server string, id string) (*http.Request, error) {
 	var err error
@@ -6253,6 +6363,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/notes/{id}/neighbors (the `GetApiNotesIdNeighbors` operationId).
 	GetApiNotesIdNeighborsWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetApiNotesIdNeighborsResponse, error)
+
+	// PostApiNotesIdRebaseWithBodyWithResponse Rebase a fork on its original
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/notes/{id}/rebase (the `PostApiNotesIdRebase` operationId).
+	PostApiNotesIdRebaseWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiNotesIdRebaseResponse, error)
+
+	// PostApiNotesIdRebaseWithResponse Rebase a fork on its original
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/notes/{id}/rebase (the `PostApiNotesIdRebase` operationId).
+	PostApiNotesIdRebaseWithResponse(ctx context.Context, id string, body PostApiNotesIdRebaseJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesIdRebaseResponse, error)
 
 	// PostApiNotesIdUnmergeWithResponse Undo the last merge of a fork
 	//
@@ -8966,6 +9090,82 @@ func (r GetApiNotesIdNeighborsResponse) ContentType() string {
 	return ""
 }
 
+type PostApiNotesIdRebaseResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReaditemResult
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *RespondFailure
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *RespondFailure
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostApiNotesIdRebaseResponse) GetJSON200() *ReaditemResult {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostApiNotesIdRebaseResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PostApiNotesIdRebaseResponse) GetJSON404() *RespondFailure {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r PostApiNotesIdRebaseResponse) GetJSON409() *RespondFailure {
+	return r.JSON409
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r PostApiNotesIdRebaseResponse) GetJSON413() *RespondFailure {
+	return r.JSON413
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PostApiNotesIdRebaseResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PostApiNotesIdRebaseResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiNotesIdRebaseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiNotesIdRebaseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiNotesIdRebaseResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type PostApiNotesIdUnmergeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11373,6 +11573,32 @@ func (c *ClientWithResponses) GetApiNotesIdNeighborsWithResponse(ctx context.Con
 	return ParseGetApiNotesIdNeighborsResponse(rsp)
 }
 
+// PostApiNotesIdRebaseWithBodyWithResponse Rebase a fork on its original
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/notes/{id}/rebase (the `PostApiNotesIdRebase` operationId).
+func (c *ClientWithResponses) PostApiNotesIdRebaseWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiNotesIdRebaseResponse, error) {
+	rsp, err := c.PostApiNotesIdRebaseWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiNotesIdRebaseResponse(rsp)
+}
+
+// PostApiNotesIdRebaseWithResponse Rebase a fork on its original
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/notes/{id}/rebase (the `PostApiNotesIdRebase` operationId).
+func (c *ClientWithResponses) PostApiNotesIdRebaseWithResponse(ctx context.Context, id string, body PostApiNotesIdRebaseJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesIdRebaseResponse, error) {
+	rsp, err := c.PostApiNotesIdRebase(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiNotesIdRebaseResponse(rsp)
+}
+
 // PostApiNotesIdUnmergeWithResponse Undo the last merge of a fork
 //
 // Returns a wrapper object for the known response body format(s).
@@ -13666,6 +13892,67 @@ func ParseGetApiNotesIdNeighborsResponse(rsp *http.Response) (*GetApiNotesIdNeig
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiNotesIdRebaseResponse parses an HTTP response from a PostApiNotesIdRebaseWithResponse call
+func ParsePostApiNotesIdRebaseResponse(rsp *http.Response) (*PostApiNotesIdRebaseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiNotesIdRebaseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReaditemResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest RespondFailure

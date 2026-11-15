@@ -82,6 +82,7 @@ export function useIcons() {
     compare: 'i-reicon-document-copy',
     fork: 'i-reicon-sitemap',
     merge: 'i-lucide-git-merge', // Reicon has none
+    rebase: 'i-lucide-git-pull-request-arrow', // Reicon has none
     restore: 'i-reicon-recovery-convert',
 
     // Graph

@@ -559,6 +559,23 @@ components:
       - base
       - content
       type: object
+    forknote.RebaseBody:
+      properties:
+        base:
+          description: Base is the original's text the rebase started from, the base
+            of the next merge.
+          type: string
+        content:
+          description: Content is the rebased text, saved into the fork.
+          type: string
+        updated_at:
+          description: 'UpdatedAt is updated_at of the fork as read, or its created_at:
+            a 409 if it changed since.'
+          type: string
+      required:
+      - base
+      - content
+      type: object
     importnotes.Result:
       properties:
         folders:
@@ -2681,6 +2698,64 @@ paths:
                 $ref: '#/components/schemas/respond.Failure'
           description: Internal Server Error
       summary: Read a note and the notes sharing its tags
+      tags:
+      - notes
+  /api/notes/{id}/rebase:
+    post:
+      parameters:
+      - description: uuid of the fork
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/forknote.RebaseBody'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/readitem.Result'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Conflict
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Request Entity Too Large
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Rebase a fork on its original
       tags:
       - notes
   /api/notes/{id}/unmerge:

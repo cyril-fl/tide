@@ -2497,6 +2497,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notes/{id}/rebase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rebase a fork on its original */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description uuid of the fork */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description body */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["forknote.RebaseBody"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["readitem.Result"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Request Entity Too Large */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes/{id}/unmerge": {
         parameters: {
             query?: never;
@@ -4495,6 +4584,14 @@ export interface components {
             /** @description Trash moves the fork to the trash with the merge. */
             trash?: boolean;
             /** @description UpdatedAt is updated_at of the original as read, or its created_at: a 409 if it changed since. */
+            updated_at?: string;
+        };
+        "forknote.RebaseBody": {
+            /** @description Base is the original's text the rebase started from, the base of the next merge. */
+            base: string;
+            /** @description Content is the rebased text, saved into the fork. */
+            content: string;
+            /** @description UpdatedAt is updated_at of the fork as read, or its created_at: a 409 if it changed since. */
             updated_at?: string;
         };
         "importnotes.Result": {

@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { choose, conflictRows, lineChanges, merge, mergedText, mergeFork, pickedLines } from '../app/utils/merge';
+import {
+  choose,
+  conflictRows,
+  lineChanges,
+  merge,
+  mergedText,
+  mergeFork,
+  pickedLines,
+  rebaseFork,
+} from '../app/utils/merge';
 import type { Choice, MergePart } from '../app/utils/merge';
 
 // The text with every conflict resolved by the same choice.
@@ -100,4 +109,17 @@ test('a conflict resolved line by line keeps the lines picked on each side, in o
 test('a side emptied in a conflict adds no blank line', () => {
   const rows = conflictRows({ mine: [], theirs: ['x'] });
   assert.deepEqual(pickedLines(rows, choose(rows, 'mine')), []);
+});
+
+test('a fork rebases on its original keeping its own title, a conflict showing the fork as mine', () => {
+  const fork = base.replace('# Courses', '# Copie');
+  const parts = rebaseFork(fork, fork.replace('- Pain', '- Pain complet'), `${base}\n- Riz`);
+  assert.ok(parts.every((part) => 'lines' in part));
+  assert.equal(mergedText(parts), '# Copie\n\n- Pain complet\n- Lait\n- Œufs\n- Riz');
+  const conflict = rebaseFork(fork, fork.replace('Lait', 'Lait copie'), base.replace('Lait', 'Lait origine'));
+  assert.deepEqual(
+    conflict.filter((part) => !('lines' in part)),
+    [{ mine: ['- Lait copie'], theirs: ['- Lait origine'] }],
+  );
+  assert.equal(chosen(conflict, 'mine'), fork.replace('Lait', 'Lait copie'));
 });

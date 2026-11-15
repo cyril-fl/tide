@@ -59,6 +59,16 @@ export function mergeFork(base: string, mine: string, theirs: string): MergePart
   );
 }
 
+/**
+ * The rebase of a fork (mine) on its original (theirs): what changed in the original since the base comes into the fork,
+ * which keeps its own title. mergeFork the other way round, each conflict turned back so mine stays the fork.
+ */
+export function rebaseFork(base: string, mine: string, theirs: string): MergePart[] {
+  return mergeFork(base, theirs, mine).map((part) =>
+    'lines' in part ? part : { mine: part.theirs, theirs: part.mine },
+  );
+}
+
 export type Choice = 'mine' | 'theirs' | 'both';
 
 // A line of a conflict compared from the other side (theirs) to this one (mine): in both, only theirs, only mine.

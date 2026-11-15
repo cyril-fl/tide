@@ -97,6 +97,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("GET /api/notes/{id}/fork", apiforknote.Read(db))
 	mux.Handle("POST /api/notes/{id}/merge", apiforknote.Merge(db))
 	mux.Handle("POST /api/notes/{id}/unmerge", apiforknote.Unmerge(db))
+	mux.Handle("POST /api/notes/{id}/rebase", apiforknote.Rebase(db))
 
 	mux.Handle("GET /api/folders", apireadfolder.List(db))
 	mux.Handle("POST /api/folders", apicreatefolder.Handler(db))

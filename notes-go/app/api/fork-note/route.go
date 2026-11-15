@@ -8,6 +8,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/forknote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/mergefork"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readfork"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/rebasefork"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/unmergefork"
 	"github.com/uptrace/bun"
 )
@@ -148,6 +149,54 @@ func Unmerge(db bun.IDB) http.HandlerFunc {
 		}
 
 		process := unmergefork.Process(r.Context(), db, id)
+		process.Run()
+		if process.HasErr() {
+			respond.Error(w, process.GetErr())
+			return
+		}
+		note := process.GetResult()
+		note.Tags = append([]string{}, note.Tags...)
+		respond.JSON(w, http.StatusOK, note)
+	}
+}
+
+// RebaseBody is a rebase made by the app.
+type RebaseBody struct {
+	// Content is the rebased text, saved into the fork.
+	Content string `json:"content"`
+	// Base is the original's text the rebase started from, the base of the next merge.
+	Base string `json:"base"`
+	// UpdatedAt is updated_at of the fork as read, or its created_at: a 409 if it changed since.
+	UpdatedAt *time.Time `json:"updated_at" binding:"optional"`
+}
+
+// Rebase saves into the fork what changed in its original: POST /api/notes/{id}/rebase. The text replaced is kept in the
+// fork's history. 409 when the fork is locked or changed since.
+// @Summary  Rebase a fork on its original
+// @Tags     notes
+// @Accept   json
+// @Produce  json
+// @Param    id path string true "uuid of the fork"
+// @Param    body body RebaseBody true "body"
+// @Success  200 {object} readitem.Result
+// @Failure  400 {object} respond.Failure
+// @Failure  404 {object} respond.Failure
+// @Failure  409 {object} respond.Failure
+// @Failure  413 {object} respond.Failure
+// @Failure  500 {object} respond.Failure
+// @Router   /api/notes/{id}/rebase [post]
+func Rebase(db bun.IDB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := respond.ID(w, r)
+		if !ok {
+			return
+		}
+		var body RebaseBody
+		if !respond.Decode(w, r, &body) {
+			return
+		}
+
+		process := rebasefork.Process(r.Context(), db, rebasefork.Input{ID: id, Content: body.Content, Base: body.Base, UpdatedAt: body.UpdatedAt})
 		process.Run()
 		if process.HasErr() {
 			respond.Error(w, process.GetErr())

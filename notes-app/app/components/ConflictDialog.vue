@@ -5,7 +5,7 @@ import type { Choice, MergePart } from '~/utils/merge';
 // the other device's and the result between them, built from a choice or line by line with arrows, like a merge tool:
 // an arrow points to the result to take its line, back once taken.
 // Closes with the text chosen; the text typed here is already kept in the history.
-// fork: the merge of a fork into its original, the fork's text against the original's; it can be cancelled (undefined).
+// fork: the merge of a fork into its original or its rebase, the fork's text against the original's; it can be cancelled (undefined).
 const props = defineProps<{ parts: MergePart[]; fork?: boolean }>();
 const emit = defineEmits<{ close: [text?: string] }>();
 

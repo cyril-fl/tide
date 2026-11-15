@@ -329,6 +329,41 @@ async function showSaved(note: ItemDetail) {
   else editorRef.value?.editor?.commands.setContent(saved, { contentType: 'markdown' });
   await refreshNuxtData();
 }
+// The original's changes into its fork (#180), like a git rebase: the same three-way merge the other way, the fork keeping
+// its title. The API saves it as a restore, the fork's text kept in its history, and moves the base to the original's
+// text, so the next merge does not replay these changes, and drops the undo of the last merge. Changed meanwhile (409): again once.
+async function rebase(again = true): Promise<void> {
+  await saver.flush();
+  if (failed.value) return;
+  if (readonly.value) return void toast.add({ title: t('note.locked'), color: 'warning' });
+  const [origin, fork] = await Promise.all([
+    api<ForkOrigin>(`/api/notes/${id.value}/fork`),
+    api<ItemDetail>(`/api/notes/${id.value}`),
+  ]);
+  const original = await api<ItemDetail>(`/api/notes/${origin.fork_of}`, { quiet: [404] }).catch((error) => {
+    if ((error as FetchError).status !== 404) throw error;
+  });
+  if (!original) return void toast.add({ title: t('fork.rebaseGone'), color: 'error' });
+
+  const parts = rebaseFork(origin.base, fork.content ?? '', original.content ?? '');
+  const content = parts.every((part) => 'lines' in part) ? mergedText(parts) : await resolveConflict(parts, true);
+  if (content === undefined) return; // Cancelled: nothing saved.
+  let note: ItemDetail;
+  try {
+    note = await api<ItemDetail>(`/api/notes/${id.value}/rebase`, {
+      method: 'POST',
+      body: { content, base: original.content ?? '', updated_at: fork.item.updated_at ?? fork.item.created_at },
+      quiet: again ? [409] : false,
+      conflict: { 'read-only': t('note.locked'), 'changed elsewhere': t('fork.changed') },
+      tooLarge: t('note.tooLarge'),
+    });
+  } catch (error) {
+    if (again && (error as FetchError).status === 409) return rebase(false);
+    return;
+  }
+  await showSaved(note);
+  toast.add({ title: t('fork.rebased'), color: 'success' });
+}
 // A fork of the text as saved, beside the note, titled like a fork from the history: open to every plan, the history to Pro.
 async function fork() {
   await saver.flush();
@@ -630,6 +665,16 @@ const status = computed(() => {
             size="xs"
             :aria-label="$t('fork.unmerge')"
             @click="unmerge(neighbors.merged)"
+          />
+        </UTooltip>
+        <UTooltip v-if="neighbors?.original.length" :text="$t('fork.rebase')">
+          <UButton
+            :icon="icons.rebase"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :aria-label="$t('fork.rebase')"
+            @click="rebase()"
           />
         </UTooltip>
         <UTooltip v-if="has('sourceMode')" :text="source === undefined ? $t('note.source') : $t('note.editor')">

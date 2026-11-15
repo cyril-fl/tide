@@ -946,6 +946,14 @@ func TestForkAndMerge(t *testing.T) {
 		t.Errorf("unmerged = %+v, origin = %+v", unmerged, origin)
 	}
 	c.do("POST", "/api/notes/"+fork.ID+"/unmerge", "", http.StatusConflict, nil)
+	// A rebase saves the fork and moves its base to the original's text.
+	var rebased detail
+	c.do("POST", "/api/notes/"+fork.ID+"/rebase", fmt.Sprintf(`{"content":"# Copie\n\n- Pain\n- Lait","base":"# Courses\n\n- Pain","updated_at":%q}`, fork.CreatedAt.Format(time.RFC3339Nano)), http.StatusOK, &rebased)
+	c.do("GET", "/api/notes/"+fork.ID+"/fork", "", http.StatusOK, &origin)
+	if rebased.Content != "# Copie\n\n- Pain\n- Lait" || origin.Base != "# Courses\n\n- Pain" {
+		t.Errorf("rebased = %+v, origin = %+v", rebased, origin)
+	}
+	c.do("POST", path+"/rebase", `{"content":"x","base":"x"}`, http.StatusNotFound, nil)
 	// The original in the trash: 409 too, saying so.
 	c.do("DELETE", path, "", http.StatusOK, nil)
 	c.do("POST", "/api/notes/"+fork.ID+"/merge", `{"content":"x","base":"x"}`, http.StatusConflict, nil)
@@ -955,6 +963,7 @@ func TestForkAndMerge(t *testing.T) {
 	bob.do("GET", "/api/notes/"+fork.ID+"/fork", "", http.StatusNotFound, nil)
 	bob.do("POST", "/api/notes/"+fork.ID+"/merge", `{"content":"x","base":"x"}`, http.StatusNotFound, nil)
 	bob.do("POST", "/api/notes/"+fork.ID+"/unmerge", "", http.StatusNotFound, nil)
+	bob.do("POST", "/api/notes/"+fork.ID+"/rebase", `{"content":"x","base":"x"}`, http.StatusNotFound, nil)
 }
 
 func TestAccountsAreApart(t *testing.T) {

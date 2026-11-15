@@ -547,7 +547,11 @@
     "unmerge": "Undo the last merge",
     "unmerged": "Merge undone: the note has its text back, the copy is out of the trash if it was there.",
     "noMerge": "No merge to undo.",
-    "originWritten": "The note was edited since the merge: undoing it would overwrite what was written after."
+    "originWritten": "The note was edited since the merge: undoing it would overwrite what was written after.",
+    "rebase": "Update from the original",
+    "rebased": "Copy updated from the original note, its former text kept in the history.",
+    "rebaseGone": "The original note is in the trash or deleted: nothing to take in.",
+    "changed": "The copy changed again during the update: try again."
   },
   "conflict": {
     "title": "Conflicts ({count} to resolve)",

@@ -547,7 +547,11 @@
     "unmerge": "Annuler la dernière fusion",
     "unmerged": "Fusion annulée : la note a retrouvé son texte, la copie est sortie de la corbeille si elle y était.",
     "noMerge": "Aucune fusion à annuler.",
-    "originWritten": "La note a été modifiée depuis la fusion : l'annuler écraserait ce qui a été écrit après."
+    "originWritten": "La note a été modifiée depuis la fusion : l'annuler écraserait ce qui a été écrit après.",
+    "rebase": "Mettre à jour depuis l'origine",
+    "rebased": "Copie mise à jour depuis la note d'origine, son ancien texte gardé dans l'historique.",
+    "rebaseGone": "La note d'origine est dans la corbeille ou supprimée : rien à récupérer.",
+    "changed": "La copie a encore changé pendant la mise à jour : réessaie."
   },
   "conflict": {
     "title": "Conflits ({count} à résoudre)",

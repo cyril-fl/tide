@@ -3,6 +3,7 @@ package replacenotes
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
@@ -23,6 +24,24 @@ func TestBlankValue(t *testing.T) {
 
 	if !errors.Is(process.GetErr(), ErrNoValue) {
 		t.Fatalf("err = %v, want %v", process.GetErr(), ErrNoValue)
+	}
+}
+
+// The hidden targets of a resolved link and a file are neither counted nor replaced.
+func TestHiddenTargets(t *testing.T) {
+	const id = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+	content := "a note [X](note:" + id + "#Part) ![](/api/files/" + id + ") files"
+	for _, c := range []struct{ find, want string }{
+		{"note", "a fiche [X](note:" + id + "#Part) ![](/api/files/" + id + ") files"},
+		{"files", "a note [X](note:" + id + "#Part) ![](/api/files/" + id + ") fiche"},
+		{"5717", content},
+	} {
+		if got := replaceAll(content, c.find, "fiche"); got != c.want {
+			t.Errorf("replace %q = %q, want %q", c.find, got, c.want)
+		}
+		if n, want := count(content, c.find), strings.Count(c.want, "fiche"); n != want {
+			t.Errorf("count %q = %d, want %d", c.find, n, want)
+		}
 	}
 }
 

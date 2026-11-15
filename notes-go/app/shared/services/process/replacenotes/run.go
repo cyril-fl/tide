@@ -3,6 +3,7 @@ package replacenotes
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
@@ -14,6 +15,9 @@ import (
 )
 
 var ErrNoValue = errors.New("no text to replace")
+
+// hidden matches the targets the editor does not show: a resolved link's `](note:<id>)` and a file's URL.
+var hidden = regexp.MustCompile(`\]\(note:[0-9a-fA-F-]{36}(?:#[^()\n]*)?\)|` + domain.FilePattern.String())
 
 // Input is a plain text, no regex, found with its case. DryRun only counts, for the confirmation.
 type Input struct {
@@ -93,7 +97,7 @@ func (p *run) replace() {
 			return err
 		}
 		for _, r := range rows {
-			count := strings.Count(string(r.Content), p.input.Find)
+			count := count(string(r.Content), p.input.Find)
 			if count == 0 {
 				continue // one the index gave without the text
 			}
@@ -106,7 +110,7 @@ func (p *run) replace() {
 			if p.input.DryRun {
 				continue
 			}
-			content := strings.ReplaceAll(string(r.Content), p.input.Find, p.input.Replace)
+			content := replaceAll(string(r.Content), p.input.Find, p.input.Replace)
 			// Restore keeps the text replaced even within a writing session: nothing else holds it.
 			patch := patchnote.Process(p.ctx, tx, patchnote.Input{ID: r.ID, Content: &content, Restore: true})
 			patch.Run()
@@ -116,6 +120,28 @@ func (p *run) replace() {
 		}
 		return nil
 	}))
+}
+
+// count counts the text outside the hidden targets.
+func count(content, find string) int {
+	n := 0
+	for _, text := range hidden.Split(content, -1) {
+		n += strings.Count(text, find)
+	}
+	return n
+}
+
+// replaceAll replaces the text outside the hidden targets, kept as they are.
+func replaceAll(content, find, replace string) string {
+	var b strings.Builder
+	last := 0
+	for _, m := range hidden.FindAllStringIndex(content, -1) {
+		b.WriteString(strings.ReplaceAll(content[last:m[0]], find, replace))
+		b.WriteString(content[m[0]:m[1]])
+		last = m[1]
+	}
+	b.WriteString(strings.ReplaceAll(content[last:], find, replace))
+	return b.String()
 }
 
 // loadNotes reads the live notes holding every gram of the text, a few more that only share them.

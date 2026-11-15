@@ -527,7 +527,11 @@
     "openOriginal": "Open",
     "originGone": "The original note is in the trash or deleted: nothing to merge into.",
     "originLocked": "The original note is locked: unlock it to merge this copy into it.",
-    "originChanged": "The original note changed again during the merge: try again."
+    "originChanged": "The original note changed again during the merge: try again.",
+    "unmerge": "Undo the last merge",
+    "unmerged": "Last merge undone: the original note has its text back, the next merge offers everything again.",
+    "noMerge": "No merge to undo.",
+    "originWritten": "The original note was edited since the merge: undoing it would overwrite what was written after."
   },
   "conflict": {
     "title": "Conflicts ({count} to resolve)",

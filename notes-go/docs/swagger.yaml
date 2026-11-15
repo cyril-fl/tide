@@ -652,6 +652,10 @@ components:
           type: string
         fork_of:
           type: string
+        merged_at:
+          description: 'MergedAt is the version of the original the last merge saved,
+            until that merge is undone: unmergefork''s 409.'
+          type: string
       required:
       - base
       - fork_of
@@ -2640,6 +2644,43 @@ paths:
                 $ref: '#/components/schemas/respond.Failure'
           description: Internal Server Error
       summary: Read a note and the notes sharing its tags
+      tags:
+      - notes
+  /api/notes/{id}/unmerge:
+    post:
+      parameters:
+      - description: uuid of the fork
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/readitem.Result'
+          description: OK
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Conflict
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Undo the last merge of a fork
       tags:
       - notes
   /api/notes/{id}/versions:

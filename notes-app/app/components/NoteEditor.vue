@@ -34,6 +34,8 @@ const notFound = ref(false);
 const readonly = ref(false);
 // A fork made from the history: the note it merges back into.
 const forkOf = ref<string>();
+// The fork has a merge to undo (#177).
+const merged = ref(false);
 
 const failed = ref(false);
 const saving = ref(false);
@@ -183,6 +185,10 @@ async function load() {
     title.value = note.item.title;
     readonly.value = !!note.readonly;
     forkOf.value = note.fork_of;
+    if (note.fork_of)
+      void api<ForkOrigin>(`/api/notes/${props.noteId}/fork`, { quiet: true })
+        .then((origin) => (merged.value = !!origin.merged_at))
+        .catch(() => {});
     remember(note);
     place(note);
     isEmpty.value = false;
@@ -271,8 +277,29 @@ async function mergeBack(again = true): Promise<void> {
     if (again && (error as FetchError).status === 409) return mergeBack(false);
     return;
   }
+  merged.value = true;
   const open = { label: t('fork.openOriginal'), onClick: () => void navigateTo(`/notes/${origin.fork_of}`) };
   toast.add({ title: t('fork.merged'), color: 'success', actions: [open] });
+}
+// Undoes the last merge, like git reset --hard HEAD~1 (#177): the original gets back its text from before it, kept in
+// its history, and the fork its base, so the next merge offers again what that one refused. Refused (409) once the
+// original was written since.
+async function unmerge() {
+  try {
+    await api(`/api/notes/${id.value}/unmerge`, {
+      method: 'POST',
+      conflict: {
+        'no merge': t('fork.noMerge'),
+        'trash or deleted': t('fork.originGone'),
+        'read-only': t('fork.originLocked'),
+        'changed elsewhere': t('fork.originWritten'),
+      },
+    });
+  } catch {
+    return;
+  }
+  merged.value = false;
+  toast.add({ title: t('fork.unmerged'), color: 'success' });
 }
 // A fork of the text as saved, beside the note, titled like a fork from the history: open to every plan, the history to Pro.
 async function fork() {
@@ -562,6 +589,16 @@ const status = computed(() => {
             size="xs"
             :aria-label="$t('fork.merge')"
             @click="mergeBack()"
+          />
+        </UTooltip>
+        <UTooltip v-if="forkOf && merged" :text="$t('fork.unmerge')">
+          <UButton
+            :icon="icons.undo"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :aria-label="$t('fork.unmerge')"
+            @click="unmerge()"
           />
         </UTooltip>
         <UTooltip v-if="has('sourceMode')" :text="source === undefined ? $t('note.source') : $t('note.editor')">

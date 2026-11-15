@@ -45,6 +45,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resolveitem"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/restoreitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/searchnotes"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/unmergefork"
 )
 
 // maxBody limits a request body: a note is text, 10 MiB is far beyond any real one.
@@ -91,7 +92,7 @@ var statuses = []struct {
 		createfile.ErrFileType,
 	}},
 	{http.StatusConflict, []error{
-		domain.ErrFolderExists, edittag.ErrAlreadyExists, adduser.ErrNameTaken, deleteuser.ErrSelf, deleteuser.ErrLastAdmin, moveitems.ErrCycle, restoreitems.ErrParentInTrash, patchnote.ErrLocked, patchnote.ErrStale, mergefork.ErrOriginGone, resolveitem.ErrAmbiguous,
+		domain.ErrFolderExists, edittag.ErrAlreadyExists, adduser.ErrNameTaken, deleteuser.ErrSelf, deleteuser.ErrLastAdmin, moveitems.ErrCycle, restoreitems.ErrParentInTrash, patchnote.ErrLocked, patchnote.ErrStale, mergefork.ErrOriginGone, unmergefork.ErrNoMerge, resolveitem.ErrAmbiguous,
 	}},
 }
 

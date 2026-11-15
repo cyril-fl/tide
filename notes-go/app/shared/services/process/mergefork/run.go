@@ -39,6 +39,7 @@ type run struct {
 
 type cache struct {
 	forkOf   string
+	before   string // the original's text before the merge, put back by unmergefork
 	original readitem.Result
 }
 
@@ -86,6 +87,16 @@ func (p *run) readFork(tx bun.Tx) error {
 }
 
 func (p *run) saveOriginal(tx bun.Tx) error {
+	read := readitem.Process(p.ctx, tx, domain.NOTE, p.cache.forkOf)
+	read.Run()
+	if errors.Is(read.GetErr(), readitem.ErrNotFound) {
+		return fmt.Errorf("%w: %q", ErrOriginGone, p.cache.forkOf)
+	}
+	if read.HasErr() {
+		return read.GetErr()
+	}
+	p.cache.before = read.GetResult().Content
+
 	process := patchnote.Process(p.ctx, tx, patchnote.Input{ID: p.cache.forkOf, Content: &p.input.Content, UpdatedAt: p.input.UpdatedAt, Restore: true})
 	process.Run()
 	if errors.Is(process.GetErr(), readitem.ErrNotFound) {
@@ -98,14 +109,22 @@ func (p *run) saveOriginal(tx bun.Tx) error {
 	return nil
 }
 
-// moveBase needs no user_id check: readFork has found the fork of this account.
+// moveBase keeps what unmergefork puts back, the base before (SET reads the old fork_base), the original's text
+// before and its version after. No user_id check: readFork has found the fork of this account.
 func (p *run) moveBase(tx bun.Tx) error {
 	base, err := secret.Seal(domain.UserID(p.ctx), p.input.Base)
 	if err != nil {
 		return err
 	}
+	before, err := secret.Seal(domain.UserID(p.ctx), p.cache.before)
+	if err != nil {
+		return err
+	}
 	_, err = tx.NewUpdate().
 		Model((*domain.MetadataNote)(nil)).
+		Set("fork_undo_base = fork_base").
+		Set("fork_undo_content = ?", before).
+		Set("fork_merged_at = (SELECT coalesce(updated_at, created_at) FROM items WHERE id = ?)", p.cache.forkOf).
 		Set("fork_base = ?", base).
 		Where("item_id = ?", p.input.ID).
 		Exec(p.ctx)

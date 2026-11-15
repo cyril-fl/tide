@@ -527,7 +527,11 @@
     "openOriginal": "Ouvrir",
     "originGone": "La note d'origine est dans la corbeille ou supprimée : rien à fusionner.",
     "originLocked": "La note d'origine est verrouillée : déverrouille-la pour y fusionner cette copie.",
-    "originChanged": "La note d'origine a encore changé pendant la fusion : réessaie."
+    "originChanged": "La note d'origine a encore changé pendant la fusion : réessaie.",
+    "unmerge": "Annuler la dernière fusion",
+    "unmerged": "Dernière fusion annulée : la note d'origine a retrouvé son texte, la prochaine fusion repropose tout.",
+    "noMerge": "Aucune fusion à annuler.",
+    "originWritten": "La note d'origine a été modifiée depuis la fusion : l'annuler écraserait ce qui a été écrit après."
   },
   "conflict": {
     "title": "Conflits ({count} à résoudre)",

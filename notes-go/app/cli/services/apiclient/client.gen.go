@@ -466,6 +466,9 @@ type MoveitemsInput struct {
 type ReadforkResult struct {
 	Base   string `json:"base"`
 	ForkOf string `json:"fork_of"`
+
+	// MergedAt MergedAt is the version of the original the last merge saved, until that merge is undone: unmergefork's 409.
+	MergedAt *string `json:"merged_at,omitempty"`
 }
 
 // ReadgraphLink defines model for readgraph.Link.
@@ -1255,6 +1258,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/notes/{id}/neighbors (the `GetApiNotesIdNeighbors` operationId).
 	GetApiNotesIdNeighbors(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiNotesIdUnmerge Undo the last merge of a fork
+	//
+	// Corresponds with POST /api/notes/{id}/unmerge (the `PostApiNotesIdUnmerge` operationId).
+	PostApiNotesIdUnmerge(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiNotesIdVersions List the versions of a note
 	//
@@ -2371,6 +2379,21 @@ func (c *Client) PostApiNotesIdMerge(ctx context.Context, id string, body PostAp
 // Corresponds with GET /api/notes/{id}/neighbors (the `GetApiNotesIdNeighbors` operationId).
 func (c *Client) GetApiNotesIdNeighbors(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiNotesIdNeighborsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiNotesIdUnmerge Undo the last merge of a fork
+//
+// Corresponds with POST /api/notes/{id}/unmerge (the `PostApiNotesIdUnmerge` operationId).
+func (c *Client) PostApiNotesIdUnmerge(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiNotesIdUnmergeRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -4580,6 +4603,40 @@ func NewGetApiNotesIdNeighborsRequest(server string, id string) (*http.Request, 
 	return req, nil
 }
 
+// NewPostApiNotesIdUnmergeRequest constructs an http.Request for the PostApiNotesIdUnmerge method
+func NewPostApiNotesIdUnmergeRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/notes/%s/unmerge", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetApiNotesIdVersionsRequest constructs an http.Request for the GetApiNotesIdVersions method
 func NewGetApiNotesIdVersionsRequest(server string, id string) (*http.Request, error) {
 	var err error
@@ -6032,6 +6089,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/notes/{id}/neighbors (the `GetApiNotesIdNeighbors` operationId).
 	GetApiNotesIdNeighborsWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetApiNotesIdNeighborsResponse, error)
+
+	// PostApiNotesIdUnmergeWithResponse Undo the last merge of a fork
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/notes/{id}/unmerge (the `PostApiNotesIdUnmerge` operationId).
+	PostApiNotesIdUnmergeWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*PostApiNotesIdUnmergeResponse, error)
 
 	// GetApiNotesIdVersionsWithResponse List the versions of a note
 	//
@@ -8724,6 +8788,68 @@ func (r GetApiNotesIdNeighborsResponse) ContentType() string {
 	return ""
 }
 
+type PostApiNotesIdUnmergeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReaditemResult
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *RespondFailure
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostApiNotesIdUnmergeResponse) GetJSON200() *ReaditemResult {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PostApiNotesIdUnmergeResponse) GetJSON404() *RespondFailure {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r PostApiNotesIdUnmergeResponse) GetJSON409() *RespondFailure {
+	return r.JSON409
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PostApiNotesIdUnmergeResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PostApiNotesIdUnmergeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiNotesIdUnmergeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiNotesIdUnmergeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiNotesIdUnmergeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetApiNotesIdVersionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11000,6 +11126,19 @@ func (c *ClientWithResponses) GetApiNotesIdNeighborsWithResponse(ctx context.Con
 	return ParseGetApiNotesIdNeighborsResponse(rsp)
 }
 
+// PostApiNotesIdUnmergeWithResponse Undo the last merge of a fork
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/notes/{id}/unmerge (the `PostApiNotesIdUnmerge` operationId).
+func (c *ClientWithResponses) PostApiNotesIdUnmergeWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*PostApiNotesIdUnmergeResponse, error) {
+	rsp, err := c.PostApiNotesIdUnmerge(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiNotesIdUnmergeResponse(rsp)
+}
+
 // GetApiNotesIdVersionsWithResponse List the versions of a note
 //
 // Returns a wrapper object for the known response body format(s).
@@ -13254,6 +13393,53 @@ func ParseGetApiNotesIdNeighborsResponse(rsp *http.Response) (*GetApiNotesIdNeig
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiNotesIdUnmergeResponse parses an HTTP response from a PostApiNotesIdUnmergeWithResponse call
+func ParsePostApiNotesIdUnmergeResponse(rsp *http.Response) (*PostApiNotesIdUnmergeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiNotesIdUnmergeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReaditemResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest RespondFailure

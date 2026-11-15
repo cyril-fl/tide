@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
@@ -18,6 +19,8 @@ var ErrNotFork = errors.New("note is not a fork")
 type Result struct {
 	ForkOf string `json:"fork_of"`
 	Base   string `json:"base"`
+	// MergedAt is the version of the original the last merge saved, until that merge is undone: unmergefork's 409.
+	MergedAt *time.Time `json:"merged_at,omitempty" binding:"optional"`
 }
 
 type run struct {
@@ -71,9 +74,9 @@ func (p *run) loadFork() {
 	var base secret.Text
 	err := p.db.NewSelect().
 		Model((*domain.MetadataNote)(nil)).
-		Column("fork_of", "fork_base").
+		Column("fork_of", "fork_base", "fork_merged_at").
 		Where("item_id = ?", p.id).
-		Scan(p.ctx, &p.cache.result.ForkOf, &base)
+		Scan(p.ctx, &p.cache.result.ForkOf, &base, &p.cache.result.MergedAt)
 	p.cache.result.Base = string(base)
 	if err == nil && p.cache.result.ForkOf == "" {
 		err = fmt.Errorf("%w: %q", ErrNotFork, p.id)

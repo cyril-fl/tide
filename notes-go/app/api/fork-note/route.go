@@ -8,6 +8,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/forknote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/mergefork"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readfork"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/unmergefork"
 	"github.com/uptrace/bun"
 )
 
@@ -114,6 +115,37 @@ func Merge(db bun.IDB) http.HandlerFunc {
 		}
 
 		process := mergefork.Process(r.Context(), db, mergefork.Input{ID: id, Content: body.Content, Base: body.Base, UpdatedAt: body.UpdatedAt})
+		process.Run()
+		if process.HasErr() {
+			respond.Error(w, process.GetErr())
+			return
+		}
+		note := process.GetResult()
+		note.Tags = append([]string{}, note.Tags...)
+		respond.JSON(w, http.StatusOK, note)
+	}
+}
+
+// Unmerge undoes the last merge of the fork: POST /api/notes/{id}/unmerge. The original gets back its text from before
+// it, the text replaced kept in its history, and the fork its base, so the next merge offers again what it refused.
+// 409 when there is no merge to undo, or the original is locked, changed since the merge, or in the trash.
+// @Summary  Undo the last merge of a fork
+// @Tags     notes
+// @Produce  json
+// @Param    id path string true "uuid of the fork"
+// @Success  200 {object} readitem.Result
+// @Failure  404 {object} respond.Failure
+// @Failure  409 {object} respond.Failure
+// @Failure  500 {object} respond.Failure
+// @Router   /api/notes/{id}/unmerge [post]
+func Unmerge(db bun.IDB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := respond.ID(w, r)
+		if !ok {
+			return
+		}
+
+		process := unmergefork.Process(r.Context(), db, id)
 		process.Run()
 		if process.HasErr() {
 			respond.Error(w, process.GetErr())

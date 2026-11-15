@@ -92,10 +92,11 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("GET /api/notes/{id}/versions", plan.Require(db, "noteHistory", apireadversions.Handler(db)))
 	mux.Handle("POST /api/notes/{id}/versions", apireadversions.Keep(db))
 	mux.Handle("GET /api/notes/{id}/versions/{version}", plan.Require(db, "noteHistory", apireadversions.Read(db)))
-	// A fork and its merge are open to every plan: the note's toolbar forks its text, the Pro history an older version.
+	// A fork, its merge and its undo are open to every plan: the note's toolbar forks its text, the Pro history an older version.
 	mux.Handle("POST /api/notes/{id}/forks", apiforknote.Handler(db))
 	mux.Handle("GET /api/notes/{id}/fork", apiforknote.Read(db))
 	mux.Handle("POST /api/notes/{id}/merge", apiforknote.Merge(db))
+	mux.Handle("POST /api/notes/{id}/unmerge", apiforknote.Unmerge(db))
 
 	mux.Handle("GET /api/folders", apireadfolder.List(db))
 	mux.Handle("POST /api/folders", apicreatefolder.Handler(db))

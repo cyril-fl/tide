@@ -904,7 +904,7 @@ func TestFiles(t *testing.T) {
 }
 
 // Two accounts in one base: neither sees, changes nor links to what the other has.
-// A fork remembers its original; its merge saves the original as a restore and moves the fork's base. Open to the base plan.
+// A fork remembers its original; its merge saves the original as a restore and moves the fork's base, its undo puts both back. Open to the base plan.
 func TestForkAndMerge(t *testing.T) {
 	c := newClient(t)
 	var original item
@@ -935,6 +935,17 @@ func TestForkAndMerge(t *testing.T) {
 	}
 	// Over an older version: 409, like any stale edit.
 	c.do("POST", "/api/notes/"+fork.ID+"/merge", fmt.Sprintf(`{"content":"x","base":"x","updated_at":%q}`, original.CreatedAt.Add(-time.Second).Format(time.RFC3339Nano)), http.StatusConflict, nil)
+	// Its undo puts the original and the base back, once.
+	if !strings.Contains(c.raw("/api/notes/"+fork.ID+"/fork"), `"merged_at":`) {
+		t.Errorf("no merged_at after a merge: %s", c.raw("/api/notes/"+fork.ID+"/fork"))
+	}
+	var unmerged detail
+	c.do("POST", "/api/notes/"+fork.ID+"/unmerge", "", http.StatusOK, &unmerged)
+	c.do("GET", "/api/notes/"+fork.ID+"/fork", "", http.StatusOK, &origin)
+	if unmerged.Content != "# Courses\n\n- Pain" || origin.Base != "# Copie\n\n- Pain" {
+		t.Errorf("unmerged = %+v, origin = %+v", unmerged, origin)
+	}
+	c.do("POST", "/api/notes/"+fork.ID+"/unmerge", "", http.StatusConflict, nil)
 	// The original in the trash: 409 too, saying so.
 	c.do("DELETE", path, "", http.StatusOK, nil)
 	c.do("POST", "/api/notes/"+fork.ID+"/merge", `{"content":"x","base":"x"}`, http.StatusConflict, nil)
@@ -943,6 +954,7 @@ func TestForkAndMerge(t *testing.T) {
 	bob := c.other(t)
 	bob.do("GET", "/api/notes/"+fork.ID+"/fork", "", http.StatusNotFound, nil)
 	bob.do("POST", "/api/notes/"+fork.ID+"/merge", `{"content":"x","base":"x"}`, http.StatusNotFound, nil)
+	bob.do("POST", "/api/notes/"+fork.ID+"/unmerge", "", http.StatusNotFound, nil)
 }
 
 func TestAccountsAreApart(t *testing.T) {

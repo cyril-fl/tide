@@ -627,6 +627,14 @@ test('the Pro history restores an earlier version', async ({ page }) => {
     await expect(page.locator('.ProseMirror')).toContainText('second');
     // The context panel lists the versions on a wide screen, the current text first: a click shows one.
     const panel = page.getByRole('region', { name: 'Historique des versions' });
+    // As git shows a commit: what the current text changed from the version before it.
+    await panel
+      .getByRole('button', { name: /\d{2}:\d{2}/ })
+      .first()
+      .click();
+    await expect(page.getByRole('dialog').locator('del')).toContainText('first');
+    await expect(page.getByRole('dialog').locator('ins')).toContainText('second');
+    await page.getByRole('button', { name: 'Annuler' }).click();
     await panel
       .getByRole('button', { name: /\d{2}:\d{2}/ })
       .nth(1)

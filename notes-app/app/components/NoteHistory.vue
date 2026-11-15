@@ -67,20 +67,28 @@ async function compare() {
   if (current.value !== undefined) return void (current.value = undefined);
   current.value = (await api<ItemDetail>(`/api/notes/${props.noteId}`)).content ?? '';
 }
-const changes = computed(() =>
-  text.value !== undefined && current.value !== undefined ? lineChanges(text.value, current.value) : undefined,
-);
+// Otherwise, as git shows a commit, what the version changed from the one before it; the oldest has none.
+const changes = computed(() => {
+  if (text.value === undefined) return undefined;
+  if (current.value !== undefined) return lineChanges(text.value, current.value);
+  return before.value !== undefined ? lineChanges(before.value, text.value) : undefined;
+});
 
-// The list has no texts (#99): the selected version's is read, the answer of an older click dropped.
+// The list has no texts (#99): the selected version's and the one before it are read, the answer of an older click dropped.
 const text = ref<string>();
+const before = ref<string>();
+const read = async (version: NoteVersion) =>
+  (version === latest
+    ? await api<ItemDetail>(`/api/notes/${props.noteId}`)
+    : await api<NoteVersion>(`/api/notes/${props.noteId}/versions/${version.id}`)
+  ).content ?? '';
 watch(selected, async (version) => {
   text.value = undefined;
+  before.value = undefined;
   if (!version) return;
-  const read =
-    version === latest
-      ? await api<ItemDetail>(`/api/notes/${props.noteId}`)
-      : await api<NoteVersion>(`/api/notes/${props.noteId}/versions/${version.id}`);
-  if (selected.value === version) text.value = read.content ?? '';
+  const older = entries.value[entries.value.indexOf(version) + 1];
+  const [mine, previous] = await Promise.all([read(version), older && read(older)]);
+  if (selected.value === version) [text.value, before.value] = [mine, previous];
 });
 
 function restore() {

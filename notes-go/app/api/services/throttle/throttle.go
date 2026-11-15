@@ -1,5 +1,6 @@
-// Package throttle makes a key wait longer after each try in a row: wrong passwords at the login, accounts created
-// from one address at the sign-up. The tries are kept in the base (throttles), so a restart forgets none.
+// Package throttle makes a key wait longer after each try in a row: wrong passwords at the login and on the OAuth
+// consent page, accounts created from one address at the sign-up. The tries are kept in the base (throttles), so a
+// restart forgets none: the consent page faces the Internet.
 package throttle
 
 import (
@@ -38,7 +39,7 @@ func New(db bun.IDB, name, message string) *Throttle {
 	return &Throttle{db: db, name: name, now: time.Now, message: message}
 }
 
-// Passwords counts the wrong passwords, of an address at the login and of an account for a new password.
+// Passwords counts the wrong passwords: the login and the OAuth consent page share the count of an address.
 func Passwords(db bun.IDB) *Throttle {
 	return New(db, "password", "too many wrong passwords, try again later")
 }

@@ -42,6 +42,8 @@ type Input struct {
 	Name string `json:"name"`
 	// ExpiresIn is how long the token works, 90d when left out.
 	ExpiresIn string `json:"expires_in" binding:"optional" enums:"7d,30d,90d,1y,never"`
+	// ReadOnly makes a token that reads the notes and changes nothing.
+	ReadOnly bool `json:"read_only" binding:"optional"`
 }
 
 // Result is the new token: Token is shown once, the base keeps only its hash.
@@ -116,6 +118,7 @@ func (p *run) saveToken() {
 	token := &p.cache.result.APIToken
 	token.UserID = domain.UserID(p.ctx)
 	token.TokenHash = password.TokenHash(p.cache.result.Token)
+	token.ReadOnly = p.input.ReadOnly
 	if p.cache.lifetime > 0 {
 		token.ExpiresAt = time.Now().Add(p.cache.lifetime)
 	}

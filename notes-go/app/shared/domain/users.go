@@ -206,6 +206,28 @@ type APIToken struct {
 	CreatedAt  time.Time   `bun:",notnull,default:current_timestamp" json:"created_at"`
 	LastUsedAt time.Time   `bun:",nullzero" json:"last_used_at,omitzero" binding:"optional"` // never used when absent
 	ExpiresAt  time.Time   `bun:",nullzero" json:"expires_at,omitzero" binding:"optional"`   // no limit when absent
+	// ReadOnly refuses the token every request that changes something (auth), and the MCP its writing tools.
+	ReadOnly bool `bun:",notnull,default:false" json:"read_only"`
+	// OAuth marks the connection of an OAuth client (the MCP over HTTP): Name is the client's, ExpiresAt the end of its
+	// refresh token, 90 days after its last use. TokenHash is then its access token, valid until AccessExpiresAt only.
+	OAuth           bool      `bun:"oauth,notnull,default:false" json:"oauth"`
+	ClientID        string    `bun:",nullzero" json:"-"`
+	RefreshHash     string    `bun:",nullzero" json:"-"`
+	AccessExpiresAt time.Time `bun:",nullzero" json:"-"`
+}
+
+// OAuthCode is an authorization code of an OAuth client, between the consent and the token: it serves once, and for a
+// minute. The client proves with the verifier of CodeChallenge (PKCE) that it is the one which asked.
+type OAuthCode struct {
+	bun.BaseModel `bun:"table:oauth_codes,alias:oc"`
+
+	CodeHash      string    `bun:",pk"`
+	UserID        string    `bun:",notnull,type:uuid"`
+	ClientID      string    `bun:",notnull"`
+	RedirectURI   string    `bun:",notnull"`
+	CodeChallenge string    `bun:",notnull"`
+	ReadOnly      bool      `bun:",notnull"`
+	ExpiresAt     time.Time `bun:",notnull"`
 }
 
 // Throttle counts the wrong tries in a row of a key (a password from an address...): kept in the base, a restart does

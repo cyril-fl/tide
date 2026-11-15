@@ -55,6 +55,13 @@ func TestPurgeExpiredOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	codes := []domain.OAuthCode{
+		{CodeHash: "expired-code-" + now.String(), UserID: domain.UserID(ctx), ClientID: "c", RedirectURI: "r", CodeChallenge: "x", ExpiresAt: now.Add(-time.Minute)},
+		{CodeHash: "live-code-" + now.String(), UserID: domain.UserID(ctx), ClientID: "c", RedirectURI: "r", CodeChallenge: "x", ExpiresAt: now.Add(time.Minute)},
+	}
+	if _, err := tx.NewInsert().Model(&codes).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
 	throttles := []domain.Throttle{
 		{Key: "expired-" + now.String(), Count: 1, LastAt: now, ExpiresAt: now.Add(-time.Minute)},
 		{Key: "live-" + now.String(), Count: 1, LastAt: now, ExpiresAt: now.Add(time.Hour)},
@@ -89,6 +96,13 @@ func TestPurgeExpiredOnly(t *testing.T) {
 		t.Errorf("API tokens left = %v, want live and never", hashes)
 	}
 
+	var codesLeft []string
+	if err := tx.NewSelect().Model((*domain.OAuthCode)(nil)).Column("code_hash").Where("user_id = ?", domain.UserID(ctx)).Scan(ctx, &codesLeft); err != nil {
+		t.Fatal(err)
+	}
+	if len(codesLeft) != 1 || codesLeft[0] != codes[1].CodeHash {
+		t.Errorf("OAuth codes left = %v, want only the live one", codesLeft)
+	}
 	var keys []string
 	if err := tx.NewSelect().Model((*domain.Throttle)(nil)).Column("key").Where("key IN (?)", bun.List([]string{throttles[0].Key, throttles[1].Key})).Scan(ctx, &keys); err != nil {
 		t.Fatal(err)

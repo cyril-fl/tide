@@ -6,8 +6,8 @@ donne à un agent (Claude Code, Claude Desktop, tout client MCP) des outils pour
 
 `notes mcp` n'écoute sur aucun port et n'a pas de routes. C'est un client de l'API,
 comme le reste de la CLI : chaque outil devient une requête au serveur, avec le jeton de la session.
-Pour un agent qui ne peut pas lancer de commande, l'app Claude sur téléphone par exemple, le serveur sert
-les mêmes outils en HTTP, authentifiés par un jeton d'API : section 4. Les trois points à comprendre sont donc ailleurs : **comment l'agent le lance**,
+Pour un agent qui ne peut pas lancer de commande, l'app Claude sur téléphone ou ChatGPT par exemple, le serveur sert
+les mêmes outils en HTTP, authentifiés par un jeton d'API ou une connexion OAuth : section 4. Les trois points à comprendre sont donc ailleurs : **comment l'agent le lance**,
 **pour quel compte il agit**, et **ce qu'il peut faire**.
 
 ## 1. Comment l'agent le lance
@@ -122,7 +122,8 @@ client.
 Tout agent capable de lancer `notes mcp` sur cette machine a **tous les droits du compte connecté**,
 écriture et suppression comprises. La garantie est celle de l'utilisateur Unix, exactement comme pour
 `notes show note`. Il n'y a ni compte réservé aux agents, ni droits en lecture seule, ni partage
-entre comptes : c'est le compte, en entier.
+entre comptes : c'est le compte, en entier. La lecture seule existe pour le MCP en HTTP seulement, avec
+un jeton d'API ou une connexion OAuth en lecture seule (section 4).
 
 ## 3. Ce qu'il peut faire
 
@@ -208,44 +209,122 @@ Chaque outil porte des annotations MCP, pour que le client demande confirmation 
   `attach_file` ni `import_notes`.
 - `openWorldHint` à `false` partout : les outils ne touchent qu'aux notes du compte.
 
-## 4. Depuis le téléphone : le MCP en HTTP
+## 4. Depuis le téléphone ou ChatGPT : le MCP en HTTP
 
-L'app Claude (téléphone, web, Desktop) n'appelle pas le serveur MCP depuis l'appareil mais **depuis le
-cloud d'Anthropic** : il doit être joignable depuis Internet, Tailscale seul ne suffit pas. Pour ça,
+L'app Claude (téléphone, web, Desktop) et ChatGPT n'appellent pas le serveur MCP depuis l'appareil mais
+**depuis leur cloud** : il doit être joignable depuis Internet, Tailscale seul ne suffit pas. Pour ça,
 `notes-server serve --mcp-addr <adresse>` sert les mêmes outils en HTTP (transport « streamable HTTP »),
-sur une **adresse à part** qui n'a qu'une route, `/mcp`. C'est cette adresse, et elle seule, qu'on ouvre
-à Internet : l'API et l'app restent derrière Tailscale ou le proxy habituel.
+sur une **adresse à part** qui n'a que `/mcp` et la connexion OAuth qui va avec (section suivante).
+C'est cette adresse, et elle seule, qu'on ouvre à Internet : l'API et l'app restent derrière Tailscale
+ou le proxy habituel.
 
 `compose.prod.yaml` l'active sur le port 8081 du conteneur, publié sur `NOTES_MCP_LISTEN`
-(`127.0.0.1:8081` par défaut, donc fermé tant qu'aucun tunnel ne pointe dessus).
+(`127.0.0.1:8081` par défaut, donc fermé tant qu'aucun tunnel ne pointe dessus). `--mcp-published`
+reçoit cette même adresse : sur le loopback, seul un tunnel local y arrive, et le serveur lit l'adresse
+du client dans `X-Forwarded-For` (le délai après les mauvais mots de passe ne bloque que lui).
 
-### Le jeton
+### Deux façons de s'authentifier
 
-Chaque requête porte `Authorization: Bearer notes_…`, un **jeton d'API** du compte, créé par
-`notes add token "Claude téléphone" --expires 30d` ou dans Réglages > Compte de l'app (montré une seule
-fois). Sans jeton, avec un jeton inconnu, expiré ou révoqué, ou avec un jeton de **session**, la
-réponse est 401 avant tout outil : seul un jeton d'API se révoque à part (`notes remove token <uuid>`)
-et reste interdit sur les routes du compte (jetons, mot de passe, réglages). L'agent a sinon tous les
-droits du compte sur ses notes, comme `notes mcp`. Le serveur ne garde aucune session MCP entre deux
-requêtes, et ne journalise pas les jetons.
+Chaque requête sur `/mcp` porte `Authorization: Bearer notes_…`. Ce jeton vient de l'une de deux sources :
+
+- **Un jeton d'API**, créé par `notes add token "Claude téléphone" --expires 30d` ou dans Réglages >
+  Compte de l'app (montré une seule fois), puis collé dans le client. Pour un client qui accepte un
+  en-tête fixe.
+- **Une connexion OAuth** : le client ne demande que l'URL, ouvre une page de connexion de Notes, et
+  reçoit ses jetons tout seul. Pour ChatGPT, qui n'accepte pas d'en-tête fixe, et pour Claude par
+  « Connect ».
+
+Sans jeton, avec un jeton inconnu, expiré ou révoqué, ou avec un jeton de **session**, la réponse est
+401 avant tout outil, avec `WWW-Authenticate: Bearer resource_metadata="…"` qui dit au client où se
+connecter. Un jeton d'API ou une connexion se révoque à part (`notes remove token <uuid>`, ou Réglages >
+Compte) et reste interdit sur les routes du compte (jetons, mot de passe, réglages). L'agent a sinon
+tous les droits du compte sur ses notes, comme `notes mcp`, **sauf en lecture seule** : un jeton créé
+avec `--read-only` (la case « Lecture seule » de l'app), ou une connexion dont la case « Lecture seule »
+a été cochée, ne reçoit que les outils de lecture (ceux à `readOnlyHint`), et l'API lui refuse toute
+modification (403). Le serveur ne garde aucune session MCP entre deux requêtes, et ne journalise pas
+les jetons.
+
+### La connexion OAuth
+
+Notes est son propre serveur d'autorisation OAuth 2.1, comme le décrit la spécification MCP, sur la
+même adresse que `/mcp` :
+
+| Route | Rôle |
+|---|---|
+| `/.well-known/oauth-protected-resource` | Dit que `/mcp` se connecte auprès de cette adresse (RFC 9728) |
+| `/.well-known/oauth-authorization-server` | Les routes ci-dessous et ce qu'elles acceptent (RFC 8414) |
+| `/register` | Enregistrement dynamique d'un client (RFC 7591), ouvert à tous |
+| `/authorize` | La page de connexion et de consentement |
+| `/token` | Échange le code contre des jetons, puis les renouvelle |
+
+Le déroulé, côté utilisateur : on donne l'URL `…/mcp` au client, il ouvre la page de Notes, on y tape le
+nom du compte et son mot de passe, on coche « Lecture seule » si on veut, puis « Autoriser ». La page
+affiche le nom que le client s'est donné et l'**hôte** où le code repart (`chatgpt.com`, `claude.ai`,
+`localhost:…`) : c'est cet hôte qui dit à qui l'accès est donné, le nom peut être n'importe quoi.
+
+- **N'importe quel client** peut s'enregistrer : une URL de retour en `https`, ou en `http` sur
+  `localhost` ou `127.0.0.1` (un programme de la machine, comme Claude Code ; le port peut changer à
+  chaque connexion). Le client est public : PKCE (`S256`) remplace son secret, un secret envoyé quand
+  même est ignoré. Le paramètre `iss` (RFC 9207) est renvoyé, ce qui permet à ChatGPT d'utiliser son
+  URL de retour fixe.
+- **Les jetons** : un jeton d'accès d'une heure (un jeton d'API, `notes_…`), et un jeton de
+  renouvellement de 90 jours, remplacé à chaque usage, qui repart pour 90 jours. Un client utilisé au
+  moins une fois tous les trois mois reste donc connecté.
+- **La liste** : chaque connexion est une ligne de Réglages > Compte et de `notes show token`, au nom du
+  client, marquée OAuth, avec la fin de sa connexion. La révoquer coupe les deux jetons : le client
+  doit refaire la connexion.
+- **Les mauvais mots de passe** de la page comptent avec ceux de la connexion à l'app, par adresse, en
+  base : 30 s d'attente au quatrième d'affilée, puis de plus en plus, jusqu'à une heure, même après un
+  redémarrage. La page ne s'affiche pas dans un cadre d'un autre site.
+- Rien n'est gardé d'un client enregistré : son identifiant porte son nom et ses URL de retour. Un
+  enregistrement ouvert ne remplit donc pas la base.
 
 ### L'ouvrir à Internet
 
-Le serveur parle HTTP simple : le tunnel ou le proxy devant fournit le HTTPS. Trois façons, au choix :
+Le serveur parle HTTP simple : le tunnel ou le proxy devant fournit le HTTPS. Il doit transmettre le
+`Host` reçu : les adresses de la connexion OAuth en sont faites. Trois façons, au choix :
 
 - **Tailscale Funnel**, sur un port à part pour que l'app reste privée sur 443 :
   `tailscale funnel --bg --https=8443 http://127.0.0.1:8081`, puis l'URL
   `https://<machine>.<tailnet>.ts.net:8443/mcp`.
 - **Cloudflare Tunnel** : un tunnel dont le service est `http://127.0.0.1:8081`
   (`cloudflared tunnel --url http://127.0.0.1:8081` pour un essai), puis `https://<nom>/mcp`.
-- **Un proxy HTTPS** déjà exposé (Caddy, nginx) : une seule route, `/mcp` vers `127.0.0.1:8081`,
-  rien d'autre. Anthropic publie les IP d'où viennent ses appels : le proxy peut ne laisser passer qu'elles.
+- **Un proxy HTTPS** déjà exposé (Caddy, nginx) : les routes `/mcp`, `/.well-known/`, `/register`,
+  `/authorize` et `/token` vers `127.0.0.1:8081`, rien d'autre. Le proxy peut limiter `/mcp`,
+  `/register` et `/token` aux IP des clients (Anthropic et OpenAI les publient), mais pas `/authorize` :
+  c'est le navigateur de l'utilisateur qui l'ouvre.
 
 ### Le déclarer dans Claude
 
-Réglages > Connecteurs > « Add custom connector » : l'URL ci-dessus (finie par `/mcp`), et dans
-« Request headers » l'en-tête `Authorization` avec la valeur `Bearer notes_…`. Le connecteur apparaît
-ensuite sur le téléphone avec le même compte Claude. ChatGPT exige OAuth, pas encore servi (#175).
+Réglages > Connecteurs > « Add custom connector » : l'URL ci-dessus (finie par `/mcp`), rien d'autre,
+puis « Connect » : la page de Notes s'ouvre. Claude revient sur `https://claude.ai/api/mcp/auth_callback`.
+Le connecteur apparaît ensuite sur le téléphone avec le même compte Claude.
+
+Avec un jeton d'API à la place : dans « Request headers », l'en-tête `Authorization` avec la valeur
+`Bearer notes_…`. Anthropic réserve encore ces en-têtes à certaines organisations (bêta) : si la
+section n'apparaît pas, c'est OAuth.
+
+### Le déclarer dans ChatGPT
+
+ChatGPT ne propose qu'OAuth ou rien. Réglages > Apps > Avancé > « Developer mode », puis créer une app
+(ou connecteur) avec l'URL `…/mcp` et l'authentification OAuth, sans identifiant ni secret de client :
+ChatGPT s'enregistre seul, ouvre la page de Notes, et revient sur
+`https://chatgpt.com/connector_platform_oauth_redirect`. ChatGPT demande confirmation avant chaque
+outil qui écrit (ceux sans `readOnlyHint`). OpenAI ne dit pas clairement quels abonnements ont le
+Developer mode et l'écriture (Plus et Pro seraient limités selon certaines sources) : l'essayer sur le
+compte.
+
+### N'importe quel autre client
+
+Trois façons, de la plus simple à la plus générale :
+
+1. **Le client lance une commande** (Claude Code, Codex, Cursor, un agent en local) : `notes mcp` en
+   stdio, sections 1 et 2. Rien à ouvrir à Internet.
+2. **Le client accepte un en-tête** : l'URL `…/mcp` et `Authorization: Bearer notes_…`, un jeton
+   d'API (en lecture seule si l'agent n'a qu'à lire).
+3. **Le client sait faire OAuth** (MCP « remote » avec connexion) : l'URL `…/mcp` seule. Il trouve le
+   reste par le 401 et les `/.well-known`, s'enregistre, ouvre la page de Notes dans le navigateur,
+   et renouvelle ses jetons tout seul.
 
 Pour vérifier depuis un terminal, sans client :
 
@@ -253,9 +332,11 @@ Pour vérifier depuis un terminal, sans client :
 curl -s https://<adresse>/mcp -H 'Authorization: Bearer notes_…' \
   -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+curl -s https://<adresse>/.well-known/oauth-authorization-server
 ```
 
 La liste des outils en JSON : il marche. `401` : le jeton (inconnu, expiré, révoqué, ou une session).
+Les métadonnées OAuth en JSON, avec l'adresse `https://` publique : la connexion OAuth est servie.
 Rien : le tunnel ou `--mcp-addr`.
 
 ## Vérifier que ça marche
@@ -266,10 +347,12 @@ schéma, une description et leurs annotations — ce que le SDK ne sait pas déd
 formée — puis les appelle un à un.
 
 `http_test.go` sert les outils en HTTP et vérifie le 401 sans jeton, avec une session, un jeton
-inconnu, expiré ou révoqué, puis un aller-retour avec un jeton valide.
+inconnu, expiré ou révoqué, puis un aller-retour avec un jeton valide, et les seuls outils de lecture
+pour un jeton en lecture seule. `app/server/oauth/oauth_test.go` fait le parcours OAuth d'un client :
+métadonnées, enregistrement, page de consentement, échange du code, renouvellement.
 
 ```sh
-make test ARGS=./app/cli/cmd-mcp/
+make test ARGS="./app/cli/cmd-mcp/ ./app/server/oauth/"
 ```
 
 Côté client, `claude mcp list` dit si le serveur répond (Codex : `codex mcp list`).

@@ -494,6 +494,8 @@
     "tokenNeverUsed": "never used",
     "tokenExpires": "expires on {date}",
     "tokenNoExpiry": "no expiry",
+    "tokenReadOnly": "Read only",
+    "tokensOAuth": "Agents signed in with OAuth (ChatGPT, Claude…) are listed too, with the end of their connection: revoking one disconnects it.",
     "revokeToken": "Revoke the token “{name}”?",
     "revoke": "Revoke"
   },

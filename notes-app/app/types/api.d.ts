@@ -4280,6 +4280,8 @@ export interface components {
              */
             expires_in?: "7d" | "30d" | "90d" | "1y" | "never";
             name: string;
+            /** @description ReadOnly makes a token that reads the notes and changes nothing. */
+            read_only?: boolean;
         };
         "createapitoken.Result": {
             api_token: components["schemas"]["domain.APIToken"];
@@ -4323,6 +4325,13 @@ export interface components {
             last_used_at?: string;
             /** @description sealed: a stolen base does not tell what the tokens are for */
             name: string;
+            /**
+             * @description OAuth marks the connection of an OAuth client (the MCP over HTTP): Name is the client's, ExpiresAt the end of its
+             *     refresh token, 90 days after its last use. TokenHash is then its access token, valid until AccessExpiresAt only.
+             */
+            oauth: boolean;
+            /** @description ReadOnly refuses the token every request that changes something (auth), and the MCP its writing tools. */
+            read_only: boolean;
         };
         "domain.File": {
             content_type: string;

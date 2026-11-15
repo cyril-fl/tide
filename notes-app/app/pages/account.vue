@@ -114,6 +114,7 @@ const { data: tokens, refresh: refreshTokens } = useLazyAsyncData('api-tokens', 
   api<ApiToken[]>('/api/me/tokens'),
 );
 const tokenName = ref('');
+const tokenReadOnly = ref(false);
 // As createapitoken.Lifetimes, 90d by default.
 const lifetime = ref('90d');
 const lifetimes = computed(() =>
@@ -125,9 +126,10 @@ const created = ref<NewApiToken | null>(null);
 async function createToken() {
   created.value = await api<NewApiToken>('/api/me/tokens', {
     method: 'POST',
-    body: { name: tokenName.value, expires_in: lifetime.value },
+    body: { name: tokenName.value, expires_in: lifetime.value, read_only: tokenReadOnly.value },
   });
   tokenName.value = '';
+  tokenReadOnly.value = false;
   await refreshTokens();
   await copyToken(created.value.token);
 }
@@ -239,7 +241,7 @@ function day(at: string) {
 
     <section class="mb-8">
       <h2 class="mb-1 text-sm font-semibold">{{ $t('account.tokens') }}</h2>
-      <p class="mb-3 text-xs text-muted">{{ $t('account.tokensDescription') }}</p>
+      <p class="mb-3 text-xs text-muted">{{ $t('account.tokensDescription') }} {{ $t('account.tokensOAuth') }}</p>
       <form class="flex flex-wrap items-end gap-4" @submit.prevent="createToken">
         <UFormField :label="$t('account.tokenName')">
           <UInput v-model="tokenName" :placeholder="$t('account.tokenNamePlaceholder')" class="w-56" />
@@ -247,6 +249,7 @@ function day(at: string) {
         <UFormField :label="$t('account.tokenExpiresIn')">
           <USelectMenu v-model="lifetime" :items="lifetimes" value-key="value" :search-input="false" class="w-40" />
         </UFormField>
+        <UCheckbox v-model="tokenReadOnly" :label="$t('account.tokenReadOnly')" class="mb-2" />
         <UButton
           type="submit"
           :label="$t('account.createToken')"
@@ -283,7 +286,17 @@ function day(at: string) {
         <li v-for="token in tokens" :key="token.id" class="flex flex-wrap items-center gap-3 px-4 py-2">
           <UIcon :name="icons.apiToken" class="size-4 shrink-0 text-muted" />
           <div class="min-w-0 flex-1 basis-48">
-            <p class="truncate text-sm">{{ token.name }}</p>
+            <p class="flex min-w-0 items-center gap-2 text-sm">
+              <span class="truncate">{{ token.name }}</span>
+              <UBadge v-if="token.oauth" label="OAuth" size="sm" color="neutral" variant="subtle" />
+              <UBadge
+                v-if="token.read_only"
+                :label="$t('account.tokenReadOnly')"
+                size="sm"
+                color="neutral"
+                variant="subtle"
+              />
+            </p>
             <p class="text-xs text-muted">
               {{
                 $t('account.tokenDates', {

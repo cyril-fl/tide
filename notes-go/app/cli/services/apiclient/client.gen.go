@@ -118,6 +118,9 @@ type CreateapitokenInput struct {
 	// ExpiresIn ExpiresIn is how long the token works, 90d when left out.
 	ExpiresIn *CreateapitokenInputExpiresIn `json:"expires_in,omitempty"`
 	Name      string                        `json:"name"`
+
+	// ReadOnly ReadOnly makes a token that reads the notes and changes nothing.
+	ReadOnly *bool `json:"read_only,omitempty"`
 }
 
 // CreateapitokenInputExpiresIn ExpiresIn is how long the token works, 90d when left out.
@@ -186,6 +189,13 @@ type DomainAPIToken struct {
 
 	// Name sealed: a stolen base does not tell what the tokens are for
 	Name string `json:"name"`
+
+	// Oauth OAuth marks the connection of an OAuth client (the MCP over HTTP): Name is the client's, ExpiresAt the end of its
+	// refresh token, 90 days after its last use. TokenHash is then its access token, valid until AccessExpiresAt only.
+	Oauth bool `json:"oauth"`
+
+	// ReadOnly ReadOnly refuses the token every request that changes something (auth), and the MCP its writing tools.
+	ReadOnly bool `json:"read_only"`
 }
 
 // DomainFile defines model for domain.File.

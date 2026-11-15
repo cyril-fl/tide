@@ -29,7 +29,7 @@ func connect(t *testing.T) *mcp.ClientSession {
 	}
 
 	server := mcp.NewServer(&mcp.Implementation{Name: "notes"}, nil)
-	AddTools(server, client)
+	AddTools(server, client, false)
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	session, err := server.Connect(ctx, serverTransport, nil)
 	if err != nil {

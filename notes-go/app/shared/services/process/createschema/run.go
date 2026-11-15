@@ -133,6 +133,8 @@ func getTables(tx bun.Tx) []*bun.CreateTableQuery {
 			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
 		tx.NewCreateTable().Model((*domain.APIToken)(nil)).
 			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.OAuthCode)(nil)).
+			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
 		tx.NewCreateTable().Model((*domain.Throttle)(nil)),
 		tx.NewCreateTable().Model((*domain.Invite)(nil)).
 			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
@@ -175,6 +177,8 @@ func getTables(tx bun.Tx) []*bun.CreateTableQuery {
 func getIndexes(tx bun.Tx) []*bun.CreateIndexQuery {
 	return []*bun.CreateIndexQuery{
 		tx.NewCreateIndex().Model((*domain.Item)(nil)).Index("idx_items_parent_id").Column("parent_id"),
+		// refreshoauthtoken finds a connection by its refresh token.
+		tx.NewCreateIndex().Model((*domain.APIToken)(nil)).Index("ux_api_tokens_refresh_hash").Unique().Column("refresh_hash").Where("refresh_hash IS NOT NULL"),
 		tx.NewCreateIndex().Model((*domain.NoteTag)(nil)).Index("idx_notes_on_tags_note_id").Column("note_id"),
 		tx.NewCreateIndex().Model((*domain.User)(nil)).Index("ux_users_name_lower").Unique().ColumnExpr("lower(name)"),
 		tx.NewCreateIndex().Model((*domain.Item)(nil)).Index("idx_items_user_id").Column("user_id"),

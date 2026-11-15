@@ -68,6 +68,9 @@ func TestHandler(t *testing.T) {
 		if response.StatusCode != http.StatusUnauthorized {
 			t.Errorf("%s token: %d, want 401", name, response.StatusCode)
 		}
+		if want := `Bearer resource_metadata="http://` + request.URL.Host + `/.well-known/oauth-protected-resource"`; response.Header.Get("WWW-Authenticate") != want {
+			t.Errorf("%s token: WWW-Authenticate = %q, want %q", name, response.Header.Get("WWW-Authenticate"), want)
+		}
 	}
 
 	transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: &http.Client{Transport: bearer(token)}}
@@ -81,5 +84,42 @@ func TestHandler(t *testing.T) {
 	call(t, agent, "read_note", map[string]any{"note": "/From the phone"}, &read)
 	if read.ID != created.ID || read.Title != "From the phone" {
 		t.Errorf("read_note = %+v, want %+v", read, created)
+	}
+}
+
+// A read-only token gets the reading tools only.
+func TestHandlerReadOnly(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	api, err := url.Parse(os.Getenv("NOTES_URL"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(Handler(httputil.NewSingleHostReverseProxy(api), "test"))
+	t.Cleanup(server.Close)
+	process := createapitoken.Process(ctx, tx, createapitoken.Input{Name: "reader", ReadOnly: true})
+	process.Run()
+	if process.HasErr() {
+		t.Fatal(process.GetErr())
+	}
+
+	transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: &http.Client{Transport: bearer(process.GetResult().Token)}}
+	agent, err := mcp.NewClient(&mcp.Implementation{Name: "test"}, nil).Connect(context.Background(), transport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { agent.Close() })
+	tools, err := agent.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]bool{}
+	for _, tool := range tools.Tools {
+		if !tool.Annotations.ReadOnlyHint {
+			t.Errorf("read-only token: %s is listed, it writes", tool.Name)
+		}
+		names[tool.Name] = true
+	}
+	if !names["read_note"] || !names["search_notes"] || names["create_note"] {
+		t.Errorf("read-only tools = %v, want read_note and search_notes, not create_note", names)
 	}
 }

@@ -16,12 +16,16 @@ func Create(cobra *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	readOnly, err := cobra.Flags().GetBool("read-only")
+	if err != nil {
+		return err
+	}
 	client, err := apiclient.Read().Client()
 	if err != nil {
 		return err
 	}
 	lifetime := apiclient.CreateapitokenInputExpiresIn(expires)
-	response, err := client.PostApiMeTokensWithResponse(cobra.Context(), apiclient.CreateapitokenInput{Name: args[0], ExpiresIn: &lifetime})
+	response, err := client.PostApiMeTokensWithResponse(cobra.Context(), apiclient.CreateapitokenInput{Name: args[0], ExpiresIn: &lifetime, ReadOnly: &readOnly})
 	if err != nil {
 		return err
 	}

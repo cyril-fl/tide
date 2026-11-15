@@ -62,14 +62,19 @@ commands:
   create-token:
     use: "token <name>"
     short: "Add an API token to the account"
-    long: "Create a named API token for scripts and agents, and print it once on stdout: the server keeps only its hash. It acts on the notes, folders, tags and files like the account (Authorization: Bearer <token>), never on the account itself: its tokens, password or settings. It expires after --expires: 7d, 30d, 90d, 1y or never."
-    example: "notes add token \"script backup\"\nnotes add token \"Claude phone\" --expires 30d"
+    long: "Create a named API token for scripts and agents, and print it once on stdout: the server keeps only its hash. It acts on the notes, folders, tags and files like the account (Authorization: Bearer <token>), never on the account itself: its tokens, password or settings. It expires after --expires: 7d, 30d, 90d, 1y or never. --read-only refuses it every change, and gives the MCP its reading tools only."
+    example: "notes add token \"script backup\"\nnotes add token \"Claude phone\" --expires 30d\nnotes add token \"reader\" --read-only"
     args:
       - name: "expires"
         shorthand: ""
         value: "90d"
         usage: "How long the token works: 7d, 30d, 90d, 1y or never"
         type: "string"
+      - name: "read-only"
+        shorthand: ""
+        value: ""
+        usage: "A token that reads the notes and changes nothing"
+        type: "bool"
   read:
     use: "show"
     short: "Show an existing note, folder, or tag, or the API tokens"
@@ -308,7 +313,7 @@ commands:
   serve:
     use: "serve"
     short: "Run the HTTP API"
-    long: "Run the HTTP API. It has no authentication: keep it on the loopback. Web pages can only call it from --origin. Accounts are created by invitation of an admin, unless --add-user-mode=public. --mcp-addr also serves the MCP tools over HTTP to agents (the Claude app), authenticated by an API token. NOTES_HOST_NAME and NOTES_HOST_PASSWORD create the first account on an empty base."
+    long: "Run the HTTP API. It has no authentication: keep it on the loopback. Web pages can only call it from --origin. Accounts are created by invitation of an admin, unless --add-user-mode=public. --mcp-addr also serves the MCP tools over HTTP to agents (the Claude app, ChatGPT), authenticated by an API token or OAuth. NOTES_HOST_NAME and NOTES_HOST_PASSWORD create the first account on an empty base."
     example: "notes-server serve --origin http://localhost:3000"
     args:
       - name: "addr"
@@ -339,7 +344,12 @@ commands:
       - name: "mcp-addr"
         shorthand: ""
         value: ""
-        usage: "Address to serve the MCP tools on, at /mcp, for agents holding an API token of the account (none when empty): only /mcp is there, so a tunnel or proxy can open this address to the Internet without the API"
+        usage: "Address to serve the MCP tools on, at /mcp, for agents holding an API token of the account or signed in with OAuth (none when empty): only /mcp and its OAuth endpoints are there, so a tunnel or proxy can open this address to the Internet without the API"
+        type: "string"
+      - name: "mcp-published"
+        shorthand: ""
+        value: ""
+        usage: "Address the MCP is published on, when not --mcp-addr (the host side of a container port): on the loopback, only a local tunnel reaches it, and the client's address is read from X-Forwarded-For"
         type: "string"
   mcp:
     use: "mcp"

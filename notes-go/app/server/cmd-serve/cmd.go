@@ -18,6 +18,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/api"
 	"github.com/cyril-fl/notes/notes-go/app/api/services/guard"
 	cmdmcp "github.com/cyril-fl/notes/notes-go/app/cli/cmd-mcp"
+	"github.com/cyril-fl/notes/notes-go/app/server/oauth"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/noteindex"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
@@ -63,6 +64,13 @@ func Serve(cobra *cobra.Command, args []string) error {
 	mcpAddr, err := cobra.Flags().GetString("mcp-addr")
 	if err != nil {
 		return err
+	}
+	mcpPublished, err := cobra.Flags().GetString("mcp-published")
+	if err != nil {
+		return err
+	}
+	if mcpPublished == "" {
+		mcpPublished = mcpAddr
 	}
 	addUserMode, err := cobra.Flags().GetString("add-user-mode")
 	if err != nil {
@@ -134,12 +142,18 @@ func Serve(cobra *cobra.Command, args []string) error {
 	log.Printf("listening on %s", addr)
 	servers := []*http.Server{server}
 	if mcpAddr != "" {
-		// The API's handler, without the web app nor the proxy: the tools call it in process.
+		// The API's handler, without the web app nor the proxy: the tools call it in process. Beside /mcp, the OAuth
+		// endpoints, whose consent page counts the wrong passwords by address: behind the tunnel, its X-Forwarded-For.
 		mux := http.NewServeMux()
 		mux.Handle("/mcp", cmdmcp.Handler(api.New(db, store, origin, addUserMode), cobra.Root().Version))
+		oauth.Routes(mux, db)
+		var mcpHandler http.Handler = mux
+		if onLoopback(mcpPublished) {
+			mcpHandler = withProxy(mcpHandler)
+		}
 		mcpServer := &http.Server{
 			Addr:              mcpAddr,
-			Handler:           mux,
+			Handler:           mcpHandler,
 			ReadHeaderTimeout: 5 * time.Second,
 			// A tool can make several calls to the API, an export or an attached file move big bodies.
 			ReadTimeout:  time.Minute,
@@ -147,7 +161,7 @@ func Serve(cobra *cobra.Command, args []string) error {
 			IdleTimeout:  time.Minute,
 		}
 		go func() { failed <- mcpServer.ListenAndServe() }()
-		log.Printf("serving MCP on %s/mcp", mcpAddr)
+		log.Printf("serving MCP on %s/mcp, with its OAuth", mcpAddr)
 		servers = append(servers, mcpServer)
 	}
 

@@ -38,9 +38,16 @@ func Read(cobra *cobra.Command, args []string) error {
 	case len(tokens) == 0:
 		fmt.Println(style.Empty().Render("No API token"))
 	default:
-		cells := [][]string{{"Name", "UUID", "Created", "Last used", "Expires"}}
+		cells := [][]string{{"Name", "UUID", "Kind", "Access", "Created", "Last used", "Expires"}}
 		for _, token := range tokens {
-			cells = append(cells, []string{token.Name, token.Id, day(&token.CreatedAt, ""), day(token.LastUsedAt, "never"), day(token.ExpiresAt, "never")})
+			kind, access := "API", "full"
+			if token.Oauth {
+				kind = "OAuth"
+			}
+			if token.ReadOnly {
+				access = "read-only"
+			}
+			cells = append(cells, []string{token.Name, token.Id, kind, access, day(&token.CreatedAt, ""), day(token.LastUsedAt, "never"), day(token.ExpiresAt, "never")})
 		}
 		fmt.Print(style.Table(cells, -1, 0))
 	}

@@ -18,6 +18,12 @@ import (
 // Cookie holds the session token of the web app: HttpOnly, page scripts never see it.
 const Cookie = "notes_session"
 
+// ReadOnlyHeader is set to "true" on the answers to a read-only API token.
+const ReadOnlyHeader = "Notes-Read-Only"
+
+// readRoutes are the routes that read with a POST, for a body too long for a query: a read-only token may call them.
+var readRoutes = map[string]bool{"/api/notes/tags": true, "/api/searches": true}
+
 // Public routes answer without a session.
 var public = map[string]bool{"POST /api/login": true, "POST /api/signup": true, "GET /api/add-user": true}
 
@@ -60,6 +66,14 @@ func apiToken(db bun.IDB, next http.Handler, w http.ResponseWriter, r *http.Requ
 		respond.JSON(w, http.StatusForbidden, respond.Failure{Error: "an API token cannot manage the account: log in"})
 		return
 	}
+	if process.GetReadOnly() {
+		// Every answer tells it: the MCP over HTTP leaves out its writing tools.
+		w.Header().Set(ReadOnlyHeader, "true")
+		if !reads(r) {
+			respond.JSON(w, http.StatusForbidden, respond.Failure{Error: "this token is read-only: it cannot change anything"})
+			return
+		}
+	}
 	next.ServeHTTP(w, r.WithContext(domain.WithUser(r.Context(), process.GetResult().ID)))
 }
 
@@ -77,6 +91,11 @@ func account(r *http.Request) bool {
 		}
 	}
 	return false
+}
+
+// reads tells a request that changes nothing: a GET, or a POST of readRoutes.
+func reads(r *http.Request) bool {
+	return r.Method == http.MethodGet || r.Method == http.MethodHead || (r.Method == http.MethodPost && readRoutes[r.URL.Path])
 }
 
 // Token is the request's session token, "" without one.

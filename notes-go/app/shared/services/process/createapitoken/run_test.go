@@ -78,6 +78,23 @@ func TestTokenLifecycle(t *testing.T) {
 		t.Fatalf("read = %+v, %v; want the account", read.GetResult(), read.GetErr())
 	}
 
+	if read.GetReadOnly() {
+		t.Errorf("a token made without read_only reads as read-only")
+	}
+	readOnly := createapitoken.Process(ctx, tx, createapitoken.Input{Name: "reader", ReadOnly: true})
+	readOnly.Run()
+	if readOnly.HasErr() || !readOnly.GetResult().APIToken.ReadOnly {
+		t.Fatalf("create read-only = %+v, %v", readOnly.GetResult().APIToken, readOnly.GetErr())
+	}
+	read = readapitoken.Process(ctx, tx, readOnly.GetResult().Token)
+	read.Run()
+	if read.HasErr() || !read.GetReadOnly() {
+		t.Errorf("read a read-only token: read-only = %v, %v; want true", read.GetReadOnly(), read.GetErr())
+	}
+	if _, err := tx.NewDelete().Model((*domain.APIToken)(nil)).Where("id = ?", readOnly.GetResult().APIToken.ID).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+
 	list := listapitokens.Process(ctx, tx)
 	list.Run()
 	if list.HasErr() || len(list.GetResult()) != 1 || list.GetResult()[0].LastUsedAt.IsZero() || list.GetResult()[0].Name != "Claude téléphone" {

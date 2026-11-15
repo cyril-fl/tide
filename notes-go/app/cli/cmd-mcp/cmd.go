@@ -193,13 +193,14 @@ func Serve(cobra *cobra.Command, _ []string) error {
 		return err
 	}
 	server := mcp.NewServer(&mcp.Implementation{Name: "notes", Title: "Notes", Version: cobra.Root().Version}, nil)
-	AddTools(server, client)
+	AddTools(server, client, false)
 	return server.Run(cobra.Context(), &mcp.StdioTransport{})
 }
 
-// AddTools gives the server the tools acting through client, for the account of its session.
-func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
-	mcp.AddTool(server, &mcp.Tool{
+// AddTools gives the server the tools acting through client, for the account of its session; the reading ones only
+// when readOnly.
+func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnly bool) {
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "search_notes",
 		Annotations: reads(),
 		Description: "Find the notes whose title or content contains a text, with the line where it was found: the first 50, title matches first, unless limit says otherwise.",
@@ -212,7 +213,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, matches, err
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "recent_notes",
 		Annotations: reads(),
 		Description: "List the notes changed most recently, newest first.",
@@ -221,7 +222,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, recent, err
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "read_note",
 		Annotations: reads(),
 		Description: "Read a note: its content, its path and its tags.",
@@ -234,7 +235,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, read, err
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "list_folder",
 		Annotations: reads(),
 		Description: "List the notes and folders directly inside a folder.",
@@ -246,7 +247,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return made(decode[[]apiclient.DomainItem](client.GetApiItems(ctx, &apiclient.GetApiItemsParams{Parent: &parentID})))
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "create_note",
 		Annotations: writes(false, false),
 		Description: "Create a note from markdown content.",
@@ -264,7 +265,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, read, err
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "edit_note",
 		Annotations: writes(true, true),
 		Description: "Replace the content of a note. Read it first: nothing is kept of the old content. A locked note refuses.",
@@ -283,7 +284,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, edited, err
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "create_folder",
 		Annotations: writes(false, false),
 		Description: "Create a folder.",
@@ -296,7 +297,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, one(created), err
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "rename_folder",
 		Annotations: writes(false, true),
 		Description: "Change the title of a folder.",
@@ -309,7 +310,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, one(renamed), err
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "move_item",
 		Annotations: writes(false, true),
 		Description: "Move a note or a folder into another folder. A folder takes its content with it.",
@@ -325,7 +326,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return made(decode[[]apiclient.DomainItem](client.PostApiMove(ctx, apiclient.MoveitemsInput{Ids: []string{id}, ParentId: &parentID})))
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "delete_note",
 		Annotations: writes(true, true),
 		Description: "Move a note to the trash, where restore_item can take it back.",
@@ -337,7 +338,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return made(decode[[]apiclient.DomainItem](client.DeleteApiNotesId(ctx, id)))
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "delete_folder",
 		Annotations: writes(true, true),
 		Description: "Move a folder and everything inside it to the trash, where restore_item can take it back.",
@@ -349,7 +350,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return made(decode[[]apiclient.DomainItem](client.DeleteApiFoldersId(ctx, id)))
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "list_trash",
 		Annotations: reads(),
 		Description: "List what is in the trash, last removed first, with the uuid restore_item takes.",
@@ -358,7 +359,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, trash, err
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "restore_item",
 		Annotations: writes(false, true),
 		Description: "Take a note or a folder out of the trash, with everything removed at the same time as it.",
@@ -367,7 +368,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return made(decode[[]apiclient.DomainItem](client.PostApiRestore(ctx, apiclient.RestoreBody{Ids: []string{args.Item}})))
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tags",
 		Annotations: reads(),
 		Description: "List the notes carrying a tag, with their path. Without a tag, the account's tags, most used first. Tags of a note are set by create_note and edit_note.",
@@ -383,7 +384,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, tags{Tag: &result.Tag, Notes: result.Notes}, nil
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "rename_tag",
 		Annotations: writes(false, true),
 		Description: "Rename a tag on every note carrying it, in their text too.",
@@ -392,7 +393,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, renamed, err
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "replace_notes",
 		Annotations: writes(true, false),
 		Description: "Replace a plain text in many notes at once, in one transaction, without rewriting them: locked notes are left and counted, and each note changed keeps its earlier text in note_history. With dry_run, only counts what it would change.",
@@ -409,7 +410,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, result, err
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "delete_tag",
 		Annotations: writes(true, true),
 		Description: "Remove a tag from every note carrying it, in their text too. A note holding nothing but the tag goes to the trash.",
@@ -418,7 +419,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, deleted, err
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "note_history",
 		Annotations: reads(),
 		Description: "List the earlier texts of a note, newest first, or read one: what edit_note replaced.",
@@ -438,7 +439,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, history{Version: &version}, nil
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "note_links",
 		Annotations: reads(),
 		Description: "List the notes a note links to, those linking to it, and those sharing its tags. Without a note, the broken links of every note.",
@@ -459,7 +460,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 	})
 
 	// Out is any: a read answers the file as content (an image the agent sees), not as JSON.
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "read_file",
 		Annotations: reads(),
 		Description: "Read an image or attachment a note cites. Without a file, list the account's files, largest first.",
@@ -479,7 +480,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return &mcp.CallToolResult{Content: []mcp.Content{content}}, nil, nil
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "attach_file",
 		Annotations: writes(false, false),
 		Description: "Store an image or attachment and answer the markdown citing it, to put in a note with create_note or edit_note.",
@@ -496,7 +497,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, attached{ID: file.Id, Markdown: citation(file, args.Name)}, nil
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "export_notes",
 		Annotations: reads(),
 		Description: "Export notes as markdown files, [[links]] written back, their folders as directories.",
@@ -534,7 +535,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		return nil, files, err
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "import_notes",
 		Annotations: writes(false, false),
 		Description: "Import markdown files as notes, their directories as folders, all or nothing: a folder name already taken refuses.",
@@ -558,6 +559,14 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		result, err := decode[apiclient.ImportnotesResult](client.PostApiImportWithBody(ctx, &apiclient.PostApiImportParams{Parent: &parentID}, "application/zip", &body))
 		return nil, result, err
 	})
+}
+
+// addTool adds tool to server, unless readOnly and the tool changes something: its annotations tell it.
+func addTool[In, Out any](server *mcp.Server, readOnly bool, tool *mcp.Tool, handler mcp.ToolHandlerFor[In, Out]) {
+	if readOnly && !tool.Annotations.ReadOnlyHint {
+		return
+	}
+	mcp.AddTool(server, tool, handler)
 }
 
 // reads marks a tool that changes nothing, so a client runs it without asking. Every tool stays in the account's notes.

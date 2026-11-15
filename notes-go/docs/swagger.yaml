@@ -59,6 +59,9 @@ components:
           type: string
         name:
           type: string
+        read_only:
+          description: ReadOnly makes a token that reads the notes and changes nothing.
+          type: boolean
       required:
       - name
       type: object
@@ -166,10 +169,21 @@ components:
         name:
           description: 'sealed: a stolen base does not tell what the tokens are for'
           type: string
+        oauth:
+          description: |-
+            OAuth marks the connection of an OAuth client (the MCP over HTTP): Name is the client's, ExpiresAt the end of its
+            refresh token, 90 days after its last use. TokenHash is then its access token, valid until AccessExpiresAt only.
+          type: boolean
+        read_only:
+          description: ReadOnly refuses the token every request that changes something
+            (auth), and the MCP its writing tools.
+          type: boolean
       required:
       - created_at
       - id
       - name
+      - oauth
+      - read_only
       type: object
     domain.File:
       properties:

@@ -21,7 +21,8 @@ type cache struct {
 }
 
 // Process deletes the expired sessions and API tokens of every account: a device that never logs out (cookie cleared,
-// device lost) would keep its row, and its token hash, forever. The login throttles a day old go too.
+// device lost) would keep its row, and its token hash, forever. The OAuth codes never exchanged and the login
+// throttles a day old go too.
 func Process(ctx context.Context, db bun.IDB) *run {
 	return &run{
 		ctx: ctx,
@@ -32,6 +33,7 @@ func Process(ctx context.Context, db bun.IDB) *run {
 func (p *run) Run() {
 	p.purge((*domain.Session)(nil))
 	p.purge((*domain.APIToken)(nil))
+	p.purge((*domain.OAuthCode)(nil))
 	p.purge((*domain.Throttle)(nil))
 }
 

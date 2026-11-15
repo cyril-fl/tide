@@ -73,20 +73,9 @@ func (p *run) GetResult() Result {
 // Methods
 
 func (p *run) checkPassword() {
-	user := &p.cache.result.User
-	err := p.db.NewSelect().Model(user).ExcludeColumn("snippets", "saved_searches").Where("lower(name) = lower(?)", strings.TrimSpace(p.input.Name)).Scan(p.ctx)
-	if errors.Is(err, sql.ErrNoRows) {
-		password.Verify(p.input.Password, dummyHash)
-		p.SetErr(ErrBadCredentials)
-		return
-	}
-	if err != nil {
-		p.SetErr(err)
-		return
-	}
-	if !password.Verify(p.input.Password, user.PasswordHash) {
-		p.SetErr(ErrBadCredentials)
-	}
+	user, err := CheckPassword(p.ctx, p.db, p.input.Name, p.input.Password)
+	p.cache.result.User = user
+	p.SetErr(err)
 }
 
 // loadKey reads the snippets and saved searches once the key of the account opens them.
@@ -113,4 +102,24 @@ func (p *run) saveSession() {
 	session := domain.Session{UserID: p.cache.result.User.ID, TokenHash: password.TokenHash(p.cache.result.Token), ExpiresAt: p.cache.result.ExpiresAt}
 	_, err := p.db.NewInsert().Model(&session).Exec(p.ctx)
 	p.SetErr(err)
+}
+
+// Helpers
+
+// CheckPassword finds the account of name and checks its password, in the same time whether the name exists or not:
+// ErrBadCredentials either way. The OAuth consent logs in with it, without a session.
+func CheckPassword(ctx context.Context, db bun.IDB, name, pass string) (domain.User, error) {
+	var user domain.User
+	err := db.NewSelect().Model(&user).ExcludeColumn("snippets", "saved_searches").Where("lower(name) = lower(?)", strings.TrimSpace(name)).Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		password.Verify(pass, dummyHash)
+		return user, ErrBadCredentials
+	}
+	if err != nil {
+		return user, err
+	}
+	if !password.Verify(pass, user.PasswordHash) {
+		return user, ErrBadCredentials
+	}
+	return user, nil
 }

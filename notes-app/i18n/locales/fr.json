@@ -494,6 +494,8 @@
     "tokenNeverUsed": "jamais utilisé",
     "tokenExpires": "expire le {date}",
     "tokenNoExpiry": "sans expiration",
+    "tokenReadOnly": "Lecture seule",
+    "tokensOAuth": "Les agents connectés par OAuth (ChatGPT, Claude…) y figurent aussi, avec la fin de leur connexion : en révoquer un le déconnecte.",
     "revokeToken": "Révoquer le jeton « {name} » ?",
     "revoke": "Révoquer"
   },

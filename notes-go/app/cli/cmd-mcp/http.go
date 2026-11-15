@@ -6,15 +6,18 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/cyril-fl/notes/notes-go/app/api/services/auth"
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/notes/notes-go/app/server/oauth"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createapitoken"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Handler serves the tools over streamable HTTP to an agent that cannot run notes mcp where it runs (the Claude app
 // calls from Anthropic's cloud): each request acts for the account of its API token, "Authorization: Bearer notes_…",
-// the tools calling api in process with it. Without a valid API token, 401: a session token is refused too, only an
-// API token can be revoked alone and is kept off the account's routes.
+// the tools calling api in process with it; an OAuth access token is one too. Without a valid API token, 401 with
+// where to sign in (oauth.Challenge): a session token is refused too, only an API token can be revoked alone and is
+// kept off the account's routes. A read-only token gets the reading tools only.
 func Handler(api http.Handler, version string) http.Handler {
 	options := &mcp.StreamableHTTPOptions{
 		// No session kept between requests: each one carries its token, and a restart loses nothing.
@@ -36,26 +39,31 @@ func Handler(api http.Handler, version string) http.Handler {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if !strings.HasPrefix(token, createapitoken.Prefix) || !valid(r.Context(), client) {
-			w.Header().Set("WWW-Authenticate", "Bearer")
-			http.Error(w, "an API token of the account is required: Authorization: Bearer notes_…", http.StatusUnauthorized)
+		ok, readOnly := strings.HasPrefix(token, createapitoken.Prefix), false
+		if ok {
+			ok, readOnly = valid(r.Context(), client)
+		}
+		if !ok {
+			w.Header().Set("WWW-Authenticate", oauth.Challenge(r))
+			http.Error(w, "an API token of the account is required: Authorization: Bearer notes_…, or sign in with OAuth", http.StatusUnauthorized)
 			return
 		}
 
 		server := mcp.NewServer(&mcp.Implementation{Name: "notes", Title: "Notes", Version: version}, nil)
-		AddTools(server, client)
+		AddTools(server, client, readOnly)
 		mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, options).ServeHTTP(w, r)
 	})
 }
 
 // valid asks the API whether the token is known and unexpired, before any tool: the client learns it at connection.
-func valid(ctx context.Context, client *apiclient.ClientWithResponses) bool {
+// The answer tells a read-only token too.
+func valid(ctx context.Context, client *apiclient.ClientWithResponses) (ok, readOnly bool) {
 	response, err := client.GetApiMe(ctx)
 	if err != nil {
-		return false
+		return false, false
 	}
 	response.Body.Close()
-	return response.StatusCode == http.StatusOK
+	return response.StatusCode == http.StatusOK, response.Header.Get(auth.ReadOnlyHeader) == "true"
 }
 
 // inProcess runs the API's handler for the client's requests, without a round trip through the network.

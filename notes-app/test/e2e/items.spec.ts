@@ -86,7 +86,11 @@ for (const [name, path, api] of [
 ] as const)
   test(`${name} bigger than a page reads its notes as it scrolls`, async ({ page }) => {
     const tag = box.prefix;
-    await box.notes(pages.map((content) => `${content}\n\n#${tag}`));
+    const notes = pages.map((content) => `${content}\n\n#${tag}`);
+    // A search ranks the latest edited first (#170): Page 200 is made first and Page 000 last, alone.
+    await box.note(notes[200]!);
+    await box.notes(notes.slice(1, 200));
+    await box.note(notes[0]!);
     try {
       const reads: string[] = [];
       page.on('request', (request) => request.url().includes(api(tag)) && reads.push(request.url()));

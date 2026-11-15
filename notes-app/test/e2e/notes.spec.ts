@@ -711,19 +711,19 @@ test('the toolbar forks the current text, the note merges it and undoes the merg
 }) => {
   const note = await box.note(`# ${box.prefix} toolbar\n\nun`);
   await page.goto(`/notes/${note.id}`);
-  await page.getByRole('button', { name: 'Nouvelle note copiée de celle-ci' }).click();
+  await page.getByRole('button', { name: 'Nouvelle branche de cette note' }).click();
   await expect(page).not.toHaveURL(new RegExp(note.id));
   await expect(page.locator('.ProseMirror')).toContainText(`${box.prefix} toolbar (version du`);
   const copy = page.url().split('/').pop()!;
   await box.api.patch(`/api/notes/${copy}`, { data: { content: `${await box.content(copy)}\n\ndeux` } });
   await page.goto(`/notes/${note.id}`);
-  await page.getByRole('button', { name: 'Fusionner une copie dans cette note' }).click();
+  await page.getByRole('button', { name: 'Fusionner une branche ici…' }).click();
   await page.getByRole('menuitem', { name: `${box.prefix} toolbar (version du` }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.locator('ins')).toHaveText('deux');
-  await dialog.getByRole('checkbox', { name: 'Mettre la copie à la corbeille après la fusion' }).check();
+  await dialog.getByRole('checkbox', { name: 'Mettre la branche à la corbeille' }).check();
   await dialog.getByRole('button', { name: 'Fusionner' }).click();
-  await expect(page.getByText('Copie fusionnée dans cette note et mise à la corbeille').first()).toBeVisible();
+  await expect(page.getByText("Branche fusionnée dans l'original et mise à la corbeille").first()).toBeVisible();
   await expect(page.locator('.ProseMirror')).toContainText('deux');
   expect(await box.content(note.id)).toBe(`# ${box.prefix} toolbar\n\nun\n\ndeux`);
   expect((await box.api.get(`/api/notes/${copy}`)).status()).toBe(404);
@@ -740,7 +740,7 @@ test('the toolbar forks the current text, the note merges it and undoes the merg
 test('a fork updates from its original, a conflict kept with the copy, then merges back', async ({ page }) => {
   const note = await box.note(`# ${box.prefix} rebase\n\nun\n\ndeux`);
   await page.goto(`/notes/${note.id}`);
-  await page.getByRole('button', { name: 'Nouvelle note copiée de celle-ci' }).click();
+  await page.getByRole('button', { name: 'Nouvelle branche de cette note' }).click();
   await expect(page).not.toHaveURL(new RegExp(note.id));
   const copy = page.url().split('/').pop()!;
   const forked = await box.content(copy);
@@ -749,21 +749,21 @@ test('a fork updates from its original, a conflict kept with the copy, then merg
     data: { content: `# ${box.prefix} rebase\n\nun origine\n\ndeux origine` },
   });
   await page.reload();
-  await page.getByRole('button', { name: "Mettre à jour depuis l'origine" }).click();
+  await page.getByRole('button', { name: "Récupérer les changements de l'original" }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('region', { name: 'Conflit 1' })).toContainText('un origine');
-  await dialog.getByRole('button', { name: 'Garder la copie' }).click();
+  await dialog.getByRole('button', { name: 'Garder la branche' }).click();
   await dialog.getByRole('button', { name: 'Enregistrer' }).click();
-  await expect(page.getByText("Copie mise à jour depuis la note d'origine").first()).toBeVisible();
+  await expect(page.getByText("Changements de l'original récupérés dans la branche").first()).toBeVisible();
   await expect(page.locator('.ProseMirror')).toContainText('deux origine');
   const rebased = forked.replace(/^un$/m, 'un copie').replace(/^deux$/m, 'deux origine');
   await expect.poll(() => box.content(copy)).toBe(rebased);
 
   await page.goto(`/notes/${note.id}`);
-  await page.getByRole('button', { name: 'Fusionner une copie dans cette note' }).click();
+  await page.getByRole('button', { name: 'Fusionner une branche ici…' }).click();
   await page.getByRole('menuitem', { name: `${box.prefix} rebase (version du` }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Fusionner' }).click();
-  await expect(page.getByText('Copie fusionnée dans cette note').first()).toBeVisible();
+  await expect(page.getByText("Branche fusionnée dans l'original").first()).toBeVisible();
   expect(await box.content(note.id)).toBe(`# ${box.prefix} rebase\n\nun copie\n\ndeux origine`);
 });
 
@@ -789,12 +789,12 @@ async function forkAndMerge(
   await box.api.patch(`/api/notes/${copy}`, { data: { content: fork(await box.content(copy)) } });
   await box.api.patch(`/api/notes/${note.id}`, { data: { content: original(await box.content(note.id)) } });
   await page.goto(`/notes/${note.id}`);
-  await page.getByRole('button', { name: 'Fusionner une copie dans cette note' }).click();
+  await page.getByRole('button', { name: 'Fusionner une branche ici…' }).click();
   await page.getByRole('menuitem', { name: `${box.prefix} ${name} (version du` }).click();
   if (resolve) await resolve(page.getByRole('dialog'));
   if (!merged) return note.id;
   await page.getByRole('button', { name: 'Fusionner', exact: true }).click();
-  await expect(page.getByText('Copie fusionnée dans cette note').first()).toBeVisible();
+  await expect(page.getByText("Branche fusionnée dans l'original").first()).toBeVisible();
   return note.id;
 }
 
@@ -827,7 +827,7 @@ test('the Pro history merges a fork back, a conflict resolved with the copy', as
         // Line by line: the arrow takes the copy's line into the result, then the choice keeps only the copy.
         await conflict.getByRole('button', { name: 'Prendre cette ligne' }).first().click();
         await expect(conflict.getByLabel('Résultat')).toHaveText('un copie');
-        await dialog.getByRole('button', { name: 'Garder la copie' }).click();
+        await dialog.getByRole('button', { name: 'Garder la branche' }).click();
         await dialog.getByRole('button', { name: 'Enregistrer' }).click();
       },
     );

@@ -169,7 +169,7 @@ test('the settings save the theme, the trash retention, the limit of neighbors a
     await page.getByRole('option', { name: 'Toutes' }).click();
 
     await page.getByRole('button', { name: 'Après une fusion' }).click();
-    await page.getByRole('option', { name: 'Garder la copie' }).click();
+    await page.getByRole('option', { name: 'Garder la branche' }).click();
 
     await expect
       .poll(me)

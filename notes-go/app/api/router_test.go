@@ -796,6 +796,8 @@ func TestFiles(t *testing.T) {
 	if file.ID == "" || file.Name != "chat.png" {
 		t.Fatalf("file = %+v", file)
 	}
+	// The base plan's storage bar splits the space by kind, so it reads the list too.
+	c.do(http.MethodGet, "/api/files", "", http.StatusOK, nil)
 	if got := c.raw("/api/files/" + file.ID); got != image {
 		t.Errorf("GET = %q, want the image back", got)
 	}

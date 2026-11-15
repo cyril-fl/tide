@@ -131,7 +131,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("POST /api/import", apiimport.Handler(db, store))
 
 	mux.Handle("POST /api/files", apicreatefile.Handler(db, store))
-	mux.Handle("GET /api/files", plan.Require(db, "storageFiles", apireadfiles.Handler(db)))
+	mux.Handle("GET /api/files", plan.Require(db, "storageUsage", apireadfiles.Handler(db)))
 	mux.Handle("GET /api/files/{id}", apireadfile.Handler(db, store))
 
 	return guard.New(origin, auth.New(db, compress.New(mux)))

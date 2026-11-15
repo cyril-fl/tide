@@ -25,6 +25,7 @@
   "api": {
     "down": "L'API ne répond pas.",
     "failed": "Une erreur est survenue.",
+    "notInPlan": "Votre offre n’inclut pas cette fonction.",
     "tooLarge": "Envoi trop gros, l'API l'a refusé.",
     "tooManyTries": "Trop d’essais ratés : réessayez dans {wait}."
   },

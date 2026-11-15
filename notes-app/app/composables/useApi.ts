@@ -22,7 +22,7 @@ function errorMessage(
   if (!error.status) return t('api.down');
   if (error.status === 413) return tooLarge ?? t('api.tooLarge');
   const message: string = error.data?.error ?? t('api.failed');
-  const texts = { 400: invalid, 409: conflict }[error.status];
+  const texts = { 400: invalid, 403: { 'plan of this account': t('api.notInPlan') }, 409: conflict }[error.status];
   if (!texts) return message;
   if (typeof texts === 'string') return texts;
   return Object.entries(texts).find(([part]) => message.includes(part))?.[1] ?? message;

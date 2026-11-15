@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	cmdfinder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-finder"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
+	cmdfinder "github.com/cyril-fl/tide/notes-go/app/cli/cmd-finder"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
 	"github.com/spf13/cobra"
 )
 

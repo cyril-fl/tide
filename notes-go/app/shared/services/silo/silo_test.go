@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createschema"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/silo"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/testaccount"
 )
 
 // The real Silo of compose.yaml, skipped when it is not running: a file put comes back, sealed, and goes.

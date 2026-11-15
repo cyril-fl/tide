@@ -3,16 +3,16 @@ package respond
 import (
 	"errors"
 	"fmt"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/edittag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/moveitems"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createnote"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/edittag"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/moveitems"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readitem"
 )
 
 func TestError(t *testing.T) {

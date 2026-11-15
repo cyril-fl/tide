@@ -2,7 +2,7 @@ package postgrey
 
 import (
 	"database/sql"
-	"github.com/cyril-fl/notes/notes-go/config"
+	"github.com/cyril-fl/tide/notes-go/config"
 	"net/url"
 	"os"
 	"strings"

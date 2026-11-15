@@ -5,10 +5,10 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/hashtag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/hashtag"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/secret"
 	"github.com/uptrace/bun"
 )
 

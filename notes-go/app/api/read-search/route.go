@@ -4,11 +4,11 @@ package readsearch
 import (
 	"net/http"
 
-	"github.com/cyril-fl/notes/notes-go/app/api/services/respond"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/edituser"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsavedsearch"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/runsavedsearch"
+	"github.com/cyril-fl/tide/notes-go/app/api/services/respond"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/edituser"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readsavedsearch"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/runsavedsearch"
 	"github.com/uptrace/bun"
 )
 

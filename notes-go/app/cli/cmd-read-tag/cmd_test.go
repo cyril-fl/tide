@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listtag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readtag"
 	plumdebug "github.com/cyril-fl/plum/utils/debug"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient/apitest"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createnote"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/listtag"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readtag"
 	"github.com/spf13/cobra"
 )
 

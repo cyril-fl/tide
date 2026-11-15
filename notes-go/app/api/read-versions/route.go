@@ -3,10 +3,10 @@ package readversions
 import (
 	"net/http"
 
-	"github.com/cyril-fl/notes/notes-go/app/api/services/respond"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/keepconflict"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listversions"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readversion"
+	"github.com/cyril-fl/tide/notes-go/app/api/services/respond"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/keepconflict"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/listversions"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readversion"
 	"github.com/uptrace/bun"
 )
 

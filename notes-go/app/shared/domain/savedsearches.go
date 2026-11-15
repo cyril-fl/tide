@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/secret"
 )
 
 // SavedSearch is a smart folder: the criteria are replayed by runsavedsearch, never stored as a result.

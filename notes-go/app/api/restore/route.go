@@ -3,8 +3,8 @@ package restore
 import (
 	"net/http"
 
-	"github.com/cyril-fl/notes/notes-go/app/api/services/respond"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/restoreitems"
+	"github.com/cyril-fl/tide/notes-go/app/api/services/respond"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/restoreitems"
 	"github.com/uptrace/bun"
 )
 

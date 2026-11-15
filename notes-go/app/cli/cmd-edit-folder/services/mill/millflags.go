@@ -3,8 +3,8 @@ package millflagseditfolder
 import (
 	"context"
 
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
 	"github.com/spf13/pflag"
 )
 

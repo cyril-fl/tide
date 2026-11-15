@@ -7,15 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/adduser"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createsession"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deletesession"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resetpassword"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/adduser"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createschema"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createsession"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/deletesession"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readsession"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/resetpassword"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/secret"
 )
 
 // An account from its creation to a new password: log in, find the session, log out.

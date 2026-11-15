@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	cmdrestore "github.com/cyril-fl/notes/notes-go/app/cli/cmd-restore"
-	cmdtrash "github.com/cyril-fl/notes/notes-go/app/cli/cmd-trash"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
+	cmdrestore "github.com/cyril-fl/tide/notes-go/app/cli/cmd-restore"
+	cmdtrash "github.com/cyril-fl/tide/notes-go/app/cli/cmd-trash"
 	"github.com/spf13/cobra"
 )
 

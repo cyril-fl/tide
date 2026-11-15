@@ -6,13 +6,13 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/adduser"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfile"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/adduser"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createfile"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createschema"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/silo"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/testaccount"
 )
 
 // No DB needed: checkInput fails first and updateUser is guarded, so a nil db is never touched.

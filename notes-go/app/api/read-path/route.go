@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cyril-fl/notes/notes-go/app/api/services/respond"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/resolveitem"
+	"github.com/cyril-fl/tide/notes-go/app/api/services/respond"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/resolveitem"
 	"github.com/uptrace/bun"
 )
 

@@ -12,12 +12,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/password"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readapitoken"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/password"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createschema"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readapitoken"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/testaccount"
 )
 
 // A client from its discovery to a refresh: metadata, registration, the consent page and the token endpoint, as

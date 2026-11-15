@@ -5,11 +5,11 @@ import (
 	"math"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
-	"github.com/cyril-fl/notes/notes-go/config"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/screen"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/style"
+	"github.com/cyril-fl/tide/notes-go/config"
 	"github.com/spf13/cobra"
 )
 

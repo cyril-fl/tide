@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
-	"github.com/cyril-fl/notes/notes-go/app/api"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/password"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
-	"github.com/cyril-fl/notes/notes-go/config"
+	"github.com/cyril-fl/tide/notes-go/app/api"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/password"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createschema"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/silo"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/testaccount"
+	"github.com/cyril-fl/tide/notes-go/config"
 	"github.com/uptrace/bun"
 )
 

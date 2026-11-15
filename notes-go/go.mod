@@ -1,4 +1,4 @@
-module github.com/cyril-fl/notes/notes-go
+module github.com/cyril-fl/tide/notes-go
 
 go 1.27.2
 

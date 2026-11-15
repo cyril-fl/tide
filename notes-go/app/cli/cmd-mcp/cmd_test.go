@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/exportnotes"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient/apitest"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/exportnotes"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

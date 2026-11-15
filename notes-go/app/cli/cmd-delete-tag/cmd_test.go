@@ -3,8 +3,8 @@ package cmddeletetag
 import (
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createtag"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient/apitest"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createtag"
 	"github.com/spf13/cobra"
 )
 

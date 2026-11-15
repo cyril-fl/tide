@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"charm.land/huh/v2"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
-	"github.com/cyril-fl/notes/notes-go/config"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/huhform"
+	"github.com/cyril-fl/tide/notes-go/config"
 	"github.com/spf13/cobra"
 )
 

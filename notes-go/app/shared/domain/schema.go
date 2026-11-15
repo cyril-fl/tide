@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/fold"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/fold"
 	"github.com/uptrace/bun"
 )
 

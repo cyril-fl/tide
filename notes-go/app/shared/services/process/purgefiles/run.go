@@ -6,9 +6,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/silo"
 	"github.com/uptrace/bun"
 )
 

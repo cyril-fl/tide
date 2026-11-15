@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	cmdmcp "github.com/cyril-fl/notes/notes-go/app/cli/cmd-mcp"
+	cmdmcp "github.com/cyril-fl/tide/notes-go/app/cli/cmd-mcp"
 	"github.com/spf13/cobra"
 )
 

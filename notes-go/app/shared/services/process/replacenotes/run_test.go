@@ -6,15 +6,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listversions"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/patchnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createfolder"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createnote"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createschema"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/listversions"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/patchnote"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readitem"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/testaccount"
 )
 
 // No DB needed: makeInput fails first and replace is guarded, so a nil db is never touched.

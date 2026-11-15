@@ -3,11 +3,11 @@ package readgraph
 import (
 	"net/http"
 
-	"github.com/cyril-fl/notes/notes-go/app/api/services/respond"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/counttags"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/layoutgraph"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readgraph"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readneighbors"
+	"github.com/cyril-fl/tide/notes-go/app/api/services/respond"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/counttags"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/layoutgraph"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readgraph"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readneighbors"
 	"github.com/uptrace/bun"
 )
 

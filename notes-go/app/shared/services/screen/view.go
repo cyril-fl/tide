@@ -7,8 +7,8 @@ import (
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
 	plumtypes "github.com/cyril-fl/plum/types"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/style"
 	"golang.org/x/term"
 )
 

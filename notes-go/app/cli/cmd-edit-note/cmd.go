@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	millflagseditnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-note/services/mill"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/config"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
+	millflagseditnote "github.com/cyril-fl/tide/notes-go/app/cli/cmd-edit-note/services/mill"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/tide/notes-go/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

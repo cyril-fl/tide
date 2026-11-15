@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
 )
 
 // tree: root holds folder A (with note N inside) and note R.

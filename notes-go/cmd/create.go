@@ -4,11 +4,11 @@ import (
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/spf13/cobra"
 
-	cmdcreatefolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-create-folder"
-	cmdcreatenote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-create-note"
-	cmdcreatetag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-create-tag"
-	cmdcreatetoken "github.com/cyril-fl/notes/notes-go/app/cli/cmd-create-token"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
+	cmdcreatefolder "github.com/cyril-fl/tide/notes-go/app/cli/cmd-create-folder"
+	cmdcreatenote "github.com/cyril-fl/tide/notes-go/app/cli/cmd-create-note"
+	cmdcreatetag "github.com/cyril-fl/tide/notes-go/app/cli/cmd-create-tag"
+	cmdcreatetoken "github.com/cyril-fl/tide/notes-go/app/cli/cmd-create-token"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
 )
 
 var cmdCreate = &cobra.Command{

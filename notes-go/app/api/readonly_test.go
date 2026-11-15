@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/api/services/auth"
+	"github.com/cyril-fl/tide/notes-go/app/api/services/auth"
 )
 
 // A read-only API token reads the notes, and every change is refused with 403, the header telling it.

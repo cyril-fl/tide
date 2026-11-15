@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cyril-fl/notes/notes-go/config"
+	"github.com/cyril-fl/tide/notes-go/config"
 )
 
 var ErrNoSession = errors.New("not logged in: run " + config.Current.Name + " login <url>")

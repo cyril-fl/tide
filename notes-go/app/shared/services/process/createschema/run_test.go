@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/postgrey"
 )
 
 // A base made before a column of the model gets it back, with its default, when the schema is created again.

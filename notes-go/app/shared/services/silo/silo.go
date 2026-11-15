@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/secret"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )

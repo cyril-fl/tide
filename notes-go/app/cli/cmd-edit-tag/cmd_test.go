@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createtag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/edittag"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient/apitest"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createtag"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/edittag"
 )
 
 // The tag is renamed through the API; a name already taken is refused and the old one kept.

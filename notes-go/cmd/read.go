@@ -4,10 +4,10 @@ import (
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/spf13/cobra"
 
-	cmdreadfolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-folder"
-	cmdreadnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-note"
-	cmdreadtag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-tag"
-	cmdreadtoken "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-token"
+	cmdreadfolder "github.com/cyril-fl/tide/notes-go/app/cli/cmd-read-folder"
+	cmdreadnote "github.com/cyril-fl/tide/notes-go/app/cli/cmd-read-note"
+	cmdreadtag "github.com/cyril-fl/tide/notes-go/app/cli/cmd-read-tag"
+	cmdreadtoken "github.com/cyril-fl/tide/notes-go/app/cli/cmd-read-token"
 )
 
 var cmdRead = &cobra.Command{

@@ -3,11 +3,11 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	cmddeletefolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-delete-folder"
-	cmddeletenote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-delete-note"
-	cmddeletetag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-delete-tag"
-	cmddeletetoken "github.com/cyril-fl/notes/notes-go/app/cli/cmd-delete-token"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
+	cmddeletefolder "github.com/cyril-fl/tide/notes-go/app/cli/cmd-delete-folder"
+	cmddeletenote "github.com/cyril-fl/tide/notes-go/app/cli/cmd-delete-note"
+	cmddeletetag "github.com/cyril-fl/tide/notes-go/app/cli/cmd-delete-tag"
+	cmddeletetoken "github.com/cyril-fl/tide/notes-go/app/cli/cmd-delete-token"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
 )
 
 var cmdDelete = &cobra.Command{

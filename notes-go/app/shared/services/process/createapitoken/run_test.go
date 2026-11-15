@@ -7,17 +7,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/password"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createapitoken"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteapitoken"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listapitokens"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readapitoken"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/password"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createapitoken"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createschema"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/deleteapitoken"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/listapitokens"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readapitoken"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readsession"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/secret"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/testaccount"
 )
 
 // A token from its creation to its revocation: read by its account, listed without its secret, refused once expired.

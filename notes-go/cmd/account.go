@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	cmdaccount "github.com/cyril-fl/notes/notes-go/app/cli/cmd-account"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
+	cmdaccount "github.com/cyril-fl/tide/notes-go/app/cli/cmd-account"
 	"github.com/spf13/cobra"
 )
 

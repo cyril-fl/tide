@@ -5,12 +5,12 @@ import (
 	"errors"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/hashtag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/editnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/pinnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/hashtag"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/editnote"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/pinnote"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readitem"
 	"github.com/uptrace/bun"
 )
 

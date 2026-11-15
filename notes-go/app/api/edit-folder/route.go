@@ -4,11 +4,11 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/cyril-fl/notes/notes-go/app/api/services/respond"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/editfolder"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/pinnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
+	"github.com/cyril-fl/tide/notes-go/app/api/services/respond"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/editfolder"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/pinnote"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readitem"
 	"github.com/uptrace/bun"
 )
 

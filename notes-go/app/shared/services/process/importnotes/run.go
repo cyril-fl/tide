@@ -12,14 +12,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/notetitle"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfile"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/exportnotes"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/silo"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/notetitle"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createfile"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createfolder"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createnote"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/exportnotes"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/silo"
 	"github.com/uptrace/bun"
 )
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
 	"github.com/spf13/cobra"
 )
 

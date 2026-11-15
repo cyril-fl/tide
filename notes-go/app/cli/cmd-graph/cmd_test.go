@@ -3,8 +3,8 @@ package cmdgraph
 import (
 	"testing"
 
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient/apitest"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient/apitest"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createnote"
 )
 
 // Every note and a note's neighborhood come through the API, the linked notes with their tags.

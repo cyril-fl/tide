@@ -3,8 +3,8 @@ package cmdmove
 import (
 	"fmt"
 
-	millflagsmove "github.com/cyril-fl/notes/notes-go/app/cli/cmd-move/services/mill"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
+	millflagsmove "github.com/cyril-fl/tide/notes-go/app/cli/cmd-move/services/mill"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
 	"github.com/spf13/cobra"
 )
 

@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/api/services/respond"
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createapitoken"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createsession"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readapitoken"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
-	"github.com/cyril-fl/notes/notes-go/config"
+	"github.com/cyril-fl/tide/notes-go/app/api/services/respond"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createapitoken"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createsession"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readapitoken"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readsession"
+	"github.com/cyril-fl/tide/notes-go/config"
 	"github.com/uptrace/bun"
 )
 

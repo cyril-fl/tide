@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"charm.land/huh/v2"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
-	"github.com/cyril-fl/notes/notes-go/config"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/screen"
+	"github.com/cyril-fl/tide/notes-go/config"
 	"github.com/spf13/cobra"
 )
 

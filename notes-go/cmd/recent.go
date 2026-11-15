@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	cmdrecent "github.com/cyril-fl/notes/notes-go/app/cli/cmd-recent"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
+	cmdrecent "github.com/cyril-fl/tide/notes-go/app/cli/cmd-recent"
 	"github.com/spf13/cobra"
 )
 

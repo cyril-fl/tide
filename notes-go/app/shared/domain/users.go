@@ -7,7 +7,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/secret"
 	"github.com/uptrace/bun"
 )
 

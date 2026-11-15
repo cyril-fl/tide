@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/password"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createsession"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/password"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createsession"
 	"github.com/uptrace/bun"
 )
 

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/cyril-fl/notes/notes-go/app/api/services/respond"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deletetag"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readtag"
+	"github.com/cyril-fl/tide/notes-go/app/api/services/respond"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/deletetag"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readtag"
 	"github.com/uptrace/bun"
 )
 

@@ -7,12 +7,12 @@ import (
 
 	"charm.land/huh/v2"
 
-	cmdedittag "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-tag"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	plumdebug "github.com/cyril-fl/plum/utils/debug"
+	cmdedittag "github.com/cyril-fl/tide/notes-go/app/cli/cmd-edit-tag"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/screen"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/style"
 	"github.com/spf13/cobra"
 )
 

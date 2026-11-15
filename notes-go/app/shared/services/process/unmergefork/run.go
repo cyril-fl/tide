@@ -5,14 +5,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/mergefork"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/patchnote"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readfork"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/restoreitems"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
+	"github.com/cyril-fl/tide/notes-go/app/shared/domain"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/mergefork"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/patchnote"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readfork"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/readitem"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/restoreitems"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/secret"
 	"github.com/uptrace/bun"
 )
 

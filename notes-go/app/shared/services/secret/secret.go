@@ -22,7 +22,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cyril-fl/notes/notes-go/config"
+	"github.com/cyril-fl/tide/notes-go/config"
 	"github.com/uptrace/bun"
 )
 

@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	cmdeditnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-edit-note"
-	cmdreadnote "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-note"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/navigator"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
+	cmdeditnote "github.com/cyril-fl/tide/notes-go/app/cli/cmd-edit-note"
+	cmdreadnote "github.com/cyril-fl/tide/notes-go/app/cli/cmd-read-note"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/navigator"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/screen"
 	"github.com/spf13/cobra"
 )
 

@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	cmdgraph "github.com/cyril-fl/notes/notes-go/app/cli/cmd-graph"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
+	cmdgraph "github.com/cyril-fl/tide/notes-go/app/cli/cmd-graph"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
 	"github.com/spf13/cobra"
 )
 

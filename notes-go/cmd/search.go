@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	cmdsearch "github.com/cyril-fl/notes/notes-go/app/cli/cmd-search"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
+	cmdsearch "github.com/cyril-fl/tide/notes-go/app/cli/cmd-search"
 	"github.com/spf13/cobra"
 )
 

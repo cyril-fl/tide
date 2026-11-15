@@ -16,10 +16,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createapitoken"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createoauthtoken"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/refreshoauthtoken"
-	"github.com/cyril-fl/notes/notes-go/config"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createapitoken"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createoauthtoken"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/refreshoauthtoken"
+	"github.com/cyril-fl/tide/notes-go/config"
 	"github.com/uptrace/bun"
 )
 

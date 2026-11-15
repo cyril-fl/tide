@@ -9,8 +9,8 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
 	plumtypes "github.com/cyril-fl/plum/types"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/style"
 	"golang.org/x/term"
 )
 

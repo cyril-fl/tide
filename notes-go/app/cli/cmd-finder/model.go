@@ -7,11 +7,11 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	cmdreadfolder "github.com/cyril-fl/notes/notes-go/app/cli/cmd-read-folder"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/style"
 	plumtypes "github.com/cyril-fl/plum/types"
+	cmdreadfolder "github.com/cyril-fl/tide/notes-go/app/cli/cmd-read-folder"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/screen"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/style"
 )
 
 // headerHeight is the title, path, info and blank line above the children; footerHeight the blank and shortcut lines.

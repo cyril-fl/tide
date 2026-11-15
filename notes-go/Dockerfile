@@ -6,7 +6,7 @@ RUN go mod download
 COPY . .
 # The version shown to the admin: the context has no .git for go build to read the commit from.
 ARG VERSION
-RUN CGO_ENABLED=0 go build -ldflags "-X github.com/cyril-fl/notes/notes-go/config.version=$VERSION" -o /tide-server ./cmd/tide-server
+RUN CGO_ENABLED=0 go build -ldflags "-X github.com/cyril-fl/tide/notes-go/config.version=$VERSION" -o /tide-server ./cmd/tide-server
 # scratch has no /tmp, where an import writes its body instead of holding it in memory (#119).
 RUN install -d /image-tmp
 

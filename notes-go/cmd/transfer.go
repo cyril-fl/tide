@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	cmdexport "github.com/cyril-fl/notes/notes-go/app/cli/cmd-export"
-	cmdimport "github.com/cyril-fl/notes/notes-go/app/cli/cmd-import"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
+	cmdexport "github.com/cyril-fl/tide/notes-go/app/cli/cmd-export"
+	cmdimport "github.com/cyril-fl/tide/notes-go/app/cli/cmd-import"
 	"github.com/spf13/cobra"
 )
 

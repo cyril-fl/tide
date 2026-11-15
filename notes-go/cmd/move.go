@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	cmdmove "github.com/cyril-fl/notes/notes-go/app/cli/cmd-move"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
+	cmdmove "github.com/cyril-fl/tide/notes-go/app/cli/cmd-move"
 	"github.com/spf13/cobra"
 )
 

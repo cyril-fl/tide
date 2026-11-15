@@ -6,11 +6,11 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/cyril-fl/notes/notes-go/app/api/services/auth"
-	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
-	"github.com/cyril-fl/notes/notes-go/app/server/oauth"
-	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createapitoken"
-	"github.com/cyril-fl/notes/notes-go/config"
+	"github.com/cyril-fl/tide/notes-go/app/api/services/auth"
+	"github.com/cyril-fl/tide/notes-go/app/cli/services/apiclient"
+	"github.com/cyril-fl/tide/notes-go/app/server/oauth"
+	"github.com/cyril-fl/tide/notes-go/app/shared/services/process/createapitoken"
+	"github.com/cyril-fl/tide/notes-go/config"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

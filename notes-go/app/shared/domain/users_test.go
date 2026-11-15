@@ -16,7 +16,7 @@ func TestThemesMatchApp(t *testing.T) {
 		t.Fatal(err)
 	}
 	var app []string
-	for _, match := range regexp.MustCompile(`\{ id: '([^']+)'`).FindAllStringSubmatch(string(file), -1) {
+	for _, match := range regexp.MustCompile(`(?:\{ id: |own\()'([^']+)'`).FindAllStringSubmatch(string(file), -1) {
 		app = append(app, match[1])
 	}
 	if !slices.Equal(app, Themes) {

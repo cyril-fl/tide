@@ -64,11 +64,12 @@ type MetadataNote struct {
 	ForkOf string `bun:",type:uuid,nullzero"`
 	// The fork's text, sealed, at the fork then at each merge: the base of the next three-way merge.
 	ForkBase secret.Text `bun:",type:text,nullzero"`
-	// The last merge, what unmergefork puts back: the base before it, the original's text before it, sealed, and the
-	// original's version it saved (updated_at or created_at). NULL before a merge and after its undo.
+	// The last merge, what unmergefork puts back: the base before it, the original's text before it, sealed, the
+	// original's version it saved (updated_at or created_at) and whether it trashed the fork. NULL before a merge and after its undo.
 	ForkUndoBase    secret.Text `bun:",type:text,nullzero"`
 	ForkUndoContent secret.Text `bun:",type:text,nullzero"`
 	ForkMergedAt    time.Time   `bun:",nullzero"`
+	ForkMergedTrash bool
 
 	Headings     []int16  `bun:",array,type:smallint[]"` // noteindex: blinds of the grams of its headings
 	HeadingNames []string `bun:",array,type:text[]"`     // noteindex: blind of each heading's noteindex.HeadingName

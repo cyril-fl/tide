@@ -47,7 +47,7 @@ type Result struct {
 	Forks          []Linked        `json:"forks"`
 	// Mentions are the notes citing the title as a whole word without a [[link]] to the note, the latest edited first.
 	Mentions []Linked `json:"mentions"`
-	// Merged is the fork whose last merge into the note can still be undone (the note unchanged since), in the trash or not.
+	// Merged is the fork whose last merge into the note can still be undone (the note unchanged since), live or in the trash the merge put it in.
 	Merged string `json:"merged,omitempty" binding:"optional"`
 }
 
@@ -235,6 +235,7 @@ func (p *run) loadForks() {
 		JOIN items AS i ON i.id = mn.item_id
 		JOIN items AS o ON o.id = mn.fork_of
 		WHERE mn.fork_of = ? AND i.user_id = ? AND mn.fork_merged_at = coalesce(o.updated_at, o.created_at)
+			AND (i.deleted_at IS NULL OR mn.fork_merged_trash)
 		LIMIT 1`, p.cache.result.Note.Item.ID, domain.UserID(p.ctx)).
 		Scan(p.ctx, &merged))
 	if len(merged) > 0 {

@@ -10,11 +10,13 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/forknote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/mergefork"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/patchnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readfork"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readneighbors"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
 )
 
@@ -161,6 +163,30 @@ func TestUnmerge(t *testing.T) {
 		t.Errorf("original after the undo of a trashing merge = %q", got)
 	}
 	read(forkID)
+
+	// A merge that kept the fork, trashed by hand since: no undo offered, the fork left in the trash (#183).
+	merge("# Courses\n\n- Thé", "# Copie\n\n- Thé", false)
+	trash := deleteitems.Process(ctx, tx, domain.NOTE, []string{forkID})
+	trash.Run()
+	if trash.HasErr() {
+		t.Fatal(trash.GetErr())
+	}
+	neighbors := readneighbors.Process(ctx, tx, original)
+	neighbors.Run()
+	if got := neighbors.GetResult().Merged; neighbors.HasErr() || got != "" {
+		t.Errorf("merged with the fork trashed by hand = %q, %v; want none", got, neighbors.GetErr())
+	}
+	if err := unmerge(); !errors.Is(err, readitem.ErrNotFound) {
+		t.Errorf("unmerge of a fork trashed by hand: err = %v, want %v", err, readitem.ErrNotFound)
+	}
+	if got := read(original).Content; got != "# Courses\n\n- Thé" {
+		t.Errorf("original after a refused undo = %q", got)
+	}
+	kept := readitem.Process(ctx, tx, domain.NOTE, forkID)
+	kept.Run()
+	if !errors.Is(kept.GetErr(), readitem.ErrNotFound) {
+		t.Errorf("fork trashed by hand after the undo: err = %v, want it still in the trash", kept.GetErr())
+	}
 
 	// A plain note is no fork.
 	plain := Process(ctx, tx, original)

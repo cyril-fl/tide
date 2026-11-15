@@ -559,7 +559,7 @@ type ReadneighborsResult struct {
 	// Mentions Mentions are the notes citing the title as a whole word without a [[link]] to the note, the latest edited first.
 	Mentions []ReadneighborsLinked `json:"mentions"`
 
-	// Merged Merged is the fork whose last merge into the note can still be undone (the note unchanged since), in the trash or not.
+	// Merged Merged is the fork whose last merge into the note can still be undone (the note unchanged since), live or in the trash the merge put it in.
 	Merged         *string                 `json:"merged,omitempty"`
 	Neighbors      []ReadneighborsNeighbor `json:"neighbors"`
 	NeighborsTotal int                     `json:"neighbors_total"`

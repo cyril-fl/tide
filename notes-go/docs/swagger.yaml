@@ -836,7 +836,8 @@ components:
           uniqueItems: false
         merged:
           description: Merged is the fork whose last merge into the note can still
-            be undone (the note unchanged since), in the trash or not.
+            be undone (the note unchanged since), live or in the trash the merge put
+            it in.
           type: string
         neighbors:
           items:

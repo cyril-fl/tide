@@ -67,8 +67,17 @@ func (p *run) GetResult() readitem.Result {
 
 // Methods
 
-// restoreFork takes the fork out of the trash, where mergefork may have put it: a live one is left as it is.
+// restoreFork takes the fork out of the trash if mergefork put it there: a live one, or one trashed by hand, is left
+// as it is. No user_id check: restoreitems restores only this account's items.
 func (p *run) restoreFork(tx bun.Tx) error {
+	trashed, err := tx.NewSelect().
+		Model((*domain.MetadataNote)(nil)).
+		Where("item_id = ? AND fork_merged_trash", p.id).
+		Exists(p.ctx)
+	if err != nil || !trashed {
+		return err
+	}
+
 	process := restoreitems.Process(p.ctx, tx, []string{p.id})
 	process.Run()
 	if process.HasErr() {
@@ -118,7 +127,7 @@ func (p *run) restoreBase(tx bun.Tx) error {
 	_, err := tx.NewUpdate().
 		Model((*domain.MetadataNote)(nil)).
 		Set("fork_base = fork_undo_base").
-		Set("fork_undo_base = NULL, fork_undo_content = NULL, fork_merged_at = NULL").
+		Set("fork_undo_base = NULL, fork_undo_content = NULL, fork_merged_at = NULL, fork_merged_trash = NULL").
 		Where("item_id = ?", p.id).
 		Exec(p.ctx)
 	return err

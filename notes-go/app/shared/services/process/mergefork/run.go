@@ -113,7 +113,7 @@ func (p *run) saveOriginal(tx bun.Tx) error {
 }
 
 // moveBase keeps what unmergefork puts back, the base before (SET reads the old fork_base), the original's text
-// before and its version after. No user_id check: readFork has found the fork of this account.
+// before, its version after and whether the fork goes to the trash. No user_id check: readFork has found the fork of this account.
 func (p *run) moveBase(tx bun.Tx) error {
 	base, err := secret.Seal(domain.UserID(p.ctx), p.input.Base)
 	if err != nil {
@@ -129,6 +129,7 @@ func (p *run) moveBase(tx bun.Tx) error {
 		Set("fork_undo_content = ?", before).
 		Set("fork_merged_at = (SELECT coalesce(updated_at, created_at) FROM items WHERE id = ?)", p.cache.forkOf).
 		Set("fork_base = ?", base).
+		Set("fork_merged_trash = ?", p.input.Trash).
 		Where("item_id = ?", p.input.ID).
 		Exec(p.ctx)
 	return err

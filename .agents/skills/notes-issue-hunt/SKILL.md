@@ -10,7 +10,7 @@ description: Find the GitHub issues Notes is missing - a full audit of notes-go 
 ## 1. What is already known
 
 ```sh
-gh issue list -R cyril-fl/notes --state all --limit 200
+gh issue list -R cyril-fl/tide --state all --limit 200
 git grep -nE "TODO|FIXME" -- . ':!**/node_modules/**' ':!.claude/**' ':!.agents/**'
 ```
 
@@ -30,7 +30,7 @@ Delegate the reading to the `notes-auditor` subagent (`.claude/agents/notes-audi
 Report in French, grouped by **À corriger** / **Devrait être corrigé** / **Bonus**, numbered, each finding with its file:line, the problem, the fix and what happens if it is skipped. When the user asked for the issues, create them right away:
 
 ```sh
-gh issue create -R cyril-fl/notes -l bug|enhancement -t "<titre en français>" -b "<le problème, avec les fichiers>
+gh issue create -R cyril-fl/tide -l bug|enhancement -t "<titre en français>" -b "<le problème, avec les fichiers>
 
 **Exemple** : <le cas concret>
 

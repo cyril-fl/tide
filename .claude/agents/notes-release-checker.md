@@ -25,10 +25,10 @@ The caller gives you: the commits of the release (short shas), the kind of versi
    - `bun run e2e` only when the caller asks for it (it needs `make up`).
    Stop at the first failure and report its output.
 3. **Tag**: the next number after `git tag --sort=-v:refname | head -1` (another agent may already have used one), then `git tag -a vX.Y.Z -m "vX.Y.Z: <message of the caller>"` on `HEAD`. A tag not yet in `origin/develop` may be moved with `git tag -fa`; a pushed one never.
-4. **Issues** (`-R cyril-fl/notes`), by hand: `develop` is not the default branch, so `Fixes #n` closes nothing.
-   - `gh issue close <n> -R cyril-fl/notes -c "Fait dans <short sha>, <tag> (sur develop) : <what changed>."`
+4. **Issues** (`-R cyril-fl/tide`), by hand: `develop` is not the default branch, so `Fixes #n` closes nothing.
+   - `gh issue close <n> -R cyril-fl/tide -c "Fait dans <short sha>, <tag> (sur develop) : <what changed>."`
    - Obsolete: `-r "not planned"` with the reason.
-   - Left for later: `gh issue create -R cyril-fl/notes -t "<titre>" -l <bug|enhancement|documentation|question> -b "Suite de #<n>.\n\n**À faire**\n- ..."`.
+   - Left for later: `gh issue create -R cyril-fl/tide -t "<titre>" -l <bug|enhancement|documentation|question> -b "Suite de #<n>.\n\n**À faire**\n- ..."`.
 5. **Handoff**: update the « Reprise » section of the plan file named in the roadmap memory (`~/.claude/projects/-Users-cyrilflambard-Devloppement-go-notes-develop/memory/roadmap-v0-12.md`), and that memory, with what the caller gave: what was done, the tag, what is left as issue numbers.
 
 ## Report

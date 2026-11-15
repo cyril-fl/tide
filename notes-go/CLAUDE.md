@@ -1,6 +1,6 @@
 # notes-go
 
-Go module `github.com/cyril-fl/notes/notes-go`, two binaries. `tide-server` (`cmd/tide-server/`, `app/server/`) is the only one on the base and Silo: the API (`tide-server serve`, `app/api/`) runs the processes of `app/shared/services/process/` on the models of `app/shared/domain/`, and it holds the admin's commands (`user add`, `user reset-password`, `rotate-secret`). `tide` (`cmd/tide/`, `go install …/notes-go/cmd/tide@latest`), the CLI (cobra, `cmd/` + `app/cli/`) and the MCP server for agents (`tide mcp`, `app/cli/cmd-mcp/`), is a client of the API only.
+Go module `github.com/cyril-fl/tide/notes-go`, two binaries. `tide-server` (`cmd/tide-server/`, `app/server/`) is the only one on the base and Silo: the API (`tide-server serve`, `app/api/`) runs the processes of `app/shared/services/process/` on the models of `app/shared/domain/`, and it holds the admin's commands (`user add`, `user reset-password`, `rotate-secret`). `tide` (`cmd/tide/`, `go install …/notes-go/cmd/tide@latest`), the CLI (cobra, `cmd/` + `app/cli/`) and the MCP server for agents (`tide mcp`, `app/cli/cmd-mcp/`), is a client of the API only.
 
 ## Commands
 

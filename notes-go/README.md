@@ -15,7 +15,7 @@ Two binaries come out of this module:
 - `tide-server`, the only one that talks to the database: the API and the web app (`serve`) and the admin's commands. It runs in the Docker image (see *Server* in the root README).
 
 ```sh
-go install github.com/cyril-fl/notes/notes-go/cmd/tide@latest   # the latest version of main
+go install github.com/cyril-fl/tide/notes-go/cmd/tide@latest   # the latest version of main
 tide login https://notes.example.ts.net
 ```
 

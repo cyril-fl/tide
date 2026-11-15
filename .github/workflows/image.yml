@@ -1,6 +1,6 @@
 name: Image
 
-# A version tag publishes ghcr.io/cyril-fl/notes:<version> and :latest, for the server to pull.
+# A version tag publishes ghcr.io/cyril-fl/tide:<version> and :latest, for the server to pull.
 on:
   push:
     tags: ['v*']

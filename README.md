@@ -4,11 +4,11 @@
 
 A Go server on PostgreSQL serves the API and the web app. A CLI and an MCP server let scripts and agents use that API. The web app is meant to be opened from a phone or a tablet, for example through Tailscale.
 
-- **Repository:** https://github.com/cyril-fl/notes
+- **Repository:** https://github.com/cyril-fl/tide
 
 ## Documentation
 
-The [wiki](https://github.com/cyril-fl/notes/wiki) details the web app screen by screen, titles and tags, themes, data and the version history.
+The [wiki](https://github.com/cyril-fl/tide/wiki) details the web app screen by screen, titles and tags, themes, data and the version history.
 
 Each part also has its own README:
 
@@ -32,7 +32,7 @@ Each part also has its own README:
 Tide is developed with the latest version of Go. Locally, the stack runs in Docker thanks to [`notes-go/compose.yaml`](./notes-go/compose.yaml).
 
 ```bash
-git clone https://github.com/cyril-fl/notes.git
+git clone https://github.com/cyril-fl/tide.git
 cd notes
 cp notes-go/.env.example notes-go/.env   # then fill in the passwords
 make -C notes-go setup                   # installs the git hooks (lefthook)
@@ -45,7 +45,7 @@ The web app answers on http://localhost:3000 (open `localhost`, not `127.0.0.1`)
 For the CLI, on the Mac:
 
 ```bash
-go install github.com/cyril-fl/notes/notes-go/cmd/tide@latest
+go install github.com/cyril-fl/tide/notes-go/cmd/tide@latest
 tide login https://notes.example.ts.net
 ```
 
@@ -71,7 +71,7 @@ The environment variables are described in the *Configuration* section of the [`
 
 ## Server
 
-Each `v*` tag publishes the `ghcr.io/cyril-fl/notes` image (amd64 and arm64), which serves the API and the web app on the same origin. On the server, you need [`compose.prod.yaml`](./compose.prod.yaml) and, next to it, a `.env` copied from [`.env.prod.example`](./.env.prod.example):
+Each `v*` tag publishes the `ghcr.io/cyril-fl/tide` image (amd64 and arm64), which serves the API and the web app on the same origin. On the server, you need [`compose.prod.yaml`](./compose.prod.yaml) and, next to it, a `.env` copied from [`.env.prod.example`](./.env.prod.example):
 
 ```sh
 docker compose -f compose.prod.yaml up -d                                    # Postgres, Silo, Tide and LibreDB Studio

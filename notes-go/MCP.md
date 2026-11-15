@@ -22,7 +22,7 @@ tourner là où le serveur est joignable (voir « Vérifier que ça marche » po
 
 ### Le binaire `tide`
 
-`go install github.com/cyril-fl/notes/notes-go/cmd/tide@latest` l'installe dans `$(go env GOPATH)/bin`.
+`go install github.com/cyril-fl/tide/notes-go/cmd/tide@latest` l'installe dans `$(go env GOPATH)/bin`.
 Chez un client MCP, donne-le en chemin absolu : un client lancé depuis le Finder n'a pas le `PATH` du
 shell.
 

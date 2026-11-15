@@ -718,6 +718,7 @@ async function forkAndMerge(
   fork: (text: string) => string,
   original: (text: string) => string,
   resolve?: (dialog: Locator) => Promise<void>,
+  merged = true,
 ) {
   const note = await box.note(`# ${box.prefix} ${name}\n\nun\n\ndeux`);
   await page.goto(`/notes/${note.id}`);
@@ -734,7 +735,7 @@ async function forkAndMerge(
   await page.reload();
   await page.getByRole('button', { name: "Fusionner dans la note d'origine" }).click();
   if (resolve) await resolve(page.getByRole('dialog'));
-  await expect(page.getByText("Copie fusionnée dans la note d'origine").first()).toBeVisible();
+  if (merged) await expect(page.getByText("Copie fusionnée dans la note d'origine").first()).toBeVisible();
   return note.id;
 }
 
@@ -772,6 +773,26 @@ test('the Pro history merges a fork back, a conflict resolved with the copy', as
       },
     );
     expect(await box.content(id)).toBe(`# ${box.prefix} merge conflit\n\nun copie\n\ndeux`);
+  } finally {
+    await box.api.patch('/api/me', { data: { plan: 'base' } });
+  }
+});
+
+test('the Pro history merges a fork back, cancelled in the conflicts dialog with nothing saved', async ({ page }) => {
+  try {
+    await box.api.patch('/api/me', { data: { plan: 'pro' } });
+    const id = await forkAndMerge(
+      page,
+      'merge annulé',
+      (text) => text.replace(/^un$/m, 'un copie'),
+      (text) => text.replace(/^un$/m, 'un origine'),
+      async (dialog) => {
+        await dialog.getByRole('button', { name: 'Annuler' }).click();
+        await expect(dialog).toBeHidden();
+      },
+      false,
+    );
+    expect(await box.content(id)).toBe(`# ${box.prefix} merge annulé\n\nun origine\n\ndeux`);
   } finally {
     await box.api.patch('/api/me', { data: { plan: 'base' } });
   }

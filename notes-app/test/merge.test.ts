@@ -58,6 +58,13 @@ test('a fork merges into an original with no title, a heading in code being none
   assert.equal(mergedText(mergeFork(fork, `${fork}\ntwo`, code)), `${code}\ntwo`);
 });
 
+test('a fork whose title was deleted keeps its next heading and the original its title (#176)', () => {
+  const fork = '# Copie\n\n## Section\ntexte';
+  const parts = mergeFork(fork, '## Section\ntexte\nplus', '# Courses\n\n## Section\ntexte');
+  assert.ok(parts.every((part) => 'lines' in part));
+  assert.equal(mergedText(parts), '# Courses\n## Section\ntexte\nplus');
+});
+
 test('a conflict of a fork shows no title line', () => {
   const fork = '# Copie\n\n- Pain';
   const parts = mergeFork(fork, '# Copie renommée\n\n- Pain complet', '# Courses\n\n- Pain blanc');

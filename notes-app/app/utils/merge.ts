@@ -20,6 +20,32 @@ const untitled = (text: string) => {
   return lines.join('\n');
 };
 
+// The fork with the line its base's title became marked, not merely its first heading: a title deleted in the fork
+// (#176) is marked where it was, the next heading left as it is.
+const untitledFork = (base: string, mine: string) => {
+  const before = base.split('\n');
+  const lines = mine.split('\n');
+  const from = titleLine(before);
+  const to = titleLine(lines);
+  if (from < 0) return untitled(mine);
+  let i = 0;
+  let j = 0;
+  for (const block of diffComm(before, lines)) {
+    const [removed, added] = block.common
+      ? [block.common.length, block.common.length]
+      : [block.buffer1.length, block.buffer2.length];
+    if (from < i + removed) {
+      if (block.common) lines[j + from - i] = title;
+      else if (to >= j && to < j + added) lines[to] = title;
+      else lines.splice(j, 0, title);
+      break;
+    }
+    i += removed;
+    j += added;
+  }
+  return lines.join('\n');
+};
+
 /**
  * The merge of a fork back into its original (theirs): its title line is left out, the fork being retitled,
  * and the original keeps its own, where it is.
@@ -28,7 +54,7 @@ export function mergeFork(base: string, mine: string, theirs: string): MergePart
   const lines = theirs.split('\n');
   const kept = lines[titleLine(lines)];
   const put = (part: string[]) => part.flatMap((line) => (line !== title ? [line] : kept === undefined ? [] : [kept]));
-  return merge(untitled(base), untitled(mine), untitled(theirs)).map((part) =>
+  return merge(untitled(base), untitledFork(base, mine), untitled(theirs)).map((part) =>
     'lines' in part ? { lines: put(part.lines) } : { mine: put(part.mine), theirs: put(part.theirs) },
   );
 }

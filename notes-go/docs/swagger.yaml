@@ -511,6 +511,30 @@ components:
       - x
       - "y"
       type: object
+    forknote.Body:
+      properties:
+        content:
+          type: string
+      required:
+      - content
+      type: object
+    forknote.MergeBody:
+      properties:
+        base:
+          description: Base is the fork's text the merge started from, the base of
+            the next merge.
+          type: string
+        content:
+          description: Content is the merged text, saved into the original.
+          type: string
+        updated_at:
+          description: 'UpdatedAt is updated_at of the original as read, or its created_at:
+            a 409 if it changed since.'
+          type: string
+      required:
+      - base
+      - content
+      type: object
     importnotes.Result:
       properties:
         folders:
@@ -622,6 +646,16 @@ components:
       required:
       - ids
       type: object
+    readfork.Result:
+      properties:
+        base:
+          type: string
+        fork_of:
+          type: string
+      required:
+      - base
+      - fork_of
+      type: object
     readgraph.Link:
       properties:
         source:
@@ -688,6 +722,9 @@ components:
           type: array
           uniqueItems: false
         content:
+          type: string
+        fork_of:
+          description: 'a fork: the note it merges back into'
           type: string
         item:
           $ref: '#/components/schemas/domain.Item'
@@ -2386,6 +2423,101 @@ paths:
       summary: Change the fields given
       tags:
       - notes
+  /api/notes/{id}/fork:
+    get:
+      parameters:
+      - description: uuid of the fork
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/readfork.Result'
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Read the origin of a fork
+      tags:
+      - notes
+  /api/notes/{id}/forks:
+    post:
+      parameters:
+      - description: uuid of the note forked
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/forknote.Body'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/domain.Item'
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Not Found
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Request Entity Too Large
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Fork a note
+      tags:
+      - notes
   /api/notes/{id}/graph:
     get:
       parameters:
@@ -2415,6 +2547,70 @@ paths:
                 $ref: '#/components/schemas/respond.Failure'
           description: Internal Server Error
       summary: Read the graph around a note, laid out
+      tags:
+      - notes
+  /api/notes/{id}/merge:
+    post:
+      parameters:
+      - description: uuid of the fork
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/forknote.MergeBody'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/readitem.Result'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Conflict
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Request Entity Too Large
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Merge a fork into its original
       tags:
       - notes
   /api/notes/{id}/neighbors:

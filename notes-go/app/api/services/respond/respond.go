@@ -30,10 +30,12 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/emptytrash"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/exportnotes"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listitems"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/mergefork"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/moveitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/patchnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/pinnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readfile"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readfork"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsavedsearch"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readsession"
@@ -83,13 +85,13 @@ var statuses = []struct {
 		adduser.ErrBadInvite,
 	}},
 	{http.StatusNotFound, []error{
-		deleteapitoken.ErrNotFound, deleteuser.ErrNotFound, editfolder.ErrNotFound, editnote.ErrNotFound, emptytrash.ErrNotFound, edittag.ErrNotFound, exportnotes.ErrNotFound, exportnotes.ErrFolderNotFound, pinnote.ErrNotFound, readfile.ErrNotFound, readitem.ErrNotFound, readsavedsearch.ErrNotFound, readtag.ErrNotFound, resetpassword.ErrNotFound, resolveitem.ErrNotFound,
+		deleteapitoken.ErrNotFound, deleteuser.ErrNotFound, editfolder.ErrNotFound, editnote.ErrNotFound, emptytrash.ErrNotFound, edittag.ErrNotFound, exportnotes.ErrNotFound, exportnotes.ErrFolderNotFound, pinnote.ErrNotFound, readfile.ErrNotFound, readfork.ErrNotFork, readitem.ErrNotFound, readsavedsearch.ErrNotFound, readtag.ErrNotFound, resetpassword.ErrNotFound, resolveitem.ErrNotFound,
 	}},
 	{http.StatusUnsupportedMediaType, []error{
 		createfile.ErrFileType,
 	}},
 	{http.StatusConflict, []error{
-		domain.ErrFolderExists, edittag.ErrAlreadyExists, adduser.ErrNameTaken, deleteuser.ErrSelf, deleteuser.ErrLastAdmin, moveitems.ErrCycle, restoreitems.ErrParentInTrash, patchnote.ErrLocked, patchnote.ErrStale, resolveitem.ErrAmbiguous,
+		domain.ErrFolderExists, edittag.ErrAlreadyExists, adduser.ErrNameTaken, deleteuser.ErrSelf, deleteuser.ErrLastAdmin, moveitems.ErrCycle, restoreitems.ErrParentInTrash, patchnote.ErrLocked, patchnote.ErrStale, mergefork.ErrOriginGone, resolveitem.ErrAmbiguous,
 	}},
 }
 

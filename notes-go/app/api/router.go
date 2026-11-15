@@ -17,6 +17,7 @@ import (
 	apieditnote "github.com/cyril-fl/notes/notes-go/app/api/edit-note"
 	apiedittag "github.com/cyril-fl/notes/notes-go/app/api/edit-tag"
 	apiexport "github.com/cyril-fl/notes/notes-go/app/api/export"
+	apiforknote "github.com/cyril-fl/notes/notes-go/app/api/fork-note"
 	apiimport "github.com/cyril-fl/notes/notes-go/app/api/import"
 	apilogin "github.com/cyril-fl/notes/notes-go/app/api/login"
 	apimove "github.com/cyril-fl/notes/notes-go/app/api/move"
@@ -91,6 +92,10 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("GET /api/notes/{id}/versions", plan.Require(db, "noteHistory", apireadversions.Handler(db)))
 	mux.Handle("POST /api/notes/{id}/versions", apireadversions.Keep(db))
 	mux.Handle("GET /api/notes/{id}/versions/{version}", plan.Require(db, "noteHistory", apireadversions.Read(db)))
+	// A fork and its merge come with the history, which forks.
+	mux.Handle("POST /api/notes/{id}/forks", plan.Require(db, "noteHistory", apiforknote.Handler(db)))
+	mux.Handle("GET /api/notes/{id}/fork", plan.Require(db, "noteHistory", apiforknote.Read(db)))
+	mux.Handle("POST /api/notes/{id}/merge", plan.Require(db, "noteHistory", apiforknote.Merge(db)))
 
 	mux.Handle("GET /api/folders", apireadfolder.List(db))
 	mux.Handle("POST /api/folders", apicreatefolder.Handler(db))

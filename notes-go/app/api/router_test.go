@@ -902,6 +902,50 @@ func TestFiles(t *testing.T) {
 }
 
 // Two accounts in one base: neither sees, changes nor links to what the other has.
+// A fork remembers its original; its merge saves the original as a restore and moves the fork's base. Pro, like the history.
+func TestForkAndMerge(t *testing.T) {
+	c := newClient(t)
+	var original item
+	c.do("POST", "/api/notes", `{"content":"# Courses\n\n- Pain"}`, http.StatusCreated, &original)
+	path := "/api/notes/" + original.ID
+
+	c.do("POST", path+"/forks", `{"content":"# Copie\n\n- Pain"}`, http.StatusForbidden, nil)
+	c.do("PATCH", "/api/me", `{"plan":"pro"}`, http.StatusOK, nil)
+	var fork item
+	c.do("POST", path+"/forks", `{"content":"# Copie\n\n- Pain"}`, http.StatusCreated, &fork)
+	if !strings.Contains(c.raw("/api/notes/"+fork.ID), `"fork_of":"`+original.ID+`"`) || strings.Contains(c.raw(path), "fork_of") {
+		t.Errorf("fork_of: %s / %s", c.raw("/api/notes/"+fork.ID), c.raw(path))
+	}
+	var origin struct {
+		ForkOf string `json:"fork_of"`
+		Base   string `json:"base"`
+	}
+	c.do("GET", "/api/notes/"+fork.ID+"/fork", "", http.StatusOK, &origin)
+	if origin.ForkOf != original.ID || origin.Base != "# Copie\n\n- Pain" {
+		t.Errorf("origin = %+v", origin)
+	}
+	c.do("GET", path+"/fork", "", http.StatusNotFound, nil)
+	c.do("POST", "/api/notes/"+unknownID+"/forks", `{"content":"x"}`, http.StatusNotFound, nil)
+
+	var merged detail
+	at := original.CreatedAt.Format(time.RFC3339Nano)
+	c.do("POST", "/api/notes/"+fork.ID+"/merge", fmt.Sprintf(`{"content":"# Courses\n\n- Pain\n- Lait","base":"# Copie\n\n- Pain\n- Lait","updated_at":%q}`, at), http.StatusOK, &merged)
+	if merged.Content != "# Courses\n\n- Pain\n- Lait" {
+		t.Errorf("merged = %+v", merged)
+	}
+	// Over an older version: 409, like any stale edit.
+	c.do("POST", "/api/notes/"+fork.ID+"/merge", fmt.Sprintf(`{"content":"x","base":"x","updated_at":%q}`, original.CreatedAt.Add(-time.Second).Format(time.RFC3339Nano)), http.StatusConflict, nil)
+	// The original in the trash: 409 too, saying so.
+	c.do("DELETE", path, "", http.StatusOK, nil)
+	c.do("POST", "/api/notes/"+fork.ID+"/merge", `{"content":"x","base":"x"}`, http.StatusConflict, nil)
+
+	// Another account sees neither the fork nor its origin.
+	bob := c.other(t)
+	bob.do("PATCH", "/api/me", `{"plan":"pro"}`, http.StatusOK, nil)
+	bob.do("GET", "/api/notes/"+fork.ID+"/fork", "", http.StatusNotFound, nil)
+	bob.do("POST", "/api/notes/"+fork.ID+"/merge", `{"content":"x","base":"x"}`, http.StatusNotFound, nil)
+}
+
 func TestAccountsAreApart(t *testing.T) {
 	alice := newClient(t)
 	var folder, note item

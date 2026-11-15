@@ -30,6 +30,7 @@ type Result struct {
 	Content  string        `json:"content,omitempty" binding:"optional"`
 	Pinned   bool          `json:"pinned,omitempty" binding:"optional"`
 	Readonly bool          `json:"readonly,omitempty" binding:"optional"` // locked: PATCH refuses its content and tags
+	ForkOf   string        `json:"fork_of,omitempty" binding:"optional"`  // a fork: the note it merges back into
 	Tags     []string      `json:"tags,omitzero" binding:"optional"`
 	Children []domain.Item `json:"children,omitzero" binding:"optional"`
 }
@@ -112,9 +113,9 @@ func (p *run) loadNote() {
 	var content secret.Text
 	err := p.db.NewSelect().
 		Model((*domain.MetadataNote)(nil)).
-		Column("content", "pinned", "readonly").
+		Column("content", "pinned", "readonly", "fork_of").
 		Where("item_id = ?", p.cache.id).
-		Scan(p.ctx, &content, &p.cache.result.Pinned, &p.cache.result.Readonly)
+		Scan(p.ctx, &content, &p.cache.result.Pinned, &p.cache.result.Readonly, &p.cache.result.ForkOf)
 	p.cache.result.Content = string(content)
 	if err != nil {
 		p.SetErr(err)

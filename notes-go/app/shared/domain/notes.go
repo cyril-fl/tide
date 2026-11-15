@@ -60,6 +60,10 @@ type MetadataNote struct {
 	Grams    []int16     `bun:",array,type:smallint[]"` // noteindex: blinds of its grams, NULL until noteindex.Fill
 	Waiting  []string    `bun:",array,type:text[]"`     // noteindex: blinds of the titles its [[links]] wait for
 	Linked   bool        // noteindex: its text has a link or a file listbrokenlinks checks, NULL until noteindex.Fill
+	// A fork: the note it was made from, which mergefork brings its changes back into; NULL for any other note.
+	ForkOf string `bun:",type:uuid,nullzero"`
+	// The fork's text, sealed, at the fork then at each merge: the base of the next three-way merge.
+	ForkBase secret.Text `bun:",type:text,nullzero"`
 
 	Headings     []int16  `bun:",array,type:smallint[]"` // noteindex: blinds of the grams of its headings
 	HeadingNames []string `bun:",array,type:text[]"`     // noteindex: blind of each heading's noteindex.HeadingName

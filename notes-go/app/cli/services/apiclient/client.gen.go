@@ -388,6 +388,23 @@ type ForcelayoutPoint struct {
 	Y float32 `json:"y"`
 }
 
+// ForknoteBody defines model for forknote.Body.
+type ForknoteBody struct {
+	Content string `json:"content"`
+}
+
+// ForknoteMergeBody defines model for forknote.MergeBody.
+type ForknoteMergeBody struct {
+	// Base Base is the fork's text the merge started from, the base of the next merge.
+	Base string `json:"base"`
+
+	// Content Content is the merged text, saved into the original.
+	Content string `json:"content"`
+
+	// UpdatedAt UpdatedAt is updated_at of the original as read, or its created_at: a 409 if it changed since.
+	UpdatedAt *string `json:"updated_at,omitempty"`
+}
+
 // ImportnotesResult defines model for importnotes.Result.
 type ImportnotesResult struct {
 	Folders int `json:"folders"`
@@ -445,6 +462,12 @@ type MoveitemsInput struct {
 	ParentId *string  `json:"parent_id,omitempty"`
 }
 
+// ReadforkResult defines model for readfork.Result.
+type ReadforkResult struct {
+	Base   string `json:"base"`
+	ForkOf string `json:"fork_of"`
+}
+
 // ReadgraphLink defines model for readgraph.Link.
 type ReadgraphLink struct {
 	Source   string   `json:"source"`
@@ -474,9 +497,12 @@ type ReadgraphResult struct {
 type ReaditemResult struct {
 	Children *[]DomainItem `json:"children,omitempty"`
 	Content  *string       `json:"content,omitempty"`
-	Item     DomainItem    `json:"item"`
-	Path     string        `json:"path"`
-	Pinned   *bool         `json:"pinned,omitempty"`
+
+	// ForkOf a fork: the note it merges back into
+	ForkOf *string    `json:"fork_of,omitempty"`
+	Item   DomainItem `json:"item"`
+	Path   string     `json:"path"`
+	Pinned *bool      `json:"pinned,omitempty"`
 
 	// Readonly locked: PATCH refuses its content and tags
 	Readonly *bool     `json:"readonly,omitempty"`
@@ -767,6 +793,12 @@ type PostApiNotesTagsJSONRequestBody = ReadnotetagsBody
 
 // PatchApiNotesIdJSONRequestBody defines body for PatchApiNotesId for application/json ContentType.
 type PatchApiNotesIdJSONRequestBody = EditnoteBody
+
+// PostApiNotesIdForksJSONRequestBody defines body for PostApiNotesIdForks for application/json ContentType.
+type PostApiNotesIdForksJSONRequestBody = ForknoteBody
+
+// PostApiNotesIdMergeJSONRequestBody defines body for PostApiNotesIdMerge for application/json ContentType.
+type PostApiNotesIdMergeJSONRequestBody = ForknoteMergeBody
 
 // PostApiNotesIdVersionsJSONRequestBody defines body for PostApiNotesIdVersions for application/json ContentType.
 type PostApiNotesIdVersionsJSONRequestBody = ReadversionsBody
@@ -1174,10 +1206,43 @@ type ClientInterface interface {
 	// Corresponds with PATCH /api/notes/{id} (the `PatchApiNotesId` operationId).
 	PatchApiNotesId(ctx context.Context, id string, body PatchApiNotesIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetApiNotesIdFork Read the origin of a fork
+	//
+	// Corresponds with GET /api/notes/{id}/fork (the `GetApiNotesIdFork` operationId).
+	GetApiNotesIdFork(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiNotesIdForksWithBody Fork a note
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/notes/{id}/forks (the `PostApiNotesIdForks` operationId).
+	PostApiNotesIdForksWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiNotesIdForks Fork a note
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/notes/{id}/forks (the `PostApiNotesIdForks` operationId).
+	PostApiNotesIdForks(ctx context.Context, id string, body PostApiNotesIdForksJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetApiNotesIdGraph Read the graph around a note, laid out
 	//
 	// Corresponds with GET /api/notes/{id}/graph (the `GetApiNotesIdGraph` operationId).
 	GetApiNotesIdGraph(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiNotesIdMergeWithBody Merge a fork into its original
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/notes/{id}/merge (the `PostApiNotesIdMerge` operationId).
+	PostApiNotesIdMergeWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiNotesIdMerge Merge a fork into its original
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/notes/{id}/merge (the `PostApiNotesIdMerge` operationId).
+	PostApiNotesIdMerge(ctx context.Context, id string, body PostApiNotesIdMergeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiNotesIdNeighbors Read a note and the notes sharing its tags
 	//
@@ -2196,11 +2261,94 @@ func (c *Client) PatchApiNotesId(ctx context.Context, id string, body PatchApiNo
 	return c.Client.Do(req)
 }
 
+// GetApiNotesIdFork Read the origin of a fork
+//
+// Corresponds with GET /api/notes/{id}/fork (the `GetApiNotesIdFork` operationId).
+func (c *Client) GetApiNotesIdFork(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiNotesIdForkRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiNotesIdForksWithBody Fork a note
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/notes/{id}/forks (the `PostApiNotesIdForks` operationId).
+func (c *Client) PostApiNotesIdForksWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiNotesIdForksRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiNotesIdForks Fork a note
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/notes/{id}/forks (the `PostApiNotesIdForks` operationId).
+func (c *Client) PostApiNotesIdForks(ctx context.Context, id string, body PostApiNotesIdForksJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiNotesIdForksRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetApiNotesIdGraph Read the graph around a note, laid out
 //
 // Corresponds with GET /api/notes/{id}/graph (the `GetApiNotesIdGraph` operationId).
 func (c *Client) GetApiNotesIdGraph(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiNotesIdGraphRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiNotesIdMergeWithBody Merge a fork into its original
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/notes/{id}/merge (the `PostApiNotesIdMerge` operationId).
+func (c *Client) PostApiNotesIdMergeWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiNotesIdMergeRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiNotesIdMerge Merge a fork into its original
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/notes/{id}/merge (the `PostApiNotesIdMerge` operationId).
+func (c *Client) PostApiNotesIdMerge(ctx context.Context, id string, body PostApiNotesIdMergeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiNotesIdMergeRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4229,6 +4377,87 @@ func NewPatchApiNotesIdRequestWithBody(server string, id string, contentType str
 	return req, nil
 }
 
+// NewGetApiNotesIdForkRequest constructs an http.Request for the GetApiNotesIdFork method
+func NewGetApiNotesIdForkRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/notes/%s/fork", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostApiNotesIdForksRequest calls the generic PostApiNotesIdForks builder with application/json body
+func NewPostApiNotesIdForksRequest(server string, id string, body PostApiNotesIdForksJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiNotesIdForksRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPostApiNotesIdForksRequestWithBody constructs an http.Request for the PostApiNotesIdForks method, with any body, and a specified content type
+func NewPostApiNotesIdForksRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/notes/%s/forks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetApiNotesIdGraphRequest constructs an http.Request for the GetApiNotesIdGraph method
 func NewGetApiNotesIdGraphRequest(server string, id string) (*http.Request, error) {
 	var err error
@@ -4259,6 +4488,53 @@ func NewGetApiNotesIdGraphRequest(server string, id string) (*http.Request, erro
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewPostApiNotesIdMergeRequest calls the generic PostApiNotesIdMerge builder with application/json body
+func NewPostApiNotesIdMergeRequest(server string, id string, body PostApiNotesIdMergeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiNotesIdMergeRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPostApiNotesIdMergeRequestWithBody constructs an http.Request for the PostApiNotesIdMerge method, with any body, and a specified content type
+func NewPostApiNotesIdMergeRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/notes/%s/merge", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -5701,12 +5977,47 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /api/notes/{id} (the `PatchApiNotesId` operationId).
 	PatchApiNotesIdWithResponse(ctx context.Context, id string, body PatchApiNotesIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiNotesIdResponse, error)
 
+	// GetApiNotesIdForkWithResponse Read the origin of a fork
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/notes/{id}/fork (the `GetApiNotesIdFork` operationId).
+	GetApiNotesIdForkWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetApiNotesIdForkResponse, error)
+
+	// PostApiNotesIdForksWithBodyWithResponse Fork a note
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/notes/{id}/forks (the `PostApiNotesIdForks` operationId).
+	PostApiNotesIdForksWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiNotesIdForksResponse, error)
+
+	// PostApiNotesIdForksWithResponse Fork a note
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/notes/{id}/forks (the `PostApiNotesIdForks` operationId).
+	PostApiNotesIdForksWithResponse(ctx context.Context, id string, body PostApiNotesIdForksJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesIdForksResponse, error)
+
 	// GetApiNotesIdGraphWithResponse Read the graph around a note, laid out
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/notes/{id}/graph (the `GetApiNotesIdGraph` operationId).
 	GetApiNotesIdGraphWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetApiNotesIdGraphResponse, error)
+
+	// PostApiNotesIdMergeWithBodyWithResponse Merge a fork into its original
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/notes/{id}/merge (the `PostApiNotesIdMerge` operationId).
+	PostApiNotesIdMergeWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiNotesIdMergeResponse, error)
+
+	// PostApiNotesIdMergeWithResponse Merge a fork into its original
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/notes/{id}/merge (the `PostApiNotesIdMerge` operationId).
+	PostApiNotesIdMergeWithResponse(ctx context.Context, id string, body PostApiNotesIdMergeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesIdMergeResponse, error)
 
 	// GetApiNotesIdNeighborsWithResponse Read a note and the notes sharing its tags
 	//
@@ -8096,6 +8407,144 @@ func (r PatchApiNotesIdResponse) ContentType() string {
 	return ""
 }
 
+type GetApiNotesIdForkResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReadforkResult
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetApiNotesIdForkResponse) GetJSON200() *ReadforkResult {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetApiNotesIdForkResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetApiNotesIdForkResponse) GetJSON404() *RespondFailure {
+	return r.JSON404
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r GetApiNotesIdForkResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r GetApiNotesIdForkResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiNotesIdForkResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiNotesIdForkResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiNotesIdForkResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiNotesIdForksResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *DomainItem
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *RespondFailure
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r PostApiNotesIdForksResponse) GetJSON201() *DomainItem {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostApiNotesIdForksResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PostApiNotesIdForksResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PostApiNotesIdForksResponse) GetJSON404() *RespondFailure {
+	return r.JSON404
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r PostApiNotesIdForksResponse) GetJSON413() *RespondFailure {
+	return r.JSON413
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PostApiNotesIdForksResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PostApiNotesIdForksResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiNotesIdForksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiNotesIdForksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiNotesIdForksResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetApiNotesIdGraphResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -8145,6 +8594,89 @@ func (r GetApiNotesIdGraphResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetApiNotesIdGraphResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiNotesIdMergeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReaditemResult
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *RespondFailure
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *RespondFailure
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostApiNotesIdMergeResponse) GetJSON200() *ReaditemResult {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostApiNotesIdMergeResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PostApiNotesIdMergeResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PostApiNotesIdMergeResponse) GetJSON404() *RespondFailure {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r PostApiNotesIdMergeResponse) GetJSON409() *RespondFailure {
+	return r.JSON409
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r PostApiNotesIdMergeResponse) GetJSON413() *RespondFailure {
+	return r.JSON413
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PostApiNotesIdMergeResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PostApiNotesIdMergeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiNotesIdMergeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiNotesIdMergeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiNotesIdMergeResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -10391,6 +10923,45 @@ func (c *ClientWithResponses) PatchApiNotesIdWithResponse(ctx context.Context, i
 	return ParsePatchApiNotesIdResponse(rsp)
 }
 
+// GetApiNotesIdForkWithResponse Read the origin of a fork
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/notes/{id}/fork (the `GetApiNotesIdFork` operationId).
+func (c *ClientWithResponses) GetApiNotesIdForkWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetApiNotesIdForkResponse, error) {
+	rsp, err := c.GetApiNotesIdFork(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiNotesIdForkResponse(rsp)
+}
+
+// PostApiNotesIdForksWithBodyWithResponse Fork a note
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/notes/{id}/forks (the `PostApiNotesIdForks` operationId).
+func (c *ClientWithResponses) PostApiNotesIdForksWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiNotesIdForksResponse, error) {
+	rsp, err := c.PostApiNotesIdForksWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiNotesIdForksResponse(rsp)
+}
+
+// PostApiNotesIdForksWithResponse Fork a note
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/notes/{id}/forks (the `PostApiNotesIdForks` operationId).
+func (c *ClientWithResponses) PostApiNotesIdForksWithResponse(ctx context.Context, id string, body PostApiNotesIdForksJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesIdForksResponse, error) {
+	rsp, err := c.PostApiNotesIdForks(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiNotesIdForksResponse(rsp)
+}
+
 // GetApiNotesIdGraphWithResponse Read the graph around a note, laid out
 //
 // Returns a wrapper object for the known response body format(s).
@@ -10402,6 +10973,32 @@ func (c *ClientWithResponses) GetApiNotesIdGraphWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseGetApiNotesIdGraphResponse(rsp)
+}
+
+// PostApiNotesIdMergeWithBodyWithResponse Merge a fork into its original
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/notes/{id}/merge (the `PostApiNotesIdMerge` operationId).
+func (c *ClientWithResponses) PostApiNotesIdMergeWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiNotesIdMergeResponse, error) {
+	rsp, err := c.PostApiNotesIdMergeWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiNotesIdMergeResponse(rsp)
+}
+
+// PostApiNotesIdMergeWithResponse Merge a fork into its original
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/notes/{id}/merge (the `PostApiNotesIdMerge` operationId).
+func (c *ClientWithResponses) PostApiNotesIdMergeWithResponse(ctx context.Context, id string, body PostApiNotesIdMergeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesIdMergeResponse, error) {
+	rsp, err := c.PostApiNotesIdMerge(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiNotesIdMergeResponse(rsp)
 }
 
 // GetApiNotesIdNeighborsWithResponse Read a note and the notes sharing its tags
@@ -12449,6 +13046,114 @@ func ParsePatchApiNotesIdResponse(rsp *http.Response) (*PatchApiNotesIdResponse,
 	return response, nil
 }
 
+// ParseGetApiNotesIdForkResponse parses an HTTP response from a GetApiNotesIdForkWithResponse call
+func ParseGetApiNotesIdForkResponse(rsp *http.Response) (*GetApiNotesIdForkResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiNotesIdForkResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReadforkResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiNotesIdForksResponse parses an HTTP response from a PostApiNotesIdForksWithResponse call
+func ParsePostApiNotesIdForksResponse(rsp *http.Response) (*PostApiNotesIdForksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiNotesIdForksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DomainItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetApiNotesIdGraphResponse parses an HTTP response from a GetApiNotesIdGraphWithResponse call
 func ParseGetApiNotesIdGraphResponse(rsp *http.Response) (*GetApiNotesIdGraphResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -12476,6 +13181,74 @@ func ParseGetApiNotesIdGraphResponse(rsp *http.Response) (*GetApiNotesIdGraphRes
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiNotesIdMergeResponse parses an HTTP response from a PostApiNotesIdMergeWithResponse call
+func ParsePostApiNotesIdMergeResponse(rsp *http.Response) (*PostApiNotesIdMergeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiNotesIdMergeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReaditemResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest RespondFailure

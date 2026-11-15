@@ -53,7 +53,7 @@ test('the Ultra tabs keep the open notes', async ({ page }) => {
 });
 
 // The Ultra split view (#128): ⌘ + click on a [[link]] opens its note beside, the context panel gives way, both
-// editors save, the panel survives a reload and closes by its button; a right click on a tab opens it beside again.
+// editors save, the panel survives a reload and closes by its button; a right click on a tab and the ⌘ K palette open it beside again.
 test('the Ultra split view edits two notes side by side', async ({ page }) => {
   const beside = await box.note(`# Beside ${box.prefix}\n\nAutre`);
   const main = await box.note(`# Main ${box.prefix}\n\nVoir [Beside ${box.prefix}](note:${beside.id})`);
@@ -88,6 +88,15 @@ test('the Ultra split view edits two notes side by side', async ({ page }) => {
     const bar = page.getByRole('navigation', { name: 'Notes ouvertes' });
     await bar.getByRole('link', { name: `Beside ${box.prefix}` }).click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Ouvrir à côté' }).click();
+    await expect(besideEditor.getByText('Autre là')).toBeVisible();
+    await expect(page).toHaveURL(`/notes/${main.id}`);
+
+    // ⌘ K: "Open a note beside…" turns the palette into a pick of the note, by the same search.
+    await panel.getByRole('button', { name: 'Fermer la note à côté' }).click();
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.getByRole('option', { name: 'Ouvrir une note à côté…' }).click();
+    await page.getByPlaceholder('Chercher une note, une action…').fill(`Beside ${box.prefix}`);
+    await page.getByRole('option', { name: `Beside ${box.prefix}` }).click();
     await expect(besideEditor.getByText('Autre là')).toBeVisible();
     await expect(page).toHaveURL(`/notes/${main.id}`);
   } finally {

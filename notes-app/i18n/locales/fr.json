@@ -44,6 +44,7 @@
     "savedSearches": "Dossiers intelligents"
   },
   "search": {
+    "openBeside": "Ouvrir une note à côté…",
     "placeholder": "Chercher une note, une action…",
     "actions": "Actions",
     "allResults": "Tous les résultats pour « {term} »",

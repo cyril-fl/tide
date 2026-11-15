@@ -16,7 +16,10 @@ const toast = useToast();
 const open = useState('search-open', () => false);
 // The Option+T shortcut opens the palette on the snippets alone.
 const snippetsOnly = useState('search-snippets', () => false);
-watch(open, (isOpen) => isOpen || (snippetsOnly.value = false));
+// "Open beside" turns the palette into a pick of the note opened beside, by the same search (#128).
+const besideOnly = ref(false);
+const split = useSplit();
+watch(open, (isOpen) => isOpen || (snippetsOnly.value = besideOnly.value = false));
 const term = ref('');
 const query = refDebounced(term, 200);
 
@@ -127,18 +130,26 @@ const toNote = (note: { id: string; title: string; path: string; readonly?: bool
   label: displayTitle(note.title, t('untitled')),
   suffix: note.path,
   icon: icons.note,
-  to: `/notes/${note.id}`,
+  ...(besideOnly.value ? { onSelect: () => split.openOther(note.id, false) } : { to: `/notes/${note.id}` }),
   readonly: note.readonly,
 });
+// Kept open (preventDefault) on the notes to pick, the search typed so far cleared.
+const openBeside = (event: Event) => {
+  event.preventDefault();
+  besideOnly.value = true;
+  term.value = '';
+};
 
 // The API searches the text: the palette shows what it found as is, not filtered again on titles.
 const groups = computed<CommandPaletteGroup[]>(() => {
   const searching = term.value.trim() !== '';
   if (snippetsOnly.value) return [{ id: 'snippets', label: t('search.fromSnippet'), items: snippets.value }];
+  const notes = searching
+    ? { id: 'notes', label: t('common.notes'), items: matches.value.map(toNote), ignoreFilter: true, slot: 'note' }
+    : { id: 'recent', label: t('sidebar.recent'), items: recent.value.slice(0, 8).map(toNote), slot: 'note' };
+  if (besideOnly.value) return [{ ...notes, label: t('note.openBeside') }];
   return [
-    searching
-      ? { id: 'notes', label: t('common.notes'), items: matches.value.map(toNote), ignoreFilter: true, slot: 'note' }
-      : { id: 'recent', label: t('sidebar.recent'), items: recent.value.slice(0, 8).map(toNote), slot: 'note' },
+    notes,
     {
       id: 'actions',
       label: t('search.actions'),
@@ -166,6 +177,9 @@ const groups = computed<CommandPaletteGroup[]>(() => {
           onSelect: () => createFolder(currentFolder(route)),
         },
         { label: t('settings.import'), icon: icons.import, onSelect: () => importNotes() },
+        ...(split.can.value && here.value?.kind === 'note'
+          ? [{ label: t('search.openBeside'), icon: icons.beside, onSelect: openBeside }]
+          : []),
         ...proActions.value,
         ...(has('graph') ? [{ label: t('common.graph'), icon: icons.graph, to: '/graph' }] : []),
         { label: t('common.trash'), icon: icons.trash, to: '/trash' },

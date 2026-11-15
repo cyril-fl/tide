@@ -44,6 +44,7 @@
     "savedSearches": "Smart folders"
   },
   "search": {
+    "openBeside": "Open a note beside…",
     "placeholder": "Search a note, an action…",
     "actions": "Actions",
     "allResults": "All results for “{term}”",

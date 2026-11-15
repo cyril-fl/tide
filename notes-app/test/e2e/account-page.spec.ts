@@ -33,7 +33,7 @@ test('the account page renames the account', async ({ page, request }) => {
   const before = (await (await request.get(`${API}/api/me`, api)).json()).name;
   try {
     await page.goto('/account');
-    await page.getByLabel('Nom').fill(`${before}-renamed`);
+    await page.getByLabel('Nom', { exact: true }).fill(`${before}-renamed`);
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.getByText('Nom enregistré').first()).toBeVisible();
     await expect(page.getByText(`Connecté en tant que ${before}-renamed`)).toBeVisible();

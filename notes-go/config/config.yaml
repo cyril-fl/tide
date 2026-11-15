@@ -308,7 +308,7 @@ commands:
   serve:
     use: "serve"
     short: "Run the HTTP API"
-    long: "Run the HTTP API. It has no authentication: keep it on the loopback. Web pages can only call it from --origin. Accounts are created by invitation of an admin, unless --add-user-mode=public; NOTES_HOST_NAME and NOTES_HOST_PASSWORD create the first account on an empty base."
+    long: "Run the HTTP API. It has no authentication: keep it on the loopback. Web pages can only call it from --origin. Accounts are created by invitation of an admin, unless --add-user-mode=public. --mcp-addr also serves the MCP tools over HTTP to agents (the Claude app), authenticated by an API token. NOTES_HOST_NAME and NOTES_HOST_PASSWORD create the first account on an empty base."
     example: "notes-server serve --origin http://localhost:3000"
     args:
       - name: "addr"
@@ -335,6 +335,11 @@ commands:
         shorthand: ""
         value: "invitation"
         usage: "How accounts are created: invitation (an admin invites or creates them) or public (anyone reaching the web app)"
+        type: "string"
+      - name: "mcp-addr"
+        shorthand: ""
+        value: ""
+        usage: "Address to serve the MCP tools on, at /mcp, for agents holding an API token of the account (none when empty): only /mcp is there, so a tunnel or proxy can open this address to the Internet without the API"
         type: "string"
   mcp:
     use: "mcp"

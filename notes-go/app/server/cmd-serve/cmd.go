@@ -17,6 +17,7 @@ import (
 
 	"github.com/cyril-fl/notes/notes-go/app/api"
 	"github.com/cyril-fl/notes/notes-go/app/api/services/guard"
+	cmdmcp "github.com/cyril-fl/notes/notes-go/app/cli/cmd-mcp"
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/noteindex"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
@@ -58,6 +59,10 @@ func Serve(cobra *cobra.Command, args []string) error {
 	}
 	if published == "" {
 		published = addr
+	}
+	mcpAddr, err := cobra.Flags().GetString("mcp-addr")
+	if err != nil {
+		return err
 	}
 	addUserMode, err := cobra.Flags().GetString("add-user-mode")
 	if err != nil {
@@ -124,9 +129,27 @@ func Serve(cobra *cobra.Command, args []string) error {
 		IdleTimeout:       time.Minute,
 	}
 
-	failed := make(chan error, 1)
+	failed := make(chan error, 2)
 	go func() { failed <- server.ListenAndServe() }()
 	log.Printf("listening on %s", addr)
+	servers := []*http.Server{server}
+	if mcpAddr != "" {
+		// The API's handler, without the web app nor the proxy: the tools call it in process.
+		mux := http.NewServeMux()
+		mux.Handle("/mcp", cmdmcp.Handler(api.New(db, store, origin, addUserMode), cobra.Root().Version))
+		mcpServer := &http.Server{
+			Addr:              mcpAddr,
+			Handler:           mux,
+			ReadHeaderTimeout: 5 * time.Second,
+			// A tool can make several calls to the API, an export or an attached file move big bodies.
+			ReadTimeout:  time.Minute,
+			WriteTimeout: 5 * time.Minute,
+			IdleTimeout:  time.Minute,
+		}
+		go func() { failed <- mcpServer.ListenAndServe() }()
+		log.Printf("serving MCP on %s/mcp", mcpAddr)
+		servers = append(servers, mcpServer)
+	}
 
 	select {
 	case err := <-failed:
@@ -137,8 +160,10 @@ func Serve(cobra *cobra.Command, args []string) error {
 	// Not ctx: it is already canceled, and requests in progress need time to finish.
 	shutdown, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
-	if err := server.Shutdown(shutdown); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+	for _, server := range servers {
+		if err := server.Shutdown(shutdown); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
 	}
 	log.Print("stopped")
 	return nil

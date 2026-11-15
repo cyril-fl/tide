@@ -17,6 +17,8 @@ const selected = ref<NoteVersion>();
 // The text as saved, the newest entry of the lists, dated by its last save: it can be forked before any version
 // exists, a note just imported too. Reactive, so the ref hands back this same object to compare with.
 const latest = reactive<NoteVersion>({ id: '', created_at: '', conflict: false });
+// Undated until the note is read.
+const entries = computed(() => (latest.created_at ? [latest, ...versions.value] : versions.value));
 // The panel shows the last few, the dialog all of them.
 const shown = 5;
 
@@ -51,10 +53,7 @@ async function show(version?: NoteVersion) {
   // Cleared first, so opening on the same entry reads its text again.
   selected.value = undefined;
   await load();
-  selected.value =
-    version === latest
-      ? latest
-      : (versions.value.find((other) => other.id === version?.id) ?? versions.value[0] ?? latest);
+  selected.value = entries.value.find((other) => other === version || other.id === version?.id) ?? latest;
 }
 
 // A text refused by a 409 says so (#78).
@@ -117,7 +116,7 @@ async function fork() {
     <template #default="{ open: unfolded }">
       <div class="flex items-center py-2">
         <UButton
-          :label="$t('history.panelTitle', { count: versions.length })"
+          :label="$t('history.panelTitle', { count: entries.length })"
           :trailing-icon="unfolded ? icons.chevronDown : icons.chevronUp"
           color="neutral"
           variant="ghost"
@@ -129,38 +128,16 @@ async function fork() {
     <template #content>
       <div class="pb-4">
         <button
+          v-for="version in entries.slice(0, shown)"
+          :key="version.id"
           type="button"
           class="block w-full truncate rounded py-1 text-left text-sm text-muted hover:text-default"
-          @click="show(latest)"
+          @click="show(version)"
         >
-          {{ label(latest) }}
+          {{ label(version) }}
         </button>
-        <UEmpty
-          v-if="!versions.length"
-          :icon="icons.recent"
-          :title="$t('history.emptyTitle')"
-          size="xs"
-          variant="naked"
-          :ui="{ root: 'min-h-0 gap-0 p-2 sm:p-2 lg:p-2', header: 'gap-1', avatar: 'mb-0 size-6 text-sm' }"
-        >
-          <template #description>
-            <span class="block">{{ $t('history.emptyAfterChange') }}</span>
-            <span class="block">{{ $t('history.emptySessions') }}</span>
-          </template>
-        </UEmpty>
-        <template v-else>
-          <button
-            v-for="version in versions.slice(0, shown)"
-            :key="version.id"
-            type="button"
-            class="block w-full truncate rounded py-1 text-left text-sm text-muted hover:text-default"
-            @click="show(version)"
-          >
-            {{ label(version) }}
-          </button>
-        </template>
-        <button v-if="versions.length > shown" type="button" class="py-1 text-xs text-primary" @click="show()">
-          {{ $t('history.all', { count: versions.length }) }}
+        <button v-if="entries.length > shown" type="button" class="py-1 text-xs text-primary" @click="show()">
+          {{ $t('history.all', { count: entries.length }) }}
         </button>
       </div>
     </template>
@@ -178,16 +155,10 @@ async function fork() {
 
   <UModal v-model:open="open" :title="$t('history.title')" :ui="{ content: 'max-w-3xl' }">
     <template #body>
-      <UEmpty v-if="!versions.length" :icon="icons.recent" :title="$t('history.emptyTitle')" size="sm" variant="naked">
-        <template #description>
-          <span class="block">{{ $t('history.emptyAfterChange') }}</span>
-          <span class="block">{{ $t('history.emptySessions') }}</span>
-        </template>
-      </UEmpty>
       <div class="flex flex-col gap-4 sm:flex-row">
         <nav class="flex shrink-0 flex-col sm:w-48" :aria-label="$t('history.title')">
           <UButton
-            v-for="version in [latest, ...versions]"
+            v-for="version in entries"
             :key="version.id"
             :label="label(version)"
             color="neutral"

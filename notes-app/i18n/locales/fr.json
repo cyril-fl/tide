@@ -531,9 +531,6 @@
   },
   "history": {
     "title": "Historique des versions",
-    "emptyTitle": "Aucune version antérieure n'est encore disponible.",
-    "emptyAfterChange": "Une copie est enregistrée après chaque modification.",
-    "emptySessions": "Une nouvelle version après 15 minutes de pause, et au moins une par heure.",
     "restore": "Restaurer cette version",
     "all": "Tout l'historique ({count})",
     "fork": "Nouvelle note depuis cette version",

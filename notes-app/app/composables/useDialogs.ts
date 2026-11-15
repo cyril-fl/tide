@@ -50,7 +50,7 @@ function createDialogs() {
     resolveConflict: (parts: MergePart[], fork?: boolean) =>
       conflictDialog.open({ parts, fork }).result as Promise<string | undefined>,
     // undefined: the merge cancelled.
-    confirmMerge: (props: { fork: string; original: string; before: string; after: string; trash: boolean }) =>
+    confirmMerge: (props: { fork: string; before: string; after: string; trash: boolean }) =>
       mergeDialog.open(props).result as Promise<{ trash: boolean; remember: boolean } | undefined>,
   };
 }

@@ -281,7 +281,6 @@ async function mergeIn(forkId: string, chosen?: boolean): Promise<void> {
   if (again && (me.value?.after_merge ?? 'ask') === 'ask') {
     const choice = await confirmMerge({
       fork: displayTitle(fork.item.title, t('untitled')),
-      original: displayTitle(original.item.title, t('untitled')),
       before: original.content ?? '',
       after: content,
       trash: false,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Before a fork is merged into the note open, like a merge request: what the note's text becomes, and whether the
 // fork goes to the trash after it. remember: the choice made the account's after_merge, the dialog no longer shown.
-const props = defineProps<{ fork: string; original: string; before: string; after: string; trash: boolean }>();
+const props = defineProps<{ fork: string; before: string; after: string; trash: boolean }>();
 const emit = defineEmits<{ close: [choice?: { trash: boolean; remember: boolean }] }>();
 
 const trash = ref(props.trash);
@@ -13,8 +13,8 @@ const changed = computed(() => changes.value.some((change) => change.kind !== 's
 <template>
   <UModal
     :title="$t('fork.dialogTitle', { fork })"
-    :description="$t('fork.dialogDescription', { original })"
-    :ui="{ content: 'max-w-2xl' }"
+    :description="$t('fork.dialogDescription')"
+    :ui="{ content: 'max-w-2xl', header: 'pe-12 sm:pe-12', wrapper: 'min-w-0', title: 'truncate' }"
     @update:open="emit('close')"
   >
     <template #body>

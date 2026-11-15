@@ -676,6 +676,27 @@ test('the Pro history forks an earlier version into a new note', async ({ page }
   }
 });
 
+// A note never edited, one just imported too, has no version: its current text forks all the same.
+test('the Pro history forks the current text of a note never edited', async ({ page }) => {
+  const note = await box.note(`# ${box.prefix} fresh\n\nonly`);
+  try {
+    await box.api.patch('/api/me', { data: { plan: 'pro' } });
+    await page.goto(`/notes/${note.id}`);
+    await page
+      .getByRole('region', { name: 'Historique des versions' })
+      .getByRole('button', { name: 'Texte actuel' })
+      .click();
+    await expect(page.getByRole('dialog')).toContainText('only');
+    await expect(page.getByRole('button', { name: 'Restaurer cette version' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Nouvelle note depuis cette version' }).click();
+    await expect(page).not.toHaveURL(new RegExp(note.id));
+    await expect(page.locator('.ProseMirror')).toContainText(`${box.prefix} fresh (version du`);
+    await expect(page.locator('.ProseMirror')).toContainText('only');
+  } finally {
+    await box.api.patch('/api/me', { data: { plan: 'base' } });
+  }
+});
+
 // Without the Pro mode the editor still reads and writes tables and callouts: editing a note keeps the ones written elsewhere.
 test('without Pro, editing a note keeps its table and callout', async ({ page }) => {
   const markdown = `# ${box.prefix} blocs\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n> [!note]\n> encadré`;

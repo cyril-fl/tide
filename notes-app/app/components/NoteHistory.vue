@@ -14,6 +14,9 @@ const api = useApi();
 const open = ref(false);
 const versions = ref<NoteVersion[]>([]);
 const selected = ref<NoteVersion>();
+// The text as saved, first in the lists: it can be forked before any version exists, a note just imported too.
+// markRaw: compared by identity, the ref must hand it back unwrapped.
+const latest: NoteVersion = markRaw({ id: '', created_at: '', conflict: false });
 // The panel shows the last few, the dialog all of them.
 const shown = 5;
 
@@ -40,14 +43,21 @@ watch(
 async function show(version?: NoteVersion) {
   open.value = true;
   current.value = undefined;
+  // Cleared first, so opening on the same entry reads its text again.
+  selected.value = undefined;
   await load();
-  selected.value = versions.value.find((other) => other.id === version?.id) ?? versions.value[0];
+  selected.value =
+    version === latest
+      ? latest
+      : (versions.value.find((other) => other.id === version?.id) ?? versions.value[0] ?? latest);
 }
 
 // A text refused by a 409 says so (#78).
 const label = (version: NoteVersion) =>
-  new Date(version.created_at).toLocaleString(locale.value, { dateStyle: 'medium', timeStyle: 'short' }) +
-  (version.conflict ? ` · ${t('history.conflict')}` : '');
+  version === latest
+    ? t('history.latest')
+    : new Date(version.created_at).toLocaleString(locale.value, { dateStyle: 'medium', timeStyle: 'short' }) +
+      (version.conflict ? ` · ${t('history.conflict')}` : '');
 
 // The comparison (#78): the version against the text as saved, read when asked; lines of the version only struck, of the text only underlined.
 const current = ref<string>();
@@ -64,12 +74,15 @@ const text = ref<string>();
 watch(selected, async (version) => {
   text.value = undefined;
   if (!version) return;
-  const read = await api<NoteVersion>(`/api/notes/${props.noteId}/versions/${version.id}`);
+  const read =
+    version === latest
+      ? await api<ItemDetail>(`/api/notes/${props.noteId}`)
+      : await api<NoteVersion>(`/api/notes/${props.noteId}/versions/${version.id}`);
   if (selected.value === version) text.value = read.content ?? '';
 });
 
 function restore() {
-  if (text.value === undefined) return;
+  if (text.value === undefined || selected.value === latest) return;
   restored = true;
   emit('restore', text.value);
   open.value = false;
@@ -80,7 +93,8 @@ function restore() {
 async function fork() {
   if (text.value === undefined || !selected.value) return;
   const note = await api<ItemDetail>(`/api/notes/${props.noteId}`);
-  const date = new Date(selected.value.created_at).toLocaleString(locale.value, {
+  const at = selected.value === latest ? (note.item.updated_at ?? note.item.created_at) : selected.value.created_at;
+  const date = new Date(at).toLocaleString(locale.value, {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
@@ -112,6 +126,13 @@ async function fork() {
     </template>
     <template #content>
       <div class="pb-4">
+        <button
+          type="button"
+          class="block w-full truncate rounded py-1 text-left text-sm text-muted hover:text-default"
+          @click="show(latest)"
+        >
+          {{ label(latest) }}
+        </button>
         <UEmpty
           v-if="!versions.length"
           :icon="icons.recent"
@@ -161,10 +182,10 @@ async function fork() {
           <span class="block">{{ $t('history.emptySessions') }}</span>
         </template>
       </UEmpty>
-      <div v-else class="flex flex-col gap-4 sm:flex-row">
+      <div class="flex flex-col gap-4 sm:flex-row">
         <nav class="flex shrink-0 flex-col sm:w-48" :aria-label="$t('history.title')">
           <UButton
-            v-for="version in versions"
+            v-for="version in [latest, ...versions]"
             :key="version.id"
             :label="label(version)"
             color="neutral"
@@ -198,7 +219,7 @@ async function fork() {
             color="neutral"
             variant="outline"
             :aria-label="$t('history.compare')"
-            :disabled="!selected"
+            :disabled="!selected || selected === latest"
             :aria-pressed="current !== undefined"
             @click="compare"
           />
@@ -218,7 +239,7 @@ async function fork() {
           <UButton
             :icon="icons.restore"
             :aria-label="$t('history.restore')"
-            :disabled="text === undefined || readonly"
+            :disabled="text === undefined || readonly || selected === latest"
             @click="restore"
           />
         </UTooltip>

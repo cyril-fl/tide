@@ -541,6 +541,7 @@
     "panelTitle": "History ({count})",
     "conflict": "conflict",
     "compare": "Compare with the current text",
+    "latest": "Current text",
     "content": "Text"
   }
 }

@@ -349,13 +349,13 @@ client d'une vraie API sur la base de test. Il vérifie que les vingt-trois outi
 schéma, une description et leurs annotations — ce que le SDK ne sait pas déduire seul d'une structure d'arguments mal
 formée — puis les appelle un à un.
 
-`http_test.go` sert les outils en HTTP et vérifie le 401 sans jeton, avec une session, un jeton
+`core/server/mcphttp/mcphttp_test.go` sert les outils en HTTP et vérifie le 401 sans jeton, avec une session, un jeton
 inconnu, expiré ou révoqué, puis un aller-retour avec un jeton valide, et les seuls outils de lecture
 pour un jeton en lecture seule. `core/server/oauth/oauth_test.go` fait le parcours OAuth d'un client :
 métadonnées, enregistrement, page de consentement, échange du code, renouvellement.
 
 ```sh
-make test ARGS="./cli/cmd-mcp/ ./core/server/oauth/"
+make test ARGS="./cli/cmd-mcp/ ./core/server/mcphttp/ ./core/server/oauth/"
 ```
 
 Côté client, `claude mcp list` dit si le serveur répond (Codex : `codex mcp list`).

@@ -1,4 +1,4 @@
-package cmdmcp
+package mcphttp
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	cmdmcp "github.com/cyril-fl/tide/cli/cmd-mcp"
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/cyril-fl/tide/config"
 	"github.com/cyril-fl/tide/core/api/services/auth"
@@ -51,7 +52,7 @@ func Handler(api http.Handler, version string) http.Handler {
 		}
 
 		server := mcp.NewServer(&mcp.Implementation{Name: config.Current.Name, Title: config.Title(), Version: version}, nil)
-		AddTools(server, client, readOnly)
+		cmdmcp.AddTools(server, client, readOnly)
 		mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, options).ServeHTTP(w, r)
 	})
 }

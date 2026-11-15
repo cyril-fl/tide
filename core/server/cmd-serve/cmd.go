@@ -15,11 +15,11 @@ import (
 	"syscall"
 	"time"
 
-	cmdmcp "github.com/cyril-fl/tide/cli/cmd-mcp"
 	"github.com/cyril-fl/tide/config"
 	"github.com/cyril-fl/tide/core/api"
 	"github.com/cyril-fl/tide/core/api/services/guard"
 	"github.com/cyril-fl/tide/core/domain"
+	"github.com/cyril-fl/tide/core/server/mcphttp"
 	"github.com/cyril-fl/tide/core/server/oauth"
 	"github.com/cyril-fl/tide/core/services/noteindex"
 	"github.com/cyril-fl/tide/core/services/postgrey"
@@ -146,7 +146,7 @@ func Serve(cobra *cobra.Command, args []string) error {
 		// The API's handler, without the web app nor the proxy: the tools call it in process. Beside /mcp, the OAuth
 		// endpoints, whose consent page counts the wrong passwords by address: behind the tunnel, its X-Forwarded-For.
 		mux := http.NewServeMux()
-		mux.Handle("/mcp", cmdmcp.Handler(api.New(db, store, origin, addUserMode), cobra.Root().Version))
+		mux.Handle("/mcp", mcphttp.Handler(api.New(db, store, origin, addUserMode), cobra.Root().Version))
 		oauth.Routes(mux, db)
 		var mcpHandler http.Handler = mux
 		if onLoopback(mcpPublished) {

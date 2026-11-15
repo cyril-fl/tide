@@ -3,7 +3,7 @@
 A note-taking app, Obsidian-like: one Go module at the root (`github.com/cyril-fl/tide`, CLI and HTTP API) and a Nuxt web app (`web/`) on PostgreSQL, used through Tailscale from a phone and a tablet.
 
 - `cmd/`: the two binaries (`cmd/tide/`, `cmd/tide-server/`) and the cobra wiring of the CLI. `config/`: `config.yaml`, the commands, their help and flags.
-- `core/`: what runs on the server. `core/api/` (routes, see `core/api/CLAUDE.md`), `core/server/` (`serve`, the admin's commands, the MCP's OAuth), `core/services/process/` (the business logic, one plum Process each), `core/domain/` (the models), `core/services/` (the rest).
+- `core/`: what runs on the server. `core/api/` (routes, see `core/api/CLAUDE.md`), `core/server/` (`serve`, the admin's commands, the MCP over HTTP and its OAuth), `core/services/process/` (the business logic, one plum Process each), `core/domain/` (the models), `core/services/` (the rest).
 - `cli/`: the commands of `tide` and its MCP (`cli/cmd-mcp/`), clients of the API. See `cli/CLAUDE.md`.
 - `web/`: Nuxt 4 + Nuxt UI 4, client only (`ssr: false`). See `web/CLAUDE.md`.
 - `docs/swagger.yaml`: the OpenAPI, generated. `MCP.md`: the MCP for agents (in French).

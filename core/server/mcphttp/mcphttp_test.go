@@ -1,7 +1,8 @@
-package cmdmcp
+package mcphttp
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -24,6 +25,28 @@ func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
 	r = r.Clone(r.Context())
 	r.Header.Set("Authorization", "Bearer "+string(b))
 	return http.DefaultTransport.RoundTrip(r)
+}
+
+// note is the part of a note tool's answer the test reads.
+type note struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+// call runs a tool and decodes its structured answer into out, failing the test on an error.
+func call(t *testing.T, agent *mcp.ClientSession, name string, args map[string]any, out any) {
+	t.Helper()
+	result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: args})
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	if result.IsError {
+		t.Fatalf("%s: %v", name, result.Content[0].(*mcp.TextContent).Text)
+	}
+	data, _ := json.Marshal(result.StructuredContent)
+	if err := json.Unmarshal(data, out); err != nil {
+		t.Fatalf("%s: %v: %s", name, err, data)
+	}
 }
 
 // TestHandler serves the tools over HTTP for an API token only, and acts for its account.

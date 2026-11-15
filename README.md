@@ -399,7 +399,7 @@ LibreDB Studio, an interface to explore the database, is on <http://localhost:30
 | `config/` | Configuration and command texts |
 | `cli/` | Entry point and display of each command of `tide`, its MCP (`cli/cmd-mcp/`) and the client of the API |
 | `core/api/` | API routes, one per folder |
-| `core/server/` | `tide-server serve`, the admin's commands, the OAuth of the MCP |
+| `core/server/` | `tide-server serve`, the admin's commands, the MCP over HTTP (`mcphttp/`) and its OAuth |
 | `core/services/process/` | Business logic and queries, used by the API |
 | `core/domain/` | Data models |
 | `web/` | The web app (Nuxt) |

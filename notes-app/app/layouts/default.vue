@@ -39,8 +39,8 @@ watch(
   (user) => {
     if (!user) return;
     const theme = themes.find((theme) => theme.id === user.theme) ?? themes[0]!;
-    appConfig.ui.colors.primary = theme.primary;
-    appConfig.ui.colors.neutral = theme.neutral;
+    const { id: _, ...colors } = theme;
+    Object.assign(appConfig.ui.colors, colors);
     colorMode.preference = user.color_mode;
     view.value = user.view as 'list' | 'grid';
   },

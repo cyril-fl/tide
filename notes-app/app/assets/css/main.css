@@ -210,6 +210,346 @@
   --color-vue-gray-950: #001d25;
 }
 
+/* The status colors of the themes (success, info, warning, error), from the same schemes: their dark shade (400) is the
+   scheme's color, lightened if needed, their light shade (500) darkened, both to 4.5:1 on the theme's backgrounds. */
+@theme static {
+  --color-dracula-success-50: #f0fff2;
+  --color-dracula-success-100: #e1ffe4;
+  --color-dracula-success-200: #c9ffd0;
+  --color-dracula-success-300: #9affaa;
+  --color-dracula-success-400: #50fa7b;
+  --color-dracula-success-500: #007c2f;
+  --color-dracula-success-600: #036b28;
+  --color-dracula-success-700: #025b21;
+  --color-dracula-success-800: #014b1a;
+  --color-dracula-success-900: #003c13;
+  --color-dracula-success-950: #002d0c;
+
+  --color-dracula-info-50: #f2fcff;
+  --color-dracula-info-100: #e6faff;
+  --color-dracula-info-200: #d5f7ff;
+  --color-dracula-info-300: #b7f1fe;
+  --color-dracula-info-400: #8be9fd;
+  --color-dracula-info-500: #037486;
+  --color-dracula-info-600: #076473;
+  --color-dracula-info-700: #025562;
+  --color-dracula-info-800: #004651;
+  --color-dracula-info-900: #023741;
+  --color-dracula-info-950: #002a31;
+
+  --color-dracula-warning-50: #fafde3;
+  --color-dracula-warning-100: #f9fecf;
+  --color-dracula-warning-200: #f7ffb5;
+  --color-dracula-warning-300: #f5fe90;
+  --color-dracula-warning-400: #f1fa8c;
+  --color-dracula-warning-500: #6a6f04;
+  --color-dracula-warning-600: #5b6000;
+  --color-dracula-warning-700: #4d5101;
+  --color-dracula-warning-800: #3f4201;
+  --color-dracula-warning-900: #313401;
+  --color-dracula-warning-950: #252700;
+
+  --color-dracula-error-50: #fef9f8;
+  --color-dracula-error-100: #ffe8e6;
+  --color-dracula-error-200: #ffcfca;
+  --color-dracula-error-300: #fea29b;
+  --color-dracula-error-400: #ff5555;
+  --color-dracula-error-500: #ce1e2c;
+  --color-dracula-error-600: #b6001e;
+  --color-dracula-error-700: #9a0118;
+  --color-dracula-error-800: #7e0212;
+  --color-dracula-error-900: #64000c;
+  --color-dracula-error-950: #4b0107;
+
+  --color-catppuccin-success-50: #f1ffef;
+  --color-catppuccin-success-100: #e3fee0;
+  --color-catppuccin-success-200: #d0fbcc;
+  --color-catppuccin-success-300: #b6f4b1;
+  --color-catppuccin-success-400: #a6e3a1;
+  --color-catppuccin-success-500: #3b7438;
+  --color-catppuccin-success-600: #2d662a;
+  --color-catppuccin-success-700: #1e581c;
+  --color-catppuccin-success-800: #0d4a0c;
+  --color-catppuccin-success-900: #013c02;
+  --color-catppuccin-success-950: #002e01;
+
+  --color-catppuccin-info-50: #f8fafe;
+  --color-catppuccin-info-100: #eaf2fe;
+  --color-catppuccin-info-200: #d6e5fe;
+  --color-catppuccin-info-300: #b4d1fe;
+  --color-catppuccin-info-400: #89b4fa;
+  --color-catppuccin-info-500: #4168a8;
+  --color-catppuccin-info-600: #335998;
+  --color-catppuccin-info-700: #254a88;
+  --color-catppuccin-info-800: #173b78;
+  --color-catppuccin-info-900: #082d68;
+  --color-catppuccin-info-950: #001f56;
+
+  --color-catppuccin-warning-50: #fffaef;
+  --color-catppuccin-warning-100: #fff7e6;
+  --color-catppuccin-warning-200: #fff3d8;
+  --color-catppuccin-warning-300: #ffebbf;
+  --color-catppuccin-warning-400: #f9e2af;
+  --color-catppuccin-warning-500: #7b6637;
+  --color-catppuccin-warning-600: #6c5728;
+  --color-catppuccin-warning-700: #5d4918;
+  --color-catppuccin-warning-800: #4e3b06;
+  --color-catppuccin-warning-900: #3f2e02;
+  --color-catppuccin-warning-950: #2f2201;
+
+  --color-catppuccin-error-50: #fef8fa;
+  --color-catppuccin-error-100: #feecf0;
+  --color-catppuccin-error-200: #ffd8e0;
+  --color-catppuccin-error-300: #feb5c7;
+  --color-catppuccin-error-400: #f38ba8;
+  --color-catppuccin-error-500: #a84866;
+  --color-catppuccin-error-600: #963857;
+  --color-catppuccin-error-700: #842748;
+  --color-catppuccin-error-800: #721439;
+  --color-catppuccin-error-900: #5f012c;
+  --color-catppuccin-error-950: #48011f;
+
+  --color-nord-success-50: #f6fdf0;
+  --color-nord-success-100: #eaf7df;
+  --color-nord-success-200: #d8ecc8;
+  --color-nord-success-300: #bedaa7;
+  --color-nord-success-400: #a3be8c;
+  --color-nord-success-500: #587042;
+  --color-nord-success-600: #4a6234;
+  --color-nord-success-700: #3d5326;
+  --color-nord-success-800: #2f4518;
+  --color-nord-success-900: #233809;
+  --color-nord-success-950: #172a00;
+
+  --color-nord-info-50: #f7fbff;
+  --color-nord-info-100: #e6f2fe;
+  --color-nord-info-200: #cee5fd;
+  --color-nord-info-300: #aecff1;
+  --color-nord-info-400: #90b1d1;
+  --color-nord-info-500: #4c6b88;
+  --color-nord-info-600: #3e5c79;
+  --color-nord-info-700: #314e6a;
+  --color-nord-info-800: #23405b;
+  --color-nord-info-900: #16334d;
+  --color-nord-info-950: #08263f;
+
+  --color-nord-warning-50: #fffaf0;
+  --color-nord-warning-100: #fff4df;
+  --color-nord-warning-200: #ffebc4;
+  --color-nord-warning-300: #fcdc9b;
+  --color-nord-warning-400: #ebcb8b;
+  --color-nord-warning-500: #816423;
+  --color-nord-warning-600: #725510;
+  --color-nord-warning-700: #624700;
+  --color-nord-warning-800: #503a02;
+  --color-nord-warning-900: #402d01;
+  --color-nord-warning-950: #302100;
+
+  --color-nord-error-50: #fef8f9;
+  --color-nord-error-100: #ffeced;
+  --color-nord-error-200: #fedadb;
+  --color-nord-error-300: #febabe;
+  --color-nord-error-400: #f6929a;
+  --color-nord-error-500: #a74c56;
+  --color-nord-error-600: #953c47;
+  --color-nord-error-700: #832b38;
+  --color-nord-error-800: #721a2a;
+  --color-nord-error-900: #60051c;
+  --color-nord-error-950: #4a0113;
+
+  --color-gruvbox-success-50: #fbfddf;
+  --color-gruvbox-success-100: #f3f7bf;
+  --color-gruvbox-success-200: #e7ec93;
+  --color-gruvbox-success-300: #d4d84d;
+  --color-gruvbox-success-400: #b8bb26;
+  --color-gruvbox-success-500: #686a02;
+  --color-gruvbox-success-600: #5a5b00;
+  --color-gruvbox-success-700: #4c4d02;
+  --color-gruvbox-success-800: #3f4001;
+  --color-gruvbox-success-900: #323300;
+  --color-gruvbox-success-950: #252601;
+
+  --color-gruvbox-info-50: #f4fdf9;
+  --color-gruvbox-info-100: #e3f3ed;
+  --color-gruvbox-info-200: #cde5db;
+  --color-gruvbox-info-300: #aacdbf;
+  --color-gruvbox-info-400: #88aa9d;
+  --color-gruvbox-info-500: #4d6d62;
+  --color-gruvbox-info-600: #3f5f54;
+  --color-gruvbox-info-700: #325246;
+  --color-gruvbox-info-800: #254439;
+  --color-gruvbox-info-900: #18372d;
+  --color-gruvbox-info-950: #0a2a21;
+
+  --color-gruvbox-warning-50: #fffaf0;
+  --color-gruvbox-warning-100: #fff3dd;
+  --color-gruvbox-warning-200: #ffe8be;
+  --color-gruvbox-warning-300: #ffd687;
+  --color-gruvbox-warning-400: #fabd2f;
+  --color-gruvbox-warning-500: #856101;
+  --color-gruvbox-warning-600: #735300;
+  --color-gruvbox-warning-700: #614603;
+  --color-gruvbox-warning-800: #503901;
+  --color-gruvbox-warning-900: #402d01;
+  --color-gruvbox-warning-950: #302100;
+
+  --color-gruvbox-error-50: #fef9f7;
+  --color-gruvbox-error-100: #feebe7;
+  --color-gruvbox-error-200: #fed6cf;
+  --color-gruvbox-error-300: #ffb1a4;
+  --color-gruvbox-error-400: #fe7a66;
+  --color-gruvbox-error-500: #cb1501;
+  --color-gruvbox-error-600: #b01101;
+  --color-gruvbox-error-700: #950d01;
+  --color-gruvbox-error-800: #7b0901;
+  --color-gruvbox-error-900: #620601;
+  --color-gruvbox-error-950: #4a0200;
+
+  --color-everforest-success-50: #f0fff3;
+  --color-everforest-success-100: #def9e3;
+  --color-everforest-success-200: #c5f0ce;
+  --color-everforest-success-300: #a0deaf;
+  --color-everforest-success-400: #83c092;
+  --color-everforest-success-500: #3e794f;
+  --color-everforest-success-600: #2e6a40;
+  --color-everforest-success-700: #1e5b32;
+  --color-everforest-success-800: #0a4c24;
+  --color-everforest-success-900: #003c1a;
+  --color-everforest-success-950: #002d11;
+
+  --color-everforest-info-50: #effefb;
+  --color-everforest-info-100: #ddf7f3;
+  --color-everforest-info-200: #c3ede7;
+  --color-everforest-info-300: #9ddad1;
+  --color-everforest-info-400: #7fbbb3;
+  --color-everforest-info-500: #3b766f;
+  --color-everforest-info-600: #2b6760;
+  --color-everforest-info-700: #195852;
+  --color-everforest-info-800: #034943;
+  --color-everforest-info-900: #003a35;
+  --color-everforest-info-950: #012b27;
+
+  --color-everforest-warning-50: #fffaf0;
+  --color-everforest-warning-100: #fef2d9;
+  --color-everforest-warning-200: #fce6bb;
+  --color-everforest-warning-300: #f2d395;
+  --color-everforest-warning-400: #dbbc7f;
+  --color-everforest-warning-500: #85692c;
+  --color-everforest-warning-600: #75591a;
+  --color-everforest-warning-700: #654902;
+  --color-everforest-warning-800: #523c03;
+  --color-everforest-warning-900: #412e00;
+  --color-everforest-warning-950: #302101;
+
+  --color-everforest-error-50: #fef9f8;
+  --color-everforest-error-100: #feeceb;
+  --color-everforest-error-200: #fed9d8;
+  --color-everforest-error-300: #feb7b7;
+  --color-everforest-error-400: #f68c8e;
+  --color-everforest-error-500: #b04e52;
+  --color-everforest-error-600: #9d3c42;
+  --color-everforest-error-700: #8a2b33;
+  --color-everforest-error-800: #771824;
+  --color-everforest-error-900: #630115;
+  --color-everforest-error-950: #4b000d;
+
+  --color-tokyo-success-50: #f3ffe9;
+  --color-tokyo-success-100: #e5fcd0;
+  --color-tokyo-success-200: #d2f5b0;
+  --color-tokyo-success-300: #b6e782;
+  --color-tokyo-success-400: #9ece6a;
+  --color-tokyo-success-500: #477000;
+  --color-tokyo-success-600: #3e6102;
+  --color-tokyo-success-700: #345301;
+  --color-tokyo-success-800: #2a4500;
+  --color-tokyo-success-900: #213701;
+  --color-tokyo-success-950: #182a00;
+
+  --color-tokyo-info-50: #f8fafe;
+  --color-tokyo-info-100: #e8f0ff;
+  --color-tokyo-info-200: #d1e0fe;
+  --color-tokyo-info-300: #aac6ff;
+  --color-tokyo-info-400: #7aa2f7;
+  --color-tokyo-info-500: #3e62b1;
+  --color-tokyo-info-600: #3153a1;
+  --color-tokyo-info-700: #244491;
+  --color-tokyo-info-800: #183681;
+  --color-tokyo-info-900: #0c2772;
+  --color-tokyo-info-950: #031862;
+
+  --color-tokyo-warning-50: #fef9f3;
+  --color-tokyo-warning-100: #fff0db;
+  --color-tokyo-warning-200: #ffe1b9;
+  --color-tokyo-warning-300: #fbc981;
+  --color-tokyo-warning-400: #e0af68;
+  --color-tokyo-warning-500: #895c05;
+  --color-tokyo-warning-600: #764f03;
+  --color-tokyo-warning-700: #654301;
+  --color-tokyo-warning-800: #543600;
+  --color-tokyo-warning-900: #432b02;
+  --color-tokyo-warning-950: #332001;
+
+  --color-tokyo-error-50: #fff8f8;
+  --color-tokyo-error-100: #fee7e5;
+  --color-tokyo-error-200: #ffccc7;
+  --color-tokyo-error-300: #ff9b95;
+  --color-tokyo-error-400: #ed5c5a;
+  --color-tokyo-error-500: #bd2d32;
+  --color-tokyo-error-600: #aa1523;
+  --color-tokyo-error-700: #930318;
+  --color-tokyo-error-800: #7b0012;
+  --color-tokyo-error-900: #62000c;
+  --color-tokyo-error-950: #4b0107;
+
+  --color-vue-success-50: #effff5;
+  --color-vue-success-100: #cdfce2;
+  --color-vue-success-200: #a7f2ca;
+  --color-vue-success-300: #6bdda6;
+  --color-vue-success-400: #42b883;
+  --color-vue-success-500: #01794f;
+  --color-vue-success-600: #036844;
+  --color-vue-success-700: #005939;
+  --color-vue-success-800: #01492e;
+  --color-vue-success-900: #023a24;
+  --color-vue-success-950: #002c1a;
+
+  --color-vue-info-50: #f7fbfe;
+  --color-vue-info-100: #e7f4ff;
+  --color-vue-info-200: #d1eafe;
+  --color-vue-info-300: #aad9fe;
+  --color-vue-info-400: #6fc1ff;
+  --color-vue-info-500: #116fa8;
+  --color-vue-info-600: #035f93;
+  --color-vue-info-700: #01507d;
+  --color-vue-info-800: #004268;
+  --color-vue-info-900: #023453;
+  --color-vue-info-950: #01263f;
+
+  --color-vue-warning-50: #fef9f4;
+  --color-vue-warning-100: #fff2e5;
+  --color-vue-warning-200: #ffe6cf;
+  --color-vue-warning-300: #fed3a8;
+  --color-vue-warning-400: #ffb86c;
+  --color-vue-warning-500: #985c04;
+  --color-vue-warning-600: #834f03;
+  --color-vue-warning-700: #6f4203;
+  --color-vue-warning-800: #5b3502;
+  --color-vue-warning-900: #482902;
+  --color-vue-warning-950: #361e01;
+
+  --color-vue-error-50: #fef8f9;
+  --color-vue-error-100: #ffe8eb;
+  --color-vue-error-200: #fecfd7;
+  --color-vue-error-300: #fea2b4;
+  --color-vue-error-400: #ff5586;
+  --color-vue-error-500: #cf0a5c;
+  --color-vue-error-600: #b4014e;
+  --color-vue-error-700: #970241;
+  --color-vue-error-800: #7c0234;
+  --color-vue-error-900: #620027;
+  --color-vue-error-950: #49001b;
+}
+
 :root {
   --ui-radius: 0.25rem;
 }

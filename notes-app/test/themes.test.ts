@@ -49,6 +49,17 @@ for (const theme of themes) {
         'a button': [dark ? grey(900) : '#ffffff', primary],
         'a selected row': [text, over(primary, bg, 0.15)],
       };
+      // The status colors of main.css; notes keeps those of Nuxt UI, Tailwind's.
+      for (const status of [theme.success, theme.info, theme.warning, theme.error]) {
+        const color = palette[`${status}-${dark ? 400 : 500}`];
+        if (!color) continue;
+        Object.assign(pairs, {
+          [`${status} on the page`]: [color, bg],
+          [`${status} on a menu`]: [color, elevated],
+          [`${status} on its tint`]: [color, over(color, bg, 0.1)],
+          [`a ${status} button`]: [dark ? grey(900) : '#ffffff', color],
+        });
+      }
       for (const [name, [fg, back]] of Object.entries(pairs)) {
         assert.ok(contrast(fg!, back!) >= 4.5, `${name}: ${fg} on ${back} is ${contrast(fg!, back!).toFixed(2)}:1`);
       }

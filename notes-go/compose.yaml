@@ -29,7 +29,7 @@ services:
     # No authentication: this port must stay on the loopback. 8081 is the MCP over HTTP, an API token required.
     ports:
       - "127.0.0.1:8080:8080"
-      - "127.0.0.1:8081:8081"
+      - "${NOTES_MCP_LISTEN:-127.0.0.1:8081}:8081"
     depends_on:
       postgres:
         condition: service_healthy

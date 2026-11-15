@@ -1,31 +1,31 @@
-# notes-app
+# web
 
-Web app of `notes-go`, built with Nuxt and Nuxt UI, with no server of its own: the browser calls the API directly.
+The web app of Tide, built with Nuxt and Nuxt UI, with no server of its own: the browser calls the API directly.
 
 ## Run
 
-The whole stack, from the root of the repo: `make up`, then `make down` to stop it (Colima stays running, other projects may use it). `make up` starts the web app in the background, with its logs in `.build/notes-app.log`.
+The whole stack, from the root of the repo: `make up`, then `make down` to stop it (Colima stays running, other projects may use it). `make up` starts the web app in the background, with its logs in `.build/web.log`.
 
 Or piece by piece:
 
-In `notes-go/.env`, allow the app:
+In `.env` at the root, allow the app:
 
 ```sh
 WEB_ORIGIN=http://localhost:3000
 ```
 
 ```sh
-cd ../notes-go && make up && make api   # PostgreSQL, Silo and the API on :8080
-cd ../notes-app && bun install && bun run dev   # http://localhost:3000
+make api                                 # at the root: PostgreSQL, Silo and the API on :8080
+cd web && bun install && bun run dev    # http://localhost:3000
 ```
 
 Do open `localhost`, not `127.0.0.1`: the API compares the origin exactly. `NUXT_PUBLIC_API_BASE` changes the address of the API.
 
-The app asks you to log in. Without a session, it opens the login page, then goes back to the requested page. The account comes from an invitation link sent by an admin, from the server (`tide-server user add <name>`, see the `notes-go` README), or from the account creation page when the server opens it to everyone (`TIDE_ADD_USER_MODE=public`): the login page then shows a link to it, and hides it otherwise. On a database that is still empty, the login page leads straight to the creation of the first account, which becomes admin. The avatar at the bottom of the sidebar, collapsed or not, opens a menu: Account, Settings, Log out. The Account page changes the avatar (an image of the account, the initials without one), the name and the password. Changing the password logs out the other devices.
+The app asks you to log in. Without a session, it opens the login page, then goes back to the requested page. The account comes from an invitation link sent by an admin, from the server (`tide-server user add <name>`, see the root README), or from the account creation page when the server opens it to everyone (`TIDE_ADD_USER_MODE=public`): the login page then shows a link to it, and hides it otherwise. On a database that is still empty, the login page leads straight to the creation of the first account, which becomes admin. The avatar at the bottom of the sidebar, collapsed or not, opens a menu: Account, Settings, Log out. The Account page changes the avatar (an image of the account, the initials without one), the name and the password. Changing the password logs out the other devices.
 
 ## Images
 
-Pasting or dragging an image (PNG, JPEG, GIF, WebP, 20 MB at most) into a note sends it to the API and inserts it at that spot. A PDF, a zip, a sound or a video is inserted as a link with its name, which downloads it on click. It is stored in Silo, see the `notes-go` README. When selected, an image offers its original size (the default one, with no title in the markdown) or three sizes: small (a third of the width), medium (two thirds) or large (the full width). The size is written in the markdown title, `![photo](/api/files/<id> "small")`, `"medium"` or `"large"`, like that of link cards: elsewhere, it stays a normal image.
+Pasting or dragging an image (PNG, JPEG, GIF, WebP, 20 MB at most) into a note sends it to the API and inserts it at that spot. A PDF, a zip, a sound or a video is inserted as a link with its name, which downloads it on click. It is stored in Silo, see the root README. When selected, an image offers its original size (the default one, with no title in the markdown) or three sizes: small (a third of the width), medium (two thirds) or large (the full width). The size is written in the markdown title, `![photo](/api/files/<id> "small")`, `"medium"` or `"large"`, like that of link cards: elsewhere, it stays a normal image.
 
 ## Shortcuts
 
@@ -73,6 +73,6 @@ bun run e2e         # journeys in Chrome, against the running stack (make up); o
                     # logs in with the e2e account (E2E_NAME, E2E_PASSWORD): tide-server user add e2e, after yours
                     # E2E_APP and E2E_API point the tests at another stack
 bun run typecheck
-bun run types       # regenerates app/types/api.d.ts from ../notes-go/docs/swagger.yaml
+bun run types       # regenerates app/types/api.d.ts from ../docs/swagger.yaml
 bun run generate    # static site in .output/public
 ```

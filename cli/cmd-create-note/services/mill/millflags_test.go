@@ -1,0 +1,36 @@
+package millflagscreatenote
+
+import (
+	"context"
+	"slices"
+	"testing"
+
+	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
+	"github.com/cyril-fl/tide/config"
+	"github.com/spf13/cobra"
+)
+
+// resolve parses args with the flags declared in config.yaml: a renamed flag breaks this test.
+// Every case gives title and content, so no form opens and no terminal is needed.
+func resolve(t *testing.T, args ...string) (*mill, Input) {
+	t.Helper()
+	cmd := &cobra.Command{}
+	plumcliutilsargs.Makeflags(cmd, config.Current.Commands.CreateNote.Flags)
+	if err := cmd.ParseFlags(args); err != nil {
+		t.Fatalf("ParseFlags() error = %v", err)
+	}
+
+	resolver := New(Template{Ctx: context.Background(), Flags: cmd.Flags()})
+	return resolver, resolver.Resolve()
+}
+
+func TestResolveFromFlags(t *testing.T) {
+	resolver, input := resolve(t, "--content", "C", "--tag", "go,sql", "--tag", "db", "--parent", "uuid")
+	if resolver.HasErr() {
+		t.Fatalf("Resolve() error = %v", resolver.GetErr())
+	}
+
+	if input.Content != "C" || input.ParentID != "uuid" || !slices.Equal(input.Tags, []string{"go", "sql", "db"}) {
+		t.Errorf("input = %+v", input)
+	}
+}

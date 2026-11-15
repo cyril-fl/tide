@@ -1,0 +1,349 @@
+package linknotes
+
+import (
+	"context"
+	"maps"
+	"slices"
+	"strings"
+
+	plumprimitive "github.com/cyril-fl/plum/primitive"
+	"github.com/cyril-fl/tide/core/domain"
+	"github.com/cyril-fl/tide/core/services/noteindex"
+	"github.com/cyril-fl/tide/core/services/notetitle"
+	"github.com/cyril-fl/tide/core/services/secret"
+	"github.com/cyril-fl/tide/core/services/wikilink"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
+)
+
+// Input is a note as just saved: its id, content and title ("" = untitled), and the title it had
+// before this save when it changed.
+type Input struct {
+	ID       string
+	Content  string
+	Title    string
+	OldTitle string
+}
+
+type run struct {
+	plumprimitive.Process
+	cache
+
+	ctx   context.Context
+	db    bun.IDB // the caller's transaction: links change with the note, or not at all
+	input Input
+}
+
+type cache struct {
+	content string
+	before  []string
+	after   []string
+	changed bool
+}
+
+// Process makes the [[links]] of a note that name exactly one note point to its id, links the note to the
+// notes its text points to, gives the links to it its new title, and resolves the [[links]] of the other
+// notes that were waiting for its title. It also keeps the note's notes_on_files.
+func Process(ctx context.Context, db bun.IDB, input Input) *run {
+	return &run{
+		ctx:   ctx,
+		db:    db,
+		input: input,
+	}
+}
+
+func (p *run) Run() {
+	p.resolveLinks()
+	p.replaceLinks()
+	p.replaceFiles()
+	p.relabelBacklinks()
+	p.resolveWaiting()
+}
+
+// Getters & Setters
+
+// GetResult gives the content as saved, its [[links]] resolved, and whether it or its links changed:
+// false on a second run.
+func (p *run) GetResult() (string, bool) {
+	return p.cache.content, p.cache.changed
+}
+
+// Methods
+
+// resolveLinks saves the content again when a [[link]] became a link to an id: the note's title follows,
+// it may come from a heading holding the link.
+func (p *run) resolveLinks() {
+	var err error
+	p.cache.content = wikilink.Resolve(p.input.Content, func(target string) (string, string, bool) {
+		if err != nil {
+			return "", "", false
+		}
+		var id, title string
+		id, title, err = Resolve(p.ctx, p.db, target)
+		return id, title, err == nil && id != "" && id != p.input.ID
+	})
+	if err != nil || p.cache.content == p.input.Content {
+		p.SetErr(err)
+		return
+	}
+
+	p.cache.changed = true
+	p.SetErr(save(p.ctx, p.db, p.input.ID, p.cache.content))
+}
+
+// replaceLinks drops every link of the note, then links the notes its text points to that still exist.
+func (p *run) replaceLinks() {
+	if p.HasErr() {
+		return
+	}
+
+	err := p.db.NewDelete().Model((*domain.NoteLink)(nil)).Where("source_id = ?", p.input.ID).Returning("target_id").Scan(p.ctx, &p.cache.before)
+	if err != nil {
+		p.SetErr(err)
+		return
+	}
+
+	// A purged note is gone from metadata_notes: its link stays in the text, with no row.
+	if ids := wikilink.IDs(p.cache.content); len(ids) > 0 {
+		err = p.db.NewRaw(`
+			SELECT mn.item_id::text FROM metadata_notes AS mn JOIN items AS i ON i.id = mn.item_id
+			WHERE mn.item_id::text IN (?) AND mn.item_id <> ? AND i.user_id = ? ORDER BY 1`, bun.In(ids), p.input.ID, domain.UserID(p.ctx)).
+			Scan(p.ctx, &p.cache.after)
+		if err != nil {
+			p.SetErr(err)
+			return
+		}
+	}
+
+	p.cache.changed = p.cache.changed || !sameSet(p.cache.before, p.cache.after)
+	if len(p.cache.after) == 0 {
+		return
+	}
+
+	links := make([]domain.NoteLink, len(p.cache.after))
+	for i, target := range p.cache.after {
+		links[i] = domain.NoteLink{SourceID: p.input.ID, TargetID: target}
+	}
+	_, err = p.db.NewInsert().Model(&links).Exec(p.ctx)
+	p.SetErr(err)
+}
+
+func (p *run) replaceFiles() {
+	if p.HasErr() {
+		return
+	}
+
+	p.SetErr(Files(p.ctx, p.db, p.input.ID, p.cache.content))
+}
+
+// relabelBacklinks writes the new title in the links to the note: they still point to it by id,
+// the label is what the CLI and an export show.
+func (p *run) relabelBacklinks() {
+	if p.HasErr() || p.input.Title == "" || p.input.Title == p.input.OldTitle {
+		return
+	}
+
+	sources, err := loadNotes(p.ctx, p.db, `
+		SELECT mn.item_id AS id, mn.content FROM notes_on_links AS nl
+		JOIN metadata_notes AS mn ON mn.item_id = nl.source_id
+		WHERE nl.target_id = ?`, p.input.ID)
+	if err != nil {
+		p.SetErr(err)
+		return
+	}
+
+	for _, source := range sources {
+		if content := wikilink.Relabel(source.Content, p.input.ID, p.input.Title); content != source.Content {
+			if err := save(p.ctx, p.db, source.ID, content); err != nil {
+				p.SetErr(err)
+				return
+			}
+		}
+	}
+}
+
+// resolveWaiting resolves only the notes with a [[link]] waiting for its title, found by their index: resolving every
+// note would be one query per link. Its old title too: shared before, it may now name one note only.
+func (p *run) resolveWaiting() {
+	blinds := []string{}
+	for _, title := range []string{p.input.Title, p.input.OldTitle} {
+		if title == "" {
+			continue
+		}
+		blind, err := secret.Blind(domain.UserID(p.ctx), title)
+		if err != nil {
+			p.SetErr(err)
+			return
+		}
+		blinds = append(blinds, blind)
+	}
+	if p.HasErr() || len(blinds) == 0 {
+		return
+	}
+
+	if err := noteindex.Fill(p.ctx, p.db); err != nil {
+		p.SetErr(err)
+		return
+	}
+	notes, err := loadNotes(p.ctx, p.db, `
+		SELECT mn.item_id AS id, mn.content FROM metadata_notes AS mn JOIN items AS i ON i.id = mn.item_id
+		WHERE mn.item_id <> ? AND i.user_id = ? AND mn.waiting && ?::text[]`, p.input.ID, domain.UserID(p.ctx), pgdialect.Array(blinds))
+	if err != nil {
+		p.SetErr(err)
+		return
+	}
+
+	for _, note := range notes {
+		// No title: resolving a note must not resolve the notes waiting for it in turn.
+		resolve := Process(p.ctx, p.db, Input{ID: note.ID, Content: note.Content})
+		resolve.Run()
+		if resolve.HasErr() {
+			p.SetErr(resolve.GetErr())
+			return
+		}
+	}
+}
+
+// Helpers
+
+// Resolve gives the id and title of the one live note a target names, by path when it starts with /,
+// else by title whatever its case; "" when no note, or several, match: the link waits.
+func Resolve(ctx context.Context, db bun.IDB, target string) (string, string, error) {
+	var notes []struct {
+		ID    string      `bun:"id"`
+		Title secret.Text `bun:"title"`
+	}
+	if strings.HasPrefix(target, "/") {
+		return resolvePath(ctx, db, target)
+	}
+	hash, err := secret.Blind(domain.UserID(ctx), target)
+	if err != nil {
+		return "", "", err
+	}
+	// Live: no folder up to the root is trashed. Walked up from the notes with that title, not down the whole tree.
+	err = db.NewRaw(`
+		WITH RECURSIVE up AS (
+			SELECT id AS note, id, parent_id, deleted_at FROM items WHERE user_id = ? AND kind = ? AND title_hash = ?
+			UNION ALL SELECT up.note, i.id, i.parent_id, i.deleted_at FROM items AS i JOIN up ON i.id = up.parent_id
+		)
+		SELECT i.id, i.title FROM items AS i WHERE i.id IN (
+			SELECT note FROM up GROUP BY note HAVING bool_and(deleted_at IS NULL)
+		) LIMIT 2`, domain.UserID(ctx), domain.NOTE, hash).Scan(ctx, &notes)
+	if err != nil || len(notes) != 1 {
+		return "", "", err
+	}
+	return notes[0].ID, string(notes[0].Title), nil
+}
+
+// resolvePath finds the one live note at path: paths are made in Go, titles being sealed.
+func resolvePath(ctx context.Context, db bun.IDB, path string) (string, string, error) {
+	paths, err := domain.Paths(ctx, db)
+	if err != nil {
+		return "", "", err
+	}
+	var ids []string
+	for id, p := range paths {
+		if p == path {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return "", "", nil
+	}
+	var notes []domain.Item
+	err = db.NewSelect().Model(&notes).Column("id", "title").Where("id IN (?) AND kind = ?", bun.In(ids), domain.NOTE).Limit(2).Scan(ctx)
+	if err != nil || len(notes) != 1 {
+		return "", "", err
+	}
+	return notes[0].ID, string(notes[0].Title), nil
+}
+
+// Items runs Process on the notes among items that a trash or a restore just changed: the [[links]] waiting
+// for their title may now name one note only.
+func Items(ctx context.Context, db bun.IDB, items []domain.Item) error {
+	titles := map[string]string{}
+	for _, item := range items {
+		if item.Kind == domain.NOTE {
+			titles[item.ID] = string(item.Title)
+		}
+	}
+	if len(titles) == 0 {
+		return nil
+	}
+
+	notes, err := loadNotes(ctx, db, "SELECT item_id AS id, content FROM metadata_notes WHERE item_id IN (?)", bun.In(slices.Collect(maps.Keys(titles))))
+	if err != nil {
+		return err
+	}
+	for _, note := range notes {
+		note.Title = titles[note.ID]
+		link := Process(ctx, db, note)
+		link.Run()
+		if link.HasErr() {
+			return link.GetErr()
+		}
+	}
+	return nil
+}
+
+// Files links the note id to the images its content cites, in place of those it cited.
+// Those of its account only: a note may cite the address of another account's.
+func Files(ctx context.Context, db bun.IDB, id, content string) error {
+	if _, err := db.NewDelete().Model((*domain.NoteFile)(nil)).Where("note_id = ?", id).Exec(ctx); err != nil {
+		return err
+	}
+	var files []string
+	for _, match := range domain.FilePattern.FindAllStringSubmatch(content, -1) {
+		files = append(files, match[1])
+	}
+	if len(files) == 0 {
+		return nil
+	}
+	_, err := db.NewRaw(`
+		INSERT INTO notes_on_files (note_id, file_id)
+		SELECT DISTINCT i.id, f.id FROM items AS i JOIN files AS f ON f.user_id = i.user_id
+		WHERE i.id = ? AND f.id::text IN (?)`, id, bun.In(files)).Exec(ctx)
+	return err
+}
+
+// loadNotes runs a query giving id and content, and opens the content.
+func loadNotes(ctx context.Context, db bun.IDB, query string, args ...any) ([]Input, error) {
+	var rows []struct {
+		ID      string      `bun:"id"`
+		Content secret.Text `bun:"content"`
+	}
+	if err := db.NewRaw(query, args...).Scan(ctx, &rows); err != nil {
+		return nil, err
+	}
+	notes := make([]Input, len(rows))
+	for i, row := range rows {
+		notes[i] = Input{ID: row.ID, Content: string(row.Content)}
+	}
+	return notes, nil
+}
+
+// save writes content and the title it gives; updated_at stays, the user did not write this change.
+// WhereAllWithDeleted: a trashed note keeps its links right too.
+func save(ctx context.Context, db bun.IDB, id, content string) error {
+	sealed, err := secret.Seal(domain.UserID(ctx), content)
+	if err != nil {
+		return err
+	}
+	if _, err := db.NewUpdate().Model((*domain.MetadataNote)(nil)).Set("content = ?", sealed).Where("item_id = ?", id).Exec(ctx); err != nil {
+		return err
+	}
+	title, hash, err := domain.SealTitle(ctx, notetitle.From(content))
+	if err != nil {
+		return err
+	}
+	_, err = db.NewUpdate().Model((*domain.Item)(nil)).Set("title = ?, title_hash = NULLIF(?, '')", title, hash).Where("id = ?", id).WhereAllWithDeleted().Exec(ctx)
+	return err
+}
+
+// sameSet compares whatever the order.
+func sameSet(a, b []string) bool {
+	a, b = slices.Clone(a), slices.Clone(b)
+	slices.Sort(a)
+	slices.Sort(b)
+	return slices.Equal(a, b)
+}

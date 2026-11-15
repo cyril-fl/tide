@@ -25,7 +25,7 @@ Run the project's prescribed command from its root:
 make test
 ```
 
-The Makefile sets up the test environment: never run `go test` directly, and never bypass the Makefile to make a test pass. Target a package or a test with `ARGS`: `make test ARGS="./app/shared/services/process/createtag -run TestX"`. After changing production code or tests, rerun the relevant tests and distinguish test failures from pre-existing defects.
+The Makefile sets up the test environment: never run `go test` directly, and never bypass the Makefile to make a test pass. Target a package or a test with `ARGS`: `make test ARGS="./core/services/process/createtag -run TestX"`. After changing production code or tests, rerun the relevant tests and distinguish test failures from pre-existing defects.
 
 ## Boundaries
 

@@ -9,7 +9,7 @@ Use this skill when code runs ordered steps that can each fail and must stop at 
 
 ## Process vs Mill
 
-- **Process** (`primitive.Process`): one entry point `Run()`, ordered steps, optional single result via `GetResult()`. Example: `createtag`, `createschema` in `notes-go/app/shared/services/process/`.
+- **Process** (`primitive.Process`): one entry point `Run()`, ordered steps, optional single result via `GetResult()`. Example: `createtag`, `createschema` in `core/services/process/`.
 - **Mill** (`primitive.Mill`): a reusable tool exposing several independent methods that each collect errors. Example: plum `millload`, `millentries`.
 
 If callers would only ever call one method in a fixed sequence, it is a Process.

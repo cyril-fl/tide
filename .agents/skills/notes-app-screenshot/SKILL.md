@@ -6,7 +6,7 @@ description: Look at a page of the running Notes web app as the e2e account, opt
 # Screenshot the app
 
 ```sh
-cd notes-app
+cd web
 node scripts/screenshot.mjs <out.png> [page path] [settings JSON for PATCH /api/me]
 node scripts/screenshot.mjs "$SCRATCH/nord-dark.png" /settings '{"theme":"nord","color_mode":"dark"}'
 ```

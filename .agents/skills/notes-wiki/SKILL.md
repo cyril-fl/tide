@@ -33,13 +33,13 @@ Find what changed since the last version the wiki knows (`grep -m1 '^## v' Versi
   A new page also goes into `_Sidebar.md` and the page list of `Home.md`.
 - Never: CLI commands, API routes or installation (they live in the READMEs), Tailscale addresses or the user's network setup.
 
-Check each claim against the code or the i18n strings (`notes-app/i18n/locales/en.json`) for the exact labels; the tag message alone is too short.
+Check each claim against the code or the i18n strings (`web/i18n/locales/en.json`) for the exact labels; the tag message alone is too short.
 
 ## Screenshots
 
 A new screen or a visible change gets a PNG in `images/` (`app-<topic>.png`), linked from its page with an alt text in English. Use the `notes-app-screenshot` skill. For a shot that needs content or a click:
 
-- write a throwaway Playwright script in the session scratchpad, run from `notes-app/` with `NODE_PATH=$PWD/node_modules` (CommonJS `require`);
+- write a throwaway Playwright script in the session scratchpad, run from `web/` with `NODE_PATH=$PWD/node_modules` (CommonJS `require`);
 - create demo notes in a folder of the e2e account (`POST /api/folders`, `POST /api/notes` with `parent_id` and `content`), set the settings the shot needs (`PATCH /api/me`, e.g. `pro`), then in `finally` delete the folder (`DELETE /api/folders/{id}`, then `DELETE /api/trash/{id}`) and put back only the settings changed;
 - hide the Nuxt devtools button before the shot: `page.addStyleTag({ content: '#nuxt-devtools-container{display:none!important}' })`;
 - look at every PNG before copying it to `images/`.

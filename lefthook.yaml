@@ -1,12 +1,11 @@
 pre-commit:
   commands:
     gofmt:
-      root: notes-go/
       glob: "*.go"
       run: gofmt -w {staged_files}
       stage_fixed: true
     prettier:
-      root: notes-app/
+      root: web/
       glob: "*.{ts,vue,js,mjs,json,css}"
       run: bunx prettier --write --ignore-unknown {staged_files}
       stage_fixed: true

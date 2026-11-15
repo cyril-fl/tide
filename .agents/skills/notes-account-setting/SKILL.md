@@ -12,10 +12,10 @@ References: `locale`, `theme`, `color_mode`, `view`, `trash_retention_days`.
 
 | Step | Where |
 |------|-------|
-| Column | `notes-go/app/shared/domain/users.go`: field with `bun:",notnull,default:<v>"` and a snake_case `json` tag; the allowed values in an exported slice (`Locales`, `Themes`…), the first one the default |
-| Validation + update | `app/shared/services/process/edituser/run.go`: a pointer field in `Input` (`json:"x,omitempty" binding:"optional"`), an `ErrInvalidX`, a case in `checkInput` (`valid()` for a choice), a `query.Set` in `updateUser` |
-| Status | add `ErrInvalidX` to the 400 list of `app/api/services/respond/respond.go` (else the API answers 500) |
-| Tests | `edituser/run_test.go` (invalid values without DB, defaults and saved values with `testaccount`), the `PATCH /api/me` checks of `app/api/router_test.go` |
+| Column | `core/domain/users.go`: field with `bun:",notnull,default:<v>"` and a snake_case `json` tag; the allowed values in an exported slice (`Locales`, `Themes`…), the first one the default |
+| Validation + update | `core/services/process/edituser/run.go`: a pointer field in `Input` (`json:"x,omitempty" binding:"optional"`), an `ErrInvalidX`, a case in `checkInput` (`valid()` for a choice), a `query.Set` in `updateUser` |
+| Status | add `ErrInvalidX` to the 400 list of `core/api/services/respond/respond.go` (else the API answers 500) |
+| Tests | `edituser/run_test.go` (invalid values without DB, defaults and saved values with `testaccount`), the `PATCH /api/me` checks of `core/api/router_test.go` |
 
 Pitfall: bun inserts DEFAULT for a zero value when the tag has `default:`. A setting where 0 or "" is meaningful (retention 0 = never) is only set by an update: say so in a comment.
 bun maps `int` to `bigint`: cast in SQL where Postgres wants an `int` (`make_interval(days => x::int)`).
@@ -31,15 +31,15 @@ A column left in the base but gone from the model is harmless: queries read the 
 
 ## 3. API surface
 
-`make test`, then `make openapi`, then `cd ../notes-app && bun run types`, then `make api` (the API container serves the old binary until then).
+`make test`, then `make openapi`, then `cd web && bun run types`, then `make api` (the API container serves the old binary until then).
 
 ## 4. App
 
-- `notes-app/app/layouts/default.vue` loads `me` (`useLazyAsyncData('me')`, shared with the settings page) and applies the account to the app: its `watch(me, …)` sets the locale, the theme colors (`appConfig.ui.colors`), `colorMode.preference` and `useView()`. A setting that some other control also changes (the sidebar mode button, the view toggle) is saved back by the second watch there.
-- `notes-app/app/pages/settings.vue`: one `<section>` per group, a row with title, `text-xs text-muted` description and a `USelectMenu` (`value-key="value"`, `:search-input="false"`, `aria-label`) whose change sends `PATCH /api/me` and stores the answer in `me.value`.
+- `web/app/layouts/default.vue` loads `me` (`useLazyAsyncData('me')`, shared with the settings page) and applies the account to the app: its `watch(me, …)` sets the locale, the theme colors (`appConfig.ui.colors`), `colorMode.preference` and `useView()`. A setting that some other control also changes (the sidebar mode button, the view toggle) is saved back by the second watch there.
+- `web/app/pages/settings.vue`: one `<section>` per group, a row with title, `text-xs text-muted` description and a `USelectMenu` (`value-key="value"`, `:search-input="false"`, `aria-label`) whose change sends `PATCH /api/me` and stores the answer in `me.value`.
 - Texts in both `i18n/locales/fr.json` and `en.json`, under `settings`.
 - `bun run typecheck && bun run test`, then an e2e in `test/e2e/settings.spec.ts` that sets the setting from the page, polls `GET /api/me`, and **sets the account back in a `finally`**: every run shares the e2e account.
 
 ## 5. Finish
 
-The `notes-release` skill: README (Réglages section of `notes-app/README.md`), commits, tag.
+The `notes-release` skill: README (Réglages section of `web/README.md`), commits, tag.

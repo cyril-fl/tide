@@ -1,13 +1,13 @@
 ---
 name: notes-cli-command
-description: Implement a notes-go CLI command (add/show/edit/remove on tag, note, folder) end to end - config.yaml entry, cobra wiring, a shared plum Process doing the bun query, its tests, and optional --yaml/--json output.
+description: Implement a Tide CLI command (add/show/edit/remove on tag, note, folder) end to end - config.yaml entry, cobra wiring, a shared plum Process doing the bun query, its tests, and optional --yaml/--json output.
 ---
 
-# notes-go CLI command
+# Tide CLI command
 
-Use this skill to turn a stub in `notes-go/app/cli/cmd-<verb>-<noun>/cmd.go` into a working command.
-Reference implementations: `createtag`, `deletetag`, `edittag`, `listtag` in `app/shared/services/process/`.
-Process rules come from the `plum-process` skill; this skill only adds what is specific to notes-go.
+Use this skill to turn a stub in `cli/cmd-<verb>-<noun>/cmd.go` into a working command.
+Reference implementations: `createtag`, `deletetag`, `edittag`, `listtag` in `core/services/process/`.
+Process rules come from the `plum-process` skill; this skill only adds what is specific to the Tide CLI.
 
 ## 1. Ask before writing
 
@@ -23,8 +23,8 @@ The user is learning bun: explain non-obvious choices, and ask (AskUserQuestion,
 |------|-------|
 | Command name, help, flags | `config/config.yaml` under `commands.<verb>-<noun>` (struct in `config/config.go`) |
 | Cobra wiring (`Args`, flags) | `cmd/<verb>.go` |
-| CLI entry | `app/cli/cmd-<verb>-<noun>/cmd.go` |
-| Business logic | `app/shared/services/process/<verb><noun>/run.go` (shared: the API routes reuse it) |
+| CLI entry | `cli/cmd-<verb>-<noun>/cmd.go` |
+| Business logic | `core/services/process/<verb><noun>/run.go` (shared: the API routes reuse it) |
 | Tests | same package, `run_test.go` |
 
 Check the config entry exists: a missing key gives an empty `Use` and cobra silently cannot find the command.
@@ -107,7 +107,7 @@ The printed domain struct needs `json:"-" yaml:"-"` on `bun.BaseModel` and lower
 ## 6b. Flags + interactive input (reference: `add note`)
 
 - Many-valued flag: `type: "stringSlice"` in config (plum `Makeflags`) -> `--tag a,b --tag c`, read with `flags.GetStringSlice`.
-- Flags are resolved by a **mill** in `app/cli/cmd-<verb>-<noun>/services/mill/` (`Template{Ctx, Db, Flags}`, `Resolve()` returns the process `Input`), not by the process: the process stays UI-free.
+- Flags are resolved by a **mill** in `cli/cmd-<verb>-<noun>/services/mill/` (`Template{Ctx, Db, Flags}`, `Resolve()` returns the process `Input`), not by the process: the process stays UI-free.
 - Missing values -> one `charm.land/huh/v2` form with only the missing fields (`NewInput`, `NewText`, `NewMultiSelect[string]().Filterable(true)` for `--x-from-list`); no field, no form.
 - Mill test: build flags from `config.Current.Commands.<Cmd>.Flags` (catches renamed flags) and give every value, so no form/TTY is needed. Forms are checked by hand.
 - Writes over several tables: `p.db.RunInTx` (a savepoint when `db` is a test `bun.Tx`), steps return errors inside it.
@@ -118,5 +118,5 @@ The printed domain struct needs `json:"-" yaml:"-"` on `bun.BaseModel` and lower
 - **No-DB test**: blank input with `db = nil` -> `errors.Is(err, ErrNoValue)`. Also proves the `HasErr()` guard (a missing guard panics on nil).
 - **Integration test**: connect via `postgrey.NewEnvironment()`, run `createschema`, `BeginTx` + `defer tx.Rollback()`, unique values `fmt.Sprintf("test-%d", time.Now().UnixNano())`, seed with other processes (`createtag`).
 - A failed statement aborts the transaction: put the expected-DB-error case **last**.
-- Run: `make test ARGS="./app/shared/services/process/..."` (needs Postgres; `colima start && docker compose up -d`).
+- Run: `make test ARGS="./core/services/process/..."` (needs Postgres; `colima start && docker compose up -d`).
 - Then run the real command: `set -a && . ./.env && set +a && CONFIG_FILE=$PWD/config/config.yaml go run ./cmd/tide <verb> <noun> ...`, and clean up what you created.

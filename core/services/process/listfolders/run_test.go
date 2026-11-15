@@ -1,0 +1,70 @@
+package listfolders
+
+import (
+	"context"
+	"github.com/cyril-fl/tide/core/services/testaccount"
+	"testing"
+
+	"github.com/cyril-fl/tide/core/domain"
+	"github.com/cyril-fl/tide/core/services/postgrey"
+	"github.com/cyril-fl/tide/core/services/process/createfolder"
+	"github.com/cyril-fl/tide/core/services/process/createnote"
+	"github.com/cyril-fl/tide/core/services/process/createschema"
+	"github.com/cyril-fl/tide/core/services/process/deleteitems"
+)
+
+func TestListFolders(t *testing.T) {
+	ctx := context.Background()
+	env := postgrey.NewEnvironment()
+	env.ReadEnv()
+	db := env.Connect()
+	defer db.Close()
+
+	schema := createschema.Process(ctx, db)
+	schema.Run()
+	if schema.HasErr() {
+		t.Fatalf("create schema: %v", schema.GetErr())
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx, tx = testaccount.New(t, ctx, tx)
+
+	folder := func(title, parentID string) string {
+		process := createfolder.Process(ctx, tx, createfolder.Input{Title: title, ParentID: parentID})
+		process.Run()
+		if process.HasErr() {
+			t.Fatalf("folder %s: %v", title, process.GetErr())
+		}
+		return process.GetResult().ID
+	}
+	top := folder("ListTop", "")
+	child := folder("Child", top)
+	trashed := folder("Trashed", top)
+	folder("Hidden", trashed)
+	note := createnote.Process(ctx, tx, createnote.Input{Content: "# Note", ParentID: top})
+	note.Run()
+	trash := deleteitems.Process(ctx, tx, domain.FOLDER, []string{trashed})
+	trash.Run()
+	if note.HasErr() || trash.HasErr() {
+		t.Fatalf("seed: %v %v", note.GetErr(), trash.GetErr())
+	}
+
+	process := Process(ctx, tx)
+	process.Run()
+	paths := map[string]string{}
+	for _, f := range process.GetResult() {
+		paths[f.Path] = f.ID
+	}
+	if process.HasErr() || paths["/ListTop"] != top || paths["/ListTop/Child"] != child {
+		t.Errorf("paths = %v, %v; want /ListTop and /ListTop/Child", paths, process.GetErr())
+	}
+	for _, gone := range []string{"/ListTop/Note", "/ListTop/Trashed", "/ListTop/Trashed/Hidden"} {
+		if _, ok := paths[gone]; ok {
+			t.Errorf("%s listed, want only live folders", gone)
+		}
+	}
+}

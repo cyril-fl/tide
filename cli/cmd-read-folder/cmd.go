@@ -1,0 +1,141 @@
+package cmdreadfolder
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"charm.land/huh/v2"
+	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
+	plumdebug "github.com/cyril-fl/plum/utils/debug"
+	cmdeditfolder "github.com/cyril-fl/tide/cli/cmd-edit-folder"
+	"github.com/cyril-fl/tide/cli/services/apiclient"
+	"github.com/cyril-fl/tide/core/services/screen"
+	"github.com/cyril-fl/tide/core/services/style"
+	"github.com/spf13/cobra"
+)
+
+// Read shows the folder title and path, then one line per direct child with its uuid; ctrl+e edits it; --json prints it for scripts.
+func Read(cobra *cobra.Command, args []string) error {
+	var asJSON bool
+	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"json": &asJSON}); err != nil {
+		return err
+	}
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	id, err := apiclient.Resolve(cobra.Context(), client, apiclient.FOLDER, args[0])
+	if err != nil {
+		return err
+	}
+	if asJSON {
+		return printJSON(cobra.Context(), client, id)
+	}
+
+	for {
+		folder, err := Fetch(cobra.Context(), client, id)
+		if err != nil {
+			return err
+		}
+
+		edit, err := screen.Show(Output(folder, apiclient.Deref(folder.Children), -1, EmptyFolder))
+		if err != nil || !edit {
+			return err
+		}
+		// An aborted form goes back to the view unchanged.
+		if err := cmdeditfolder.Interactive(cobra.Context(), id); err != nil && !errors.Is(err, huh.ErrUserAborted) {
+			return err
+		}
+	}
+}
+
+// printJSON gives an empty folder "children": [], not null.
+func printJSON(ctx context.Context, client *apiclient.ClientWithResponses, id string) error {
+	folder, err := Fetch(ctx, client, id)
+	if err != nil {
+		return err
+	}
+
+	if folder.Children == nil {
+		folder.Children = &[]apiclient.DomainItem{}
+	}
+	plumdebug.Json(folder)
+	return nil
+}
+
+// Fetch reads the folder through GET /api/folders/{id}, which leaves its children out, then them through
+// GET /api/items.
+func Fetch(ctx context.Context, client *apiclient.ClientWithResponses, id string) (apiclient.ReaditemResult, error) {
+	var folder apiclient.ReaditemResult
+	response, err := client.GetApiFoldersIdWithResponse(ctx, id)
+	if err != nil {
+		return folder, err
+	}
+	if response.JSON200 == nil {
+		return folder, apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	folder = *response.JSON200
+
+	children, err := client.GetApiItemsWithResponse(ctx, &apiclient.GetApiItemsParams{Parent: &id})
+	if err != nil {
+		return folder, err
+	}
+	if children.JSON200 == nil {
+		return folder, apiclient.Fail(children.HTTPResponse, children.Body)
+	}
+	folder.Children = children.JSON200
+	return folder, nil
+}
+
+// EmptyFolder is the message of a folder without children.
+const EmptyFolder = "This folder is empty"
+
+// Output renders a folder like `show folder`: the header from the whole folder, then rows (the finder
+// passes its filtered, scrolled window); cursor >= 0 marks that row as selected, empty shows when no row.
+func Output(folder apiclient.ReaditemResult, rows []apiclient.DomainItem, cursor int, empty string) string {
+	header := style.Header(folder.Item.Title, folder.Path, info(folder)) + "\n"
+	if len(rows) == 0 {
+		return header + style.Empty().Render(empty)
+	}
+
+	cells := make([][]string, len(rows))
+	for i, child := range rows {
+		title := child.Title
+		if title == "" {
+			title = "untitled"
+		}
+		cells[i] = []string{string(child.Kind), title, child.Id}
+	}
+	return header + style.Table(cells, cursor, 1)
+}
+
+// info counts the children, and dates the folder when it is a real one (the root has no row).
+func info(folder apiclient.ReaditemResult) string {
+	children := apiclient.Deref(folder.Children)
+	folders := 0
+	for _, child := range children {
+		if child.Kind == apiclient.FOLDER {
+			folders++
+		}
+	}
+	parts := []string{count(folders, "folder"), count(len(children)-folders, "note")}
+
+	updated := apiclient.Deref(folder.Item.UpdatedAt)
+	if updated == "" {
+		updated = folder.Item.CreatedAt
+	}
+	if date, err := time.Parse(time.RFC3339Nano, updated); err == nil {
+		parts = append(parts, "updated "+date.Format("2 Jan 2006"))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func count(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
+}

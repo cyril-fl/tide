@@ -1,0 +1,262 @@
+package createschema
+
+import (
+	"context"
+	"database/sql"
+
+	plumprimitive "github.com/cyril-fl/plum/primitive"
+	"github.com/cyril-fl/tide/core/domain"
+	"github.com/uptrace/bun"
+)
+
+type run struct {
+	plumprimitive.Process
+	cache
+
+	ctx context.Context
+	db  *bun.DB
+}
+
+type cache struct {
+	steps []func(tx bun.Tx)
+}
+
+func Process(ctx context.Context, db *bun.DB) *run {
+	return &run{
+		ctx: ctx,
+		db:  db,
+	}
+}
+
+func (p *run) Run() {
+	p.registerModels()
+	p.createTables()
+	p.createIndexes()
+	p.createTriggers()
+	p.runInTx()
+}
+
+// Methods
+func (p *run) registerModels() {
+	domain.RegisterModels(p.db)
+}
+
+// createTables and createIndexes only queue their work: runInTx executes it in one transaction.
+func (p *run) createTables() {
+	p.cache.steps = append(p.cache.steps, func(tx bun.Tx) {
+		tables := getTables(tx)
+		p.execQueries(tables)
+		p.addColumns(tx, tables)
+	})
+}
+
+// addColumns gives an existing table the columns added to its model since: CREATE TABLE IF NOT EXISTS skips it whole.
+// A new NOT NULL column without a default fails on a table with rows: fill it by hand first.
+func (p *run) addColumns(tx bun.Tx, tables []*bun.CreateTableQuery) {
+	for _, table := range tables {
+		for _, field := range table.GetModel().(bun.TableModel).Table().Fields {
+			if p.HasErr() {
+				return
+			}
+
+			column := "? " + field.CreateTableSQLType
+			if field.NotNull {
+				column += " NOT NULL"
+			}
+			if field.SQLDefault != "" {
+				column += " DEFAULT " + field.SQLDefault
+			}
+			_, err := tx.NewAddColumn().Model(table.GetModel()).ColumnExpr(column, bun.Ident(field.Name)).IfNotExists().Exec(p.ctx)
+			p.SetErr(err)
+		}
+	}
+}
+
+func (p *run) createIndexes() {
+	p.cache.steps = append(p.cache.steps, func(tx bun.Tx) {
+		p.execQueries(getIndexes(tx))
+	})
+}
+
+// createTriggers replaces the triggers each time: CREATE OR REPLACE keeps them up to date without migrations.
+func (p *run) createTriggers() {
+	p.cache.steps = append(p.cache.steps, func(tx bun.Tx) {
+		for _, trigger := range triggers {
+			if p.HasErr() {
+				return
+			}
+			_, err := tx.ExecContext(p.ctx, trigger)
+			p.SetErr(err)
+		}
+	})
+}
+
+// runInTx runs the queued steps: bun commits, or rolls back if a step recorded an error.
+func (p *run) runInTx() {
+	p.ClearErr()
+
+	p.SetErr(p.db.RunInTx(p.ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		p.runStep(tx)
+		return p.GetErr()
+	}))
+
+}
+
+// execQueries stops at the first error: Postgres aborts the transaction, later statements would only add noise.
+func (p *run) execQueries[T query[T]](queries []T) {
+	for _, q := range queries {
+		if p.HasErr() {
+			return
+		}
+
+		_, err := q.IfNotExists().Exec(p.ctx)
+		p.SetErr(err)
+	}
+}
+
+func (p *run) runStep(tx bun.Tx) {
+	for _, step := range p.cache.steps {
+		step(tx)
+	}
+}
+
+// Helpers
+
+// Order matters for foreign keys.
+// FKs are declared here rather than via WithForeignKeys: several are composite (id, kind)
+// so the DB itself enforces that metadata and parents match the item kind.
+// kind / parent_kind below are DB-only columns (not in the structs): their DEFAULT is the only allowed value.
+func getTables(tx bun.Tx) []*bun.CreateTableQuery {
+	return []*bun.CreateTableQuery{
+		tx.NewCreateTable().Model((*domain.User)(nil)),
+		tx.NewCreateTable().Model((*domain.Session)(nil)).
+			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.APIToken)(nil)).
+			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.OAuthCode)(nil)).
+			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.Throttle)(nil)),
+		tx.NewCreateTable().Model((*domain.Invite)(nil)).
+			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.Item)(nil)).
+			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`).
+			ColumnExpr("CONSTRAINT items_kind_check CHECK (kind IN (?))", bun.List([]domain.Kind{domain.NOTE, domain.FOLDER})).
+			ColumnExpr("parent_kind VARCHAR NOT NULL DEFAULT ? CHECK (parent_kind = ?)", domain.FOLDER, domain.FOLDER).
+			ColumnExpr("UNIQUE (id, kind)").
+			ColumnExpr("CONSTRAINT items_id_kind_user_key UNIQUE (id, kind, user_id)").
+			// The parent is a folder of the same account: one of another account is refused like a missing one.
+			// MATCH SIMPLE: a NULL parent_id (root item) skips the check.
+			ColumnExpr(`CONSTRAINT items_parent_user_fkey FOREIGN KEY ("parent_id", "parent_kind", "user_id") REFERENCES "items" ("id", "kind", "user_id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.MetadataNote)(nil)).
+			ColumnExpr("kind VARCHAR NOT NULL DEFAULT ? CHECK (kind = ?)", domain.NOTE, domain.NOTE).
+			ForeignKey(`("item_id", "kind") REFERENCES "items" ("id", "kind") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.MetadataFolder)(nil)).
+			ColumnExpr("kind VARCHAR NOT NULL DEFAULT ? CHECK (kind = ?)", domain.FOLDER, domain.FOLDER).
+			ForeignKey(`("item_id", "kind") REFERENCES "items" ("id", "kind") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.Tag)(nil)).
+			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.NoteTag)(nil)).
+			ForeignKey(`("tag_id") REFERENCES "tags" ("id") ON DELETE CASCADE`).
+			ForeignKey(`("note_id") REFERENCES "metadata_notes" ("item_id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.NoteLink)(nil)).
+			ForeignKey(`("source_id") REFERENCES "metadata_notes" ("item_id") ON DELETE CASCADE`).
+			ForeignKey(`("target_id") REFERENCES "metadata_notes" ("item_id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.NoteVersion)(nil)).
+			ForeignKey(`("item_id") REFERENCES "metadata_notes" ("item_id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.File)(nil)).
+			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.NoteFile)(nil)).
+			ForeignKey(`("note_id") REFERENCES "metadata_notes" ("item_id") ON DELETE CASCADE`).
+			ForeignKey(`("file_id") REFERENCES "files" ("id") ON DELETE CASCADE`),
+		tx.NewCreateTable().Model((*domain.GraphLayout)(nil)).
+			ForeignKey(`("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`),
+	}
+}
+
+// Postgres does not index FK columns; notes_on_tags PK (tag_id, note_id) only covers tag_id lookups.
+func getIndexes(tx bun.Tx) []*bun.CreateIndexQuery {
+	return []*bun.CreateIndexQuery{
+		tx.NewCreateIndex().Model((*domain.Item)(nil)).Index("idx_items_parent_id").Column("parent_id"),
+		// refreshoauthtoken finds a connection by its refresh token.
+		tx.NewCreateIndex().Model((*domain.APIToken)(nil)).Index("ux_api_tokens_refresh_hash").Unique().Column("refresh_hash").Where("refresh_hash IS NOT NULL"),
+		tx.NewCreateIndex().Model((*domain.NoteTag)(nil)).Index("idx_notes_on_tags_note_id").Column("note_id"),
+		tx.NewCreateIndex().Model((*domain.User)(nil)).Index("ux_users_name_lower").Unique().ColumnExpr("lower(name)"),
+		tx.NewCreateIndex().Model((*domain.Item)(nil)).Index("idx_items_user_id").Column("user_id"),
+		// Values and titles are sealed: their blinds, lowered before the HMAC, keep them unique whatever their case.
+		tx.NewCreateIndex().Model((*domain.Tag)(nil)).Index("ux_tags_user_value_hash").Unique().ColumnExpr("user_id, value_hash"),
+		// A root folder has no parent_id: coalesce gives the root one, so its folders are unique too.
+		tx.NewCreateIndex().Model((*domain.Item)(nil)).Index(domain.FolderNameIndex).Unique().
+			ColumnExpr("user_id, coalesce(parent_id, '00000000-0000-0000-0000-000000000000'), title_hash").
+			Where("kind = ? AND deleted_at IS NULL", domain.FOLDER),
+		// linknotes.Resolve: the notes a [[link]] names.
+		tx.NewCreateIndex().Model((*domain.Item)(nil)).Index("idx_items_user_title_hash").ColumnExpr("user_id, title_hash"),
+		// The primary key (source_id, target_id) only covers the links of a note, not its backlinks.
+		tx.NewCreateIndex().Model((*domain.NoteLink)(nil)).Index("idx_notes_on_links_target_id").Column("target_id"),
+		tx.NewCreateIndex().Model((*domain.NoteFile)(nil)).Index("idx_notes_on_files_file_id").Column("file_id"),
+		tx.NewCreateIndex().Model((*domain.NoteVersion)(nil)).Index("idx_note_versions_item_id").ColumnExpr("item_id, created_at"),
+		// noteindex: a search, the links waiting for a title, and the notes noteindex.Fill has left to do.
+		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_grams").Using("gin").Column("grams"),
+		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_waiting").Using("gin").Column("waiting"),
+		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_headings").Using("gin").Column("headings"),
+		// readneighbors: the forks of a note.
+		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_fork_of").Column("fork_of").Where("fork_of IS NOT NULL"),
+		tx.NewCreateIndex().Model((*domain.MetadataNote)(nil)).Index("idx_metadata_notes_unindexed").Column("item_id").Where("grams IS NULL"),
+	}
+}
+
+// triggers: an item deleted for good (purge, emptied trash, or a child of either by cascade) hands its images to
+// purgefiles at once with orphaned_at = -infinity. BEFORE: the note's notes_on_files and versions are still there; the cascade removes them after.
+var triggers = []string{
+	`CREATE OR REPLACE FUNCTION orphan_files_of_item() RETURNS trigger AS $$
+	BEGIN
+		UPDATE files SET orphaned_at = '-infinity'
+		WHERE id IN (SELECT file_id FROM notes_on_files WHERE note_id = OLD.id
+			UNION SELECT unnest(file_ids) FROM note_versions WHERE item_id = OLD.id);
+		RETURN OLD;
+	END $$ LANGUAGE plpgsql`,
+	`CREATE OR REPLACE TRIGGER items_orphan_files BEFORE DELETE ON items FOR EACH ROW EXECUTE FUNCTION orphan_files_of_item()`,
+	// users.items_version, for the cache of domain.Paths: bumped once per statement that adds, removes, renames,
+	// moves, trashes or restores items, whoever runs it (API or CLI). Not by a content edit.
+	`CREATE SEQUENCE IF NOT EXISTS items_version`,
+	`CREATE OR REPLACE FUNCTION bump_items_version() RETURNS trigger AS $$
+	BEGIN
+		UPDATE users SET items_version = nextval('items_version') WHERE id IN (SELECT user_id FROM changed);
+		RETURN NULL;
+	END $$ LANGUAGE plpgsql`,
+	`CREATE OR REPLACE FUNCTION bump_items_version_on_update() RETURNS trigger AS $$
+	BEGIN
+		UPDATE users SET items_version = nextval('items_version') WHERE id IN (
+			SELECT n.user_id FROM new_items AS n JOIN old_items AS o USING (id)
+			WHERE n.title IS DISTINCT FROM o.title OR n.parent_id IS DISTINCT FROM o.parent_id
+				OR n.deleted_at IS DISTINCT FROM o.deleted_at);
+		RETURN NULL;
+	END $$ LANGUAGE plpgsql`,
+	`CREATE OR REPLACE TRIGGER items_version_insert AFTER INSERT ON items REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION bump_items_version()`,
+	`CREATE OR REPLACE TRIGGER items_version_delete AFTER DELETE ON items REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION bump_items_version()`,
+	`CREATE OR REPLACE TRIGGER items_version_update AFTER UPDATE ON items REFERENCING OLD TABLE AS old_items NEW TABLE AS new_items FOR EACH STATEMENT EXECUTE FUNCTION bump_items_version_on_update()`,
+	// noteindex: a content written by any process empties the index of its note, noteindex.Fill makes it again.
+	// The title comes from the content: it changes with it.
+	`CREATE OR REPLACE FUNCTION unindex_note() RETURNS trigger AS $$
+	BEGIN
+		NEW.grams := NULL;
+		NEW.waiting := NULL;
+		NEW.linked := NULL;
+		NEW.headings := NULL;
+		NEW.heading_names := NULL;
+		RETURN NEW;
+	END $$ LANGUAGE plpgsql`,
+	`CREATE OR REPLACE TRIGGER metadata_notes_unindex BEFORE UPDATE OF content ON metadata_notes FOR EACH ROW
+		WHEN (NEW.content IS DISTINCT FROM OLD.content) EXECUTE FUNCTION unindex_note()`,
+	// linked came after grams (#167): the notes indexed without it are indexed again, once.
+	`UPDATE metadata_notes SET grams = NULL WHERE grams IS NOT NULL AND linked IS NULL`,
+	// heading_names came after grams (#169): the same, once.
+	`UPDATE metadata_notes SET grams = NULL WHERE grams IS NOT NULL AND heading_names IS NULL`,
+}
+
+// Interface
+
+// query is satisfied by both *bun.CreateTableQuery and *bun.CreateIndexQuery.
+type query[T any] interface {
+	IfNotExists() T
+	Exec(ctx context.Context, dest ...any) (sql.Result, error)
+}

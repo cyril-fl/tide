@@ -20,8 +20,8 @@ The caller gives you: the commits of the release (short shas), the kind of versi
 
 1. `git branch --show-current` is `develop`, and the commits the caller named are in `git log`. Otherwise stop and report.
 2. **Checks**, on the code as committed: the working tree may hold work of other agents, so report a failure in a file the release did not touch as such, not as a failure of the release.
-   - `cd notes-go && make test`
-   - `cd notes-app && bun run test && bun run typecheck && bun run lint`
+   - `make test`
+   - `cd web && bun run test && bun run typecheck && bun run lint`
    - `bun run e2e` only when the caller asks for it (it needs `make up`).
    Stop at the first failure and report its output.
 3. **Tag**: the next number after `git tag --sort=-v:refname | head -1` (another agent may already have used one), then `git tag -a vX.Y.Z -m "vX.Y.Z: <message of the caller>"` on `HEAD`. A tag not yet in `origin/develop` may be moved with `git tag -fa`; a pushed one never.

@@ -1,0 +1,106 @@
+# The dev stack: `make up` at the root.
+name: tide
+
+services:
+  # Go against the stack, the repo in /app: the Go tests from here when the host port of Postgres is taken.
+  app:
+    image: golang:latest
+    container_name: note-app
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      TERM: xterm-256color
+      COLORTERM: truecolor
+    env_file:
+      - .env.docker
+    command: sleep infinity
+
+  # Started by `make up`, rebuilt by `make api`.
+  api:
+    profiles: [api]
+    build:
+      context: .
+      target: server
+      args:
+        VERSION: ${VERSION:-}
+    container_name: note-api
+    env_file:
+      - .env.docker
+    environment:
+      # The file of .env.docker does not exist in the image: use the config built into the binary.
+      CONFIG_FILE: ""
+    command: serve --addr :8080 --origin=${WEB_ORIGIN:-} --add-user-mode=${TIDE_ADD_USER_MODE:-invitation} --mcp-addr :8081 --mcp-published=${TIDE_MCP_LISTEN:-127.0.0.1:8081}
+    # No authentication: this port must stay on the loopback. 8081 is the MCP over HTTP and its OAuth, an API token or a sign-in required.
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "${TIDE_MCP_LISTEN:-127.0.0.1:8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      silo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18
+    container_name: note-postgres
+    hostname: note-postgres
+    ports:
+      - "127.0.0.1:${PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - postgres-data:/var/lib/postgresql
+
+  # The images of the notes (S3, a MinIO fork): the API reads and writes them, the browser never reaches it.
+  # TODO: the API uses the root account of Silo, give it its own user if Silo ever serves anything else.
+  silo:
+    image: pgsty/silo:RELEASE.2026-10-26T00-00-00Z
+    container_name: note-silo
+    hostname: note-silo
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
+    # S3 API on 9000 for the CLI, console on 9001.
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - silo-data:/data
+    restart: unless-stopped
+
+  libredb:
+    image: libredb/libredb-studio:latest
+    container_name: note-libredb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      ADMIN_EMAIL: ${LIBREDB_ADMIN_EMAIL:-admin@libredb.org}
+      ADMIN_PASSWORD: ${LIBREDB_ADMIN_PASSWORD}
+      JWT_SECRET: ${LIBREDB_JWT_SECRET}
+      NEXT_PUBLIC_AUTH_PROVIDER: local
+      STORAGE_PROVIDER: local
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  silo-data:

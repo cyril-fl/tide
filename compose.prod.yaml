@@ -25,7 +25,7 @@ services:
     # reaches the API, which then reads the address of each device in X-Forwarded-For.
     command: serve --addr :8080 --web /web --published=${TIDE_LISTEN:-127.0.0.1:8080} --origin=${WEB_ORIGIN:?set WEB_ORIGIN in .env} --add-user-mode=${TIDE_ADD_USER_MODE:-invitation} --mcp-addr :8081 --mcp-published=${TIDE_MCP_LISTEN:-127.0.0.1:8081}
     # Plain HTTP, and the session cookie needs HTTPS: a proxy in front gives it. 8081 serves only /mcp and its OAuth
-    # (agents holding an API token or signed in): the one address a tunnel opens to the Internet (notes-go/MCP.md).
+    # (agents holding an API token or signed in): the one address a tunnel opens to the Internet (MCP.md).
     ports:
       - "${TIDE_LISTEN:-127.0.0.1:8080}:8080"
       - "${TIDE_MCP_LISTEN:-127.0.0.1:8081}:8081"

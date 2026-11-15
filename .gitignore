@@ -13,6 +13,9 @@ Thumbs.db
 !.env.example
 !.env.prod.example
 
+# Backups: they hold every note
+backups/
+
 # Binaires compilés
 *.exe
 *.exe~
@@ -24,6 +27,9 @@ Thumbs.db
 *.test
 *.out
 __debug_bin*
+scne
+.buildSystem_debug
+CACHEDIR.TAG
 
 # Dépendances vendorisées (si tu n'utilises pas vendor/)
 vendor/

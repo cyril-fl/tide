@@ -1,6 +1,6 @@
 ---
 name: notes-issue-hunt
-description: Find the GitHub issues Notes is missing - a full audit of notes-go and notes-app (bugs, security, data loss, timeouts, untested risky code), checked against the open issues and the `TODO:` comments, then the new issues created in French. Use when the user says "cherche les issues manquantes", "analyse le code pour ajouter les issues", "audit", "qu'est-ce qui manque".
+description: Find the GitHub issues Notes is missing - a full audit of the Go code and web/ (bugs, security, data loss, timeouts, untested risky code), checked against the open issues and the `TODO:` comments, then the new issues created in French. Use when the user says "cherche les issues manquantes", "analyse le code pour ajouter les issues", "audit", "qu'est-ce qui manque".
 ---
 
 # Find the missing issues

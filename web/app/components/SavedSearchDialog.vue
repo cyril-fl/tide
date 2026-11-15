@@ -117,100 +117,111 @@ function submit() {
 </script>
 
 <template>
-  <UModal :title="title" :close="false" :ui="{ content: 'max-w-lg' }" @update:open="emit('close')">
+  <UModal :title="title" :close="false" :ui="{ content: 'max-w-xl' }" @update:open="emit('close')">
     <template #body>
-      <form id="saved-search" class="flex flex-col gap-5" @submit.prevent="submit">
-        <UInput
-          v-model="name"
-          autofocus
-          class="w-full"
-          :placeholder="$t('search.saved.name')"
-          :aria-label="$t('search.saved.name')"
-        />
+      <!-- Laid out like the settings: a framed list, the label on the left, the field on the right.
+           Muted, not default: in dark the default border is the modal's own background (both neutral-800). -->
+      <form id="saved-search" @submit.prevent="submit">
+        <ul class="divide-y divide-muted rounded-lg border border-muted">
+          <li class="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-3 sm:px-4">
+            <p class="w-28 shrink-0 text-sm">{{ $t('search.saved.name') }}</p>
+            <UInput
+              v-model="name"
+              autofocus
+              class="min-w-0 flex-1 max-sm:basis-full"
+              :aria-label="$t('search.saved.name')"
+            />
+          </li>
 
-        <div v-for="criterion in shown" :key="criterion" class="flex flex-col gap-2">
-          <div class="flex min-h-7 items-center gap-2">
-            <span class="me-auto text-sm font-medium">{{ labels[criterion] }}</span>
-            <!-- The mode sits above the field, not beside it: the chips of the field never push it out. -->
-            <USelectMenu
-              v-if="criterion === 'tags'"
-              v-model="tagMode"
-              :items="tagModeOptions"
-              value-key="value"
-              :search-input="false"
-              size="xs"
-              variant="ghost"
-              :aria-label="$t('search.saved.tagMode')"
-            />
-            <USelectMenu
-              v-else-if="criterion === 'folders'"
-              v-model="folderMode"
-              :items="folderModeOptions"
-              value-key="value"
-              :search-input="false"
-              size="xs"
-              variant="ghost"
-              :aria-label="$t('search.saved.folderMode')"
-            />
+          <li
+            v-for="criterion in shown"
+            :key="criterion"
+            class="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-3 sm:px-4"
+          >
+            <!-- The mode sits under the label, not beside the field: the chips of the field never push it out. -->
+            <div class="flex w-28 shrink-0 flex-col items-start">
+              <p class="text-sm">{{ labels[criterion] }}</p>
+              <USelectMenu
+                v-if="criterion === 'tags'"
+                v-model="tagMode"
+                :items="tagModeOptions"
+                value-key="value"
+                :search-input="false"
+                size="xs"
+                variant="ghost"
+                class="-ms-2 text-muted"
+                :ui="{ content: 'w-max' }"
+                :aria-label="$t('search.saved.tagMode')"
+              />
+              <USelectMenu
+                v-else-if="criterion === 'folders'"
+                v-model="folderMode"
+                :items="folderModeOptions"
+                value-key="value"
+                :search-input="false"
+                size="xs"
+                variant="ghost"
+                class="-ms-2 text-muted"
+                :aria-label="$t('search.saved.folderMode')"
+              />
+            </div>
+            <!-- On a phone the field goes on its own line, under the label and the remove button. -->
+            <div class="min-w-0 flex-1 max-sm:order-last max-sm:basis-full">
+              <UInput
+                v-if="criterion === 'text'"
+                v-model="text"
+                class="w-full"
+                :placeholder="$t('search.saved.textPlaceholder')"
+                :aria-label="labels.text"
+              />
+              <UInputMenu
+                v-else-if="criterion === 'tags'"
+                v-model="tagIds"
+                multiple
+                open-on-click
+                :items="tagOptions"
+                value-key="value"
+                class="w-full"
+                :placeholder="$t('search.saved.pickTags')"
+                :aria-label="labels.tags"
+                :ui="{ tagsItem: 'max-w-full' }"
+              />
+              <UInputMenu
+                v-else-if="criterion === 'folders'"
+                v-model="folderIds"
+                multiple
+                open-on-click
+                :items="folderOptions"
+                value-key="value"
+                class="w-full"
+                :placeholder="$t('search.saved.pickFolders')"
+                :aria-label="labels.folders"
+                :ui="{ tagsItem: 'max-w-full' }"
+              />
+              <DateRangeInput
+                v-else-if="criterion === 'created'"
+                v-model:from="createdFrom"
+                v-model:to="createdTo"
+                :label="labels.created"
+              />
+              <DateRangeInput v-else v-model:from="editedFrom" v-model:to="editedTo" :label="labels.edited" />
+            </div>
             <UButton
               :icon="icons.close"
-              size="xs"
               color="neutral"
               variant="ghost"
+              class="-mx-2 max-sm:ms-auto"
               :aria-label="$t('search.saved.removeCriterion', { name: labels[criterion] })"
               @click="remove(criterion)"
             />
-          </div>
+          </li>
 
-          <UInput
-            v-if="criterion === 'text'"
-            v-model="text"
-            class="w-full"
-            :placeholder="$t('search.saved.textPlaceholder')"
-            :aria-label="labels.text"
-          />
-          <UInputMenu
-            v-else-if="criterion === 'tags'"
-            v-model="tagIds"
-            multiple
-            open-on-click
-            :items="tagOptions"
-            value-key="value"
-            class="w-full"
-            :placeholder="$t('search.saved.pickTags')"
-            :aria-label="labels.tags"
-            :ui="{ tagsItem: 'max-w-full' }"
-          />
-          <UInputMenu
-            v-else-if="criterion === 'folders'"
-            v-model="folderIds"
-            multiple
-            open-on-click
-            :items="folderOptions"
-            value-key="value"
-            class="w-full"
-            :placeholder="$t('search.saved.pickFolders')"
-            :aria-label="labels.folders"
-            :ui="{ tagsItem: 'max-w-full' }"
-          />
-          <DateRangeInput
-            v-else-if="criterion === 'created'"
-            v-model:from="createdFrom"
-            v-model:to="createdTo"
-            :label="labels.created"
-          />
-          <DateRangeInput v-else v-model:from="editedFrom" v-model:to="editedTo" :label="labels.edited" />
-        </div>
-
-        <UDropdownMenu v-if="addMenu.length" :items="addMenu" :content="{ align: 'start' }">
-          <UButton
-            :icon="icons.add"
-            :label="$t('search.saved.addCriterion')"
-            color="neutral"
-            variant="ghost"
-            class="self-start"
-          />
-        </UDropdownMenu>
+          <li v-if="addMenu.length" class="px-2 py-1.5">
+            <UDropdownMenu :items="addMenu" :content="{ align: 'start' }">
+              <UButton :icon="icons.add" :label="$t('search.saved.addCriterion')" color="neutral" variant="ghost" />
+            </UDropdownMenu>
+          </li>
+        </ul>
       </form>
     </template>
     <template #footer>

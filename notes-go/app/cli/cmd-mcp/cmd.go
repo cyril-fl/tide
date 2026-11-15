@@ -201,6 +201,7 @@ func Serve(cobra *cobra.Command, _ []string) error {
 func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_notes",
+		Annotations: reads(),
 		Description: "Find the notes whose title or content contains a text, with the line where it was found: the first 50, title matches first, unless limit says otherwise.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, []apiclient.SearchnotesMatch, error) {
 		limit := searchLimit
@@ -213,6 +214,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "recent_notes",
+		Annotations: reads(),
 		Description: "List the notes changed most recently, newest first.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []apiclient.ListrecentRecent, error) {
 		recent, err := decode[[]apiclient.ListrecentRecent](client.GetApiRecent(ctx))
@@ -221,6 +223,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "read_note",
+		Annotations: reads(),
 		Description: "Read a note: its content, its path and its tags.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args noteArgs) (*mcp.CallToolResult, note, error) {
 		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
@@ -233,6 +236,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_folder",
+		Annotations: reads(),
 		Description: "List the notes and folders directly inside a folder.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args folderArgs) (*mcp.CallToolResult, []item, error) {
 		parentID, err := resolveFolder(ctx, client, args.Folder)
@@ -244,6 +248,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_note",
+		Annotations: writes(false, false),
 		Description: "Create a note from markdown content.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args createArgs) (*mcp.CallToolResult, note, error) {
 		parentID, err := resolveFolder(ctx, client, args.Folder)
@@ -261,6 +266,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "edit_note",
+		Annotations: writes(true, true),
 		Description: "Replace the content of a note. Read it first: nothing is kept of the old content. A locked note refuses.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args editArgs) (*mcp.CallToolResult, note, error) {
 		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
@@ -279,6 +285,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_folder",
+		Annotations: writes(false, false),
 		Description: "Create a folder.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args createFolderArgs) (*mcp.CallToolResult, item, error) {
 		parentID, err := resolveFolder(ctx, client, args.Folder)
@@ -291,6 +298,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "rename_folder",
+		Annotations: writes(false, true),
 		Description: "Change the title of a folder.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameFolderArgs) (*mcp.CallToolResult, item, error) {
 		id, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, args.Folder)
@@ -303,6 +311,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "move_item",
+		Annotations: writes(false, true),
 		Description: "Move a note or a folder into another folder. A folder takes its content with it.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args moveArgs) (*mcp.CallToolResult, []item, error) {
 		id, err := apiclient.Resolve(ctx, client, "", args.Item)
@@ -318,6 +327,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_note",
+		Annotations: writes(true, true),
 		Description: "Move a note to the trash, where restore_item can take it back.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args noteArgs) (*mcp.CallToolResult, []item, error) {
 		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
@@ -329,6 +339,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_folder",
+		Annotations: writes(true, true),
 		Description: "Move a folder and everything inside it to the trash, where restore_item can take it back.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args folderArgs) (*mcp.CallToolResult, []item, error) {
 		id, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, args.Folder)
@@ -340,6 +351,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_trash",
+		Annotations: reads(),
 		Description: "List what is in the trash, last removed first, with the uuid restore_item takes.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []apiclient.ListtrashTrashed, error) {
 		trash, err := decode[[]apiclient.ListtrashTrashed](client.GetApiTrash(ctx))
@@ -348,6 +360,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "restore_item",
+		Annotations: writes(false, true),
 		Description: "Take a note or a folder out of the trash, with everything removed at the same time as it.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args trashedArgs) (*mcp.CallToolResult, []item, error) {
 		// No resolve: a trashed item has no path to look up.
@@ -356,6 +369,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "tags",
+		Annotations: reads(),
 		Description: "List the notes carrying a tag, with their path. Without a tag, the account's tags, most used first. Tags of a note are set by create_note and edit_note.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagsArgs) (*mcp.CallToolResult, tags, error) {
 		if args.Tag == "" {
@@ -371,6 +385,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "rename_tag",
+		Annotations: writes(false, true),
 		Description: "Rename a tag on every note carrying it, in their text too.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, apiclient.DomainTag, error) {
 		renamed, err := decode[apiclient.DomainTag](client.PatchApiTagsValue(ctx, args.Tag, apiclient.EdittagBody{Value: args.To}))
@@ -379,6 +394,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "replace_notes",
+		Annotations: writes(true, false),
 		Description: "Replace a plain text in many notes at once, in one transaction, without rewriting them: locked notes are left and counted, and each note changed keeps its earlier text in note_history. With dry_run, only counts what it would change.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args replaceArgs) (*mcp.CallToolResult, apiclient.ReplacenotesResult, error) {
 		body := apiclient.ReplacenotesInput{Find: args.Find, Replace: args.Replace, DryRun: &args.DryRun}
@@ -395,6 +411,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_tag",
+		Annotations: writes(true, true),
 		Description: "Remove a tag from every note carrying it, in their text too. A note holding nothing but the tag goes to the trash.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagArgs) (*mcp.CallToolResult, []apiclient.DomainTag, error) {
 		deleted, err := decode[[]apiclient.DomainTag](client.DeleteApiTagsValue(ctx, args.Tag))
@@ -403,6 +420,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "note_history",
+		Annotations: reads(),
 		Description: "List the earlier texts of a note, newest first, or read one: what edit_note replaced.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args historyArgs) (*mcp.CallToolResult, history, error) {
 		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
@@ -422,6 +440,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "note_links",
+		Annotations: reads(),
 		Description: "List the notes a note links to, those linking to it, and those sharing its tags. Without a note, the broken links of every note.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args linksArgs) (*mcp.CallToolResult, links, error) {
 		if args.Note == "" {
@@ -442,6 +461,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 	// Out is any: a read answers the file as content (an image the agent sees), not as JSON.
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "read_file",
+		Annotations: reads(),
 		Description: "Read an image or attachment a note cites. Without a file, list the account's files, largest first.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args fileArgs) (*mcp.CallToolResult, any, error) {
 		if args.File == "" {
@@ -461,6 +481,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "attach_file",
+		Annotations: writes(false, false),
 		Description: "Store an image or attachment and answer the markdown citing it, to put in a note with create_note or edit_note.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args attachArgs) (*mcp.CallToolResult, attached, error) {
 		data, err := base64.StdEncoding.DecodeString(args.Data)
@@ -477,6 +498,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "export_notes",
+		Annotations: reads(),
 		Description: "Export notes as markdown files, [[links]] written back, their folders as directories.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args exportArgs) (*mcp.CallToolResult, []exported, error) {
 		folderID, err := resolveFolder(ctx, client, args.Folder)
@@ -514,6 +536,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "import_notes",
+		Annotations: writes(false, false),
 		Description: "Import markdown files as notes, their directories as folders, all or nothing: a folder name already taken refuses.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args importArgs) (*mcp.CallToolResult, apiclient.ImportnotesResult, error) {
 		parentID, err := resolveFolder(ctx, client, args.Folder)
@@ -535,6 +558,17 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 		result, err := decode[apiclient.ImportnotesResult](client.PostApiImportWithBody(ctx, &apiclient.PostApiImportParams{Parent: &parentID}, "application/zip", &body))
 		return nil, result, err
 	})
+}
+
+// reads marks a tool that changes nothing, so a client runs it without asking. Every tool stays in the account's notes.
+func reads() *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: new(false)}
+}
+
+// writes marks a tool that changes the notes: destructive when it deletes or overwrites (the client asks first, though
+// the trash and the history keep what it took), idempotent when calling it again with the same arguments changes nothing more.
+func writes(destructive, idempotent bool) *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{DestructiveHint: &destructive, IdempotentHint: idempotent, OpenWorldHint: new(false)}
 }
 
 // decode reads a JSON answer into the generated type of the route; any status but 2xx is the API's error.

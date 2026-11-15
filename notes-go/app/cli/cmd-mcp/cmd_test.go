@@ -78,6 +78,21 @@ func TestAddTools(t *testing.T) {
 		if tool.InputSchema == nil || tool.Description == "" {
 			t.Errorf("tool %q: schema %v, description %q", tool.Name, tool.InputSchema, tool.Description)
 		}
+		// The client asks before a destructive tool and runs a read-only one freely: a tool without hints is
+		// destructive by default, and one marked wrong deletes without asking.
+		a := tool.Annotations
+		switch {
+		case a == nil:
+			t.Errorf("tool %q: no annotations", tool.Name)
+		case strings.HasPrefix(tool.Name, "delete_") || tool.Name == "edit_note" || tool.Name == "replace_notes":
+			if a.ReadOnlyHint || a.DestructiveHint == nil || !*a.DestructiveHint {
+				t.Errorf("tool %q: %+v, want destructive", tool.Name, a)
+			}
+		case slices.Contains([]string{"search_notes", "read_note", "list_folder", "export_notes", "read_file"}, tool.Name):
+			if !a.ReadOnlyHint {
+				t.Errorf("tool %q: %+v, want read-only", tool.Name, a)
+			}
+		}
 	}
 	for _, want := range []string{"search_notes", "recent_notes", "read_note", "list_folder", "create_note", "edit_note", "create_folder", "rename_folder", "move_item", "delete_note", "delete_folder", "list_trash", "restore_item", "tags", "rename_tag", "replace_notes", "delete_tag", "note_history", "note_links", "read_file", "attach_file", "export_notes", "import_notes"} {
 		if !slices.Contains(names, want) {

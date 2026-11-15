@@ -16,7 +16,7 @@ import (
 )
 
 // Login asks the account's name and password and keeps the server and the session in the user's config folder, or
-// with --print-token prints a session of its own, for NOTES_SESSION, and keeps nothing.
+// with --print-token prints a session of its own, for TIDE_SESSION, and keeps nothing.
 func Login(cobra *cobra.Command, args []string) error {
 	var name, password string
 	print, _ := cobra.Flags().GetBool("print-token")
@@ -24,7 +24,7 @@ func Login(cobra *cobra.Command, args []string) error {
 		huh.NewInput().Title("Name").Value(&name),
 		huh.NewInput().Title("Password").EchoMode(huh.EchoModePassword).Value(&password),
 	)
-	// The form on stderr leaves stdout to the token alone, for NOTES_SESSION=$(notes login <url> --print-token).
+	// The form on stderr leaves stdout to the token alone, for TIDE_SESSION=$(tide login <url> --print-token).
 	if print && huhform.Input == nil {
 		form = form.WithOutput(os.Stderr)
 	}
@@ -57,7 +57,7 @@ func Login(cobra *cobra.Command, args []string) error {
 	return nil
 }
 
-// Logout ends the CLI's session, on the server and on disk; a NOTES_SESSION one on the server only, the file is
+// Logout ends the CLI's session, on the server and on disk; a TIDE_SESSION one on the server only, the file is
 // another. A session the server no longer knows is removed from disk all the same.
 func Logout(cobra *cobra.Command, args []string) error {
 	client, err := apiclient.Read().Client()
@@ -72,7 +72,7 @@ func Logout(cobra *cobra.Command, args []string) error {
 		return apiclient.Fail(response.HTTPResponse, response.Body)
 	}
 	if strings.TrimSpace(os.Getenv(config.Env("SESSION"))) == "" {
-		file, err := apiclient.SessionFile()
+		file, err := config.File("session.json")
 		if err != nil {
 			return err
 		}

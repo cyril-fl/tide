@@ -1,5 +1,5 @@
-// notes-server is the only binary on the base and Silo: the API and the web app, and the commands of its admin.
-// The CLI, notes, is a client of its API.
+// tide-server is the only binary on the base and Silo: the API and the web app, and the commands of its admin.
+// The CLI, tide, is a client of its API.
 package main
 
 import (

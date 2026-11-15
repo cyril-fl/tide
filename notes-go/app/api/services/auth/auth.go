@@ -107,6 +107,10 @@ func Token(r *http.Request) string {
 	if cookie, err := r.Cookie(Cookie); err == nil {
 		return cookie.Value
 	}
+	// TODO: the cookie of before Tide still logs in, remove it createsession.Lifetime after the server runs Tide.
+	if cookie, err := r.Cookie("notes_session"); err == nil {
+		return cookie.Value
+	}
 	return ""
 }
 

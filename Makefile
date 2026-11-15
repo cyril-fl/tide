@@ -33,7 +33,7 @@ PERF_PASSWORD := perf-password
 PERF_NOTES := 50000
 PERF_PORT := 8090
 perf: up
-	@echo "$(PERF_PASSWORD)" | docker exec -i note-api /notes-server user perf perf $(PERF_NOTES) --password-stdin
+	@echo "$(PERF_PASSWORD)" | docker exec -i note-api /tide-server user perf perf $(PERF_NOTES) --password-stdin
 	@cd notes-app && NUXT_PUBLIC_API_BASE= bun --bun run generate > $(CURDIR)/.build/perf-generate.log
 	@docker rm -f note-perf >/dev/null 2>&1 || true
 	@docker run -d --name note-perf --network notes-go_default --env-file notes-go/.env.docker -e CONFIG_FILE= \

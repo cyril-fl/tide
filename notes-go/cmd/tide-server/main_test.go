@@ -11,7 +11,7 @@ func TestNeedsDb(t *testing.T) {
 	zsh := &cobra.Command{Use: "zsh"}
 	request := &cobra.Command{Use: cobra.ShellCompRequestCmd}
 	completion.AddCommand(zsh)
-	root := &cobra.Command{Use: "notes-server"}
+	root := &cobra.Command{Use: "tide-server"}
 	root.AddCommand(completion, request)
 
 	tests := map[string]struct {

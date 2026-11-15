@@ -2,7 +2,9 @@ package config
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -19,7 +21,7 @@ import (
 var version string
 
 // Version comes from the build (the tag of an image, the git commit, or module version without one): nothing to keep
-// in sync by hand. notes and notes-server of one build answer the same.
+// in sync by hand. tide and tide-server of one build answer the same.
 func Version() string {
 	if version != "" {
 		return version
@@ -114,20 +116,44 @@ func load() (*config, error) {
 	return current, nil
 }
 
-// Env is the name of the app's environment variable key: NOTES_<key>, the prefix from the name.
+// Env is the name of the app's environment variable key: TIDE_<key>, the prefix from the name.
+// TODO: NOTES_<key> is read while TIDE_<key> is unset, remove it once the server's .env is migrated to TIDE_.
 func Env(key string) string {
-	return strings.ToUpper(Current.Name) + "_" + key
+	name := strings.ToUpper(Current.Name) + "_" + key
+	if _, set := os.LookupEnv(name); !set {
+		if _, set := os.LookupEnv("NOTES_" + key); set {
+			return "NOTES_" + key
+		}
+	}
+	return name
 }
 
-// Title is the name of the app as shown: Notes.
+// Title is the name of the app as shown: Tide.
 func Title() string {
 	return strings.ToUpper(Current.Name[:1]) + Current.Name[1:]
 }
 
-// Dir is the user's folder of the app, ~/.config/notes: its session and its .env.
+// Dir is the user's folder of the app, ~/.config/tide: its session and its .env.
 func Dir() (string, error) {
 	home, err := os.UserHomeDir()
 	return filepath.Join(home, ".config", Current.Name), err
+}
+
+// File is the file of Dir to read by that name, or the one of ~/.config/notes when Dir has none. Writes go to Dir.
+// TODO: ~/.config/notes is read while ~/.config/tide lacks the file, remove it once the server is migrated to Tide.
+func File(name string) (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	file := filepath.Join(dir, name)
+	if _, err := os.Stat(file); errors.Is(err, fs.ErrNotExist) {
+		old := filepath.Join(filepath.Dir(dir), "notes", name)
+		if _, err := os.Stat(old); err == nil {
+			return old, nil
+		}
+	}
+	return file, nil
 }
 
 // expand writes the name into the texts of the commands, which say {name} for the program and {NAME} for the prefix
@@ -147,8 +173,8 @@ func (c *config) expand() {
 // loadEnv reads the user file first: godotenv never overwrites a value, so the .env of whatever
 // project the CLI runs from cannot point it at another database.
 func loadEnv() {
-	if dir, err := Dir(); err == nil {
-		godotenv.Load(filepath.Join(dir, ".env"))
+	if file, err := File(".env"); err == nil {
+		godotenv.Load(file)
 	}
 	godotenv.Load()
 }

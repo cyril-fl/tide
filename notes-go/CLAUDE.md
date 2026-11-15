@@ -1,6 +1,6 @@
 # notes-go
 
-Go module `github.com/cyril-fl/notes/notes-go`, two binaries. `notes-server` (`cmd/notes-server/`, `app/server/`) is the only one on the base and Silo: the API (`notes-server serve`, `app/api/`) runs the processes of `app/shared/services/process/` on the models of `app/shared/domain/`, and it holds the admin's commands (`user add`, `user reset-password`, `rotate-secret`). `notes` (`cmd/notes/`, `go install …/notes-go/cmd/notes@latest`), the CLI (cobra, `cmd/` + `app/cli/`) and the MCP server for agents (`notes mcp`, `app/cli/cmd-mcp/`), is a client of the API only.
+Go module `github.com/cyril-fl/notes/notes-go`, two binaries. `tide-server` (`cmd/tide-server/`, `app/server/`) is the only one on the base and Silo: the API (`tide-server serve`, `app/api/`) runs the processes of `app/shared/services/process/` on the models of `app/shared/domain/`, and it holds the admin's commands (`user add`, `user reset-password`, `rotate-secret`). `tide` (`cmd/tide/`, `go install …/notes-go/cmd/tide@latest`), the CLI (cobra, `cmd/` + `app/cli/`) and the MCP server for agents (`tide mcp`, `app/cli/cmd-mcp/`), is a client of the API only.
 
 ## Commands
 
@@ -8,7 +8,7 @@ Go module `github.com/cyril-fl/notes/notes-go`, two binaries. `notes-server` (`c
 - `make api`: rebuilds and restarts the API container. The app talks to the old binary until then.
 - `make openapi` after an API change (swag comments), then `bun run types` in `notes-app/`.
 - `make backup` before touching data or the schema.
-- The CLI by hand: `set -a && . ./.env && set +a && CONFIG_FILE=$PWD/config/config.yaml go run ./cmd/notes <args>` (`./cmd/notes-server` for the server's). It acts for the account of the local CLI session: do not run `notes logout`, it deletes that session.
+- The CLI by hand: `set -a && . ./.env && set +a && CONFIG_FILE=$PWD/config/config.yaml go run ./cmd/tide <args>` (`./cmd/tide-server` for the server's). It acts for the account of the local CLI session: do not run `tide logout`, it deletes that session.
 
 ## Rules
 
@@ -16,6 +16,6 @@ Go module `github.com/cyril-fl/notes/notes-go`, two binaries. `notes-server` (`c
 - Every query filters by account: `domain.UserID(ctx)`. A `bun.Tx` hands its `RunInTx` functions the ctx it began with, so begin transactions with a ctx that has the account; tests use `ctx, tx = testaccount.New(t, ctx, tx)`.
 - **No migrations.** `createschema` creates missing tables, indexes and the columns a model gained (at every start, the server too). A rename, a type change or a NOT NULL column without a default needs a hand-written `ALTER` on every base (`make pgsql QUERY=...`, see the `notes-account-setting` skill). `RETURNING` lists the model's columns (`?Columns`), never `*`: an old column left in a base must not break a scan.
 - Sentinel errors are exported and wrapped with `%w`; the API maps them to statuses in `app/api/services/respond/respond.go`.
-- Periodic cleanups go into the `cleanup` of `notes-server serve` (`app/server/cmd-serve/cmd.go`, with `purgeitems` and `purgefiles`), run at startup then every hour.
+- Periodic cleanups go into the `cleanup` of `tide-server serve` (`app/server/cmd-serve/cmd.go`, with `purgeitems` and `purgefiles`), run at startup then every hour.
 - Images: a row in `files`, the bytes in Silo (S3, `compose.yaml`) through `services/silo.Store`, cited by notes as `/api/files/<id>`. Processes take the store as a parameter, tests pass `silo.NewMemory()`. `purgefiles` deletes what no note cites.
 - Domain structs: `bun.BaseModel` gets `json:"-"`, fields snake_case `json` tags (they are the API's JSON and the app's types).

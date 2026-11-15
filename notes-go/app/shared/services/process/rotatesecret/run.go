@@ -22,8 +22,8 @@ type cache struct {
 	rewrapped int
 }
 
-// Process seals the key of every account, sealed by oldSecret, by NOTES_SECRET instead: the notes stay as they are.
-// For the admin, after a new NOTES_SECRET; a second run finds nothing left. All or nothing: a key that neither
+// Process seals the key of every account, sealed by oldSecret, by TIDE_SECRET instead: the notes stay as they are.
+// For the admin, after a new TIDE_SECRET; a second run finds nothing left. All or nothing: a key that neither
 // secret opens stops it.
 func Process(ctx context.Context, db bun.IDB, oldSecret string) *run {
 	return &run{

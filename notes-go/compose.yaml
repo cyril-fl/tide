@@ -25,11 +25,11 @@ services:
     environment:
       # The file of .env.docker does not exist in the image: use the config built into the binary.
       CONFIG_FILE: ""
-    command: serve --addr :8080 --origin=${WEB_ORIGIN:-} --add-user-mode=${NOTES_ADD_USER_MODE:-invitation} --mcp-addr :8081 --mcp-published=${NOTES_MCP_LISTEN:-127.0.0.1:8081}
+    command: serve --addr :8080 --origin=${WEB_ORIGIN:-} --add-user-mode=${TIDE_ADD_USER_MODE:-invitation} --mcp-addr :8081 --mcp-published=${TIDE_MCP_LISTEN:-127.0.0.1:8081}
     # No authentication: this port must stay on the loopback. 8081 is the MCP over HTTP and its OAuth, an API token or a sign-in required.
     ports:
       - "127.0.0.1:8080:8080"
-      - "${NOTES_MCP_LISTEN:-127.0.0.1:8081}:8081"
+      - "${TIDE_MCP_LISTEN:-127.0.0.1:8081}:8081"
     depends_on:
       postgres:
         condition: service_healthy

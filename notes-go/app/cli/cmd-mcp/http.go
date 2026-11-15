@@ -14,7 +14,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Handler serves the tools over streamable HTTP to an agent that cannot run notes mcp where it runs (the Claude app
+// Handler serves the tools over streamable HTTP to an agent that cannot run tide mcp where it runs (the Claude app
 // calls from Anthropic's cloud): each request acts for the account of its API token, "Authorization: Bearer notes_…",
 // the tools calling api in process with it; an OAuth access token is one too. Without a valid API token, 401 with
 // where to sign in (oauth.Challenge): a session token is refused too, only an API token can be revoked alone and is

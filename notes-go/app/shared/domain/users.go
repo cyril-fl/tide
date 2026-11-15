@@ -18,7 +18,7 @@ type User struct {
 	ID           string `bun:",pk,type:uuid,default:gen_random_uuid()" json:"id"`
 	Name         string `bun:",notnull" json:"name"` // unique case-insensitive, see createschema
 	PasswordHash string `bun:",notnull" json:"-"`
-	DataKey      string `bun:",nullzero" json:"-"`                          // the key of its notes sealed by NOTES_SECRET, see services/secret
+	DataKey      string `bun:",nullzero" json:"-"`                          // the key of its notes sealed by TIDE_SECRET, see services/secret
 	Locale       string `bun:",notnull,default:'fr'" json:"locale"`         // the language of the web app, one of Locales
 	Theme        string `bun:",notnull,default:'notes'" json:"theme"`       // the colors of the web app, one of Themes
 	ColorMode    string `bun:",notnull,default:'system'" json:"color_mode"` // light or dark, one of ColorModes

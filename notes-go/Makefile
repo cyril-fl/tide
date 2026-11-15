@@ -21,7 +21,7 @@ test:
 backup:
 	@mkdir -p backups
 	@set -a && . ./.env && set +a && \
-	file=backups/notes-$$(date +%Y%m%d-%H%M%S); \
+	file=backups/tide-$$(date +%Y%m%d-%H%M%S); \
 	docker compose exec -T postgres sh -c 'pg_dump --clean --if-exists -U "$$POSTGRES_USER" "$$POSTGRES_DB"' > $$file.tmp \
 		&& mv $$file.tmp $$file.sql && echo $$file.sql \
 		|| { rm -f $$file.tmp; exit 1; }; \
@@ -41,16 +41,17 @@ purge:
 		&& mcli rm --recursive --force --quiet local/'"$$S3_BUCKET"
 
 # Logs the CLI in to a server, the commands acting there until the next connect: `make connect TO=fedora` (the
-# server at NOTES_FEDORA_URL of .env) or `make connect TO=local` (the API of `make api`).
+# server at TIDE_FEDORA_URL of .env) or `make connect TO=local` (the API of `make api`).
+# TODO: NOTES_FEDORA_URL is read while TIDE_FEDORA_URL is unset, remove it with the NOTES_ fallback of config.Env.
 connect:
 	@set -a && . ./.env && set +a && \
 	case "$(TO)" in \
-		fedora) url=$$NOTES_FEDORA_URL ;; \
+		fedora) url=$${TIDE_FEDORA_URL:-$$NOTES_FEDORA_URL} ;; \
 		local) url=http://localhost:8080 ;; \
 		*) echo "usage: make connect TO=fedora|local"; exit 1 ;; \
 	esac; \
-	test -n "$$url" || { echo "set NOTES_FEDORA_URL in .env"; exit 1; }; \
-	go run ./cmd/notes login "$$url" && go run ./cmd/notes whoami
+	test -n "$$url" || { echo "set TIDE_FEDORA_URL in .env"; exit 1; }; \
+	go run ./cmd/tide login "$$url" && go run ./cmd/tide whoami
 
 # psql on the base: `make pgsql` opens it, `make pgsql QUERY="ALTER TABLE ..."` runs one statement and stops at an error.
 pgsql:

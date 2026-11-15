@@ -20,7 +20,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/testaccount"
 )
 
-// Rewrap itself is tested in services/secret: here, keys already sealed by NOTES_SECRET stay, and one no secret
+// Rewrap itself is tested in services/secret: here, keys already sealed by TIDE_SECRET stay, and one no secret
 // opens stops everything.
 func TestRotateSecret(t *testing.T) {
 	ctx := context.Background()
@@ -46,7 +46,7 @@ func TestRotateSecret(t *testing.T) {
 	process := Process(ctx, tx, old)
 	process.Run()
 	if process.HasErr() || process.GetResult() != 0 {
-		t.Fatalf("rewrapped = %d, err = %v; want none, the key is sealed by NOTES_SECRET", process.GetResult(), process.GetErr())
+		t.Fatalf("rewrapped = %d, err = %v; want none, the key is sealed by TIDE_SECRET", process.GetResult(), process.GetErr())
 	}
 
 	if _, err := tx.NewUpdate().Model((*domain.User)(nil)).Set("data_key = 'bm90IGEga2V5'").Where("id = ?", domain.UserID(ctx)).Exec(ctx); err != nil {

@@ -1,6 +1,6 @@
 // Package secret encrypts what the base keeps of the notes (AES-256-GCM): a stolen base, backup or disk is unreadable
-// without the server's key NOTES_SECRET. Not a compromised server: it holds the key.
-// Each account has its own random key, kept in users.data_key sealed by NOTES_SECRET: changing NOTES_SECRET only seals
+// without the server's key TIDE_SECRET. Not a compromised server: it holds the key.
+// Each account has its own random key, kept in users.data_key sealed by TIDE_SECRET: changing TIDE_SECRET only seals
 // those again (Rewrap), not every note.
 package secret
 
@@ -90,8 +90,8 @@ func Forget(userID string) {
 	keys.Delete(userID)
 }
 
-// Rewrap gives back the key of an account sealed by oldSecret, sealed by NOTES_SECRET instead; unchanged when
-// NOTES_SECRET opens it already.
+// Rewrap gives back the key of an account sealed by oldSecret, sealed by TIDE_SECRET instead; unchanged when
+// TIDE_SECRET opens it already.
 func Rewrap(wrapped, oldSecret string) (string, error) {
 	gcm, err := master()
 	if err != nil {

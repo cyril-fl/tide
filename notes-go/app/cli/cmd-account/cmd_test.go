@@ -131,7 +131,7 @@ func run(t *testing.T, ctx context.Context, runE func(*cobra.Command, []string) 
 	return string(printed), runErr
 }
 
-// addUser creates the account with the password "a password", as notes-server user add does.
+// addUser creates the account with the password "a password", as tide-server user add does.
 func addUser(ctx context.Context, name string) (domain.User, error) {
 	process := adduser.Process(ctx, postgrey.GetDb(), adduser.Input{Name: name, Password: "a password"})
 	process.Run()
@@ -292,7 +292,7 @@ func TestSession(t *testing.T) {
 	}
 }
 
-// --print-token prints a session of its own and keeps no file; NOTES_SESSION then wins over the file, and logout ends
+// --print-token prints a session of its own and keeps no file; TIDE_SESSION then wins over the file, and logout ends
 // that session only, the file's staying.
 func TestPrintToken(t *testing.T) {
 	ctx := setup(t)
@@ -326,21 +326,21 @@ func TestPrintToken(t *testing.T) {
 
 	t.Setenv(config.Env("SESSION"), token+"\n")
 	if read := apiclient.Read().Token; read != token {
-		t.Errorf("token = %q, want NOTES_SESSION's", read)
+		t.Errorf("token = %q, want TIDE_SESSION's", read)
 	}
 	if _, err := withAccount(ctx); err != nil {
-		t.Errorf("act through NOTES_SESSION: %v", err)
+		t.Errorf("act through TIDE_SESSION: %v", err)
 	}
 	if _, err := run(t, ctx, Logout, ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := withAccount(ctx); !errors.Is(err, readsession.ErrNoSession) {
-		t.Errorf("NOTES_SESSION after logout: err = %v, want %v", err, readsession.ErrNoSession)
+		t.Errorf("TIDE_SESSION after logout: err = %v, want %v", err, readsession.ErrNoSession)
 	}
 
 	t.Setenv(config.Env("SESSION"), "")
 	if _, err := withAccount(ctx); err != nil {
-		t.Errorf("the file's session after logging NOTES_SESSION out: %v, want it kept", err)
+		t.Errorf("the file's session after logging TIDE_SESSION out: %v, want it kept", err)
 	}
 }
 

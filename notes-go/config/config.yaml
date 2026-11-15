@@ -1,4 +1,4 @@
-name: "notes"
+name: "tide"
 commands:
   create:
     use: "add"
@@ -223,7 +223,7 @@ commands:
   delete-token:
     use: "token <uuid>"
     short: "Revoke an API token of the account"
-    long: "Revoke an API token: it stops working at once. Its uuid is in notes show token."
+    long: "Revoke an API token: it stops working at once. Its uuid is in {name} show token."
     example: "{name} remove token 3f2a4b1c-0d9e-4a8b-9c7d-1e2f3a4b5c6d"
   move:
     use: "move <uuid|path>..."

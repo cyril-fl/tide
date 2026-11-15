@@ -1,5 +1,5 @@
 // Package apiclient is the CLI's client of the API: client.gen.go is generated from docs/swagger.yaml by make openapi,
-// this file keeps the server and the session of notes login.
+// this file keeps the server and the session of tide login.
 package apiclient
 
 import (
@@ -16,13 +16,14 @@ import (
 
 var ErrNoSession = errors.New("not logged in: run " + config.Current.Name + " login <url>")
 
-// Session is the server and the session token of notes login, or of NOTES_URL and NOTES_SESSION.
+// Session is the server and the session token of tide login, or of TIDE_URL and TIDE_SESSION.
 type Session struct {
 	URL   string `json:"url"`
 	Token string `json:"token"`
 }
 
-// SessionFile keeps the session, readable by the user only: the token opens the whole account.
+// SessionFile keeps the session, readable by the user only: the token opens the whole account. Read and logout take
+// the one of config.File, which may be the old ~/.config/notes.
 func SessionFile() (string, error) {
 	dir, err := config.Dir()
 	if err != nil {
@@ -31,11 +32,11 @@ func SessionFile() (string, error) {
 	return filepath.Join(dir, "session.json"), nil
 }
 
-// Read takes NOTES_URL and NOTES_SESSION first, each on its own, for an agent that cannot run notes login where it
+// Read takes TIDE_URL and TIDE_SESSION first, each on its own, for an agent that cannot run tide login where it
 // runs, then the file; what is missing stays empty.
 func Read() Session {
 	var session Session
-	if file, err := SessionFile(); err == nil {
+	if file, err := config.File("session.json"); err == nil {
 		if data, err := os.ReadFile(file); err == nil {
 			_ = json.Unmarshal(data, &session)
 		}
@@ -62,7 +63,16 @@ func (s Session) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(file, data, 0o600)
+	// TODO: the old session of ~/.config/notes would come back after a logout, remove this with config.File's
+	// fallback once the server is migrated to Tide.
+	old, _ := config.File("session.json")
+	if err := os.WriteFile(file, data, 0o600); err != nil {
+		return err
+	}
+	if old != file {
+		_ = os.Remove(old)
+	}
+	return nil
 }
 
 // Client talks to the session's server as its account.

@@ -1,10 +1,10 @@
 # MCP : donner les notes à un agent
 
-`notes mcp` est la troisième façade sur les notes, à côté de la CLI et de l'API : un serveur MCP qui
+`tide mcp` est la troisième façade sur les notes, à côté de la CLI et de l'API : un serveur MCP qui
 donne à un agent (Claude Code, Claude Desktop, tout client MCP) des outils pour chercher, lire,
 écrire, ranger et supprimer les notes d'un compte, avec leurs fichiers, leur historique et leurs liens.
 
-`notes mcp` n'écoute sur aucun port et n'a pas de routes. C'est un client de l'API,
+`tide mcp` n'écoute sur aucun port et n'a pas de routes. C'est un client de l'API,
 comme le reste de la CLI : chaque outil devient une requête au serveur, avec le jeton de la session.
 Pour un agent qui ne peut pas lancer de commande, l'app Claude sur téléphone ou ChatGPT par exemple, le serveur sert
 les mêmes outils en HTTP, authentifiés par un jeton d'API ou une connexion OAuth : section 4. Les trois points à comprendre sont donc ailleurs : **comment l'agent le lance**,
@@ -12,39 +12,39 @@ les mêmes outils en HTTP, authentifiés par un jeton d'API ou une connexion OAu
 
 ## 1. Comment l'agent le lance
 
-Le transport est **stdio** : le client MCP démarre `notes mcp` comme sous-processus et échange du
+Le transport est **stdio** : le client MCP démarre `tide mcp` comme sous-processus et échange du
 JSON-RPC sur son entrée et sa sortie standard. Rien d'autre ne doit être écrit sur stdout, ce qui
 casserait le dialogue.
 
-Conséquence : **on ne lance pas `notes mcp` à la main** pour s'en servir. C'est le client qui le
+Conséquence : **on ne lance pas `tide mcp` à la main** pour s'en servir. C'est le client qui le
 démarre, l'arrête et parle avec lui. Il faut donc seulement le déclarer chez le client, et le faire
 tourner là où le serveur est joignable (voir « Vérifier que ça marche » pour le tester sans client).
 
-### Le binaire `notes`
+### Le binaire `tide`
 
-`go install github.com/cyril-fl/notes/notes-go/cmd/notes@latest` l'installe dans `$(go env GOPATH)/bin`.
+`go install github.com/cyril-fl/notes/notes-go/cmd/tide@latest` l'installe dans `$(go env GOPATH)/bin`.
 Chez un client MCP, donne-le en chemin absolu : un client lancé depuis le Finder n'a pas le `PATH` du
 shell.
 
 ```sh
-echo "$(go env GOPATH)/bin/notes"   # le chemin à donner au client
+echo "$(go env GOPATH)/bin/tide"   # le chemin à donner au client
 ```
 
 ### L'environnement : en général, n'en donner aucun
 
-`notes mcp` n'a besoin que de la session de `notes login` (section 2) : ni base, ni `NOTES_SECRET`, ni
-Silo de son côté, tout passe par le serveur. Si `notes whoami` répond dans un terminal, le MCP
+`tide mcp` n'a besoin que de la session de `tide login` (section 2) : ni base, ni `TIDE_SECRET`, ni
+Silo de son côté, tout passe par le serveur. Si `tide whoami` répond dans un terminal, le MCP
 marchera **sans aucune variable** chez le client :
 
 ```sh
-claude mcp add notes -- "$(go env GOPATH)/bin/notes" mcp
+claude mcp add tide -- "$(go env GOPATH)/bin/tide" mcp
 ```
 
 Codex (`~/.codex/config.toml`) :
 
 ```toml
-[mcp_servers.notes]
-command = "/Users/<moi>/go/bin/notes"   # le chemin donné par la commande plus haut
+[mcp_servers.tide]
+command = "/Users/<moi>/go/bin/tide"   # le chemin donné par la commande plus haut
 args = ["mcp"]
 ```
 
@@ -53,62 +53,62 @@ args = ["mcp"]
 ```json
 {
   "mcpServers": {
-    "notes": { "command": "/Users/<moi>/go/bin/notes", "args": ["mcp"] }
+    "tide": { "command": "/Users/<moi>/go/bin/tide", "args": ["mcp"] }
   }
 }
 ```
 
-**Le piège : une variable donnée par le client gagne toujours sur `~/.config/notes/session.json`.**
-Un bloc `env` recopié d'une autre installation, avec un `NOTES_URL` ou un `NOTES_SESSION`, envoie
+**Le piège : une variable donnée par le client gagne toujours sur `~/.config/tide/session.json`.**
+Un bloc `env` recopié d'une autre installation, avec un `TIDE_URL` ou un `TIDE_SESSION`, envoie
 donc le MCP vers un autre serveur ou un autre compte, même si la session de la machine est juste.
 
-Les variables de la base (`POSTGRES_*`, `PORT`, `NOTES_SECRET`) et de Silo (`S3_*`) ne servent plus à
-`notes mcp` : elles ne regardent que le serveur et les commandes d'admin.
+Les variables de la base (`POSTGRES_*`, `PORT`, `TIDE_SECRET`) et de Silo (`S3_*`) ne servent plus à
+`tide mcp` : elles ne regardent que le serveur et les commandes d'admin.
 
 ## 2. Pour quel compte il agit
 
-Il n'y a **ni port, ni jeton, ni mot de passe à passer** dans sa configuration. `notes mcp` parle à
+Il n'y a **ni port, ni jeton, ni mot de passe à passer** dans sa configuration. `tide mcp` parle à
 l'API comme le reste de la CLI, au serveur et pour le compte de la **session CLI de la machine** —
-l'URL et le jeton écrits par `notes login <url>` dans `~/.config/notes/session.json`, en `0600`.
+l'URL et le jeton écrits par `tide login <url>` dans `~/.config/tide/session.json`, en `0600`.
 
 L'agent n'est donc jamais « connecté » à quoi que ce soit, et ne voit ni mot de passe ni jeton : il
 appelle `create_note`, et le serveur agit déjà pour le compte. La seule chose à faire est un
-`notes login`, **une fois**, sur la machine et sous l'utilisateur Unix qui lancera l'agent :
+`tide login`, **une fois**, sur la machine et sous l'utilisateur Unix qui lancera l'agent :
 
 ```sh
-notes login https://notes.example.ts.net
+tide login https://notes.example.ts.net
 ```
 
 - La session est **par utilisateur Unix**, pas par machine : si l'agent tourne sous un utilisateur de
   service ou sous `root`, c'est sous celui-là qu'il faut se connecter.
 - Elle dure **30 jours glissants**, chaque usage la relance : un agent qui s'en sert régulièrement ne
   la perd pas. Expirée, les outils répondent `not logged in, or the session expired`, et il suffit de
-  refaire `notes login <url>`. Sans session du tout, `notes mcp` ne démarre pas
-  (`not logged in: run notes login <url>`) et le client l'annonce en échec.
-- `notes logout` la supprime : à ne pas lancer sur une machine dont un agent dépend.
+  refaire `tide login <url>`. Sans session du tout, `tide mcp` ne démarre pas
+  (`not logged in: run tide login <url>`) et le client l'annonce en échec.
+- `tide logout` la supprime : à ne pas lancer sur une machine dont un agent dépend.
 
 ### Quand on ne peut pas se connecter là où l'agent tourne
 
-Un agent dans un conteneur ou hébergé ailleurs n'a pas de shell pour `notes login`, ni de home
-persistant pour le fichier. Il prend alors le jeton dans **`NOTES_SESSION`** et le serveur dans
-**`NOTES_URL`**, lues avant le fichier (le fichier reste le cas normal). Le jeton se demande là où l'on peut se connecter :
+Un agent dans un conteneur ou hébergé ailleurs n'a pas de shell pour `tide login`, ni de home
+persistant pour le fichier. Il prend alors le jeton dans **`TIDE_SESSION`** et le serveur dans
+**`TIDE_URL`**, lues avant le fichier (le fichier reste le cas normal). Le jeton se demande là où l'on peut se connecter :
 
 ```sh
-notes login https://notes.example.ts.net --print-token
+tide login https://notes.example.ts.net --print-token
 ```
 
 Il crée une session **à part**, l'affiche et n'écrit rien : celle de la machine n'est pas touchée.
-Le formulaire s'affiche sur stderr, stdout ne porte que le jeton : `NOTES_SESSION=$(notes login <url>
+Le formulaire s'affiche sur stderr, stdout ne porte que le jeton : `TIDE_SESSION=$(tide login <url>
 --print-token)` le range directement dans une variable, sans qu'il passe par l'écran. Le
 jeton n'est lié à aucune machine (la base n'en garde que le hash), il se donne donc à l'agent par son
 environnement :
 
 ```sh
-NOTES_URL=https://notes.example.ts.net NOTES_SESSION='<le-jeton>' notes mcp
+TIDE_URL=https://notes.example.ts.net TIDE_SESSION='<le-jeton>' tide mcp
 ```
 
 - Elle vit comme les autres : **30 jours glissants**, relancée à chaque usage.
-- Pour la couper : `NOTES_SESSION='<le-jeton>' notes logout`. Seule cette session part, le fichier
+- Pour la couper : `TIDE_SESSION='<le-jeton>' tide logout`. Seule cette session part, le fichier
   de la machine reste.
 
 **Ce jeton ouvre le compte entier.** Il se traite comme un mot de passe : il ne va **pas** dans un
@@ -119,9 +119,9 @@ client.
 
 ### Ce que ça implique
 
-Tout agent capable de lancer `notes mcp` sur cette machine a **tous les droits du compte connecté**,
+Tout agent capable de lancer `tide mcp` sur cette machine a **tous les droits du compte connecté**,
 écriture et suppression comprises. La garantie est celle de l'utilisateur Unix, exactement comme pour
-`notes show note`. Il n'y a ni compte réservé aux agents, ni droits en lecture seule, ni partage
+`tide show note`. Il n'y a ni compte réservé aux agents, ni droits en lecture seule, ni partage
 entre comptes : c'est le compte, en entier. La lecture seule existe pour le MCP en HTTP seulement, avec
 un jeton d'API ou une connexion OAuth en lecture seule (section 4).
 
@@ -213,34 +213,34 @@ Chaque outil porte des annotations MCP, pour que le client demande confirmation 
 
 L'app Claude (téléphone, web, Desktop) et ChatGPT n'appellent pas le serveur MCP depuis l'appareil mais
 **depuis leur cloud** : il doit être joignable depuis Internet, Tailscale seul ne suffit pas. Pour ça,
-`notes-server serve --mcp-addr <adresse>` sert les mêmes outils en HTTP (transport « streamable HTTP »),
+`tide-server serve --mcp-addr <adresse>` sert les mêmes outils en HTTP (transport « streamable HTTP »),
 sur une **adresse à part** qui n'a que `/mcp` et la connexion OAuth qui va avec (section suivante).
 C'est cette adresse, et elle seule, qu'on ouvre à Internet : l'API et l'app restent derrière Tailscale
 ou le proxy habituel.
 
-`compose.prod.yaml` l'active sur le port 8081 du conteneur, publié sur `NOTES_MCP_LISTEN`
+`compose.prod.yaml` l'active sur le port 8081 du conteneur, publié sur `TIDE_MCP_LISTEN`
 (`127.0.0.1:8081` par défaut, donc fermé tant qu'aucun tunnel ne pointe dessus). `--mcp-published`
 reçoit cette même adresse : sur le loopback, seul un tunnel local y arrive, et le serveur lit l'adresse
 du client dans `X-Forwarded-For` (le délai après les mauvais mots de passe ne bloque que lui).
 Si 8081 est déjà pris sur la machine (`address already in use` au démarrage, et le conteneur reste
-arrêté), un autre port dans `.env`, `NOTES_MCP_LISTEN=127.0.0.1:8083`, et le tunnel pointe dessus.
+arrêté), un autre port dans `.env`, `TIDE_MCP_LISTEN=127.0.0.1:8083`, et le tunnel pointe dessus.
 
 ### Deux façons de s'authentifier
 
 Chaque requête sur `/mcp` porte `Authorization: Bearer notes_…`. Ce jeton vient de l'une de deux sources :
 
-- **Un jeton d'API**, créé par `notes add token "Claude téléphone" --expires 30d` ou dans Réglages >
+- **Un jeton d'API**, créé par `tide add token "Claude téléphone" --expires 30d` ou dans Réglages >
   Compte de l'app (montré une seule fois), puis collé dans le client. Pour un client qui accepte un
   en-tête fixe.
-- **Une connexion OAuth** : le client ne demande que l'URL, ouvre une page de connexion de Notes, et
+- **Une connexion OAuth** : le client ne demande que l'URL, ouvre une page de connexion de Tide, et
   reçoit ses jetons tout seul. Pour ChatGPT, qui n'accepte pas d'en-tête fixe, et pour Claude par
   « Connect ».
 
 Sans jeton, avec un jeton inconnu, expiré ou révoqué, ou avec un jeton de **session**, la réponse est
 401 avant tout outil, avec `WWW-Authenticate: Bearer resource_metadata="…"` qui dit au client où se
-connecter. Un jeton d'API ou une connexion se révoque à part (`notes remove token <uuid>`, ou Réglages >
+connecter. Un jeton d'API ou une connexion se révoque à part (`tide remove token <uuid>`, ou Réglages >
 Compte) et reste interdit sur les routes du compte (jetons, mot de passe, réglages). L'agent a sinon
-tous les droits du compte sur ses notes, comme `notes mcp`, **sauf en lecture seule** : un jeton créé
+tous les droits du compte sur ses notes, comme `tide mcp`, **sauf en lecture seule** : un jeton créé
 avec `--read-only` (la case « Lecture seule » de l'app), ou une connexion dont la case « Lecture seule »
 a été cochée, ne reçoit que les outils de lecture (ceux à `readOnlyHint`), et l'API lui refuse toute
 modification (403). Le serveur ne garde aucune session MCP entre deux requêtes, et ne journalise pas
@@ -248,7 +248,7 @@ les jetons.
 
 ### La connexion OAuth
 
-Notes est son propre serveur d'autorisation OAuth 2.1, comme le décrit la spécification MCP, sur la
+Tide est son propre serveur d'autorisation OAuth 2.1, comme le décrit la spécification MCP, sur la
 même adresse que `/mcp` :
 
 | Route | Rôle |
@@ -259,7 +259,7 @@ même adresse que `/mcp` :
 | `/authorize` | La page de connexion et de consentement |
 | `/token` | Échange le code contre des jetons, puis les renouvelle |
 
-Le déroulé, côté utilisateur : on donne l'URL `…/mcp` au client, il ouvre la page de Notes, on y tape le
+Le déroulé, côté utilisateur : on donne l'URL `…/mcp` au client, il ouvre la page de Tide, on y tape le
 nom du compte et son mot de passe, on coche « Lecture seule » si on veut, puis « Autoriser ». La page
 affiche le nom que le client s'est donné et l'**hôte** où le code repart (`chatgpt.com`, `claude.ai`,
 `localhost:…`) : c'est cet hôte qui dit à qui l'accès est donné, le nom peut être n'importe quoi.
@@ -272,7 +272,7 @@ affiche le nom que le client s'est donné et l'**hôte** où le code repart (`ch
 - **Les jetons** : un jeton d'accès d'une heure (un jeton d'API, `notes_…`), et un jeton de
   renouvellement de 90 jours, remplacé à chaque usage, qui repart pour 90 jours. Un client utilisé au
   moins une fois tous les trois mois reste donc connecté.
-- **La liste** : chaque connexion est une ligne de Réglages > Compte et de `notes show token`, au nom du
+- **La liste** : chaque connexion est une ligne de Réglages > Compte et de `tide show token`, au nom du
   client, marquée OAuth, avec la fin de sa connexion. La révoquer coupe les deux jetons : le client
   doit refaire la connexion.
 - **Les mauvais mots de passe** de la page comptent avec ceux de la connexion à l'app, par adresse, en
@@ -300,7 +300,7 @@ Le serveur parle HTTP simple : le tunnel ou le proxy devant fournit le HTTPS. Il
 ### Le déclarer dans Claude
 
 Réglages > Connecteurs > « Add custom connector » : l'URL ci-dessus (finie par `/mcp`), rien d'autre,
-puis « Connect » : la page de Notes s'ouvre. Claude revient sur `https://claude.ai/api/mcp/auth_callback`.
+puis « Connect » : la page de Tide s'ouvre. Claude revient sur `https://claude.ai/api/mcp/auth_callback`.
 Le connecteur apparaît ensuite sur le téléphone avec le même compte Claude.
 
 Avec un jeton d'API à la place : dans « Request headers », l'en-tête `Authorization` avec la valeur
@@ -311,7 +311,7 @@ section n'apparaît pas, c'est OAuth.
 
 ChatGPT ne propose qu'OAuth ou rien. Réglages > Apps > Avancé > « Developer mode », puis créer une app
 (ou connecteur) avec l'URL `…/mcp` et l'authentification OAuth, sans identifiant ni secret de client :
-ChatGPT s'enregistre seul, ouvre la page de Notes, et revient sur
+ChatGPT s'enregistre seul, ouvre la page de Tide, et revient sur
 `https://chatgpt.com/connector_platform_oauth_redirect`. ChatGPT demande confirmation avant chaque
 outil qui écrit (ceux sans `readOnlyHint`). OpenAI ne dit pas clairement quels abonnements ont le
 Developer mode et l'écriture (Plus et Pro seraient limités selon certaines sources) : l'essayer sur le
@@ -321,12 +321,12 @@ compte.
 
 Trois façons, de la plus simple à la plus générale :
 
-1. **Le client lance une commande** (Claude Code, Codex, Cursor, un agent en local) : `notes mcp` en
+1. **Le client lance une commande** (Claude Code, Codex, Cursor, un agent en local) : `tide mcp` en
    stdio, sections 1 et 2. Rien à ouvrir à Internet.
 2. **Le client accepte un en-tête** : l'URL `…/mcp` et `Authorization: Bearer notes_…`, un jeton
    d'API (en lecture seule si l'agent n'a qu'à lire).
 3. **Le client sait faire OAuth** (MCP « remote » avec connexion) : l'URL `…/mcp` seule. Il trouve le
-   reste par le 401 et les `/.well-known`, s'enregistre, ouvre la page de Notes dans le navigateur,
+   reste par le 401 et les `/.well-known`, s'enregistre, ouvre la page de Tide dans le navigateur,
    et renouvelle ses jetons tout seul.
 
 Pour vérifier depuis un terminal, sans client :
@@ -369,7 +369,7 @@ JSON en retour : il marche. Rien, ou une erreur : c'est la session ou le serveur
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}' \
   '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"recent_notes","arguments":{}}}'
-  sleep 3; } | notes mcp
+  sleep 3; } | tide mcp
 ```
 
 Le `sleep` garde l'entrée ouverte le temps des réponses : sans lui, le serveur s'arrête avant d'avoir
@@ -377,8 +377,8 @@ répondu.
 
 Quand il échoue, dans l'ordre :
 
-1. **La session** : `notes whoami` sous l'utilisateur Unix qui lance l'agent dit pour quel compte
-   et quel serveur il agit. Rien : `notes login <url>`, ou `NOTES_URL` et `NOTES_SESSION`.
-2. **Le client lui donne-t-il un bloc `env`** avec un `NOTES_URL` ou un `NOTES_SESSION` ? Ils gagnent
+1. **La session** : `tide whoami` sous l'utilisateur Unix qui lance l'agent dit pour quel compte
+   et quel serveur il agit. Rien : `tide login <url>`, ou `TIDE_URL` et `TIDE_SESSION`.
+2. **Le client lui donne-t-il un bloc `env`** avec un `TIDE_URL` ou un `TIDE_SESSION` ? Ils gagnent
    sur le fichier : une valeur périmée masque une session valide (voir le piège, section 1).
 3. **Le serveur est-il joignable** depuis la machine de l'agent (Tailscale allumé, URL juste) ?

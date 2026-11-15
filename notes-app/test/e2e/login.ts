@@ -3,7 +3,7 @@ import { API, APP, SESSION } from '../../playwright.config';
 
 /**
  * Logs the e2e account in once, before the tests. Make it after yours (the first account takes the notes made
- * before accounts): notes-server user add e2e, password E2E_PASSWORD (e2e-password by default).
+ * before accounts): tide-server user add e2e, password E2E_PASSWORD (e2e-password by default).
  */
 export default async function login() {
   const api = await request.newContext({ baseURL: API, extraHTTPHeaders: { Origin: APP } });
@@ -12,7 +12,7 @@ export default async function login() {
   });
   if (!response.ok())
     throw new Error(
-      `e2e login: ${response.status()} ${await response.text()}: create the account with notes-server user add e2e`,
+      `e2e login: ${response.status()} ${await response.text()}: create the account with tide-server user add e2e`,
     );
   await api.storageState({ path: SESSION });
   await api.dispose();

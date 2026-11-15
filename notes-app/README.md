@@ -21,7 +21,7 @@ cd ../notes-app && bun install && bun run dev   # http://localhost:3000
 
 Do open `localhost`, not `127.0.0.1`: the API compares the origin exactly. `NUXT_PUBLIC_API_BASE` changes the address of the API.
 
-The app asks you to log in. Without a session, it opens the login page, then goes back to the requested page. The account comes from an invitation link sent by an admin, from the server (`notes-server user add <name>`, see the `notes-go` README), or from the account creation page when the server opens it to everyone (`NOTES_ADD_USER_MODE=public`): the login page then shows a link to it, and hides it otherwise. On a database that is still empty, the login page leads straight to the creation of the first account, which becomes admin. The avatar at the bottom of the sidebar, collapsed or not, opens a menu: Account, Settings, Log out. The Account page changes the avatar (an image of the account, the initials without one), the name and the password. Changing the password logs out the other devices.
+The app asks you to log in. Without a session, it opens the login page, then goes back to the requested page. The account comes from an invitation link sent by an admin, from the server (`tide-server user add <name>`, see the `notes-go` README), or from the account creation page when the server opens it to everyone (`TIDE_ADD_USER_MODE=public`): the login page then shows a link to it, and hides it otherwise. On a database that is still empty, the login page leads straight to the creation of the first account, which becomes admin. The avatar at the bottom of the sidebar, collapsed or not, opens a menu: Account, Settings, Log out. The Account page changes the avatar (an image of the account, the initials without one), the name and the password. Changing the password logs out the other devices.
 
 ## Images
 
@@ -62,15 +62,15 @@ The Settings page (the avatar menu at the bottom of the sidebar, or the palette)
 - **Smart folders** (advanced mode): virtual folders, listed in the sidebar like favorites (section that can be hidden in the sidebar settings), created by the "Smart folder" button of the new folder dialog at the root and managed in their settings section. Each combines tags (any or all), included or excluded folders, creation and modification dates and a text, and is replayed at every opening (`GET /api/searches/{id}`).
 - **Snippets**: named markdown, whose `#tags` become the tags of the note where it lands. It is inserted at the cursor by typing `;;` in a note, then its name, or gives the starting text of a new note (`T`, or "New note from a snippet" in the palette); that note is only created once you type in it.
 - **Trash**: the time before deleted items are erased for good (7, 30, 90, 365 days, or never).
-- **Export** downloads all the notes as a zip of `.md` files, their images in `_files/`, like `notes export`.
-- **Import** opens a dialog: the destination folder (the root by default), then a zip, `.md` files and their images and attachments (PDF, audio, video; dropped or chosen), or a whole folder (dropped or "Pick a folder", its tree kept). Like `notes import --parent`. A zip is imported alone. Two files with the same name outside a folder are reported and block the import: remove one. If a folder already exists at that spot, nothing is imported.
+- **Export** downloads all the notes as a zip of `.md` files, their images in `_files/`, like `tide export`.
+- **Import** opens a dialog: the destination folder (the root by default), then a zip, `.md` files and their images and attachments (PDF, audio, video; dropped or chosen), or a whole folder (dropped or "Pick a folder", its tree kept). Like `tide import --parent`. A zip is imported alone. Two files with the same name outside a folder are reported and block the import: remove one. If a folder already exists at that spot, nothing is imported.
 
 ## Commands
 
 ```sh
 bun run test        # save queue, links and graph layout
 bun run e2e         # journeys in Chrome, against the running stack (make up); or make e2e from the root
-                    # logs in with the e2e account (E2E_NAME, E2E_PASSWORD): notes-server user add e2e, after yours
+                    # logs in with the e2e account (E2E_NAME, E2E_PASSWORD): tide-server user add e2e, after yours
                     # E2E_APP and E2E_API point the tests at another stack
 bun run typecheck
 bun run types       # regenerates app/types/api.d.ts from ../notes-go/docs/swagger.yaml

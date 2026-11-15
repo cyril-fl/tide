@@ -18,6 +18,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/cli/services/apiclient"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/huhform"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/screen"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -188,7 +189,7 @@ func readFolder(ctx context.Context, client *apiclient.ClientWithResponses, id s
 		return cmdreadfolder.Fetch(ctx, client, id)
 	}
 
-	root := apiclient.ReaditemResult{Item: apiclient.DomainItem{Kind: apiclient.FOLDER, Title: "Notes"}, Path: "/"}
+	root := apiclient.ReaditemResult{Item: apiclient.DomainItem{Kind: apiclient.FOLDER, Title: config.Title()}, Path: "/"}
 	response, err := client.GetApiItemsWithResponse(ctx, &apiclient.GetApiItemsParams{})
 	if err != nil {
 		return root, err

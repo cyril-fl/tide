@@ -80,7 +80,7 @@ func ResetPassword(cobra *cobra.Command, args []string) error {
 	return nil
 }
 
-// RotateSecret seals the keys of the accounts by NOTES_SECRET, in place of NOTES_OLD_SECRET.
+// RotateSecret seals the keys of the accounts by TIDE_SECRET, in place of TIDE_OLD_SECRET.
 func RotateSecret(cobra *cobra.Command, args []string) error {
 	process := rotatesecret.Process(cobra.Context(), postgrey.GetDb(), os.Getenv(config.Env("OLD_SECRET")))
 	process.Run()

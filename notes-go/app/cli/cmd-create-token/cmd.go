@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Create makes an API token through POST /api/me/tokens and prints it alone on stdout, for TOKEN=$(notes add token x):
+// Create makes an API token through POST /api/me/tokens and prints it alone on stdout, for TOKEN=$(tide add token x):
 // the server never shows it again.
 func Create(cobra *cobra.Command, args []string) error {
 	expires, err := cobra.Flags().GetString("expires")

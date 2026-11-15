@@ -1,6 +1,6 @@
-# Notes
+# Tide
 
-**Notes** is a markdown note-taking app, a bit like Obsidian: notes filed in folders, connected by their `[[links]]` and `#tags`.
+**Tide** is a markdown note-taking app, a bit like Obsidian: notes filed in folders, connected by their `[[links]]` and `#tags`.
 
 A Go server on PostgreSQL serves the API and the web app. A CLI and an MCP server let scripts and agents use that API. The web app is meant to be opened from a phone or a tablet, for example through Tailscale.
 
@@ -12,7 +12,7 @@ The [wiki](https://github.com/cyril-fl/notes/wiki) details the web app screen by
 
 Each part also has its own README:
 
-- [`notes-go/`](./notes-go/README.md): the `notes-server` server, the `notes` CLI, the MCP, the API, the configuration and the backup.
+- [`notes-go/`](./notes-go/README.md): the `tide-server` server, the `tide` CLI, the MCP, the API, the configuration and the backup.
 - [`notes-app/`](./notes-app/README.md): the web app, its shortcuts and its settings.
 
 ## Features
@@ -29,7 +29,7 @@ Each part also has its own README:
 
 ## Installation and usage
 
-Notes is developed with the latest version of Go. Locally, the stack runs in Docker thanks to [`notes-go/compose.yaml`](./notes-go/compose.yaml).
+Tide is developed with the latest version of Go. Locally, the stack runs in Docker thanks to [`notes-go/compose.yaml`](./notes-go/compose.yaml).
 
 ```bash
 git clone https://github.com/cyril-fl/notes.git
@@ -37,7 +37,7 @@ cd notes
 cp notes-go/.env.example notes-go/.env   # then fill in the passwords
 make -C notes-go setup                   # installs the git hooks (lefthook)
 make up                                  # Postgres, Silo and the API in Docker, the web app on :3000
-echo '<password>' | docker exec -i note-api /notes-server user add <name> --password-stdin
+echo '<password>' | docker exec -i note-api /tide-server user add <name> --password-stdin
 ```
 
 The web app answers on http://localhost:3000 (open `localhost`, not `127.0.0.1`), and its logs go to `.build/notes-app.log`. To stop it, `make down` (Colima stays running).
@@ -45,8 +45,8 @@ The web app answers on http://localhost:3000 (open `localhost`, not `127.0.0.1`)
 For the CLI, on the Mac:
 
 ```bash
-go install github.com/cyril-fl/notes/notes-go/cmd/notes@latest
-notes login https://notes.example.ts.net
+go install github.com/cyril-fl/notes/notes-go/cmd/tide@latest
+tide login https://notes.example.ts.net
 ```
 
 ### Requirements
@@ -63,7 +63,7 @@ notes login https://notes.example.ts.net
 
 - `postgres` (`note-postgres`): PostgreSQL 18, on `127.0.0.1:5432`.
 - `silo` (`note-silo`): image storage, on `127.0.0.1:9000` (console on `9001`).
-- `api` (`note-api`): `notes-server serve`, on http://localhost:8080, and its MCP over HTTP on http://localhost:8081/mcp (profile `api`, started by `make up`).
+- `api` (`note-api`): `tide-server serve`, on http://localhost:8080, and its MCP over HTTP on http://localhost:8081/mcp (profile `api`, started by `make up`).
 - `libredb` (`note-libredb`): LibreDB Studio, a web interface to explore the database, on http://localhost:3001.
 - `app` (`note-app`): a Go container, to run Go against the stack.
 
@@ -74,28 +74,28 @@ The environment variables are described in the *Configuration* section of the [`
 Each `v*` tag publishes the `ghcr.io/cyril-fl/notes` image (amd64 and arm64), which serves the API and the web app on the same origin. On the server, you need [`compose.prod.yaml`](./compose.prod.yaml) and, next to it, a `.env` copied from [`.env.prod.example`](./.env.prod.example):
 
 ```sh
-docker compose -f compose.prod.yaml up -d                                    # Postgres, Silo, Notes and LibreDB Studio
-echo '<password>' | docker exec -i note-api /notes-server user add <name> --password-stdin
+docker compose -f compose.prod.yaml up -d                                    # Postgres, Silo, Tide and LibreDB Studio
+echo '<password>' | docker exec -i tide-api /tide-server user add <name> --password-stdin
 docker compose -f compose.prod.yaml pull && docker compose -f compose.prod.yaml up -d   # update
 ```
 
-The image only contains `notes-server`, the only binary that talks to Postgres and Silo. It runs the API and the web app, and carries the admin's commands (`user add`, `user reset-password`, `rotate-secret`), which you run in the container with `docker exec`. The `notes` CLI is a client of the API.
+The image only contains `tide-server`, the only binary that talks to Postgres and Silo. It runs the API and the web app, and carries the admin's commands (`user add`, `user reset-password`, `rotate-secret`), which you run in the container with `docker exec`. The `tide` CLI is a client of the API.
 
-Notes listens over HTTP on `NOTES_LISTEN` (`127.0.0.1:8080` by default). The session cookie requires HTTPS: the proxy in front provides it. `WEB_ORIGIN` is the exact address the browser types. The MCP for agents listens on `NOTES_MCP_LISTEN` (`127.0.0.1:8081`): only `/mcp` and its OAuth sign-in are there, an API token or a sign-in required, so a tunnel can open it to the Internet for the Claude app or ChatGPT while the rest stays private (see [`notes-go/MCP.md`](./notes-go/MCP.md)). LibreDB Studio listens on `LIBREDB_LISTEN` (`127.0.0.1:3001`): connect to `note-postgres:5432` with the `POSTGRES_USER` user.
+Tide listens over HTTP on `TIDE_LISTEN` (`127.0.0.1:8080` by default). The session cookie requires HTTPS: the proxy in front provides it. `WEB_ORIGIN` is the exact address the browser types. The MCP for agents listens on `TIDE_MCP_LISTEN` (`127.0.0.1:8081`): only `/mcp` and its OAuth sign-in are there, an API token or a sign-in required, so a tunnel can open it to the Internet for the Claude app or ChatGPT while the rest stays private (see [`notes-go/MCP.md`](./notes-go/MCP.md)). LibreDB Studio listens on `LIBREDB_LISTEN` (`127.0.0.1:3001`): connect to `note-postgres:5432` with the `POSTGRES_USER` user.
 
-At startup, Notes adds the tables and columns of new versions to the database. A rename or a type change is still done by hand; the commit message says so.
+At startup, Tide adds the tables and columns of new versions to the database. A rename or a type change is still done by hand; the commit message says so.
 
-> ⚠️ `NOTES_SECRET` encrypts the notes. Keep a copy in a password manager, never in a backup: without this key, the notes are unreadable.
+> ⚠️ `TIDE_SECRET` encrypts the notes. Keep a copy in a password manager, never in a backup: without this key, the notes are unreadable.
 
 ### Accounts
 
 The first account in the database is admin. Only it invites, lists and deletes the others, from the app's settings (*Users* section). This first account is created in three ways:
 
 - on an empty database, the app leads straight to the account creation page;
-- if `NOTES_HOST_NAME` and `NOTES_HOST_PASSWORD` are set in the `.env`, Notes creates it at startup; those two lines should then be emptied;
-- the `notes-server user add` command above works in every case.
+- if `TIDE_HOST_NAME` and `TIDE_HOST_PASSWORD` are set in the `.env`, Tide creates it at startup; those two lines should then be emptied;
+- the `tide-server user add` command above works in every case.
 
-After that, `NOTES_ADD_USER_MODE` decides who can create an account:
+After that, `TIDE_ADD_USER_MODE` decides who can create an account:
 
 - `invitation` (default): the admin creates an invitation link in the settings and sends it. The link works once and expires after 7 days. The invitee chooses their own name and password. Without an invitation, the account creation page is closed.
 - `public`: anyone who can reach the app can create an account. Reserve this mode for a trusted network (Tailscale), since nothing limits the number of creations.

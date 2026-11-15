@@ -184,7 +184,7 @@ func Serve(cobra *cobra.Command, args []string) error {
 	return nil
 }
 
-// addHost creates the account of NOTES_HOST_NAME and NOTES_HOST_PASSWORD on a base with no account yet: a server
+// addHost creates the account of TIDE_HOST_NAME and TIDE_HOST_PASSWORD on a base with no account yet: a server
 // put up from a compose file is reachable at once, without a shell on it. It does nothing once an account exists.
 func addHost(ctx context.Context, db bun.IDB) error {
 	name, pass := os.Getenv(config.Env("HOST_NAME")), os.Getenv(config.Env("HOST_PASSWORD"))

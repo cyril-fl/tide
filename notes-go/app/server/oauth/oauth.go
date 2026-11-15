@@ -19,6 +19,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createapitoken"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createoauthtoken"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/refreshoauthtoken"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/uptrace/bun"
 )
 
@@ -69,7 +70,7 @@ func resource(w http.ResponseWriter, r *http.Request) {
 	issuer := Issuer(r)
 	send(w, http.StatusOK, map[string]any{
 		"resource":                 issuer + "/mcp",
-		"resource_name":            "Notes",
+		"resource_name":            config.Title(),
 		"authorization_servers":    []string{issuer},
 		"bearer_methods_supported": []string{"header"},
 	})

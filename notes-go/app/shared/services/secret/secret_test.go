@@ -66,7 +66,7 @@ func TestSealOpen(t *testing.T) {
 func TestRewrap(t *testing.T) {
 	gcm, err := master()
 	if err != nil {
-		t.Fatalf("master() err = %v (NOTES_SECRET set?)", err)
+		t.Fatalf("master() err = %v (TIDE_SECRET set?)", err)
 	}
 	const oldSecret = "b2xkIHNlY3JldCBvZiB0aGUgc2VydmVyLCAzMiBieXQ="
 	old, _ := newAEAD(oldSecret)
@@ -77,7 +77,7 @@ func TestRewrap(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got, err := open(gcm, rewrapped); err != nil || string(got) != string(key) {
-		t.Errorf("open(Rewrap()) = %q, %v; want the key, sealed by NOTES_SECRET", got, err)
+		t.Errorf("open(Rewrap()) = %q, %v; want the key, sealed by TIDE_SECRET", got, err)
 	}
 	if again, err := Rewrap(rewrapped, oldSecret); err != nil || again != rewrapped {
 		t.Errorf("Rewrap(done) = %q, %v; want it unchanged", again, err)

@@ -21,8 +21,8 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// Serve starts the API on a transaction of the test base, rolled back at the end, and points NOTES_URL and
-// NOTES_SESSION at it, logged in as a new account. The fixtures go into the returned tx, as that account.
+// Serve starts the API on a transaction of the test base, rolled back at the end, and points TIDE_URL and
+// TIDE_SESSION at it, logged in as a new account. The fixtures go into the returned tx, as that account.
 func Serve(t *testing.T) (context.Context, bun.Tx) {
 	t.Helper()
 	ctx := context.Background()

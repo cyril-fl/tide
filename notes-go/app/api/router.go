@@ -50,7 +50,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// @title    Notes API
+// @title    Tide API
 // @version  1.0
 
 // New gives the API, reachable by web pages from origin only (none when empty), and by logged-in accounts only.

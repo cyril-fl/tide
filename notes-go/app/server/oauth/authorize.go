@@ -13,6 +13,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/api/services/throttle"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createoauthcode"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createsession"
+	"github.com/cyril-fl/notes/notes-go/config"
 	"github.com/uptrace/bun"
 )
 
@@ -151,7 +152,7 @@ type texts struct {
 }
 
 var english = texts{
-	Lang: "en", Title: "Connect to Notes",
+	Lang: "en", Title: "Connect to " + config.Title(),
 	Wants:        "wants to read and change all your notes, as you can.",
 	Back:         "Once you allow it, you go back to",
 	Local:        "a program on this device: allow it only if you started the sign-in here.",
@@ -167,7 +168,7 @@ var english = texts{
 }
 
 var french = texts{
-	Lang: "fr", Title: "Connexion à Notes",
+	Lang: "fr", Title: "Connexion à " + config.Title(),
 	Wants:        "veut lire et modifier toutes vos notes, comme vous.",
 	Back:         "Une fois autorisé, vous revenez sur",
 	Local:        "un programme de cet appareil : n'autorisez que si vous avez lancé la connexion ici.",

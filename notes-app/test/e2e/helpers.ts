@@ -50,7 +50,7 @@ export async function sandbox() {
 export async function throwaway() {
   const name = `e2e-${Date.now()}`;
   const password = 'throwaway-password';
-  execFileSync('docker', ['exec', '-i', 'note-api', '/notes-server', 'user', 'add', name, '--password-stdin'], {
+  execFileSync('docker', ['exec', '-i', 'note-api', '/tide-server', 'user', 'add', name, '--password-stdin'], {
     input: `${password}\n`,
   });
 

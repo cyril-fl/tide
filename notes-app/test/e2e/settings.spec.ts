@@ -145,8 +145,8 @@ test('the language of the interface is a setting of the account', async ({ page 
   }
 });
 
-// A theme, the trash retention and the limit of neighbors are saved to the account, then set back as they were.
-test('the settings save the theme, the trash retention and the limit of neighbors to the account', async ({
+// A theme, the trash retention, the limit of neighbors and the choice after a merge are saved to the account, then set back as they were.
+test('the settings save the theme, the trash retention, the limit of neighbors and the merge choice', async ({
   page,
   request,
 }) => {
@@ -168,7 +168,12 @@ test('the settings save the theme, the trash retention and the limit of neighbor
     await page.getByRole('button', { name: 'Notes aux mêmes tags' }).click();
     await page.getByRole('option', { name: 'Toutes' }).click();
 
-    await expect.poll(me).toMatchObject({ theme: 'dracula', trash_retention_days: 0, neighbors_limit: 0 });
+    await page.getByRole('button', { name: 'Après une fusion' }).click();
+    await page.getByRole('option', { name: 'Garder la copie' }).click();
+
+    await expect
+      .poll(me)
+      .toMatchObject({ theme: 'dracula', trash_retention_days: 0, neighbors_limit: 0, after_merge: 'keep' });
   } finally {
     await request.patch(`${API}/api/me`, {
       ...api,
@@ -176,6 +181,7 @@ test('the settings save the theme, the trash retention and the limit of neighbor
         theme: before.theme,
         trash_retention_days: before.trash_retention_days,
         neighbors_limit: before.neighbors_limit,
+        after_merge: before.after_merge,
       },
     });
   }

@@ -338,6 +338,9 @@ components:
           description: may create, invite and delete accounts; the first account of
             the base gets it
           type: boolean
+        after_merge:
+          description: what a merge does with the fork, one of AfterMerges
+          type: string
         avatar:
           description: the id of a File of the account, purgefiles keeps it
           type: string
@@ -398,6 +401,7 @@ components:
           type: string
       required:
       - admin
+      - after_merge
       - avatar
       - color_mode
       - created_at
@@ -462,6 +466,9 @@ components:
       type: object
     edituser.Input:
       properties:
+        after_merge:
+          description: one of domain.AfterMerges
+          type: string
         avatar:
           description: the id of an image of the account, "" for none
           type: string
@@ -527,6 +534,9 @@ components:
         content:
           description: Content is the merged text, saved into the original.
           type: string
+        trash:
+          description: Trash moves the fork to the trash with the merge.
+          type: boolean
         updated_at:
           description: 'UpdatedAt is updated_at of the original as read, or its created_at:
             a 409 if it changed since.'
@@ -803,6 +813,10 @@ components:
             $ref: '#/components/schemas/readneighbors.Linked'
           type: array
           uniqueItems: false
+        merged:
+          description: Merged is the fork whose last merge into the note can still
+            be undone (the note unchanged since), in the trash or not.
+          type: string
         neighbors:
           items:
             $ref: '#/components/schemas/readneighbors.Neighbor'

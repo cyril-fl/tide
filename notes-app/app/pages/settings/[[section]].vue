@@ -160,6 +160,18 @@ async function changeNeighborsLimit(next: number) {
   me.value = await api<User>('/api/me', { method: 'PATCH', body: { neighbors_limit: next } });
 }
 
+// As domain.AfterMerges.
+const afterMerges = computed(() =>
+  ['ask', 'delete', 'keep'].map((value) => ({
+    label: t(`settings.afterMerge${value[0]!.toUpperCase()}${value.slice(1)}`),
+    value,
+  })),
+);
+
+async function changeAfterMerge(next: string) {
+  me.value = await api<User>('/api/me', { method: 'PATCH', body: { after_merge: next } });
+}
+
 const { confirm, snippet: editSnippet, importNotes } = useDialogs();
 const { addSavedSearch } = useSavedSearches();
 
@@ -482,6 +494,21 @@ async function deleteData() {
       <section v-if="show('editor')">
         <SettingsHeading id="editor" />
         <ul class="divide-y divide-default rounded-lg border border-default">
+          <li class="flex flex-wrap items-center gap-4 px-4 py-3">
+            <div class="flex-1 basis-48">
+              <p class="text-sm">{{ $t('settings.afterMerge') }}</p>
+              <p class="text-xs text-muted">{{ $t('settings.afterMergeDescription') }}</p>
+            </div>
+            <USelectMenu
+              :model-value="me?.after_merge"
+              :items="afterMerges"
+              value-key="value"
+              :search-input="false"
+              :aria-label="$t('settings.afterMerge')"
+              class="w-56"
+              @update:model-value="changeAfterMerge"
+            />
+          </li>
           <li class="flex flex-wrap items-center gap-4 px-4 py-3">
             <div class="flex-1 basis-48">
               <p class="text-sm">{{ $t('settings.snippets') }}</p>

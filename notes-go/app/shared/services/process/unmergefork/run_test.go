@@ -69,14 +69,14 @@ func TestUnmerge(t *testing.T) {
 		}
 		return process.GetResult()
 	}
-	merge := func(content, base string) {
+	merge := func(content, base string, trash bool) {
 		t.Helper()
 		note := read(original)
 		at := note.Item.UpdatedAt
 		if at.IsZero() {
 			at = note.Item.CreatedAt
 		}
-		process := mergefork.Process(ctx, tx, mergefork.Input{ID: forkID, Content: content, Base: base, UpdatedAt: &at})
+		process := mergefork.Process(ctx, tx, mergefork.Input{ID: forkID, Content: content, Base: base, UpdatedAt: &at, Trash: trash})
 		process.Run()
 		if process.HasErr() {
 			t.Fatalf("merge: %v", process.GetErr())
@@ -97,8 +97,8 @@ func TestUnmerge(t *testing.T) {
 	}
 
 	// Two merges: the undo puts back the original and the base of the last one only.
-	merge("# Courses\n\n- Pain\n- Lait", "# Copie\n\n- Pain\n- Lait")
-	merge("# Courses\n\n- Pain\n- Lait\n- Œufs", "# Copie\n\n- Pain\n- Lait\n- Œufs\n- Sel")
+	merge("# Courses\n\n- Pain\n- Lait", "# Copie\n\n- Pain\n- Lait", false)
+	merge("# Courses\n\n- Pain\n- Lait\n- Œufs", "# Copie\n\n- Pain\n- Lait\n- Œufs\n- Sel", false)
 	if origin().MergedAt == nil {
 		t.Fatal("merged_at after a merge is nil")
 	}
@@ -126,7 +126,7 @@ func TestUnmerge(t *testing.T) {
 	}
 
 	// The original written after the merge: refused, neither its text nor the base overwritten.
-	merge("# Courses\n\n- Beurre", "# Copie\n\n- Beurre")
+	merge("# Courses\n\n- Beurre", "# Copie\n\n- Beurre", false)
 	later := "# Courses\n\n- Beurre\n- Confiture"
 	edit := patchnote.Process(ctx, tx, patchnote.Input{ID: original, Content: &later})
 	edit.Run()
@@ -146,6 +146,21 @@ func TestUnmerge(t *testing.T) {
 	if got := origin(); got.Base != "# Copie\n\n- Beurre" {
 		t.Errorf("base after a refused undo = %q", got.Base)
 	}
+
+	// A merge that trashed the fork: the undo takes it out of the trash.
+	merge("# Courses\n\n- Miel", "# Copie\n\n- Miel", true)
+	trashed := readitem.Process(ctx, tx, domain.NOTE, forkID)
+	trashed.Run()
+	if !errors.Is(trashed.GetErr(), readitem.ErrNotFound) {
+		t.Fatalf("fork after a merge with trash: err = %v, want it in the trash", trashed.GetErr())
+	}
+	if err := unmerge(); err != nil {
+		t.Fatalf("unmerge of a trashed fork: %v", err)
+	}
+	if got := read(original).Content; got != later {
+		t.Errorf("original after the undo of a trashing merge = %q", got)
+	}
+	read(forkID)
 
 	// A plain note is no fork.
 	plain := Process(ctx, tx, original)

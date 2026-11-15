@@ -86,6 +86,8 @@ type MergeBody struct {
 	Base string `json:"base"`
 	// UpdatedAt is updated_at of the original as read, or its created_at: a 409 if it changed since.
 	UpdatedAt *time.Time `json:"updated_at" binding:"optional"`
+	// Trash moves the fork to the trash with the merge.
+	Trash bool `json:"trash,omitempty" binding:"optional"`
 }
 
 // Merge saves a merge of the fork into its original: POST /api/notes/{id}/merge. The text replaced is kept in the
@@ -114,7 +116,7 @@ func Merge(db bun.IDB) http.HandlerFunc {
 			return
 		}
 
-		process := mergefork.Process(r.Context(), db, mergefork.Input{ID: id, Content: body.Content, Base: body.Base, UpdatedAt: body.UpdatedAt})
+		process := mergefork.Process(r.Context(), db, mergefork.Input{ID: id, Content: body.Content, Base: body.Base, UpdatedAt: body.UpdatedAt, Trash: body.Trash})
 		process.Run()
 		if process.HasErr() {
 			respond.Error(w, process.GetErr())
@@ -127,8 +129,8 @@ func Merge(db bun.IDB) http.HandlerFunc {
 }
 
 // Unmerge undoes the last merge of the fork: POST /api/notes/{id}/unmerge. The original gets back its text from before
-// it, the text replaced kept in its history, and the fork its base, so the next merge offers again what it refused.
-// 409 when there is no merge to undo, or the original is locked, changed since the merge, or in the trash.
+// it, the text replaced kept in its history, and the fork its base, so the next merge offers again what it refused,
+// the fork taken out of the trash if the merge put it there. 409 when there is no merge to undo, or the original is locked, changed since the merge, or in the trash.
 // @Summary  Undo the last merge of a fork
 // @Tags     notes
 // @Produce  json

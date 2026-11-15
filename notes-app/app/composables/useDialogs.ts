@@ -2,6 +2,7 @@ import {
   ConfirmDialog,
   ConflictDialog,
   ImportDialog,
+  MergeDialog,
   PromptDialog,
   SavedSearchDialog,
   SnippetDialog,
@@ -13,7 +14,7 @@ import type { MergePart } from '~/utils/merge';
 // of a folder calls useItems, so a folder of 1,000 notes made 12,000 modals on each visit.
 let dialogs: ReturnType<typeof createDialogs> | undefined;
 
-/** Modals that are awaited: a text, a yes, a snippet, a saved search, the import done, or the text chosen after a conflict. */
+/** Modals that are awaited: a text, a yes, a snippet, a saved search, the import done, the text chosen after a conflict, or a merge confirmed. */
 export function useDialogs() {
   return (dialogs ??= createDialogs());
 }
@@ -26,6 +27,7 @@ function createDialogs() {
   const savedSearchDialog = overlay.create(SavedSearchDialog);
   const importDialog = overlay.create(ImportDialog);
   const conflictDialog = overlay.create(ConflictDialog);
+  const mergeDialog = overlay.create(MergeDialog);
 
   return {
     prompt: (props: {
@@ -46,5 +48,8 @@ function createDialogs() {
     // undefined: the merge of a fork cancelled (the 409 dialog has no cancel).
     resolveConflict: (parts: MergePart[], fork?: boolean) =>
       conflictDialog.open({ parts, fork }).result as Promise<string | undefined>,
+    // undefined: the merge cancelled.
+    confirmMerge: (props: { fork: string; original: string; before: string; after: string; trash: boolean }) =>
+      mergeDialog.open(props).result as Promise<{ trash: boolean; remember: boolean } | undefined>,
   };
 }

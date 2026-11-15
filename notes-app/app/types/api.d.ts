@@ -4322,6 +4322,8 @@ export interface components {
         "domain.User": {
             /** @description may create, invite and delete accounts; the first account of the base gets it */
             admin: boolean;
+            /** @description what a merge does with the fork, one of AfterMerges */
+            after_merge: string;
             /** @description the id of a File of the account, purgefiles keeps it */
             avatar: string;
             /** @description light or dark, one of ColorModes */
@@ -4374,6 +4376,8 @@ export interface components {
             value: string;
         };
         "edituser.Input": {
+            /** @description one of domain.AfterMerges */
+            after_merge?: string;
             /** @description the id of an image of the account, "" for none */
             avatar?: string;
             color_mode?: string;
@@ -4404,6 +4408,8 @@ export interface components {
             base: string;
             /** @description Content is the merged text, saved into the original. */
             content: string;
+            /** @description Trash moves the fork to the trash with the merge. */
+            trash?: boolean;
             /** @description UpdatedAt is updated_at of the original as read, or its created_at: a 409 if it changed since. */
             updated_at?: string;
         };
@@ -4507,6 +4513,8 @@ export interface components {
             backlinks: components["schemas"]["readneighbors.Linked"][];
             forks: components["schemas"]["readneighbors.Linked"][];
             links: components["schemas"]["readneighbors.Linked"][];
+            /** @description Merged is the fork whose last merge into the note can still be undone (the note unchanged since), in the trash or not. */
+            merged?: string;
             neighbors: components["schemas"]["readneighbors.Neighbor"][];
             neighbors_total: number;
             note: components["schemas"]["readitem.Result"];

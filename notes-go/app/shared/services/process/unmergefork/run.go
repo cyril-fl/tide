@@ -10,6 +10,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/patchnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readfork"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/restoreitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/secret"
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/uptrace/bun"
@@ -34,7 +35,7 @@ type cache struct {
 
 // Process undoes the last merge of a fork, used by POST /api/notes/{id}/unmerge, like git reset --hard HEAD~1: the
 // original gets back its text from before it, saved as a restore, and the fork its base, so the next merge offers
-// again what this one refused. One level only. An original changed since the merge is patchnote.ErrStale, its
+// again what this one refused, out of the trash if the merge put it there. One level only. An original changed since the merge is patchnote.ErrStale, its
 // text is not overwritten; a locked one patchnote.ErrLocked.
 func Process(ctx context.Context, db bun.IDB, id string) *run {
 	return &run{
@@ -48,7 +49,7 @@ func Process(ctx context.Context, db bun.IDB, id string) *run {
 func (p *run) Run() {
 	// p.ctx, not the one RunInTx hands: a bun.Tx's own ctx may act for another account.
 	p.SetErr(p.db.RunInTx(p.ctx, nil, func(_ context.Context, tx bun.Tx) error {
-		for _, step := range []func(bun.Tx) error{p.readFork, p.restoreOriginal, p.restoreBase} {
+		for _, step := range []func(bun.Tx) error{p.restoreFork, p.readFork, p.restoreOriginal, p.restoreBase} {
 			if err := step(tx); err != nil {
 				return err
 			}
@@ -65,6 +66,16 @@ func (p *run) GetResult() readitem.Result {
 }
 
 // Methods
+
+// restoreFork takes the fork out of the trash, where mergefork may have put it: a live one is left as it is.
+func (p *run) restoreFork(tx bun.Tx) error {
+	process := restoreitems.Process(p.ctx, tx, []string{p.id})
+	process.Run()
+	if process.HasErr() {
+		return process.GetErr()
+	}
+	return nil
+}
 
 // readFork needs no user_id check on its second query: readfork has found the fork of this account.
 func (p *run) readFork(tx bun.Tx) error {

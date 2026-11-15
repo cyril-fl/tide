@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/patchnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readfork"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
@@ -26,6 +27,8 @@ type Input struct {
 	Base string
 	// UpdatedAt is the version of the original the merge was made over: ErrStale once it changed since.
 	UpdatedAt *time.Time
+	// Trash moves the fork to the trash with the merge, like the branch deleted after a merge request.
+	Trash bool
 }
 
 type run struct {
@@ -54,11 +57,11 @@ func Process(ctx context.Context, db bun.IDB, input Input) *run {
 	}
 }
 
-// Run saves the original and the base in one transaction: a base moved without its merge would lose those changes.
+// Run saves the original, the base and the trashed fork in one transaction: a base moved without its merge would lose those changes.
 func (p *run) Run() {
 	// p.ctx, not the one RunInTx hands: a bun.Tx's own ctx may act for another account.
 	p.SetErr(p.db.RunInTx(p.ctx, nil, func(_ context.Context, tx bun.Tx) error {
-		for _, step := range []func(bun.Tx) error{p.readFork, p.saveOriginal, p.moveBase} {
+		for _, step := range []func(bun.Tx) error{p.readFork, p.saveOriginal, p.moveBase, p.trashFork} {
 			if err := step(tx); err != nil {
 				return err
 			}
@@ -129,4 +132,17 @@ func (p *run) moveBase(tx bun.Tx) error {
 		Where("item_id = ?", p.input.ID).
 		Exec(p.ctx)
 	return err
+}
+
+// trashFork keeps its fork_* columns: unmergefork takes it out of the trash to undo the merge.
+func (p *run) trashFork(tx bun.Tx) error {
+	if !p.input.Trash {
+		return nil
+	}
+	process := deleteitems.Process(p.ctx, tx, domain.NOTE, []string{p.input.ID})
+	process.Run()
+	if process.HasErr() {
+		return process.GetErr()
+	}
+	return nil
 }

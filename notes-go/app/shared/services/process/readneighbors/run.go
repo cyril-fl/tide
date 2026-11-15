@@ -34,7 +34,7 @@ type Linked struct {
 
 // Result is the center note (path, content, tags), its neighbors (most shared tags first, at most the
 // neighbors_limit of the account, all of them counted in NeighborsTotal), the notes its [[links]] name, and the notes
-// naming it, the note it was forked from and its own forks.
+// naming it, the note it was forked from and its own forks, the one merged last.
 type Result struct {
 	Note           readitem.Result `json:"note"`
 	Neighbors      []Neighbor      `json:"neighbors"`
@@ -43,6 +43,8 @@ type Result struct {
 	Backlinks      []Linked        `json:"backlinks"`
 	Original       []Linked        `json:"original"` // a fork: the live note it merges back into, else empty
 	Forks          []Linked        `json:"forks"`
+	// Merged is the fork whose last merge into the note can still be undone (the note unchanged since), in the trash or not.
+	Merged string `json:"merged,omitempty" binding:"optional"`
 }
 
 type run struct {
@@ -219,6 +221,19 @@ func (p *run) loadForks() {
 	p.cache.result.Forks = domain.Live(p.cache.tree, rows, func(l Linked) string { return l.ID }, nil)
 	for i := range p.cache.result.Forks {
 		p.cache.result.Forks[i].Path = p.cache.tree.Paths[p.cache.result.Forks[i].ID]
+	}
+
+	var merged []string
+	p.SetErr(p.db.NewRaw(`
+		SELECT mn.item_id
+		FROM metadata_notes AS mn
+		JOIN items AS i ON i.id = mn.item_id
+		JOIN items AS o ON o.id = mn.fork_of
+		WHERE mn.fork_of = ? AND i.user_id = ? AND mn.fork_merged_at = coalesce(o.updated_at, o.created_at)
+		LIMIT 1`, p.cache.result.Note.Item.ID, domain.UserID(p.ctx)).
+		Scan(p.ctx, &merged))
+	if len(merged) > 0 {
+		p.cache.result.Merged = merged[0]
 	}
 
 	p.cache.result.Original = []Linked{}

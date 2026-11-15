@@ -287,6 +287,9 @@ type DomainUser struct {
 	// Admin may create, invite and delete accounts; the first account of the base gets it
 	Admin bool `json:"admin"`
 
+	// AfterMerge what a merge does with the fork, one of AfterMerges
+	AfterMerge string `json:"after_merge"`
+
 	// Avatar the id of a File of the account, purgefiles keeps it
 	Avatar string `json:"avatar"`
 
@@ -359,6 +362,9 @@ type EdittagBody struct {
 
 // EdituserInput defines model for edituser.Input.
 type EdituserInput struct {
+	// AfterMerge one of domain.AfterMerges
+	AfterMerge *string `json:"after_merge,omitempty"`
+
 	// Avatar the id of an image of the account, "" for none
 	Avatar    *string `json:"avatar,omitempty"`
 	ColorMode *string `json:"color_mode,omitempty"`
@@ -400,6 +406,9 @@ type ForknoteMergeBody struct {
 
 	// Content Content is the merged text, saved into the original.
 	Content string `json:"content"`
+
+	// Trash Trash moves the fork to the trash with the merge.
+	Trash *bool `json:"trash,omitempty"`
 
 	// UpdatedAt UpdatedAt is updated_at of the original as read, or its created_at: a 409 if it changed since.
 	UpdatedAt *string `json:"updated_at,omitempty"`
@@ -533,9 +542,12 @@ type ReadneighborsNeighbor struct {
 
 // ReadneighborsResult defines model for readneighbors.Result.
 type ReadneighborsResult struct {
-	Backlinks      []ReadneighborsLinked   `json:"backlinks"`
-	Forks          []ReadneighborsLinked   `json:"forks"`
-	Links          []ReadneighborsLinked   `json:"links"`
+	Backlinks []ReadneighborsLinked `json:"backlinks"`
+	Forks     []ReadneighborsLinked `json:"forks"`
+	Links     []ReadneighborsLinked `json:"links"`
+
+	// Merged Merged is the fork whose last merge into the note can still be undone (the note unchanged since), in the trash or not.
+	Merged         *string                 `json:"merged,omitempty"`
 	Neighbors      []ReadneighborsNeighbor `json:"neighbors"`
 	NeighborsTotal int                     `json:"neighbors_total"`
 	Note           ReaditemResult          `json:"note"`

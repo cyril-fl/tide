@@ -2,7 +2,7 @@
 import type { Editor } from '@tiptap/vue-3';
 import type { FetchError } from 'ofetch';
 import type { RouteLocationNormalized } from 'vue-router';
-import type { ForkOrigin, Item, ItemDetail, NotesGraph } from '~/types/items';
+import type { ForkOrigin, Item, ItemDetail, NotesGraph, User } from '~/types/items';
 import type { Changes } from '~/utils/saver';
 
 const { icons } = useIcons();
@@ -15,7 +15,7 @@ const props = defineProps<{ noteId?: string; parentId?: string; start?: string; 
 const emit = defineEmits<{ created: [id: string] }>();
 
 const api = useApi();
-const { confirm, prompt, resolveConflict } = useDialogs();
+const { confirm, confirmMerge, prompt, resolveConflict } = useDialogs();
 const { removeItem } = useItems();
 const baseURL = useRuntimeConfig().public.apiBase;
 const toast = useToast();
@@ -32,10 +32,9 @@ const loading = ref(!!props.noteId);
 const notFound = ref(false);
 // Locked read-only: the API refuses its content, the editor and the source mode only read.
 const readonly = ref(false);
-// A fork made from the history: the note it merges back into.
-const forkOf = ref<string>();
-// The fork has a merge to undo (#177).
-const merged = ref(false);
+// The forks of the note, merged from here like a merge request, and the one whose merge can be undone (#177).
+const { data: neighbors } = useNeighbors(id);
+const me = useNuxtData<User>('me').data;
 
 const failed = ref(false);
 const saving = ref(false);
@@ -184,11 +183,6 @@ async function load() {
     links = linkedNotes(initialContent.value);
     title.value = note.item.title;
     readonly.value = !!note.readonly;
-    forkOf.value = note.fork_of;
-    if (note.fork_of)
-      void api<ForkOrigin>(`/api/notes/${props.noteId}/fork`, { quiet: true })
-        .then((origin) => (merged.value = !!origin.merged_at))
-        .catch(() => {});
     remember(note);
     place(note);
     isEmpty.value = false;
@@ -242,29 +236,49 @@ async function restoreVersion(content: string) {
   saver.push({ restore: true });
   setText(content);
 }
-// A fork back into its original: a three-way merge by lines from the fork's base, its title line left out, conflicts
-// asked in the conflicts dialog. The API saves it as a restore, the original's text kept in its history, and moves
-// the base to this text, so a second merge does not replay these changes. Changed meanwhile (409): merged again once.
-async function mergeBack(again = true): Promise<void> {
+// A fork into this note, like a merge request: a three-way merge by lines from the fork's base, its title line left
+// out, conflicts asked in the conflicts dialog, then the merge dialog shows what the text becomes and asks whether the
+// fork goes to the trash, unless the account chose for good (after_merge). The API saves it as a restore, the text
+// kept in the history, and moves the base to the fork's text, so a second merge does not replay these changes.
+// Changed meanwhile (409): merged again once, with the choice already made (chosen).
+async function mergeIn(forkId: string, chosen?: boolean): Promise<void> {
+  const again = chosen === undefined;
   await saver.flush();
   if (failed.value) return;
-  const [origin, fork] = await Promise.all([
-    api<ForkOrigin>(`/api/notes/${id.value}/fork`),
+  const [origin, fork, original] = await Promise.all([
+    api<ForkOrigin>(`/api/notes/${forkId}/fork`),
+    api<ItemDetail>(`/api/notes/${forkId}`),
     api<ItemDetail>(`/api/notes/${id.value}`),
   ]);
-  const original = await api<ItemDetail>(`/api/notes/${origin.fork_of}`, { quiet: [404] }).catch((error) => {
-    if ((error as FetchError).status !== 404) throw error;
-  });
-  if (!original) return void toast.add({ title: t('fork.originGone'), color: 'error' });
   if (original.readonly) return void toast.add({ title: t('fork.originLocked'), color: 'warning' });
 
   const parts = mergeFork(origin.base, fork.content ?? '', original.content ?? '');
   const content = parts.every((part) => 'lines' in part) ? mergedText(parts) : await resolveConflict(parts, true);
   if (content === undefined) return; // Cancelled: nothing saved.
+  let trash = chosen ?? me.value?.after_merge === 'delete';
+  if (again && (me.value?.after_merge ?? 'ask') === 'ask') {
+    const choice = await confirmMerge({
+      fork: displayTitle(fork.item.title, t('untitled')),
+      original: displayTitle(original.item.title, t('untitled')),
+      before: original.content ?? '',
+      after: content,
+      trash: false,
+    });
+    if (!choice) return;
+    trash = choice.trash;
+    if (choice.remember)
+      me.value = await api<User>('/api/me', { method: 'PATCH', body: { after_merge: trash ? 'delete' : 'keep' } });
+  }
+  let note: ItemDetail;
   try {
-    await api(`/api/notes/${id.value}/merge`, {
+    note = await api<ItemDetail>(`/api/notes/${forkId}/merge`, {
       method: 'POST',
-      body: { content, base: fork.content ?? '', updated_at: original.item.updated_at ?? original.item.created_at },
+      body: {
+        content,
+        base: fork.content ?? '',
+        updated_at: original.item.updated_at ?? original.item.created_at,
+        trash,
+      },
       quiet: again ? [409] : false,
       conflict: {
         'trash or deleted': t('fork.originGone'),
@@ -274,19 +288,21 @@ async function mergeBack(again = true): Promise<void> {
       tooLarge: t('note.tooLarge'),
     });
   } catch (error) {
-    if (again && (error as FetchError).status === 409) return mergeBack(false);
+    if (again && (error as FetchError).status === 409) return mergeIn(forkId, trash);
     return;
   }
-  merged.value = true;
-  const open = { label: t('fork.openOriginal'), onClick: () => void navigateTo(`/notes/${origin.fork_of}`) };
-  toast.add({ title: t('fork.merged'), color: 'success', actions: [open] });
+  await showSaved(note);
+  const undo = { label: t('fork.undo'), onClick: () => void unmerge(forkId) };
+  toast.add({ title: t(trash ? 'fork.mergedTrashed' : 'fork.merged'), color: 'success', actions: [undo] });
 }
-// Undoes the last merge, like git reset --hard HEAD~1 (#177): the original gets back its text from before it, kept in
-// its history, and the fork its base, so the next merge offers again what that one refused. Refused (409) once the
-// original was written since.
-async function unmerge() {
+// Undoes the last merge into this note, like git reset --hard HEAD~1 (#177): the note gets back its text from before
+// it, kept in its history, and the fork its base and its place out of the trash, so the next merge offers again what
+// that one refused. Refused (409) once the note was written since.
+async function unmerge(forkId: string) {
+  await saver.flush();
+  let note: ItemDetail;
   try {
-    await api(`/api/notes/${id.value}/unmerge`, {
+    note = await api<ItemDetail>(`/api/notes/${forkId}/unmerge`, {
       method: 'POST',
       conflict: {
         'no merge': t('fork.noMerge'),
@@ -298,8 +314,19 @@ async function unmerge() {
   } catch {
     return;
   }
-  merged.value = false;
+  await showSaved(note);
   toast.add({ title: t('fork.unmerged'), color: 'success' });
+}
+// The note as the API saved it, shown without being sent again; the sidebar, the related notes and the history follow.
+async function showSaved(note: ItemDetail) {
+  remember(note);
+  tags.value = note.tags ?? [];
+  links = linkedNotes(saved);
+  title.value = note.item.title;
+  touched.value = false;
+  if (source.value !== undefined) source.value = saved;
+  else editorRef.value?.editor?.commands.setContent(saved, { contentType: 'markdown' });
+  await refreshNuxtData();
 }
 // A fork of the text as saved, beside the note, titled like a fork from the history: open to every plan, the history to Pro.
 async function fork() {
@@ -581,24 +608,27 @@ const status = computed(() => {
             @click="fork()"
           />
         </UTooltip>
-        <UTooltip v-if="forkOf" :text="$t('fork.merge')">
-          <UButton
-            :icon="icons.merge"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            :aria-label="$t('fork.merge')"
-            @click="mergeBack()"
-          />
-        </UTooltip>
-        <UTooltip v-if="forkOf && merged" :text="$t('fork.unmerge')">
+        <UDropdownMenu
+          v-if="neighbors?.forks.length"
+          :items="
+            neighbors.forks.map((fork) => ({
+              label: displayTitle(fork.title, $t('untitled')),
+              onSelect: () => void mergeIn(fork.id),
+            }))
+          "
+        >
+          <UTooltip :text="$t('fork.merge')">
+            <UButton :icon="icons.merge" color="neutral" variant="ghost" size="xs" :aria-label="$t('fork.merge')" />
+          </UTooltip>
+        </UDropdownMenu>
+        <UTooltip v-if="neighbors?.merged" :text="$t('fork.unmerge')">
           <UButton
             :icon="icons.undo"
             color="neutral"
             variant="ghost"
             size="xs"
             :aria-label="$t('fork.unmerge')"
-            @click="unmerge()"
+            @click="unmerge(neighbors.merged)"
           />
         </UTooltip>
         <UTooltip v-if="has('sourceMode')" :text="source === undefined ? $t('note.source') : $t('note.editor')">

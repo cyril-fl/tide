@@ -30,6 +30,7 @@ type User struct {
 	// The most notes sharing a tag that a note shows around it, one of NeighborsLimits, 0 for all of them.
 	// An insert of 0 gets the default: only an update sets it.
 	NeighborsLimit int           `bun:",notnull,default:50" json:"neighbors_limit"`
+	AfterMerge     string        `bun:",notnull,default:'ask'" json:"after_merge"`   // what a merge does with the fork, one of AfterMerges
 	Avatar         string        `bun:",type:uuid,nullzero" json:"avatar,omitempty"` // the id of a File of the account, purgefiles keeps it
 	Snippets       Snippets      `bun:",type:jsonb,notnull,default:'[]'" json:"snippets"`
 	SavedSearches  SavedSearches `bun:",type:jsonb,notnull,default:'[]'" json:"saved_searches"`
@@ -107,6 +108,8 @@ var (
 	ColorModes = []string{"system", "light", "dark"}
 	Views      = []string{"list", "grid"}
 	Plans      = []string{"base", "pro", "ultra"}
+	// AfterMerges: the app asks at each merge whether to trash the fork, or trashes it, or keeps it without asking.
+	AfterMerges = []string{"ask", "delete", "keep"}
 )
 
 // Features are the plan each feature of the web app comes from, each plan including those before it, "off" for no one

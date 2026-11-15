@@ -16,6 +16,7 @@ import (
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/deleteitems"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/forknote"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/mergefork"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/readitem"
 )
 
@@ -129,10 +130,32 @@ func TestNeighbors(t *testing.T) {
 	if got := process.GetResult(); process.HasErr() || len(got.Forks) != 1 || got.Forks[0].ID != fork.GetResult().ID || len(got.Original) != 0 {
 		t.Errorf("forks = %+v, original = %+v, %v; want the fork, no original", got.Forks, got.Original, process.GetErr())
 	}
+	if got := process.GetResult().Merged; got != "" {
+		t.Errorf("merged before a merge = %q", got)
+	}
 	process = Process(ctx, tx, fork.GetResult().ID)
 	process.Run()
 	if got := process.GetResult(); process.HasErr() || len(got.Original) != 1 || got.Original[0].ID != ids["Center"] || got.Original[0].Path != "/Center" {
 		t.Errorf("original = %+v, %v; want Center", got.Original, process.GetErr())
+	}
+
+	// Merged into Center and trashed: no longer a fork of it, still the merge it can undo.
+	center := process.GetResult().Original[0]
+	read := readitem.Process(ctx, tx, domain.NOTE, center.ID)
+	read.Run()
+	at := read.GetResult().Item.UpdatedAt
+	if at.IsZero() {
+		at = read.GetResult().Item.CreatedAt
+	}
+	merge := mergefork.Process(ctx, tx, mergefork.Input{ID: fork.GetResult().ID, Content: "# Center\n\nmerged", Base: "# Center fork", UpdatedAt: &at, Trash: true})
+	merge.Run()
+	if merge.HasErr() {
+		t.Fatalf("merge: %v", merge.GetErr())
+	}
+	process = Process(ctx, tx, ids["Center"])
+	process.Run()
+	if got := process.GetResult(); process.HasErr() || len(got.Forks) != 0 || got.Merged != fork.GetResult().ID {
+		t.Errorf("forks = %+v, merged = %q, %v; want no fork, the trashed one merged", got.Forks, got.Merged, process.GetErr())
 	}
 
 	missing := Process(ctx, tx, "00000000-0000-0000-0000-000000000000")

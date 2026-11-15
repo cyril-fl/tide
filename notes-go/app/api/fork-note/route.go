@@ -17,6 +17,7 @@ type Body struct {
 }
 
 // Handler creates a fork of a note beside it: POST /api/notes/{id}/forks.
+// TODO: the notes CLI and its MCP neither fork nor merge (the merge resolves its conflicts in the app), add them once an agent needs it.
 // @Summary  Fork a note
 // @Tags     notes
 // @Accept   json

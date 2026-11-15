@@ -137,14 +137,14 @@ const groups = computed<CommandPaletteGroup[]>(() => {
       id: 'actions',
       label: t('search.actions'),
       items: [
-        { label: t('common.newNote'), icon: icons.noteAdd, kbds: ['N'], to: newNotePath(currentFolder(route)) },
+        { label: t('common.newNote'), icon: icons.noteAdd, kbds: ['n'], to: newNotePath(currentFolder(route)) },
         ...(snippets.value.length
-          ? [{ label: t('search.fromSnippet'), icon: icons.snippet, kbds: ['T'], children: snippets.value }]
+          ? [{ label: t('search.fromSnippet'), icon: icons.snippet, kbds: ['t'], children: snippets.value }]
           : []),
         {
           label: t('common.newFolder'),
           icon: icons.folderAdd,
-          kbds: ['shift', 'N'],
+          kbds: ['shift', 'n'],
           onSelect: () => createFolder(currentFolder(route)),
         },
         { label: t('settings.import'), icon: icons.import, onSelect: () => importNotes() },

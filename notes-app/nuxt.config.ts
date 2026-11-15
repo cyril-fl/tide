@@ -13,6 +13,8 @@ export default defineNuxtConfig({
     // The cookie keeps the last language chosen: the login page, without an account, shows it too.
     detectBrowserLanguage: { useCookie: true, cookieKey: 'notes-locale' },
   },
+  // The keyboard of Android shrinks the page instead of covering it: the caret of the source mode stays in sight (#129).
+  app: { head: { viewport: 'width=device-width, initial-scale=1, interactive-widget=resizes-content' } },
   css: ['~/assets/css/main.css'],
   // prosemirror-search has its own prosemirror-* dependencies: a second copy breaks the decorations of the editor.
   vite: { resolve: { dedupe: ['prosemirror-model', 'prosemirror-state', 'prosemirror-view'] } },

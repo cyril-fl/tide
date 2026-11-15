@@ -103,7 +103,13 @@ onMounted(() => {
         EditorState.allowMultipleSelections.of(true),
         EditorState.phrases.of(phrases()),
         EditorView.lineWrapping,
-        EditorView.contentAttributes.of({ 'aria-label': props.label }),
+        // CodeMirror turns the keyboard's corrections off by default: the phone's autocorrect is wanted here (#129).
+        EditorView.contentAttributes.of({
+          'aria-label': props.label,
+          spellcheck: 'true',
+          autocorrect: 'on',
+          autocapitalize: 'sentences',
+        }),
         // macOS holds a Ctrl+Shift+letter as its unshifted self, so a keymap entry never sees the Shift: read here.
         Prec.highest(
           EditorView.domEventHandlers({

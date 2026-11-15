@@ -1,4 +1,4 @@
-import { expect, test, type Route } from '@playwright/test';
+import { expect, test, type Locator, type Page, type Route } from '@playwright/test';
 import { cursorAtEnd, sandbox, sourceText } from './helpers';
 
 let box: Awaited<ReturnType<typeof sandbox>>;
@@ -691,6 +691,68 @@ test('the Pro history forks the current text of a note never edited', async ({ p
     await expect(page).not.toHaveURL(new RegExp(note.id));
     await expect(page.locator('.ProseMirror')).toContainText(`${box.prefix} fresh (version du`);
     await expect(page.locator('.ProseMirror')).toContainText('only');
+  } finally {
+    await box.api.patch('/api/me', { data: { plan: 'base' } });
+  }
+});
+
+// A fork merges back into its note (Pro): the fork's changes and the note's own, the note keeping its title.
+async function forkAndMerge(
+  page: Page,
+  name: string,
+  fork: (text: string) => string,
+  original: (text: string) => string,
+  resolve?: (dialog: Locator) => Promise<void>,
+) {
+  const note = await box.note(`# ${box.prefix} ${name}\n\nun\n\ndeux`);
+  await page.goto(`/notes/${note.id}`);
+  await page
+    .getByRole('region', { name: 'Historique des versions' })
+    .getByRole('button', { name: /\d{2}:\d{2}/ })
+    .first()
+    .click();
+  await page.getByRole('button', { name: 'Nouvelle note depuis cette version' }).click();
+  await expect(page).not.toHaveURL(new RegExp(note.id));
+  const copy = page.url().split('/').pop()!;
+  await box.api.patch(`/api/notes/${copy}`, { data: { content: fork(await box.content(copy)) } });
+  await box.api.patch(`/api/notes/${note.id}`, { data: { content: original(await box.content(note.id)) } });
+  await page.reload();
+  await page.getByRole('button', { name: "Fusionner dans la note d'origine" }).click();
+  if (resolve) await resolve(page.getByRole('dialog'));
+  await expect(page.getByText("Copie fusionnée dans la note d'origine").first()).toBeVisible();
+  return note.id;
+}
+
+test('the Pro history merges a fork back, changes on both sides kept with the original title', async ({ page }) => {
+  try {
+    await box.api.patch('/api/me', { data: { plan: 'pro' } });
+    const id = await forkAndMerge(
+      page,
+      'merge',
+      (text) => text.replace(/^un$/m, 'un copie'),
+      (text) => text.replace(/^deux$/m, 'deux origine'),
+    );
+    expect(await box.content(id)).toBe(`# ${box.prefix} merge\n\nun copie\n\ndeux origine`);
+  } finally {
+    await box.api.patch('/api/me', { data: { plan: 'base' } });
+  }
+});
+
+test('the Pro history merges a fork back, a conflict resolved with the copy', async ({ page }) => {
+  try {
+    await box.api.patch('/api/me', { data: { plan: 'pro' } });
+    const id = await forkAndMerge(
+      page,
+      'merge conflit',
+      (text) => text.replace(/^un$/m, 'un copie'),
+      (text) => text.replace(/^un$/m, 'un origine'),
+      async (dialog) => {
+        await expect(dialog.getByRole('region', { name: 'Conflit 1' })).toContainText('un origine');
+        await dialog.getByRole('button', { name: 'Garder la copie' }).click();
+        await dialog.getByRole('button', { name: 'Enregistrer' }).click();
+      },
+    );
+    expect(await box.content(id)).toBe(`# ${box.prefix} merge conflit\n\nun copie\n\ndeux`);
   } finally {
     await box.api.patch('/api/me', { data: { plan: 'base' } });
   }

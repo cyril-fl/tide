@@ -1,157 +1,157 @@
 # Notes
 
-**Notes** est une application de prise de notes en markdown, un peu à la manière d'Obsidian : des notes rangées dans des dossiers, reliées par leurs `[[liens]]` et leurs `#tags`.
+**Notes** is a markdown note-taking app, a bit like Obsidian: notes filed in folders, connected by their `[[links]]` and `#tags`.
 
-Un serveur Go sur PostgreSQL sert l'API et l'app web. Une CLI et un serveur MCP permettent aux scripts et aux agents d'utiliser cette API. L'app web est faite pour être ouverte depuis un téléphone ou une tablette, par exemple via Tailscale.
+A Go server on PostgreSQL serves the API and the web app. A CLI and an MCP server let scripts and agents use that API. The web app is meant to be opened from a phone or a tablet, for example through Tailscale.
 
-- **Dépôt :** https://github.com/cyril-fl/notes
+- **Repository:** https://github.com/cyril-fl/notes
 
 ## Documentation
 
-Le [wiki](https://github.com/cyril-fl/notes/wiki) détaille l'app web écran par écran, les titres et les tags, les thèmes, les données et l'historique des versions.
+The [wiki](https://github.com/cyril-fl/notes/wiki) details the web app screen by screen, titles and tags, themes, data and the version history.
 
-Chaque partie a aussi son README :
+Each part also has its own README:
 
-- [`notes-go/`](./notes-go/README.md) : le serveur `notes-server`, la CLI `notes`, le MCP, l'API, la configuration et la sauvegarde.
-- [`notes-app/`](./notes-app/README.md) : l'app web, ses raccourcis et ses réglages.
+- [`notes-go/`](./notes-go/README.md): the `notes-server` server, the `notes` CLI, the MCP, the API, the configuration and the backup.
+- [`notes-app/`](./notes-app/README.md): the web app, its shortcuts and its settings.
 
-## Fonctionnalités
+## Features
 
-- **Notes et dossiers** : un éditeur markdown riche (avec un mode source), des dossiers en arbre, l'épinglage, les favoris et une corbeille.
-- **Liens** : des `[[liens]]`, des rétroliens, l'inclusion d'une note dans une autre (`![[Note]]`), un graphe des notes et la liste des liens cassés.
-- **Tags** : des `#tags` écrits dans le texte, avec une page par tag.
-- **Recherche** : une palette ⌘K qui cherche dans les titres et le texte, des dossiers intelligents, et le remplacement d'un texte dans une note ou dans toutes.
-- **Historique** : les versions de chaque note, qu'on peut comparer, restaurer ou copier en une nouvelle note, puis fusionner dans l'original.
-- **Images et fichiers** : stockés dans Silo (compatible S3).
-- **Comptes** : plusieurs comptes par serveur, sur invitation, des jetons d'API, et des notes chiffrées en base.
-- **Personnalisation** : des thèmes, le mode clair ou sombre, des snippets, une barre latérale réglable et trois formules (Standard, Avancé, Ultra). Les réglages suivent le compte d'un appareil à l'autre.
-- **Import et export** : un zip de fichiers markdown.
+- **Notes and folders**: a rich markdown editor (with a source mode), folders in a tree, pinning, favorites and a trash.
+- **Links**: `[[links]]`, backlinks, including a note in another (`![[Note]]`), a graph of the notes and the list of broken links.
+- **Tags**: `#tags` written in the text, with a page per tag.
+- **Search**: a ⌘K palette that searches titles and text, smart folders, and replacing a text in one note or in all of them.
+- **History**: the versions of each note, which you can compare, restore or copy into a new note, then merge back into the original.
+- **Images and files**: stored in Silo (S3-compatible).
+- **Accounts**: several accounts per server, by invitation, API tokens, and notes encrypted in the database.
+- **Customization**: themes, light or dark mode, snippets, an adjustable sidebar and three plans (Standard, Advanced, Ultra). The settings follow the account from one device to another.
+- **Import and export**: a zip of markdown files.
 
-## Installation et utilisation
+## Installation and usage
 
-Notes est développé avec la dernière version de Go. En local, la stack tourne dans Docker grâce à [`notes-go/compose.yaml`](./notes-go/compose.yaml).
+Notes is developed with the latest version of Go. Locally, the stack runs in Docker thanks to [`notes-go/compose.yaml`](./notes-go/compose.yaml).
 
 ```bash
 git clone https://github.com/cyril-fl/notes.git
 cd notes
-cp notes-go/.env.example notes-go/.env   # puis renseigner les mots de passe
-make -C notes-go setup                   # installe les hooks git (lefthook)
-make up                                  # Postgres, Silo et l'API dans Docker, l'app web sur :3000
-echo '<mot de passe>' | docker exec -i note-api /notes-server user add <nom> --password-stdin
+cp notes-go/.env.example notes-go/.env   # then fill in the passwords
+make -C notes-go setup                   # installs the git hooks (lefthook)
+make up                                  # Postgres, Silo and the API in Docker, the web app on :3000
+echo '<password>' | docker exec -i note-api /notes-server user add <name> --password-stdin
 ```
 
-L'app web répond sur http://localhost:3000 (ouvrir `localhost`, pas `127.0.0.1`), et ses logs vont dans `.build/notes-app.log`. Pour l'arrêter, `make down` (Colima reste démarré).
+The web app answers on http://localhost:3000 (open `localhost`, not `127.0.0.1`), and its logs go to `.build/notes-app.log`. To stop it, `make down` (Colima stays running).
 
-Pour la CLI, sur le Mac :
+For the CLI, on the Mac:
 
 ```bash
 go install github.com/cyril-fl/notes/notes-go/cmd/notes@latest
 notes login https://notes.example.ts.net
 ```
 
-### Prérequis
+### Requirements
 
-- [Go](https://go.dev/) (version indiquée dans `notes-go/go.mod`)
-- [Bun](https://bun.sh/), pour l'app web
+- [Go](https://go.dev/) (version given in `notes-go/go.mod`)
+- [Bun](https://bun.sh/), for the web app
 - [Docker](https://www.docker.com/) et [Docker Compose](https://docs.docker.com/compose/)
-- [Colima](https://github.com/abiosoft/colima), utilisé par `make up` sur macOS
-- [Plum](https://github.com/cyril-fl/plum), une bibliothèque utilitaire (CLI, configuration, process)
+- [Colima](https://github.com/abiosoft/colima), used by `make up` on macOS
+- [Plum](https://github.com/cyril-fl/plum), a utility library (CLI, configuration, processes)
 
-### Environnement Docker
+### Docker environment
 
-[`notes-go/compose.yaml`](./notes-go/compose.yaml) définit les services du développement :
+[`notes-go/compose.yaml`](./notes-go/compose.yaml) defines the development services:
 
-- `postgres` (`note-postgres`) : PostgreSQL 18, sur `127.0.0.1:5432`.
-- `silo` (`note-silo`) : le stockage des images, sur `127.0.0.1:9000` (console sur `9001`).
-- `api` (`note-api`) : `notes-server serve`, sur http://localhost:8080 (profil `api`, lancé par `make up`).
-- `libredb` (`note-libredb`) : LibreDB Studio, une interface web pour explorer la base, sur http://localhost:3001.
-- `app` (`note-app`) : un conteneur Go, pour lancer du Go contre la stack.
+- `postgres` (`note-postgres`): PostgreSQL 18, on `127.0.0.1:5432`.
+- `silo` (`note-silo`): image storage, on `127.0.0.1:9000` (console on `9001`).
+- `api` (`note-api`): `notes-server serve`, on http://localhost:8080 (profile `api`, started by `make up`).
+- `libredb` (`note-libredb`): LibreDB Studio, a web interface to explore the database, on http://localhost:3001.
+- `app` (`note-app`): a Go container, to run Go against the stack.
 
-Les variables d'environnement sont décrites dans la section *Configuration* du [README de `notes-go`](./notes-go/README.md#configuration).
+The environment variables are described in the *Configuration* section of the [`notes-go` README](./notes-go/README.md#configuration).
 
-## Serveur
+## Server
 
-Chaque tag `v*` publie l'image `ghcr.io/cyril-fl/notes` (amd64 et arm64), qui sert l'API et l'app web sur la même origine. Sur le serveur, il faut [`compose.prod.yaml`](./compose.prod.yaml) et, à côté, un `.env` copié de [`.env.prod.example`](./.env.prod.example) :
+Each `v*` tag publishes the `ghcr.io/cyril-fl/notes` image (amd64 and arm64), which serves the API and the web app on the same origin. On the server, you need [`compose.prod.yaml`](./compose.prod.yaml) and, next to it, a `.env` copied from [`.env.prod.example`](./.env.prod.example):
 
 ```sh
-docker compose -f compose.prod.yaml up -d                                    # Postgres, Silo, Notes et LibreDB Studio
-echo '<mot de passe>' | docker exec -i note-api /notes-server user add <nom> --password-stdin
-docker compose -f compose.prod.yaml pull && docker compose -f compose.prod.yaml up -d   # mise à jour
+docker compose -f compose.prod.yaml up -d                                    # Postgres, Silo, Notes and LibreDB Studio
+echo '<password>' | docker exec -i note-api /notes-server user add <name> --password-stdin
+docker compose -f compose.prod.yaml pull && docker compose -f compose.prod.yaml up -d   # update
 ```
 
-L'image ne contient que `notes-server`, le seul binaire qui parle à Postgres et à Silo. Il fait tourner l'API et l'app web, et porte les commandes de l'admin (`user add`, `user reset-password`, `rotate-secret`), qu'on lance dans le conteneur avec `docker exec`. La CLI `notes` est un client de l'API.
+The image only contains `notes-server`, the only binary that talks to Postgres and Silo. It runs the API and the web app, and carries the admin's commands (`user add`, `user reset-password`, `rotate-secret`), which you run in the container with `docker exec`. The `notes` CLI is a client of the API.
 
-Notes écoute en HTTP sur `NOTES_LISTEN` (`127.0.0.1:8080` par défaut). Le cookie de session exige HTTPS : c'est le proxy placé devant qui le fournit. `WEB_ORIGIN` est l'adresse exacte que tape le navigateur. LibreDB Studio écoute sur `LIBREDB_LISTEN` (`127.0.0.1:3001`) : on s'y connecte à `note-postgres:5432` avec l'utilisateur `POSTGRES_USER`.
+Notes listens over HTTP on `NOTES_LISTEN` (`127.0.0.1:8080` by default). The session cookie requires HTTPS: the proxy in front provides it. `WEB_ORIGIN` is the exact address the browser types. LibreDB Studio listens on `LIBREDB_LISTEN` (`127.0.0.1:3001`): connect to `note-postgres:5432` with the `POSTGRES_USER` user.
 
-Au démarrage, Notes ajoute à la base les tables et les colonnes des nouvelles versions. Un renommage ou un changement de type reste à faire à la main ; le message du commit l'indique.
+At startup, Notes adds the tables and columns of new versions to the database. A rename or a type change is still done by hand; the commit message says so.
 
-> ⚠️ `NOTES_SECRET` chiffre les notes. Gardez-en une copie dans un gestionnaire de mots de passe, jamais dans une sauvegarde : sans cette clé, les notes sont illisibles.
+> ⚠️ `NOTES_SECRET` encrypts the notes. Keep a copy in a password manager, never in a backup: without this key, the notes are unreadable.
 
-### Comptes
+### Accounts
 
-Le premier compte de la base est admin. Lui seul invite, liste et supprime les autres, depuis les réglages de l'app (section *Utilisateurs*). Ce premier compte se crée de trois façons :
+The first account in the database is admin. Only it invites, lists and deletes the others, from the app's settings (*Users* section). This first account is created in three ways:
 
-- sur une base vide, l'app mène droit à la page de création de compte ;
-- si `NOTES_HOST_NAME` et `NOTES_HOST_PASSWORD` sont renseignés dans le `.env`, Notes le crée au démarrage ; ces deux lignes sont ensuite à vider ;
-- la commande `notes-server user add` ci-dessus marche dans tous les cas.
+- on an empty database, the app leads straight to the account creation page;
+- if `NOTES_HOST_NAME` and `NOTES_HOST_PASSWORD` are set in the `.env`, Notes creates it at startup; those two lines should then be emptied;
+- the `notes-server user add` command above works in every case.
 
-Ensuite, `NOTES_ADD_USER_MODE` décide qui peut créer un compte :
+After that, `NOTES_ADD_USER_MODE` decides who can create an account:
 
-- `invitation` (par défaut) : l'admin crée un lien d'invitation dans les réglages et l'envoie. Le lien sert une seule fois et expire au bout de 7 jours. C'est l'invité qui choisit son nom et son mot de passe. Hors invitation, la page de création de compte est fermée.
-- `public` : n'importe qui atteignant l'app peut créer un compte. Ce mode est à réserver à un réseau de confiance (Tailscale), car rien ne limite le nombre de créations.
+- `invitation` (default): the admin creates an invitation link in the settings and sends it. The link works once and expires after 7 days. The invitee chooses their own name and password. Without an invitation, the account creation page is closed.
+- `public`: anyone who can reach the app can create an account. Reserve this mode for a trusted network (Tailscale), since nothing limits the number of creations.
 
-Supprimer un compte efface pour de bon ses notes, dossiers, tags et images. Un admin ne peut ni se supprimer lui-même, ni supprimer le dernier admin.
+Deleting an account permanently erases its notes, folders, tags and images. An admin can neither delete themselves nor delete the last admin.
 
 ## Makefile
 
-À la racine :
+At the root:
 
-| Cible       | Description                                                                   |
+| Target      | Description                                                                   |
 |-------------|-------------------------------------------------------------------------------|
-| `make up`   | Démarre Colima, Postgres, Silo et l'API dans Docker, puis l'app web sur :3000 |
-| `make down` | Arrête l'app web et les conteneurs (Colima reste démarré)                     |
-| `make e2e`  | Lance les tests navigateur (Playwright) contre la stack                       |
-| `make perf` | Mesure l'API et les pages sur un compte de 50 000 notes générées              |
+| `make up`   | Starts Colima, Postgres, Silo and the API in Docker, then the web app on :3000 |
+| `make down` | Stops the web app and the containers (Colima stays running)                   |
+| `make e2e`  | Runs the browser tests (Playwright) against the stack                         |
+| `make perf` | Measures the API and the pages on an account of 50,000 generated notes       |
 
-Dans `notes-go/` :
+In `notes-go/`:
 
-| Cible          | Description                                                                                    |
+| Target         | Description                                                                                    |
 |----------------|------------------------------------------------------------------------------------------------|
-| `make setup`   | Installe les hooks git (lefthook)                                                              |
-| `make test`    | Lance les tests Go dans la base `<POSTGRES_DB>_test` (`ARGS=./app/...` pour cibler un dossier) |
-| `make api`     | Recompile et redémarre le conteneur de l'API                                                   |
-| `make openapi` | Régénère `docs/swagger.yaml` (puis `bun run types` dans `notes-app/`)                          |
-| `make backup`  | Sauvegarde la base et les images dans `backups/`                                               |
-| `make pgsql`   | Ouvre psql, ou lance une requête avec `QUERY="..."`                                            |
-| `make connect` | Connecte la CLI à une API (`TO=local` ou `TO=fedora`)                                          |
+| `make setup`   | Installs the git hooks (lefthook)                                                              |
+| `make test`    | Runs the Go tests in the `<POSTGRES_DB>_test` database (`ARGS=./app/...` to target a folder)   |
+| `make api`     | Rebuilds and restarts the API container                                                        |
+| `make openapi` | Regenerates `docs/swagger.yaml` (then `bun run types` in `notes-app/`)                         |
+| `make backup`  | Backs up the database and the images into `backups/`                                           |
+| `make pgsql`   | Opens psql, or runs a query with `QUERY="..."`                                                 |
+| `make connect` | Connects the CLI to an API (`TO=local` or `TO=fedora`)                                         |
 
-## Qualité
+## Quality
 
-- Les hooks lefthook (`make setup` dans `notes-go/`) lancent gofmt, Prettier et actionlint (pour les workflows) avant chaque commit. Ils vérifient aussi le préfixe du message (`feat:`, `fix:`…).
-- La CI GitHub Actions ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)) tourne à chaque push et à chaque PR :
-  - le format, vet et les tests Go ;
-  - le lint, le format, les tests, le typecheck et le build de l'app ;
-  - la vérification que `swagger.yaml` et `api.d.ts` sont à jour ;
-  - les e2e sur la stack Docker ;
-  - le build de l'image serveur, sans la publier.
+- The lefthook hooks (`make setup` in `notes-go/`) run gofmt, Prettier and actionlint (for the workflows) before each commit. They also check the message prefix (`feat:`, `fix:`…).
+- The GitHub Actions CI ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)) runs on every push and every PR:
+  - format, vet and the Go tests;
+  - lint, format, tests, typecheck and build of the app;
+  - the check that `swagger.yaml` and `api.d.ts` are up to date;
+  - the e2e tests on the Docker stack;
+  - the build of the server image, without publishing it.
 
-## Remerciements
+## Acknowledgments
 
-### Bibliothèques
+### Libraries
 
-- [Cobra](https://github.com/spf13/cobra) : la CLI
-- [Bun](https://bun.uptrace.dev/) : l'ORM, sur PostgreSQL
-- [MinIO Go Client](https://github.com/minio/minio-go) : le stockage S3
-- [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk) : le serveur MCP
-- [Nuxt](https://nuxt.com/) et [Nuxt UI](https://ui.nuxt.com/) : l'app web
-- [Tiptap](https://tiptap.dev/) : l'éditeur
-- [KaTeX](https://katex.org/) et [Mermaid](https://mermaid.js.org/) : les formules et les diagrammes
+- [Cobra](https://github.com/spf13/cobra): the CLI
+- [Bun](https://bun.uptrace.dev/): the ORM, on PostgreSQL
+- [MinIO Go Client](https://github.com/minio/minio-go): S3 storage
+- [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk): the MCP server
+- [Nuxt](https://nuxt.com/) and [Nuxt UI](https://ui.nuxt.com/): the web app
+- [Tiptap](https://tiptap.dev/): the editor
+- [KaTeX](https://katex.org/) and [Mermaid](https://mermaid.js.org/): formulas and diagrams
 
 ### Services
 
-- Silo : le stockage des images, compatible S3
-- LibreDB Studio : une interface web pour la base
+- Silo: image storage, S3-compatible
+- LibreDB Studio: a web interface for the database
 
-## Licence
+## License
 
 [MIT](./notes-go/LICENSE)

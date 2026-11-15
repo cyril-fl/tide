@@ -1,79 +1,79 @@
 # notes-go
 
-Prise de notes en Go, avec dossiers, tags et corbeille : le serveur `notes-server` (l'API, sur PostgreSQL et Silo) et la CLI `notes`, son client. Les notes sont en markdown.
+Note-taking in Go, with folders, tags and a trash: the `notes-server` server (the API, on PostgreSQL and Silo) and the `notes` CLI, its client. Notes are in markdown.
 
-## Prérequis
+## Requirements
 
-- Go (version indiquée dans `go.mod`)
-- Docker, avec Colima pour `make up` et `make down`
+- Go (version given in `go.mod`)
+- Docker, with Colima for `make up` and `make down`
 
 ## Installation
 
-Deux binaires sortent de ce module :
+Two binaries come out of this module:
 
-- `notes`, la CLI et le serveur MCP : un client de l'API, sans accès à Postgres ni à Silo, à installer sur le Mac ;
-- `notes-server`, le seul à parler à la base : l'API et l'app web (`serve`) et les commandes de l'admin. Il tourne dans l'image Docker (voir *Serveur* dans le README racine).
+- `notes`, the CLI and the MCP server: a client of the API, with no access to Postgres or Silo, to install on the Mac;
+- `notes-server`, the only one that talks to the database: the API and the web app (`serve`) and the admin's commands. It runs in the Docker image (see *Server* in the root README).
 
 ```sh
-go install github.com/cyril-fl/notes/notes-go/cmd/notes@latest   # la dernière version de main
+go install github.com/cyril-fl/notes/notes-go/cmd/notes@latest   # the latest version of main
 notes login https://notes.example.ts.net
 ```
 
-Dans le repo, pour développer :
+In the repo, to develop:
 
 ```sh
-cp .env.example .env     # puis renseigne les mots de passe
-make up                  # démarre Colima, PostgreSQL, Silo et LibreDB Studio
-make api                 # notes-server dans Docker, sur http://localhost:8080
+cp .env.example .env     # then fill in the passwords
+make up                  # starts Colima, PostgreSQL, Silo and LibreDB Studio
+make api                 # notes-server in Docker, on http://localhost:8080
 go build -o "$(go env GOPATH)/bin/notes" ./cmd/notes
-make connect TO=local    # notes login sur l'API de make api
+make connect TO=local    # notes login on the API of make api
 ```
 
-`notes-server` crée le schéma avant chacune de ses commandes, et `serve` vide la corbeille au démarrage puis toutes les heures. La CLI, elle, ne touche jamais la base : une CLI d'une autre version que le serveur ne peut pas y créer son schéma.
+`notes-server` creates the schema before each of its commands, and `serve` empties the trash at startup then every hour. The CLI never touches the database: a CLI of a different version than the server cannot create its schema there.
 
-## Utilisation
+## Usage
 
-### Comptes
+### Accounts
 
-Chaque note, dossier et tag appartient à un compte, et un compte ne voit jamais ceux des autres. Le premier compte de la base est admin : lui seul invite, liste et supprime les autres depuis l'app (voir *Serveur* dans le README racine). `notes-server`, sur le serveur, crée un compte quel que soit le mode du serveur :
+Each note, folder and tag belongs to an account, and an account never sees those of the others. The first account in the database is admin: only it invites, lists and deletes the others from the app (see *Server* in the root README). `notes-server`, on the server, creates an account whatever the server's mode:
 
 ```sh
-notes-server user add cyril     # demande le mot de passe deux fois (8 caractères au moins)
-notes-server user reset-password cyril  # mot de passe oublié : nouveau mot de passe, tous les appareils déconnectés
-notes-server rotate-secret      # rechiffre les clés des comptes par un nouveau NOTES_SECRET (voir Chiffrement)
-notes login https://notes.example.ts.net  # nom et mot de passe sur ce serveur, puis toutes les commandes agissent pour ce compte
-notes logout                    # coupe aussi la session sur le serveur
-notes whoami                    # le compte et le serveur pour lesquels la CLI agit
-make connect TO=fedora          # dans le repo : login sur NOTES_FEDORA_URL du .env, ou TO=local sur l'API de make api
-notes account purge             # vide le compte connecté (notes, dossiers, tags, images), après avoir tapé son nom
+notes-server user add cyril     # asks for the password twice (8 characters at least)
+notes-server user reset-password cyril  # forgotten password: new password, all devices logged out
+notes-server rotate-secret      # re-encrypts the accounts' keys with a new NOTES_SECRET (see Encryption)
+notes login https://notes.example.ts.net  # name and password on this server, then every command acts for this account
+notes logout                    # also ends the session on the server
+notes whoami                    # the account and the server the CLI acts for
+make connect TO=fedora          # in the repo: login on NOTES_FEDORA_URL from the .env, or TO=local on the API of make api
+notes account purge             # empties the logged-in account (notes, folders, tags, images), after typing its name
 ```
 
-- **Sur le serveur :** dans le conteneur, `docker exec -it note-api /notes-server user add cyril` (`-i` seul avec `--password-stdin`).
-- **Scripts :** `--password-stdin` lit le mot de passe sur l'entrée standard, pour `user add` et `user reset-password`.
-- **Admin :** le drapeau est posé par le premier compte créé dans une base vide, quelle que soit la façon. Pour le déplacer ou en ajouter un, il faut toucher la base : `UPDATE users SET admin = true WHERE name = '<nom>'`.
-- **Session de la CLI :** l'URL du serveur et le jeton sont gardés dans `~/.config/notes/session.json`, lisible par l'utilisateur seul. La session dure 30 jours, prolongés à chaque usage. `NOTES_URL` et `NOTES_SESSION`, si elles sont posées, passent avant ce fichier : `notes login <url> --print-token` crée une session à part et n'affiche que son jeton, pour un agent qui ne peut pas se connecter là où il tourne (voir `MCP.md`). `notes logout` avec la variable ne coupe que cette session. Le jeton ouvre le compte entier, il ne va dans aucun fichier versionné.
+- **On the server:** in the container, `docker exec -it note-api /notes-server user add cyril` (`-i` alone with `--password-stdin`).
+- **Scripts:** `--password-stdin` reads the password from standard input, for `user add` and `user reset-password`.
+- **Admin:** the flag is set by the first account created in an empty database, however it is created. To move it or add one, you have to touch the database: `UPDATE users SET admin = true WHERE name = '<name>'`.
+- **CLI session:** the server URL and the token are kept in `~/.config/notes/session.json`, readable by the user only. The session lasts 30 days, extended at each use. `NOTES_URL` and `NOTES_SESSION`, if set, take precedence over this file: `notes login <url> --print-token` creates a separate session and prints only its token, for an agent that cannot log in where it runs (see `MCP.md`). `notes logout` with the variable only ends that session. The token opens the whole account, it goes in no versioned file.
 
-### Jetons d'API
+### API tokens
 
 ```sh
-notes add token "script backup"               # affiche le jeton une seule fois, sur stdout
-notes add token "Claude téléphone" --expires 30d   # 7d, 30d, 90d (par défaut), 1y ou never
-notes show token                              # nom, uuid, création, dernière utilisation, expiration
-notes remove token <uuid>                     # révoque : le jeton cesse de marcher aussitôt
+notes add token "backup script"               # prints the token once, on stdout
+notes add token "Claude phone" --expires 30d   # 7d, 30d, 90d (default), 1y or never
+notes show token                              # name, uuid, creation, last use, expiry
+notes remove token <uuid>                     # revokes: the token stops working at once
 ```
 
-Un jeton d'API (`notes_…`) s'envoie en `Authorization: Bearer <jeton>`. Il fait tout ce que fait le compte sur les notes, dossiers, tags et fichiers, mais ne gère pas le compte : ses jetons, son mot de passe, ses réglages, la purge, la déconnexion et les routes d'admin répondent 403. La base n'en garde que l'empreinte (SHA-256). Expiré, il est refusé (401) puis purgé par le nettoyage horaire du serveur. Ils se gèrent aussi dans Réglages > Compte de l'app.
+An API token (`notes_…`) is sent as `Authorization: Bearer <token>`. It does everything the account does on notes, folders, tags and files, but does not manage the account: its tokens, its password, its settings, the purge, the logout and the admin routes answer 403. The database only keeps its fingerprint (SHA-256). Once expired, it is refused (401) then purged by the server's hourly cleanup. They can also be managed in Settings > Account of the app.
 
-Les commandes `note` et `folder`, ainsi que `move`, `finder` et `graph`, acceptent un UUID ou un chemin :
+The `note` and `folder` commands, as well as `move`, `finder` and `graph`, accept a UUID or a path:
 
 ```sh
-notes show note 3f2a...               # par UUID
-notes show note /Projets/Go/Idées     # par chemin
+notes show note 3f2a...               # by UUID
+notes show note /Projets/Go/Idées     # by path
 ```
 
-Un chemin doit correspondre exactement, majuscules comprises. Si plusieurs éléments ont le même chemin, l'erreur liste leurs UUID.
+A path must match exactly, capitals included. If several items have the same path, the error lists their UUIDs.
 
-### Notes et dossiers
+### Notes and folders
 
 ```sh
 notes add folder --title Projets
@@ -84,29 +84,29 @@ notes show note /Projets/Idées
 notes show folder /Projets
 
 notes edit note /Projets/Idées --tag go --untag sql
-notes edit note /Projets/Idées --pin       # --unpin pour retirer
-notes edit note /Projets/Idées --lock      # lecture seule, --unlock pour retirer
+notes edit note /Projets/Idées --pin       # --unpin to remove
+notes edit note /Projets/Idées --lock      # read-only, --unlock to remove
 cat idees.md | notes edit note /Projets/Idées --content -
 notes edit folder /Projets --title Travail
-notes edit folder /Projets --pin            # en favori, --unpin pour retirer
+notes edit folder /Projets --pin            # as a favorite, --unpin to remove
 
 notes move /Projets/Idées --parent /Archives
 ```
 
-Si une valeur manque, un formulaire s'ouvre. Sans terminal (cron, CI), passe tout par les flags.
+If a value is missing, a form opens. Without a terminal (cron, CI), pass everything through flags.
 
-Deux dossiers d'un même dossier ne peuvent pas porter le même nom, majuscules comprises : créer, renommer, déplacer ou restaurer un dossier à côté d'un homonyme est refusé (409 dans l'API). Une base créée avant cette règle voit ses doublons renommés au démarrage, `Nom (2)`, `Nom (3)`… Les notes, elles, peuvent partager un titre.
+Two folders in the same folder cannot have the same name, capitals included: creating, renaming, moving or restoring a folder next to a namesake is refused (409 in the API). A database created before this rule has its duplicates renamed at startup, `Name (2)`, `Name (3)`… Notes, on the other hand, can share a title.
 
-Une note n'a pas de titre à part : c'est son premier titre markdown (`#`, `##`…, quel que soit le niveau), sinon les 50 premiers caractères de sa première ligne de texte, sans la mise en forme, le code ni les lignes faites seulement de `#tags`. Une note sans texte reste sans titre. Le titre suit le contenu à chaque modification, et le chemin d'une note (`/Projets/Idées`) avec lui.
+A note has no separate title: it is its first markdown heading (`#`, `##`…, whatever the level), otherwise the first 50 characters of its first line of text, without formatting, code or lines made only of `#tags`. A note without text stays untitled. The title follows the content at each change, and the path of a note (`/Projets/Idées`) with it.
 
-### Parcourir et chercher
+### Browse and search
 
 ```sh
-notes finder [dossier]    # explorer, ouvrir, modifier, créer, supprimer
-notes graph [note]        # naviguer entre les notes qui partagent des tags
-notes search recette      # chercher dans les titres et le contenu
-notes search recette --limit 0   # toutes les notes trouvées, 50 sans --limit
-notes recent              # les 20 dernières notes modifiées
+notes finder [folder]     # explore, open, edit, create, delete
+notes graph [note]        # navigate between notes that share tags
+notes search recette      # search titles and content
+notes search recette --limit 0   # every note found, 50 without --limit
+notes recent              # the last 20 modified notes
 ```
 
 ### Tags
@@ -119,193 +119,193 @@ notes edit tag go golang
 notes remove tag sql
 ```
 
-Les tags d'une note sont les `#mots` de son texte, code et liens exclus : `#idée` dans le contenu crée le tag et le lie à la note, et l'effacer l'en retire. `--tag` écrit `#tag` à la fin du texte et `--untag` l'efface. Renommer ou supprimer un tag corrige le texte de toutes ses notes, et une note qui se retrouve vide part à la corbeille. Un tag sans plus aucune note disparaît. Un tag contient des lettres, chiffres, `_` ou `-`, avec au moins une lettre.
+The tags of a note are the `#words` of its text, code and links excluded: `#idée` in the content creates the tag and links it to the note, and erasing it removes it. `--tag` writes `#tag` at the end of the text and `--untag` erases it. Renaming or deleting a tag fixes the text of all its notes, and a note that ends up empty goes to the trash. A tag with no note left disappears. A tag contains letters, digits, `_` or `-`, with at least one letter.
 
-### Liens entre notes
+### Links between notes
 
-Écris `[[Titre]]` dans une note pour la relier à la note de ce titre, majuscules ou non, hors code. À l'enregistrement, un `[[Titre]]` qui désigne une seule note devient `[Titre](note:<uuid>)` : le lien suit désormais cette note par son id, même si une autre prend son titre, et le texte entre crochets se met à jour quand elle change de titre. Si aucune note, ou plusieurs, ont ce titre, `[[Titre]]` attend : il sera relié dès qu'une seule note portera ce titre. Pour départager, écris son chemin, `[[/Projets/Idées]]`.
+Write `[[Title]]` in a note to link it to the note with that title, capitals or not, outside code. On save, a `[[Title]]` that designates a single note becomes `[Title](note:<uuid>)`: the link now follows that note by its id, even if another takes its title, and the text between brackets updates when it changes title. If no note, or several, have that title, `[[Title]]` waits: it will be linked as soon as a single note bears that title. To break a tie, write its path, `[[/Projets/Idées]]`.
 
-`[[Titre#Section]]` vise un titre de la note : il devient `[Titre#Section](note:<uuid>#Section)`, garde la section quand la note change de titre, et redevient `[[Titre#Section]]` à l'export. Dans l'app, taper `#` après le nom d'une note propose ses titres, et un clic ouvre la note à ce titre. `[[#Section]]` vise un titre de la note elle-même : il reste tel quel, `[[` puis `#` propose les titres de la note, et un clic y fait défiler.
+`[[Title#Section]]` targets a heading of the note: it becomes `[Title#Section](note:<uuid>#Section)`, keeps the section when the note changes title, and becomes `[[Title#Section]]` again on export. In the app, typing `#` after a note's name offers its headings, and a click opens the note at that heading. `[[#Section]]` targets a heading of the note itself: it stays as is, `[[` then `#` offers the note's headings, and a click scrolls to it.
 
-`![[Titre]]`, comme dans Obsidian, inclut la note : il devient `![Titre](note:<uuid>)` comme un lien, et redevient `![[Titre]]` à l'export. Dans l'app, la note incluse s'affiche en lecture sous un lien qui l'ouvre ; ses propres inclusions restent des liens, pour qu'une note qui s'inclut elle-même, ou qui inclut une note qui l'inclut, s'arrête là.
+`![[Title]]`, like in Obsidian, includes the note: it becomes `![Title](note:<uuid>)` like a link, and becomes `![[Title]]` again on export. In the app, the included note is displayed read-only under a link that opens it; its own inclusions stay links, so that a note that includes itself, or includes a note that includes it, stops there.
 
-`GET /api/notes/{id}/neighbors` donne ses liens (`links`) et ses rétroliens (`backlinks`), et le graphe relie aussi les notes liées. Dans l'app, taper `[[` propose les notes, et un clic sur un lien l'ouvre. `GET /api/links/broken` liste les liens des notes vivantes qui ne mènent nulle part : `unresolved` (aucune autre note de ce titre ou chemin, ou un lien `#Section` vers un titre que la note n'a pas), `ambiguous` (plusieurs) `missing` (lien vers une note mise à la corbeille ou purgée) ou `file` (image ou pièce jointe `/api/files/<id>` que le compte n'a pas : importée d'un autre compte, purgée).
+`GET /api/notes/{id}/neighbors` gives its links (`links`) and its backlinks (`backlinks`), and the graph also connects linked notes. In the app, typing `[[` offers the notes, and a click on a link opens it. `GET /api/links/broken` lists the links of live notes that lead nowhere: `unresolved` (no other note with that title or path, or a `#Section` link to a heading the note does not have), `ambiguous` (several), `missing` (link to a note put in the trash or purged) or `file` (image or attachment `/api/files/<id>` that the account does not have: imported from another account, purged).
 
-### Corbeille
+### Trash
 
 ```sh
 notes remove note /Projets/Idées
-notes remove folder /Projets      # avec tout son contenu
+notes remove folder /Projets      # with all its content
 notes trash
 notes restore <uuid>
 ```
 
-`restore` n'accepte que des UUID, affichés par `notes trash`. Les éléments sont supprimés définitivement au lancement de la CLI, une fois passé le délai de conservation du compte (30 jours par défaut, réglable dans Réglages > Corbeille de l'app, « Jamais » pour ne pas purger).
+`restore` only accepts UUIDs, displayed by `notes trash`. Items are deleted for good when the CLI starts, once the account's retention period has passed (30 days by default, adjustable in Settings > Trash of the app, "Never erased" to not purge).
 
-### Export et import
+### Export and import
 
 ```sh
-notes export ~/notes-md              # toutes les notes
-notes export ~/projets /Projets      # un dossier
+notes export ~/notes-md              # all the notes
+notes export ~/projets /Projets      # a folder
 notes import ~/notes-md --parent /Archive
-notes import ~/Obsidian/vault        # à la racine
+notes import ~/Obsidian/vault        # at the root
 ```
 
-`export` écrit dans un dossier nouveau ou vide, jamais par-dessus des fichiers : un dossier devient un répertoire, une note un fichier `<titre>.md` avec son texte tel quel (titre et `#tags` compris). Les liens `[Titre](note:<uuid>)` redeviennent `[[Titre]]`, puisque les ids n'ont pas de sens hors de cette base. Deux notes du même titre dans le même dossier donnent `Titre.md` et `Titre (2).md`.
+`export` writes into a new or empty folder, never over files: a folder becomes a directory, a note a `<title>.md` file with its text as is (title and `#tags` included). `[Title](note:<uuid>)` links become `[[Title]]` again, since ids mean nothing outside this database. Two notes with the same title in the same folder give `Title.md` and `Title (2).md`.
 
-`import` fait l'inverse, tout ou rien : un nom de dossier déjà pris au même endroit arrête tout l'import, sans rien laisser derrière. Les fichiers cachés (`.obsidian`, `.git`…) et ceux qui ne sont pas des `.md` sont ignorés. Un texte sans titre markdown reçoit le nom de son fichier en tête, `# Nom`, comme dans Obsidian. Les `[[liens]]` se relient à l'import, comme à la frappe.
+`import` does the opposite, all or nothing: a folder name already taken at the same place stops the whole import, leaving nothing behind. Hidden files (`.obsidian`, `.git`…) and those that are not `.md` are ignored. A text without a markdown title gets its file name at the top, `# Name`, like in Obsidian. `[[links]]` are linked at import, as when typing.
 
-Les images suivent les notes. À l'export, celles qu'une note cite sont copiées dans `_files/` à la racine de l'export, et la note les cite par un chemin relatif (`../_files/<uuid>.png`). À l'import, une image citée par un chemin relatif (`![](photo.png)`, `![](<photo de mer.png>)`) devient une image de la note, où qu'elle soit dans le dossier. `_files/` ne devient pas un dossier. Une image absente ou qui n'est pas en PNG, JPEG, GIF ou WebP garde son lien tel quel. Un lien vers un fichier du dossier (`[rapport](rapport.docx)`) ou un `![[son.mp3]]` qui n'est pas une image en fait une pièce jointe, citée par un lien ; un lien vers une note ou un type refusé reste tel quel. À l'export, un zip garde l'extension de son nom (`.docx`, `.xlsx`…). Les `![[image.png]]` et `![[image.png|300]]` d'Obsidian aussi : l'image est cherchée par son nom dans tout le dossier (celle du dossier de la note d'abord), leur largeur devient la taille la plus proche de l'éditeur (`"small"` jusqu'à 300 px, `"medium"` jusqu'à 600, rien au-delà).
+Images follow the notes. On export, those a note cites are copied into `_files/` at the root of the export, and the note cites them by a relative path (`../_files/<uuid>.png`). On import, an image cited by a relative path (`![](photo.png)`, `![](<photo de mer.png>)`) becomes an image of the note, wherever it is in the folder. `_files/` does not become a folder. An image that is missing or not PNG, JPEG, GIF or WebP keeps its link as is. A link to a file of the folder (`[rapport](rapport.docx)`) or a `![[son.mp3]]` that is not an image makes it an attachment, cited by a link; a link to a note or to a refused type stays as is. On export, a zip keeps the extension of its name (`.docx`, `.xlsx`…). Obsidian's `![[image.png]]` and `![[image.png|300]]` too: the image is looked up by name in the whole folder (the one in the note's folder first), their width becomes the closest editor size (`"small"` up to 300 px, `"medium"` up to 600, nothing beyond).
 
 ### Images
 
-Coller ou glisser une image dans l'éditeur de l'app l'envoie à l'API, qui la range dans [Silo](https://github.com/pgsty/silo) (un stockage S3, fork de MinIO, démarré par `make up`) et la décrit dans la table `files`. La note la cite en markdown : `![nom](/api/files/<uuid>)`. Un autre fichier (PDF, zip, donc aussi les documents Office, MP3, WAV, Ogg, MP4, WebM ; 20 Mo au plus) devient une pièce jointe, citée par un lien `[nom](/api/files/<uuid>)` : l'API l'envoie en téléchargement sous son nom, il suit les mêmes règles de purge et d'export qu'une image. L'avatar reste une image. `GET /api/files` liste les fichiers du compte (nom, type, taille), les plus lourds d'abord, sans ceux d'une note purgée ou de données effacées.
+Pasting or dragging an image into the app's editor sends it to the API, which stores it in [Silo](https://github.com/pgsty/silo) (an S3 storage, a MinIO fork, started by `make up`) and describes it in the `files` table. The note cites it in markdown: `![name](/api/files/<uuid>)`. Another file (PDF, zip, hence also Office documents, MP3, WAV, Ogg, MP4, WebM; 20 MB at most) becomes an attachment, cited by a link `[name](/api/files/<uuid>)`: the API sends it as a download under its name, and it follows the same purge and export rules as an image. The avatar stays an image. `GET /api/files` lists the account's files (name, type, size), the heaviest first, without those of a purged note or erased data.
 
-- PNG, JPEG, GIF et WebP seulement (pas de SVG, qui peut contenir des scripts), 20 Mo au plus. Le type est lu dans le fichier, pas dans ce qu'envoie le navigateur.
-- Une image suit sa note dans la corbeille : quand la note est effacée pour de bon (délai écoulé, corbeille vidée, ou son dossier purgé), ses images partent avec elle à la purge horaire suivante, sauf si une autre note les cite encore.
-- Une image retirée du texte d'une note attend le délai de corbeille du compte, compté depuis qu'elle n'est plus citée (jamais si la corbeille garde tout) : d'ici là, l'annulation ou le lien recollé la font revenir.
-- Le navigateur ne parle jamais à Silo : il passe par `GET /api/files/{id}`, protégé par la session. La console de Silo est sur http://localhost:9001 (identifiants `S3_ACCESS_KEY` / `S3_SECRET_KEY`).
+- PNG, JPEG, GIF and WebP only (no SVG, which can contain scripts), 20 MB at most. The type is read from the file, not from what the browser sends.
+- An image follows its note into the trash: when the note is erased for good (period elapsed, trash emptied, or its folder purged), its images go with it at the next hourly purge, unless another note still cites them.
+- An image removed from a note's text waits for the account's trash period, counted from when it is no longer cited (never if the trash keeps everything): until then, undoing or pasting the link back brings it back.
+- The browser never talks to Silo: it goes through `GET /api/files/{id}`, protected by the session. Silo's console is on http://localhost:9001 (credentials `S3_ACCESS_KEY` / `S3_SECRET_KEY`).
 
 ### Scripts
 
-`search`, `recent`, `trash` et `show folder` acceptent `--json`, tout comme `show tag --list`, qui accepte aussi `--yaml` :
+`search`, `recent`, `trash` and `show folder` accept `--json`, as does `show tag --list`, which also accepts `--yaml`:
 
 ```sh
 notes search recette --json | jq -r '.[].id'
 ```
 
-Le détail de chaque commande est dans `notes <commande> --help`.
+The detail of each command is in `notes <command> --help`.
 
 ## MCP (agents)
 
 ```sh
-notes mcp   # parle MCP sur stdin/stdout, pour le compte de la session CLI (notes login)
+notes mcp   # speaks MCP on stdin/stdout, on behalf of the CLI session (notes login)
 ```
 
-`notes mcp` donne à un agent vingt-deux outils sur les notes du compte : lecture (`search_notes`, `recent_notes`, `read_note`, `list_folder`, `tags`, `note_history`, `note_links`, `read_file`, `export_notes`), écriture (`create_note`, `edit_note`, `create_folder`, `rename_folder`, `move_item`, `rename_tag`, `delete_tag`, `attach_file`, `import_notes`) et corbeille (`delete_note`, `delete_folder`, `list_trash`, `restore_item`). Client de l'API comme le reste de la CLI, il n'écoute sur aucun port et n'a rien à authentifier : c'est la session CLI de la machine qui décide du serveur et du compte, avec tous ses droits.
+`notes mcp` gives an agent twenty-two tools on the account's notes: reading (`search_notes`, `recent_notes`, `read_note`, `list_folder`, `tags`, `note_history`, `note_links`, `read_file`, `export_notes`), writing (`create_note`, `edit_note`, `create_folder`, `rename_folder`, `move_item`, `rename_tag`, `delete_tag`, `attach_file`, `import_notes`) and trash (`delete_note`, `delete_folder`, `list_trash`, `restore_item`). A client of the API like the rest of the CLI, it listens on no port and has nothing to authenticate: it is the machine's CLI session that decides the server and the account, with all its rights.
 
-Un MCP ne se lit pas comme une API : on ne le lance pas à la main, c'est le client qui le démarre, et la question du compte ne se règle pas dans la requête mais par `notes login`. Tout est dans **[MCP.md](MCP.md)** : déclarer le serveur chez le client, le compte pour lequel il agit et comment le partager entre machines, les vingt-deux outils, et ce qu'il faut savoir avant de lâcher un agent sur ses notes.
+An MCP is not read like an API: you do not run it by hand, the client starts it, and the account question is not settled in the request but by `notes login`. Everything is in **[MCP.md](MCP.md)**: declaring the server in the client, the account it acts for and how to share it between machines, the twenty-two tools, and what to know before letting an agent loose on your notes.
 
 ## API
 
 ```sh
-make api                                     # dans Docker, avec WEB_ORIGIN défini dans .env
-go run ./cmd/notes-server serve --origin http://localhost:3000   # ou directement sur la machine
+make api                                     # in Docker, with WEB_ORIGIN set in .env
+go run ./cmd/notes-server serve --origin http://localhost:3000   # or directly on the machine
 ```
 
-`--addr` choisit l'adresse d'écoute (`127.0.0.1:8080` par défaut) et `--origin` l'origine de l'app web autorisée, `--web` un dossier de l'app générée (`bun run generate`) servi à la même adresse que l'API. `--add-user-mode` décide qui crée un compte depuis l'app : `invitation` (par défaut, sur lien d'un admin) ou `public` (n'importe qui). Sur une base sans aucun compte, `NOTES_HOST_NAME` et `NOTES_HOST_PASSWORD` en créent le premier au démarrage. Quand l'API n'est joignable que depuis la machine (`127.0.0.1`), elle prend l'adresse de chaque appareil dans le `X-Forwarded-For` du proxy (`tailscale serve`), pour que le délai après de mauvais mots de passe ne bloque que l'appareil fautif. Dans un conteneur, `--published` donne l'adresse publiée côté machine (`NOTES_LISTEN`), à la place de `--addr`.
+`--addr` chooses the listening address (`127.0.0.1:8080` by default) and `--origin` the allowed origin of the web app, `--web` a folder of the generated app (`bun run generate`) served at the same address as the API. `--add-user-mode` decides who creates an account from the app: `invitation` (default, by an admin's link) or `public` (anyone). On a database with no account, `NOTES_HOST_NAME` and `NOTES_HOST_PASSWORD` create the first one at startup. When the API is only reachable from the machine (`127.0.0.1`), it takes each device's address from the proxy's `X-Forwarded-For` (`tailscale serve`), so that the delay after wrong passwords only blocks the faulty device. In a container, `--published` gives the address published on the machine side (`NOTES_LISTEN`), instead of `--addr`.
 
-| Ressource | Routes (préfixe `/api`) | Corps JSON |
+| Resource | Routes (prefix `/api`) | JSON body |
 |---|---|---|
-| Comptes (admin) | `GET`, `DELETE /users/{id}`, `GET`, `POST /invites`, `DELETE /invites/{id}` | |
-| Création de compte | `GET /add-user[?invite=<jeton>]`, `POST /signup` | `name`, `password`, `invite` (le jeton du lien) |
-| Compte | `POST /login`, `POST /logout`, `GET`, `PATCH /me`, `PATCH /me/password` | `name`, `password` (connexion) ; réglages : `locale`, `theme`, `color_mode`, `view`, `trash_retention_days` (0 à 3650, 0 pour ne jamais purger), `name`, `avatar` (id d'une image du compte, `""` pour aucune) ; mot de passe : `current`, `new` |
-| Notes | `POST /notes`, `GET`, `PATCH`, `DELETE /notes/{id}`, `GET /notes/{id}/neighbors`, `GET /pinned` | `content`, `tags`, `parent_id` (création), `pinned`, `readonly` |
-| Dossiers | `GET`, `POST /folders`, `GET`, `PATCH`, `DELETE /folders/{id}` | `title`, `parent_id` (création), `pinned` |
-| Parcourir | `GET /items?parent=<uuid>` (racine sans `parent`), `POST /move` | `ids`, `parent_id` (racine sans `parent_id`) |
-| Tags | `GET`, `POST /tags`, `GET`, `PATCH`, `DELETE /tags/{value}` | `values` (création), `value` (renommage) |
-| Graphe | `GET /graph` (tags comptés), `GET /graph/notes` (notes et tags qui les relient, disposés ; `?layout=false` sans la disposition) | |
-| Recherche | `GET /search?q=<texte>`, `GET /recent` | |
-| Corbeille | `GET`, `DELETE /trash` (tout), `DELETE /trash/{id}` (une suppression et ce qui est parti avec), `POST /restore` | `ids` (restauration) |
-| Export / import | `GET /export` (zip ; `?files=false` laisse les images de `_files/` vides, seulement nommées), `POST /import?parent=<uuid>` (zip en corps, `Content-Type: application/zip`, ou formulaire `multipart/form-data` de fichiers `files` nommés par leur chemin, `dossier/note.md` ; racine sans `parent`) | |
-| Images et pièces jointes | `POST /files?name=<nom>` (le fichier en corps), `GET /files/{id}` | |
+| Accounts (admin) | `GET`, `DELETE /users/{id}`, `GET`, `POST /invites`, `DELETE /invites/{id}` | |
+| Account creation | `GET /add-user[?invite=<token>]`, `POST /signup` | `name`, `password`, `invite` (the link's token) |
+| Account | `POST /login`, `POST /logout`, `GET`, `PATCH /me`, `PATCH /me/password` | `name`, `password` (login); settings: `locale`, `theme`, `color_mode`, `view`, `trash_retention_days` (0 to 3650, 0 to never purge), `name`, `avatar` (id of an image of the account, `""` for none); password: `current`, `new` |
+| Notes | `POST /notes`, `GET`, `PATCH`, `DELETE /notes/{id}`, `GET /notes/{id}/neighbors`, `GET /pinned` | `content`, `tags`, `parent_id` (creation), `pinned`, `readonly` |
+| Folders | `GET`, `POST /folders`, `GET`, `PATCH`, `DELETE /folders/{id}` | `title`, `parent_id` (creation), `pinned` |
+| Browse | `GET /items?parent=<uuid>` (root without `parent`), `POST /move` | `ids`, `parent_id` (root without `parent_id`) |
+| Tags | `GET`, `POST /tags`, `GET`, `PATCH`, `DELETE /tags/{value}` | `values` (creation), `value` (rename) |
+| Graph | `GET /graph` (tags counted), `GET /graph/notes` (notes and the tags that link them, laid out; `?layout=false` without the layout) | |
+| Search | `GET /search?q=<text>`, `GET /recent` | |
+| Trash | `GET`, `DELETE /trash` (everything), `DELETE /trash/{id}` (one deletion and what left with it), `POST /restore` | `ids` (restore) |
+| Export / import | `GET /export` (zip; `?files=false` leaves the images of `_files/` empty, only named), `POST /import?parent=<uuid>` (zip as body, `Content-Type: application/zip`, or `multipart/form-data` form of `files` named by their path, `folder/note.md`; root without `parent`) | |
+| Images and attachments | `POST /files?name=<name>` (the file as body), `GET /files/{id}` | |
 
-- Tout, sauf `POST /login`, `GET /add-user` et `POST /signup`, demande une session, sinon 401. Les routes `/users` et `/invites` demandent en plus un compte admin, sinon 403. `POST /signup` n'est ouverte que sur une base sans compte, avec un jeton d'invitation valable, ou en mode `public`, où une même adresse attend de plus en plus longtemps après chaque compte créé (429, au-delà de quatre) ; le jeton sert une fois et expire au bout de 7 jours, la base n'en garde que l'empreinte. Supprimer un compte efface ses notes, dossiers, tags et images (octets compris), mais ni le compte connecté, ni le dernier admin. La connexion pose un cookie `notes_session` (`HttpOnly`, `Secure`, `SameSite=Strict`), qui dure 30 jours prolongés à chaque requête. Les scripts peuvent envoyer le jeton dans `Authorization: Bearer <jeton>`. Les sessions expirées sont effacées de la base à la purge horaire du serveur.
-- Après des mauvais mots de passe d'affilée (par adresse pour `POST /login`, par compte pour `PATCH /me/password`), la route répond 429 avec `Retry-After` (en secondes) : rien jusqu'à 3 échecs, puis 30 s, 1 min, 5 min, 15 min, et 1 h dès 8. Une réussite remet le compteur à zéro.
-- Le titre d'une note vient de son contenu, comme dans la CLI : l'API refuse un champ `title` pour une note.
-- `PATCH /notes/{id}` ne change que les champs envoyés. `{"pinned": true}` seul épingle la note sans toucher à son texte ni à sa date de modification. Sans `tags`, les tags sont les `#mots` du contenu. Avec `tags`, cette liste réécrit le contenu : `"tags": []` efface tous ses `#mots`. Il répond la note complète, comme `GET` (texte enregistré, tags, chemin). `{"readonly": true}` verrouille la note : `content` et `tags` sont alors refusés (409), sauf avec `"readonly": false` dans la même requête. Avec `updated_at` (celui lu par `GET`, ou `created_at` pour une note jamais modifiée), `content` et `tags` sont refusés (409) si la note a changé depuis : un appareil resté ouvert n'écrase pas ce qu'un autre a écrit.
-- `GET /notes/{id}/versions` liste les versions de la note, de la plus récente à la plus ancienne, sans leur texte (`id`, `conflict`, `created_at`) ; `GET /notes/{id}/versions/{version}` en lit une avec son `content`. Un `PATCH` (ou `notes edit note`) qui change le texte garde l'ancien à la première sauvegarde d'une session d'écriture (la note non modifiée depuis 15 minutes), et au moins une fois par heure dans une longue session ; une sauvegarde sans changement ne compte pas. Les versions ne sont pas limitées en nombre. Restaurer une version, c'est un `PATCH` de son `content` ; les versions partent avec la note quand elle est supprimée pour de bon.
-- `POST /notes/{id}/versions` avec `{"content": "..."}` garde un texte refusé par un 409 comme une version marquée `conflict` (201), pour ne pas le perdre ; rien si c'est déjà le texte de la note (204).
-- `PATCH /folders/{id}` avec `{"pinned": true}` met le dossier en favori. `GET /pinned` liste les notes épinglées et les dossiers favoris, avec leur `kind`.
-- Les erreurs ont la forme `{"error": "..."}`, avec le statut 400, 401, 403, 404, 409, 413, 415, 429 ou 500.
-  Seuls une route inconnue (404) et une méthode non gérée (405) répondent en texte brut, car c'est le routeur qui les écrit.
-- `PATCH /me` avec `name` renomme le compte (409 si le nom est pris). `PATCH /me/password` vérifie `current`, puis déconnecte les autres appareils : celui qui l'envoie reste connecté. L'image de `avatar` n'est pas purgée tant qu'elle sert d'avatar.
-- `DELETE /me/data` efface pour de bon toutes les notes, dossiers, tags et images du compte, corbeille comprise. Le compte, ses réglages et ses sessions restent. C'est la « Zone de danger » des réglages de l'app web.
-- Les éléments supprimés passent par la corbeille. Le serveur la purge toutes les heures. `DELETE /trash` la vide tout de suite et définitivement.
-- `GET /export` et `POST /import` font comme `notes export` et `notes import`, en zip ; l'import prend aussi un formulaire de fichiers, leurs chemins donnant les dossiers. L'import va dans le dossier `parent`, à la racine sans lui. Il répond `{"folders": n, "notes": n}`, ou 409 si un dossier du zip existe déjà à cet endroit, 400 si deux fichiers du formulaire ont le même chemin.
-- `POST /files` répond le fichier créé (`id`, `name`, `content_type`, `size`), 415 si ce n'est pas une image acceptée. `GET /files/{id}` renvoie l'image, mise en cache par le navigateur : une image ne change jamais.
-- `make openapi` génère le contrat OpenAPI dans `docs/swagger.yaml`, à partir des commentaires `@` des routes.
+- Everything, except `POST /login`, `GET /add-user` and `POST /signup`, requires a session, otherwise 401. The `/users` and `/invites` routes also require an admin account, otherwise 403. `POST /signup` is only open on a database with no account, with a valid invitation token, or in `public` mode, where the same address waits longer and longer after each account created (429, beyond four); the token works once and expires after 7 days, the database only keeps its fingerprint. Deleting an account erases its notes, folders, tags and images (bytes included), but neither the logged-in account nor the last admin. Login sets a `notes_session` cookie (`HttpOnly`, `Secure`, `SameSite=Strict`), which lasts 30 days extended at each request. Scripts can send the token in `Authorization: Bearer <token>`. Expired sessions are erased from the database at the server's hourly purge.
+- After consecutive wrong passwords (per address for `POST /login`, per account for `PATCH /me/password`), the route answers 429 with `Retry-After` (in seconds): nothing up to 3 failures, then 30 s, 1 min, 5 min, 15 min, and 1 h from 8. A success resets the counter.
+- The title of a note comes from its content, as in the CLI: the API refuses a `title` field for a note.
+- `PATCH /notes/{id}` only changes the fields sent. `{"pinned": true}` alone pins the note without touching its text or its modification date. Without `tags`, the tags are the `#words` of the content. With `tags`, this list rewrites the content: `"tags": []` erases all its `#words`. It answers the complete note, like `GET` (saved text, tags, path). `{"readonly": true}` locks the note: `content` and `tags` are then refused (409), unless with `"readonly": false` in the same request. With `updated_at` (the one read by `GET`, or `created_at` for a note never modified), `content` and `tags` are refused (409) if the note has changed since: a device left open does not overwrite what another wrote.
+- `GET /notes/{id}/versions` lists the note's versions, from the most recent to the oldest, without their text (`id`, `conflict`, `created_at`); `GET /notes/{id}/versions/{version}` reads one with its `content`. A `PATCH` (or `notes edit note`) that changes the text keeps the old one at the first save of a writing session (the note not modified for 15 minutes), and at least once an hour in a long session; a save without change does not count. Versions are not limited in number. Restoring a version is a `PATCH` of its `content`; versions go with the note when it is deleted for good.
+- `POST /notes/{id}/versions` with `{"content": "..."}` keeps a text refused by a 409 as a version marked `conflict` (201), so as not to lose it; nothing if it is already the note's text (204).
+- `PATCH /folders/{id}` with `{"pinned": true}` makes the folder a favorite. `GET /pinned` lists the pinned notes and the favorite folders, with their `kind`.
+- Errors have the form `{"error": "..."}`, with status 400, 401, 403, 404, 409, 413, 415, 429 or 500.
+  Only an unknown route (404) and an unhandled method (405) answer in plain text, because the router writes them.
+- `PATCH /me` with `name` renames the account (409 if the name is taken). `PATCH /me/password` checks `current`, then logs out the other devices: the one that sends it stays logged in. The image of `avatar` is not purged as long as it serves as an avatar.
+- `DELETE /me/data` erases for good all the account's notes, folders, tags and images, trash included. The account, its settings and its sessions stay. It is the "Danger zone" of the web app's settings.
+- Deleted items go through the trash. The server purges it every hour. `DELETE /trash` empties it right away and for good.
+- `GET /export` and `POST /import` work like `notes export` and `notes import`, as a zip; the import also takes a form of files, their paths giving the folders. The import goes into the `parent` folder, at the root without it. It answers `{"folders": n, "notes": n}`, or 409 if a folder of the zip already exists at that spot, 400 if two files of the form have the same path.
+- `POST /files` answers the created file (`id`, `name`, `content_type`, `size`), 415 if it is not an accepted image. `GET /files/{id}` returns the image, cached by the browser: an image never changes.
+- `make openapi` generates the OpenAPI contract in `docs/swagger.yaml`, from the `@` comments of the routes.
 
-### Sécurité
+### Security
 
-Chaque requête doit venir d'un compte connecté. Garde quand même l'API sur `127.0.0.1` derrière Tailscale ou un proxy HTTPS : le mot de passe et le cookie ne doivent jamais passer en clair sur un réseau.
+Every request must come from a logged-in account. Still keep the API on `127.0.0.1` behind Tailscale or an HTTPS proxy: the password and the cookie must never travel in clear over a network.
 
-- Une requête dont l'en-tête `Origin` diffère de `--origin` est refusée (403). Sans `--origin`, aucune page web ne peut l'appeler. Le cookie `SameSite=Strict` ajoute une protection contre les autres sites.
-- Une requête sans `Origin` (`curl`, scripts) est acceptée si elle porte une session.
-- L'en-tête `Host` doit valoir `localhost`, `127.0.0.1`, `[::1]` ou l'hôte de `--origin`, ce qui bloque le DNS rebinding.
+- A request whose `Origin` header differs from `--origin` is refused (403). Without `--origin`, no web page can call it. The `SameSite=Strict` cookie adds protection against other sites.
+- A request without `Origin` (`curl`, scripts) is accepted if it carries a session.
+- The `Host` header must be `localhost`, `127.0.0.1`, `[::1]` or the host of `--origin`, which blocks DNS rebinding.
 
-### Chiffrement
+### Encryption
 
-Le texte et les titres des notes, les noms des dossiers, les tags, les snippets et les noms des images sont chiffrés dans la base, et les images dans Silo (AES-256-GCM). Chaque compte a sa propre clé, tirée au hasard à sa première connexion et rangée dans `users.data_key`, elle-même chiffrée par le secret du serveur `NOTES_SECRET`. Une base, une sauvegarde ou un disque volés restent illisibles sans ce secret. Un serveur compromis, lui, le détient : le chiffrement ne protège pas contre ça.
+The text and titles of notes, the names of folders, the tags, the snippets and the names of images are encrypted in the database, and the images in Silo (AES-256-GCM). Each account has its own key, drawn at random at its first login and stored in `users.data_key`, itself encrypted by the server secret `NOTES_SECRET`. A stolen database, backup or disk stays unreadable without this secret. A compromised server, on the other hand, holds it: encryption does not protect against that.
 
-- Génère la clé avec `openssl rand -base64 32` et mets la même dans `.env` (`notes-server` lancé par `go run`, les tests) et `.env.docker` (API).
-- **Garde une copie de la clé dans un gestionnaire de mots de passe, jamais dans une sauvegarde.** Si tu la perds, les notes deviennent illisibles, même avec une sauvegarde.
-- Un mot de passe oublié ne fait rien perdre : l’admin le réinitialise dans Réglages > Comptes (ou `notes-server user reset-password` sur le serveur, seul recours pour son propre compte), car les clés ne dépendent pas du mot de passe.
-- Changer le secret : `make backup`, mets le nouveau dans `NOTES_SECRET` (`.env`), puis `NOTES_OLD_SECRET=<ancien> notes-server rotate-secret` (dans le conteneur : `docker exec -e NOTES_OLD_SECRET=<ancien> -e NOTES_SECRET=<nouveau> note-api /notes-server rotate-secret`). Seules les clés des comptes sont rechiffrées, pas les notes. Mets ensuite le nouveau secret dans `.env.docker` et lance `make api`. Un second passage ne fait rien.
-- `notes export` sort du texte en clair.
-- Pour retrouver un tag, un dossier ou une note par son nom, et garder ces noms uniques, la base garde une empreinte HMAC du nom en minuscules (`title_hash`, `value_hash`). Elle ne se lit pas, mais deux noms identiques ont la même empreinte. Les chemins, les tris et la recherche se font dans l'API, après déchiffrement.
-- Ne sont pas chiffrés : les dates et l'arborescence (quel élément est dans quel dossier).
+- Generate the key with `openssl rand -base64 32` and put the same one in `.env` (`notes-server` run by `go run`, the tests) and `.env.docker` (API).
+- **Keep a copy of the key in a password manager, never in a backup.** If you lose it, the notes become unreadable, even with a backup.
+- A forgotten password loses nothing: the admin resets it in Settings > Users (or `notes-server user reset-password` on the server, the only recourse for their own account), since the keys do not depend on the password.
+- Changing the secret: `make backup`, put the new one in `NOTES_SECRET` (`.env`), then `NOTES_OLD_SECRET=<old> notes-server rotate-secret` (in the container: `docker exec -e NOTES_OLD_SECRET=<old> -e NOTES_SECRET=<new> note-api /notes-server rotate-secret`). Only the accounts' keys are re-encrypted, not the notes. Then put the new secret in `.env.docker` and run `make api`. A second pass does nothing.
+- `notes export` outputs clear text.
+- To find a tag, a folder or a note by its name, and keep those names unique, the database keeps an HMAC fingerprint of the lowercase name (`title_hash`, `value_hash`). It cannot be read, but two identical names have the same fingerprint. Paths, sorting and search are done in the API, after decryption.
+- Not encrypted: the dates and the tree (which item is in which folder).
 
 ## Configuration
 
-Ces variables sont celles de `notes-server` ; la CLI n'en a besoin d'aucune, sa session vient de `notes login`.
+These variables are those of `notes-server`; the CLI needs none of them, its session comes from `notes login`.
 
-| Variable | Rôle | Défaut |
+| Variable | Role | Default |
 |---|---|---|
-| `POSTGRES_USER`, `POSTGRES_PASSWORD` | Identifiants de la base | |
-| `POSTGRES_DB` | Nom de la base | `notes` |
-| `POSTGRES_HOST` | Hôte | `localhost` |
-| `PORT` | Port PostgreSQL | `5432` |
-| `CONFIG_FILE` | Remplace la configuration embarquée | `config/config.yaml`, intégré au binaire |
-| `WEB_ORIGIN` | Origine de l'app web pour `make api` | aucune |
-| `S3_ENDPOINT` | Adresse de Silo, sans `http://` (`note-silo:9000` dans `.env.docker`) | |
-| `S3_ACCESS_KEY`, `S3_SECRET_KEY` | Identifiants de Silo, qui le créent aussi au premier `make up` | |
-| `S3_BUCKET` | Bucket des images, créé au premier lancement | |
-| `S3_SECURE` | `true` pour parler à Silo en HTTPS | non |
-| `NOTES_SECRET` | Clé de chiffrement des notes, 32 octets en base64 (voir Chiffrement) | aucune : obligatoire pour écrire |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD` | Database credentials | |
+| `POSTGRES_DB` | Database name | `notes` |
+| `POSTGRES_HOST` | Host | `localhost` |
+| `PORT` | PostgreSQL port | `5432` |
+| `CONFIG_FILE` | Replaces the embedded configuration | `config/config.yaml`, built into the binary |
+| `WEB_ORIGIN` | Origin of the web app for `make api` | none |
+| `S3_ENDPOINT` | Address of Silo, without `http://` (`note-silo:9000` in `.env.docker`) | |
+| `S3_ACCESS_KEY`, `S3_SECRET_KEY` | Silo credentials, which also create it at the first `make up` | |
+| `S3_BUCKET` | Bucket for images, created at first launch | |
+| `S3_SECURE` | `true` to talk to Silo over HTTPS | no |
+| `NOTES_SECRET` | Encryption key of the notes, 32 bytes in base64 (see Encryption) | none: required to write |
 
-Les commandes, leurs textes d'aide et leurs flags sont définis dans `config/config.yaml`. Ce fichier est intégré à la compilation : recompile après l'avoir modifié, ou pointe `CONFIG_FILE` vers ton fichier.
+The commands, their help texts and their flags are defined in `config/config.yaml`. This file is built in at compile time: rebuild after changing it, or point `CONFIG_FILE` to your file.
 
-## Sauvegarde
+## Backup
 
 ```sh
-make backup    # écrit backups/notes-<date>.sql et les images dans backups/notes-<date>.files/ (ignorés par git)
+make backup    # writes backups/notes-<date>.sql and the images in backups/notes-<date>.files/ (ignored by git)
 ```
 
-Pour restaurer :
+To restore:
 
 ```sh
-docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB"' < backups/<fichier>.sql
-docker compose cp backups/<fichier>.files silo:/tmp/restore
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB"' < backups/<file>.sql
+docker compose cp backups/<file>.files silo:/tmp/restore
 docker compose exec silo sh -c 'mcli alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mcli mirror /tmp/restore local/notes'
 ```
 
-Pour tout effacer, tous comptes confondus, après une sauvegarde : `make purge` (il faut taper `purge` pour confirmer). Les comptes et leurs réglages restent.
+To erase everything, all accounts combined, after a backup: `make purge` (you have to type `purge` to confirm). The accounts and their settings stay.
 
-Le dump commence par supprimer les tables existantes : la restauration remplace donc tout le contenu de la base. Les images s'ajoutent à celles de Silo, sans rien effacer.
+The dump starts by dropping the existing tables: restoring therefore replaces the whole content of the database. The images are added to those in Silo, without erasing anything.
 
-## Développement
+## Development
 
 ```sh
-make setup    # installe les hooks lefthook
-make test     # tous les tests, PostgreSQL doit tourner
+make setup    # installs the lefthook hooks
+make test     # all the tests, PostgreSQL must be running
 make test ARGS="./app/shared/services/process/..."
-make down     # arrête les conteneurs et Colima
+make down     # stops the containers and Colima
 ```
 
-Les tests tournent dans une base à part, `<POSTGRES_DB>_test`, créée au premier `make test`, chacun dans une transaction annulée. Ils créent le schéma : une migration en cours d'écriture n'atteint donc jamais la base que sert l'API.
+The tests run in a separate database, `<POSTGRES_DB>_test`, created at the first `make test`, each in a rolled-back transaction. They create the schema: a migration being written therefore never reaches the database the API serves.
 
-LibreDB Studio, une interface pour explorer la base, est sur <http://localhost:3001>. En ligne de commande : `make pgsql` ouvre psql, `make pgsql QUERY="SELECT ..."` lance une requête et s'arrête à la première erreur.
+LibreDB Studio, an interface to explore the database, is on <http://localhost:3001>. On the command line: `make pgsql` opens psql, `make pgsql QUERY="SELECT ..."` runs a query and stops at the first error.
 
-| Dossier | Contenu |
+| Folder | Content |
 |---|---|
-| `cmd/` | Déclaration des commandes Cobra |
-| `app/cli/` | Point d'entrée et affichage de chaque commande |
-| `app/shared/services/process/` | Logique métier et requêtes, réutilisables par l'API |
-| `app/shared/domain/` | Modèles de données |
-| `app/api/` | Routes de l'API, une par dossier |
-| `config/` | Configuration et textes des commandes |
+| `cmd/` | Declaration of the Cobra commands |
+| `app/cli/` | Entry point and display of each command |
+| `app/shared/services/process/` | Business logic and queries, reusable by the API |
+| `app/shared/domain/` | Data models |
+| `app/api/` | API routes, one per folder |
+| `config/` | Configuration and command texts |
 
-## Licence
+## License
 
 [MIT](LICENSE)

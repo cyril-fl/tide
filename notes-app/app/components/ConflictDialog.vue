@@ -2,7 +2,8 @@
 import type { Choice, MergePart } from '~/utils/merge';
 
 // After a 409 with changes in the same place (#78): the merged text, each conflict at its place with the text typed here,
-// the other device's and the result between them, built from a choice or line by line with arrows, like a merge tool.
+// the other device's and the result between them, built from a choice or line by line with arrows, like a merge tool:
+// an arrow points to the result to take its line, back once taken.
 // Closes with the text chosen; the text typed here is already kept in the history.
 // fork: the merge of a fork into its original, the fork's text against the original's; it can be cancelled (undefined).
 const props = defineProps<{ parts: MergePart[]; fork?: boolean }>();
@@ -81,10 +82,10 @@ const keepTheirs = () =>
                   <div v-else-if="row.kind === 'added'" class="flex items-start gap-1 bg-success/10 text-success">
                     <ins class="min-w-0 flex-1 whitespace-pre-wrap no-underline">{{ row.line || ' ' }}</ins>
                     <UButton
-                      :icon="icons.forward"
+                      :icon="picks[indexOf(part)]![line] ? icons.back : icons.forward"
                       size="xs"
                       color="success"
-                      :variant="picks[indexOf(part)]![line] ? 'solid' : 'ghost'"
+                      variant="ghost"
                       :aria-label="$t('conflict.take')"
                       :aria-pressed="picks[indexOf(part)]![line]"
                       @click="toggle(indexOf(part), line)"
@@ -105,10 +106,10 @@ const keepTheirs = () =>
                   <span v-if="row.kind === 'same'" class="whitespace-pre-wrap">{{ row.line || ' ' }}</span>
                   <div v-else-if="row.kind === 'removed'" class="flex items-start gap-1 bg-error/10 text-error">
                     <UButton
-                      :icon="icons.back"
+                      :icon="picks[indexOf(part)]![line] ? icons.forward : icons.back"
                       size="xs"
                       color="error"
-                      :variant="picks[indexOf(part)]![line] ? 'solid' : 'ghost'"
+                      variant="ghost"
                       :aria-label="$t('conflict.take')"
                       :aria-pressed="picks[indexOf(part)]![line]"
                       @click="toggle(indexOf(part), line)"

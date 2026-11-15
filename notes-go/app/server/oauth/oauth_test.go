@@ -76,6 +76,11 @@ func TestFlow(t *testing.T) {
 	if metadata["issuer"] != server.URL || metadata["token_endpoint"] != server.URL+"/token" || metadata["authorization_response_iss_parameter_supported"] != true {
 		t.Errorf("authorization server = %v", metadata)
 	}
+	if response, err := browser.Get(server.URL + "/.well-known/openid-configuration"); err != nil {
+		t.Fatal(err)
+	} else if response.Body.Close(); response.StatusCode != http.StatusNotFound {
+		t.Errorf("GET /.well-known/openid-configuration: %d, want 404", response.StatusCode)
+	}
 
 	registerClient := func(body string) (int, string) {
 		t.Helper()

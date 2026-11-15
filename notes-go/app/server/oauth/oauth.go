@@ -38,7 +38,10 @@ func Routes(mux *http.ServeMux, db bun.IDB) {
 	mux.HandleFunc("GET /.well-known/oauth-protected-resource/mcp", resource)
 	mux.HandleFunc("GET /.well-known/oauth-authorization-server", server)
 	mux.HandleFunc("POST /register", register)
-	for _, path := range []string{"/.well-known/", "/register", "/token"} {
+	// The exact paths, not /.well-known/: its other paths (openid-configuration…) answer 404, which a client reads
+	// as "try the next one", not 405.
+	for _, path := range []string{"/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp",
+		"/.well-known/oauth-authorization-server", "/register", "/token"} {
 		mux.HandleFunc("OPTIONS "+path, preflight)
 	}
 	mux.Handle("GET /authorize", authorize(db))

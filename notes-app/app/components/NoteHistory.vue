@@ -14,14 +14,19 @@ const api = useApi();
 const open = ref(false);
 const versions = ref<NoteVersion[]>([]);
 const selected = ref<NoteVersion>();
-// The text as saved, first in the lists: it can be forked before any version exists, a note just imported too.
-// markRaw: compared by identity, the ref must hand it back unwrapped.
-const latest: NoteVersion = markRaw({ id: '', created_at: '', conflict: false });
+// The text as saved, the newest entry of the lists, dated by its last save: it can be forked before any version
+// exists, a note just imported too. Reactive, so the ref hands back this same object to compare with.
+const latest = reactive<NoteVersion>({ id: '', created_at: '', conflict: false });
 // The panel shows the last few, the dialog all of them.
 const shown = 5;
 
 async function load() {
-  versions.value = await api<NoteVersion[]>(`/api/notes/${props.noteId}/versions`, { quiet: true });
+  const [list, note] = await Promise.all([
+    api<NoteVersion[]>(`/api/notes/${props.noteId}/versions`, { quiet: true }),
+    api<ItemDetail>(`/api/notes/${props.noteId}`, { quiet: true }),
+  ]);
+  versions.value = list;
+  latest.created_at = note.item.updated_at ?? note.item.created_at;
 }
 if (props.panel) load();
 // The API keeps a version at the first save after a 15 minute pause, at least one an hour, and on a restore:
@@ -54,10 +59,8 @@ async function show(version?: NoteVersion) {
 
 // A text refused by a 409 says so (#78).
 const label = (version: NoteVersion) =>
-  version === latest
-    ? t('history.latest')
-    : new Date(version.created_at).toLocaleString(locale.value, { dateStyle: 'medium', timeStyle: 'short' }) +
-      (version.conflict ? ` · ${t('history.conflict')}` : '');
+  new Date(version.created_at).toLocaleString(locale.value, { dateStyle: 'medium', timeStyle: 'short' }) +
+  (version.conflict ? ` · ${t('history.conflict')}` : '');
 
 // The comparison (#78): the version against the text as saved, read when asked; lines of the version only struck, of the text only underlined.
 const current = ref<string>();
@@ -93,8 +96,7 @@ function restore() {
 async function fork() {
   if (text.value === undefined || !selected.value) return;
   const note = await api<ItemDetail>(`/api/notes/${props.noteId}`);
-  const at = selected.value === latest ? (note.item.updated_at ?? note.item.created_at) : selected.value.created_at;
-  const date = new Date(at).toLocaleString(locale.value, {
+  const date = new Date(selected.value.created_at).toLocaleString(locale.value, {
     dateStyle: 'medium',
     timeStyle: 'short',
   });

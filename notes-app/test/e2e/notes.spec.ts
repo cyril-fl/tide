@@ -627,11 +627,11 @@ test('the Pro history restores an earlier version', async ({ page }) => {
     await box.api.patch('/api/me', { data: { plan: 'pro' } });
     await page.goto(`/notes/${note.id}`);
     await expect(page.locator('.ProseMirror')).toContainText('second');
-    // The context panel lists the versions on a wide screen: a click shows one.
+    // The context panel lists the versions on a wide screen, the current text first: a click shows one.
     const panel = page.getByRole('region', { name: 'Historique des versions' });
     await panel
       .getByRole('button', { name: /\d{2}:\d{2}/ })
-      .first()
+      .nth(1)
       .click();
     await expect(page.getByRole('dialog')).toContainText('first');
     // Compared with the text as saved (#78): the version's line struck, the text's underlined.
@@ -658,7 +658,7 @@ test('the Pro history forks an earlier version into a new note', async ({ page }
     await page
       .getByRole('region', { name: 'Historique des versions' })
       .getByRole('button', { name: /\d{2}:\d{2}/ })
-      .first()
+      .nth(1)
       .click();
     await expect(page.getByRole('dialog')).toContainText('first');
     await page.getByRole('button', { name: 'Nouvelle note depuis cette version' }).click();
@@ -684,7 +684,8 @@ test('the Pro history forks the current text of a note never edited', async ({ p
     await page.goto(`/notes/${note.id}`);
     await page
       .getByRole('region', { name: 'Historique des versions' })
-      .getByRole('button', { name: 'Texte actuel' })
+      .getByRole('button', { name: /\d{2}:\d{2}/ })
+      .first()
       .click();
     await expect(page.getByRole('dialog')).toContainText('only');
     await expect(page.getByRole('button', { name: 'Restaurer cette version' })).toBeDisabled();

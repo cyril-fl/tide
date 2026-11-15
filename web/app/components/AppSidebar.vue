@@ -33,6 +33,7 @@ const settingsLinks = computed(() => [
 ]);
 
 const { sections } = useSidebarSections();
+const bottom = computed(() => sections.value.findLast((s) => s.shown)?.id);
 const { data: pinned } = usePinned();
 const favorites = computed(() => pinned.value.filter((item) => item.kind === 'folder'));
 const pinnedNotes = computed(() => pinned.value.filter((item) => item.kind === 'note'));
@@ -206,10 +207,10 @@ const isOverRoot = useDropFolder(rootLink, () => null);
         {{ $t('common.graph') }}
       </NuxtLink>
 
-      <!-- The last section, whichever the order puts there, sits against the bottom of the sidebar. -->
-      <div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto [&>section:last-child]:mt-auto">
+      <!-- The last section of the order sits against the bottom of the sidebar, even empty: an empty one pushes no other down. -->
+      <div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
         <template v-for="s in sections" :key="s.id">
-          <section v-if="s.id === 'favorites' && s.shown && favorites.length">
+          <section v-if="s.id === 'favorites' && s.shown && favorites.length" :class="{ 'mt-auto': s.id === bottom }">
             <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.favorites') }}</h2>
             <div
               v-for="folder in favorites"
@@ -233,7 +234,7 @@ const isOverRoot = useDropFolder(rootLink, () => null);
             </div>
           </section>
 
-          <section v-if="s.id === 'pinned' && s.shown && pinnedNotes.length">
+          <section v-if="s.id === 'pinned' && s.shown && pinnedNotes.length" :class="{ 'mt-auto': s.id === bottom }">
             <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.pinned') }}</h2>
             <UContextMenu
               v-for="note in pinnedNotes"
@@ -267,7 +268,7 @@ const isOverRoot = useDropFolder(rootLink, () => null);
             </UContextMenu>
           </section>
 
-          <section v-if="s.id === 'recent' && s.shown && recentNotes.length">
+          <section v-if="s.id === 'recent' && s.shown && recentNotes.length" :class="{ 'mt-auto': s.id === bottom }">
             <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.recent') }}</h2>
             <UContextMenu
               v-for="note in recentNotes"
@@ -291,7 +292,7 @@ const isOverRoot = useDropFolder(rootLink, () => null);
             </UContextMenu>
           </section>
 
-          <section v-if="s.id === 'folders' && s.shown">
+          <section v-if="s.id === 'folders' && s.shown" :class="{ 'mt-auto': s.id === bottom }">
             <div class="flex items-center">
               <NuxtLink
                 :ref="(el) => (rootLink = el)"
@@ -316,12 +317,15 @@ const isOverRoot = useDropFolder(rootLink, () => null);
             <FolderTree />
           </section>
 
-          <section v-if="s.id === 'savedSearches' && s.shown && has('savedSearches') && me?.saved_searches?.length">
+          <section
+            v-if="s.id === 'savedSearches' && s.shown && has('savedSearches') && me?.saved_searches?.length"
+            :class="{ 'mt-auto': s.id === bottom }"
+          >
             <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.savedSearches') }}</h2>
             <SavedSearchRow v-for="search in me.saved_searches" :key="search.id" :search="search" />
           </section>
 
-          <section v-if="s.id === 'tags' && s.shown && tags.length">
+          <section v-if="s.id === 'tags' && s.shown && tags.length" :class="{ 'mt-auto': s.id === bottom }">
             <h2 class="px-2 pb-2 text-xs font-medium text-muted">{{ $t('common.tags') }}</h2>
             <!-- Capped so a long tag list never pushes the folders out of the sidebar. -->
             <div class="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto px-2">

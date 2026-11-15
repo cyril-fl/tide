@@ -222,6 +222,8 @@ ou le proxy habituel.
 (`127.0.0.1:8081` par défaut, donc fermé tant qu'aucun tunnel ne pointe dessus). `--mcp-published`
 reçoit cette même adresse : sur le loopback, seul un tunnel local y arrive, et le serveur lit l'adresse
 du client dans `X-Forwarded-For` (le délai après les mauvais mots de passe ne bloque que lui).
+Si 8081 est déjà pris sur la machine (`address already in use` au démarrage, et le conteneur reste
+arrêté), un autre port dans `.env`, `NOTES_MCP_LISTEN=127.0.0.1:8083`, et le tunnel pointe dessus.
 
 ### Deux façons de s'authentifier
 
@@ -284,9 +286,10 @@ affiche le nom que le client s'est donné et l'**hôte** où le code repart (`ch
 Le serveur parle HTTP simple : le tunnel ou le proxy devant fournit le HTTPS. Il doit transmettre le
 `Host` reçu : les adresses de la connexion OAuth en sont faites. Trois façons, au choix :
 
-- **Tailscale Funnel**, sur un port à part pour que l'app reste privée sur 443 :
-  `tailscale funnel --bg --https=8443 http://127.0.0.1:8081`, puis l'URL
-  `https://<machine>.<tailnet>.ts.net:8443/mcp`.
+- **Tailscale Funnel**, sur 443 : `tailscale funnel http://127.0.0.1:8081`, puis l'URL
+  `https://<machine>.<tailnet>.ts.net/mcp`. Claude ne joint pas un autre port (8443 essayé : « Impossible
+  de joindre »), donc l'app doit être servie sur un autre port de la machine (`tailscale serve --https=8282`).
+  Sans `--bg`, le funnel reste au premier plan et `Ctrl+C` le referme : de quoi ouvrir le temps d'un essai.
 - **Cloudflare Tunnel** : un tunnel dont le service est `http://127.0.0.1:8081`
   (`cloudflared tunnel --url http://127.0.0.1:8081` pour un essai), puis `https://<nom>/mcp`.
 - **Un proxy HTTPS** déjà exposé (Caddy, nginx) : les routes `/mcp`, `/.well-known/`, `/register`,

@@ -2,6 +2,7 @@
 import type { Recent, TagCount, User } from '~/types/items';
 
 const { icons } = useIcons();
+const { shortcuts } = useShortcuts();
 const { t } = useI18n();
 
 defineProps<{ collapsed?: boolean }>();
@@ -76,7 +77,7 @@ const isOverRoot = useDropFolder(rootLink, () => null);
         <UAvatar :src="avatarSrc" :alt="me?.name" size="xs" />
       </UButton>
     </UDropdownMenu>
-    <UTooltip :text="$t('common.search')" :kbds="['meta', 'K']" :content="{ side: 'right' }">
+    <UTooltip :text="$t('common.search')" :kbds="shortcuts.search" :content="{ side: 'right' }">
       <UButton
         :icon="icons.search"
         color="neutral"
@@ -148,7 +149,7 @@ const isOverRoot = useDropFolder(rootLink, () => null);
           @click="darkMode = !darkMode"
         />
       </UTooltip>
-      <UTooltip :text="$t('sidebar.expand')" :kbds="['meta', '\\']" :content="{ side: 'right' }">
+      <UTooltip :text="$t('sidebar.expand')" :kbds="shortcuts.toggleSidebar" :content="{ side: 'right' }">
         <UDashboardSidebarCollapse color="neutral" variant="ghost" />
       </UTooltip>
     </div>
@@ -347,7 +348,7 @@ const isOverRoot = useDropFolder(rootLink, () => null);
           @click="darkMode = !darkMode"
         />
       </UTooltip>
-      <UTooltip :text="$t('sidebar.collapse')" :kbds="['meta', '\\']">
+      <UTooltip :text="$t('sidebar.collapse')" :kbds="shortcuts.toggleSidebar">
         <UDashboardSidebarCollapse color="neutral" variant="ghost" size="sm" class="hidden lg:inline-flex" />
       </UTooltip>
     </div>

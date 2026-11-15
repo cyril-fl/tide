@@ -6,6 +6,7 @@ import type { ForkOrigin, Item, ItemDetail, NotesGraph, User } from '~/types/ite
 import type { Changes } from '~/utils/saver';
 
 const { icons } = useIcons();
+const { shortcuts } = useShortcuts();
 const { has, ready } = usePro();
 const focus = useState('focus', () => false);
 const { locale, t } = useI18n();
@@ -642,7 +643,11 @@ const status = computed(() => {
             @click="toggleSource"
           />
         </UTooltip>
-        <UTooltip v-if="has('focusMode')" :text="focus ? $t('note.unfocus') : $t('note.focus')" :kbds="['meta', '.']">
+        <UTooltip
+          v-if="has('focusMode')"
+          :text="focus ? $t('note.unfocus') : $t('note.focus')"
+          :kbds="shortcuts.focusMode"
+        >
           <UButton
             :icon="focus ? icons.unfocus : icons.focus"
             color="neutral"

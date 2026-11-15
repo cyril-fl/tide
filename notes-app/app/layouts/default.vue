@@ -5,6 +5,7 @@ const route = useRoute();
 const api = useApi();
 const { setLocale } = useI18n();
 const { createFolder } = useItems();
+const { key } = useShortcuts();
 const searchOpen = useState('search-open', () => false);
 const searchSnippets = useState('search-snippets', () => false);
 const collapsed = ref(false);
@@ -56,12 +57,12 @@ watch([() => colorMode.preference, view], async ([mode, next]) => {
 // Not in an open menu either (the / menu, the right click): it takes the focus out of the editor, the keys are for it.
 const outsideMenu = (handler: () => unknown) => () => document.activeElement?.closest('[role="menu"]') || handler();
 defineShortcuts({
-  '/': outsideMenu(() => (searchOpen.value = true)),
-  alt_n: outsideMenu(() => navigateTo(newNotePath(currentFolder(route)))),
-  alt_shift_n: outsideMenu(() => createFolder(currentFolder(route))),
-  alt_t: outsideMenu(() => (searchSnippets.value = searchOpen.value = true)),
-  'meta_\\': () => (collapsed.value = !collapsed.value),
-  'meta_.': { usingInput: true, handler: () => has('focusMode') && (focus.value = !focus.value) },
+  [key('searchSlash')]: outsideMenu(() => (searchOpen.value = true)),
+  [key('newNote')]: outsideMenu(() => navigateTo(newNotePath(currentFolder(route)))),
+  [key('newFolder')]: outsideMenu(() => createFolder(currentFolder(route))),
+  [key('fromSnippet')]: outsideMenu(() => (searchSnippets.value = searchOpen.value = true)),
+  [key('toggleSidebar')]: () => (collapsed.value = !collapsed.value),
+  [key('focusMode')]: { usingInput: true, handler: () => has('focusMode') && (focus.value = !focus.value) },
 });
 // The template: Nuxt UI's dashboard, a sidebar that resizes (its width kept in localStorage), collapses, and becomes a drawer on small screens.
 </script>

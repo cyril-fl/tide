@@ -3,6 +3,7 @@ import type { CommandPaletteGroup, CommandPaletteItem } from '@nuxt/ui';
 import type { ItemDetail, Match, Recent, ReplaceResult, User } from '~/types/items';
 
 const { icons } = useIcons();
+const { shortcuts, key } = useShortcuts();
 const { t } = useI18n();
 
 const api = useApi();
@@ -137,14 +138,26 @@ const groups = computed<CommandPaletteGroup[]>(() => {
       id: 'actions',
       label: t('search.actions'),
       items: [
-        { label: t('common.newNote'), icon: icons.noteAdd, kbds: ['alt', 'n'], to: newNotePath(currentFolder(route)) },
+        {
+          label: t('common.newNote'),
+          icon: icons.noteAdd,
+          kbds: shortcuts.newNote,
+          to: newNotePath(currentFolder(route)),
+        },
         ...(snippets.value.length
-          ? [{ label: t('search.fromSnippet'), icon: icons.snippet, kbds: ['alt', 't'], children: snippets.value }]
+          ? [
+              {
+                label: t('search.fromSnippet'),
+                icon: icons.snippet,
+                kbds: shortcuts.fromSnippet,
+                children: snippets.value,
+              },
+            ]
           : []),
         {
           label: t('common.newFolder'),
           icon: icons.folderAdd,
-          kbds: ['alt', 'shift', 'n'],
+          kbds: shortcuts.newFolder,
           onSelect: () => createFolder(currentFolder(route)),
         },
         { label: t('settings.import'), icon: icons.import, onSelect: () => importNotes() },
@@ -174,6 +187,7 @@ const groups = computed<CommandPaletteGroup[]>(() => {
     :groups="groups"
     :loading="status === 'pending'"
     :placeholder="$t('search.placeholder')"
+    :shortcut="key('search')"
   >
     <!-- The padlock of a locked note at the end of its row, where folders and actions show their chevron. -->
     <template #note-trailing="{ item }">

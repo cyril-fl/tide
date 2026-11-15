@@ -110,7 +110,7 @@ async function mergeConflict(mine: string) {
     let text = mergedText(parts);
     if (parts.some((part) => !('lines' in part))) {
       await api(`/api/notes/${id.value}/versions`, { method: 'POST', body: { content: mine }, quiet: true });
-      text = await resolveConflict(parts);
+      text = (await resolveConflict(parts)) ?? text;
     } else toast.add({ title: t('note.merged'), color: 'success' });
     remember(note);
     saver.take(); // Refused, the merged text replaces it.
@@ -254,6 +254,7 @@ async function mergeBack(again = true): Promise<void> {
 
   const parts = mergeFork(origin.base, fork.content ?? '', original.content ?? '');
   const content = parts.every((part) => 'lines' in part) ? mergedText(parts) : await resolveConflict(parts, true);
+  if (content === undefined) return; // Cancelled: nothing saved.
   try {
     await api(`/api/notes/${id.value}/merge`, {
       method: 'POST',

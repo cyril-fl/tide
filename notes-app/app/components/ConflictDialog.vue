@@ -3,17 +3,17 @@ import type { Choice, MergePart } from '~/utils/merge';
 
 // After a 409 with changes in the same place (#78): the merged text, each conflict at its place with the text typed here,
 // the other device's and a choice. Closes with the text chosen; the text typed here is already kept in the history.
-// fork: the merge of a fork into its original, the fork's text against the original's.
+// fork: the merge of a fork into its original, the fork's text against the original's; it can be cancelled (undefined).
 const props = defineProps<{ parts: MergePart[]; fork?: boolean }>();
-const emit = defineEmits<{ close: [text: string] }>();
+const emit = defineEmits<{ close: [text?: string] }>();
 
 const phone = useMediaQuery('(max-width: 639px)');
 const conflicts = props.parts.filter((part) => !('lines' in part));
 const choices = ref<(Choice | undefined)[]>(conflicts.map(() => undefined));
 const left = computed(() => choices.value.filter((choice) => !choice).length);
 const options: { choice: Choice; label: string }[] = [
-  { choice: 'mine', label: 'conflict.mine' },
-  { choice: 'theirs', label: 'conflict.theirs' },
+  { choice: 'mine', label: props.fork ? 'conflict.keepFork' : 'conflict.mine' },
+  { choice: 'theirs', label: props.fork ? 'conflict.keepOriginal' : 'conflict.theirs' },
   { choice: 'both', label: 'conflict.both' },
 ];
 
@@ -71,8 +71,16 @@ const keepTheirs = () =>
     </template>
     <template #footer>
       <div class="flex w-full flex-wrap justify-between gap-2">
-        <UButton :label="$t('conflict.keepTheirs')" color="neutral" variant="ghost" @click="keepTheirs" />
-        <UButton :label="$t('conflict.save')" :disabled="left > 0" @click="save" />
+        <UButton
+          :label="$t(fork ? 'conflict.keepOriginalEverywhere' : 'conflict.keepTheirs')"
+          color="neutral"
+          variant="ghost"
+          @click="keepTheirs"
+        />
+        <div class="flex gap-2">
+          <UButton v-if="fork" :label="$t('common.cancel')" color="neutral" variant="outline" @click="emit('close')" />
+          <UButton :label="$t('conflict.save')" :disabled="left > 0" @click="save" />
+        </div>
       </div>
     </template>
   </UModal>

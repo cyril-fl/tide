@@ -57,3 +57,10 @@ test('a conflict of a fork shows no title line', () => {
   );
   assert.equal(mergedText(parts, ['mine']), '# Courses\n\n- Pain complet');
 });
+
+test('both sides of a fork adding a title keep it once with both', () => {
+  // A base with no title (the fork untitled when last merged), a title added on both sides around changed lines.
+  const parts = mergeFork('b', 'a\n# T\nc', 'z\n# T\ny');
+  assert.ok(parts.some((part) => !('lines' in part)));
+  assert.equal(mergedText(parts, ['both']), 'a\n# T\nc\n\nz\ny');
+});

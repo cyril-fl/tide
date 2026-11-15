@@ -43,7 +43,8 @@ function createDialogs() {
     savedSearch: (props: { title: string; value?: SavedSearch }) =>
       savedSearchDialog.open(props).result as Promise<SavedSearch | undefined>,
     importNotes: () => importDialog.open().result as Promise<void>,
+    // undefined: the merge of a fork cancelled (the 409 dialog has no cancel).
     resolveConflict: (parts: MergePart[], fork?: boolean) =>
-      conflictDialog.open({ parts, fork }).result as Promise<string>,
+      conflictDialog.open({ parts, fork }).result as Promise<string | undefined>,
   };
 }

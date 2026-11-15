@@ -42,8 +42,14 @@ export function mergedText(parts: MergePart[], choices: Choice[] = []) {
     .flatMap((part) => {
       if ('lines' in part) return part.lines;
       const choice = choices[conflict++];
-      // Both: a blank line between, or two paragraphs would read as one.
-      return choice === 'mine' ? part.mine : choice === 'theirs' ? part.theirs : [...part.mine, '', ...part.theirs];
+      if (choice === 'mine') return part.mine;
+      if (choice === 'theirs') return part.theirs;
+      // Both: a blank line between, or two paragraphs would read as one; the title line once if both sides hold it.
+      const title = part.mine[titleLine(part.mine)];
+      const index = titleLine(part.theirs);
+      const theirs =
+        title !== undefined && part.theirs[index] === title ? part.theirs.toSpliced(index, 1) : part.theirs;
+      return [...part.mine, '', ...theirs];
     })
     .join('\n');
 }

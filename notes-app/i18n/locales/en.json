@@ -538,6 +538,9 @@
     "theirs": "Theirs",
     "both": "Both",
     "keepTheirs": "Keep theirs everywhere",
+    "keepFork": "Keep the copy",
+    "keepOriginal": "Keep the original",
+    "keepOriginalEverywhere": "Keep the original everywhere",
     "save": "Save"
   },
   "history": {

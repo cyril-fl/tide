@@ -538,6 +538,9 @@
     "theirs": "L'autre",
     "both": "Les deux",
     "keepTheirs": "Garder l'autre partout",
+    "keepFork": "Garder la copie",
+    "keepOriginal": "Garder l'origine",
+    "keepOriginalEverywhere": "Garder l'origine partout",
     "save": "Enregistrer"
   },
   "history": {

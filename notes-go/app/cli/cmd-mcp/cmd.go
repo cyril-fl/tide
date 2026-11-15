@@ -118,6 +118,13 @@ type renameTagArgs struct {
 	To  string `json:"to" jsonschema:"its new name, without the #"`
 }
 
+type replaceArgs struct {
+	Find    string `json:"find" jsonschema:"the exact text to find, with its case: plain text, not a regex"`
+	Replace string `json:"replace" jsonschema:"the text that takes its place, empty to delete it"`
+	Folder  string `json:"folder,omitempty" jsonschema:"only the notes of this folder and its subfolders, as a path or an uuid; empty for every note"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema:"only count the notes and occurrences, change nothing: do it first"`
+}
+
 type historyArgs struct {
 	Note    string `json:"note" jsonschema:"the note: its uuid, or its path from the root (/Folder/Note)"`
 	Version string `json:"version,omitempty" jsonschema:"the uuid of a version to read, as the list gives it; the list of versions when empty"`
@@ -368,6 +375,22 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses) {
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, apiclient.DomainTag, error) {
 		renamed, err := decode[apiclient.DomainTag](client.PatchApiTagsValue(ctx, args.Tag, apiclient.EdittagBody{Value: args.To}))
 		return nil, renamed, err
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "replace_notes",
+		Description: "Replace a plain text in many notes at once, in one transaction, without rewriting them: locked notes are left and counted, and each note changed keeps its earlier text in note_history. With dry_run, only counts what it would change.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args replaceArgs) (*mcp.CallToolResult, apiclient.ReplacenotesResult, error) {
+		body := apiclient.ReplacenotesInput{Find: args.Find, Replace: args.Replace, DryRun: &args.DryRun}
+		if args.Folder != "" {
+			id, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, args.Folder)
+			if err != nil {
+				return nil, apiclient.ReplacenotesResult{}, err
+			}
+			body.Folder = &id
+		}
+		result, err := decode[apiclient.ReplacenotesResult](client.PostApiReplace(ctx, body))
+		return nil, result, err
 	})
 
 	mcp.AddTool(server, &mcp.Tool{

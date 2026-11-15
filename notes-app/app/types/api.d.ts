@@ -4470,6 +4470,8 @@ export interface components {
         "replacenotes.Input": {
             dry_run?: boolean;
             find: string;
+            /** @description a folder id: only its notes, its subfolders included */
+            folder?: string;
             replace: string;
         };
         "replacenotes.Result": {

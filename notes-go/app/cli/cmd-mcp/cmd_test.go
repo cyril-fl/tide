@@ -79,7 +79,7 @@ func TestAddTools(t *testing.T) {
 			t.Errorf("tool %q: schema %v, description %q", tool.Name, tool.InputSchema, tool.Description)
 		}
 	}
-	for _, want := range []string{"search_notes", "recent_notes", "read_note", "list_folder", "create_note", "edit_note", "create_folder", "rename_folder", "move_item", "delete_note", "delete_folder", "list_trash", "restore_item", "tags", "rename_tag", "delete_tag", "note_history", "note_links", "read_file", "attach_file", "export_notes", "import_notes"} {
+	for _, want := range []string{"search_notes", "recent_notes", "read_note", "list_folder", "create_note", "edit_note", "create_folder", "rename_folder", "move_item", "delete_note", "delete_folder", "list_trash", "restore_item", "tags", "rename_tag", "replace_notes", "delete_tag", "note_history", "note_links", "read_file", "attach_file", "export_notes", "import_notes"} {
 		if !slices.Contains(names, want) {
 			t.Errorf("tools = %v, missing %q", names, want)
 		}
@@ -193,6 +193,14 @@ func TestTagsHistoryLinks(t *testing.T) {
 		Value string `json:"value"`
 	}
 	call(t, agent, "rename_tag", map[string]any{"tag": "go", "to": "golang"}, &renamed)
+	var replaced struct {
+		Notes       int `json:"notes"`
+		Occurrences int `json:"occurrences"`
+	}
+	call(t, agent, "replace_notes", map[string]any{"find": "golang", "replace": "go", "dry_run": true}, &replaced)
+	if replaced.Notes == 0 {
+		t.Errorf("replace_notes dry_run = %+v, want the notes holding golang", replaced)
+	}
 	var deleted []map[string]any
 	call(t, agent, "delete_tag", map[string]any{"tag": "golang"}, &deleted)
 	if renamed.Value != "golang" || len(deleted) != 1 {

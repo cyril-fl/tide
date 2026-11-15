@@ -886,6 +886,9 @@ components:
           type: boolean
         find:
           type: string
+        folder:
+          description: 'a folder id: only its notes, its subfolders included'
+          type: string
         replace:
           type: string
       required:

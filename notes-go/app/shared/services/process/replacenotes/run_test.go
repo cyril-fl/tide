@@ -7,6 +7,7 @@ import (
 
 	"github.com/cyril-fl/notes/notes-go/app/shared/domain"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/postgrey"
+	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createfolder"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createnote"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/createschema"
 	"github.com/cyril-fl/notes/notes-go/app/shared/services/process/listversions"
@@ -99,5 +100,34 @@ func TestReplace(t *testing.T) {
 	versions.Run()
 	if versions.HasErr() || len(versions.GetResult()) != 1 {
 		t.Fatalf("versions = %+v, %v; want 1", versions.GetResult(), versions.GetErr())
+	}
+
+	// Scoped to a folder: the notes of its subfolders too, none outside.
+	folder := func(parent string) string {
+		p := createfolder.Process(ctx, tx, createfolder.Input{Title: "f", ParentID: parent})
+		p.Run()
+		if p.HasErr() {
+			t.Fatalf("folder: %v", p.GetErr())
+		}
+		return p.GetResult().ID
+	}
+	outer := folder("")
+	inner := folder(outer)
+	in := createnote.Process(ctx, tx, createnote.Input{Content: "scoped", ParentID: inner})
+	in.Run()
+	if in.HasErr() {
+		t.Fatalf("note in folder: %v", in.GetErr())
+	}
+	out := note("scoped")
+	scoped := Process(ctx, tx, Input{Find: "scoped", Replace: "done", Folder: outer})
+	scoped.Run()
+	if scoped.HasErr() || scoped.GetResult().Notes != 1 {
+		t.Fatalf("scoped = %+v, %v; want 1 note", scoped.GetResult(), scoped.GetErr())
+	}
+	if got := content(out); got != "scoped" {
+		t.Errorf("note outside the folder = %q", got)
+	}
+	if got := content(in.GetResult().ID); got != "done" {
+		t.Errorf("note in the subfolder = %q", got)
 	}
 }

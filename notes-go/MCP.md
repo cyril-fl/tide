@@ -124,7 +124,7 @@ entre comptes : c'est le compte, en entier.
 
 ## 3. Ce qu'il peut faire
 
-À la connexion, l'agent reçoit les vingt-deux outils avec leur description et leur schéma, puis travaille
+À la connexion, l'agent reçoit les vingt-trois outils avec leur description et leur schéma, puis travaille
 en langage naturel : « range mes notes de réunion de novembre dans /Travail/Réunions » devient un
 `search_notes`, un `create_folder`, puis une suite de `move_item`.
 
@@ -145,6 +145,7 @@ en langage naturel : « range mes notes de réunion de novembre dans /Travail/R�
 | `list_trash` | Ce qui est à la corbeille, avec l'uuid que `restore_item` attend |
 | `restore_item` | Ressort de la corbeille, avec ce qui y est parti en même temps |
 | `rename_tag` | Renomme un tag sur toutes ses notes, dans leur texte aussi |
+| `replace_notes` | Remplace un texte brut dans plusieurs notes d'un coup (`folder` pour limiter, `dry_run` pour compter avant) ; les notes verrouillées sont laissées, chaque note changée garde son texte dans l'historique |
 | `delete_tag` | Retire un tag de toutes ses notes ; une note qui ne contenait que lui part à la corbeille |
 | `note_history` | Les versions antérieures d'une note (sans `version`), ou le texte de l'une d'elles |
 | `note_links` | Les liens d'une note, ses rétroliens et les notes qui partagent ses tags ; sans note, les liens cassés de tout le compte |
@@ -194,7 +195,7 @@ chiffrement) s'applique pareil des trois côtés.
 ## Vérifier que ça marche
 
 Le test `app/cli/cmd-mcp/cmd_test.go` branche un client MCP en mémoire sur le serveur MCP, lui-même
-client d'une vraie API sur la base de test. Il vérifie que les vingt-deux outils sont annoncés avec un
+client d'une vraie API sur la base de test. Il vérifie que les vingt-trois outils sont annoncés avec un
 schéma et une description — ce que le SDK ne sait pas déduire seul d'une structure d'arguments mal
 formée — puis les appelle un à un.
 

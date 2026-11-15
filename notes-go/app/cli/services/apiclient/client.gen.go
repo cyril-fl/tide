@@ -576,9 +576,12 @@ type ReadversionsBody struct {
 
 // ReplacenotesInput defines model for replacenotes.Input.
 type ReplacenotesInput struct {
-	DryRun  *bool  `json:"dry_run,omitempty"`
-	Find    string `json:"find"`
-	Replace string `json:"replace"`
+	DryRun *bool  `json:"dry_run,omitempty"`
+	Find   string `json:"find"`
+
+	// Folder a folder id: only its notes, its subfolders included
+	Folder  *string `json:"folder,omitempty"`
+	Replace string  `json:"replace"`
 }
 
 // ReplacenotesResult defines model for replacenotes.Result.

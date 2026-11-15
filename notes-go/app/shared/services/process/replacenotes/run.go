@@ -20,6 +20,7 @@ type Input struct {
 	Find    string `json:"find"`
 	Replace string `json:"replace"`
 	DryRun  bool   `json:"dry_run,omitempty" binding:"optional"`
+	Folder  string `json:"folder,omitempty" binding:"optional"` // a folder id: only its notes, its subfolders included
 }
 
 // Result counts the notes holding the text and its occurrences in them; the locked notes are left as they are.
@@ -123,13 +124,21 @@ func (p *run) loadNotes(tx bun.Tx) ([]row, error) {
 	if err != nil {
 		return nil, err
 	}
+	scope, scopeArgs := "", []any{}
+	if p.input.Folder != "" {
+		scope = ` AND i.id IN (WITH RECURSIVE sub AS (
+			SELECT id FROM items WHERE id = ? AND user_id = ?
+			UNION SELECT c.id FROM items AS c JOIN sub ON c.parent_id = sub.id WHERE c.user_id = ?
+		) SELECT id FROM sub)`
+		scopeArgs = []any{p.input.Folder, domain.UserID(p.ctx), domain.UserID(p.ctx)}
+	}
 	var rows []row
 	err = tx.NewRaw(`
 		SELECT i.id, mn.content, mn.readonly
 		FROM items AS i
 		JOIN metadata_notes AS mn ON mn.item_id = i.id
-		WHERE i.user_id = ? AND i.kind = ? AND i.deleted_at IS NULL`+query,
-		append([]any{domain.UserID(p.ctx), domain.NOTE}, args...)...).
+		WHERE i.user_id = ? AND i.kind = ? AND i.deleted_at IS NULL`+scope+query,
+		append(append([]any{domain.UserID(p.ctx), domain.NOTE}, scopeArgs...), args...)...).
 		Scan(p.ctx, &rows)
 	if err != nil {
 		return nil, err

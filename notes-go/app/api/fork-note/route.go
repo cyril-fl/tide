@@ -26,7 +26,6 @@ type Body struct {
 // @Param    body body Body true "body"
 // @Success  201 {object} domain.Item
 // @Failure  400 {object} respond.Failure
-// @Failure  403 {object} respond.Failure
 // @Failure  404 {object} respond.Failure
 // @Failure  413 {object} respond.Failure
 // @Failure  500 {object} respond.Failure
@@ -58,7 +57,6 @@ func Handler(db bun.IDB) http.HandlerFunc {
 // @Produce  json
 // @Param    id path string true "uuid of the fork"
 // @Success  200 {object} readfork.Result
-// @Failure  403 {object} respond.Failure
 // @Failure  404 {object} respond.Failure
 // @Failure  500 {object} respond.Failure
 // @Router   /api/notes/{id}/fork [get]
@@ -99,7 +97,6 @@ type MergeBody struct {
 // @Param    body body MergeBody true "body"
 // @Success  200 {object} readitem.Result
 // @Failure  400 {object} respond.Failure
-// @Failure  403 {object} respond.Failure
 // @Failure  404 {object} respond.Failure
 // @Failure  409 {object} respond.Failure
 // @Failure  413 {object} respond.Failure

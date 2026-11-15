@@ -519,6 +519,7 @@
     "trash": "La corbeille, pour restaurer une note ou un dossier supprimé"
   },
   "fork": {
+    "create": "Nouvelle note copiée de celle-ci",
     "merge": "Fusionner dans la note d'origine",
     "merged": "Copie fusionnée dans la note d'origine, son ancien texte gardé dans l'historique.",
     "openOriginal": "Ouvrir",

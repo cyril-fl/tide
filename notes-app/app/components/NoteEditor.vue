@@ -8,7 +8,7 @@ import type { Changes } from '~/utils/saver';
 const { icons } = useIcons();
 const { has, ready } = usePro();
 const focus = useState('focus', () => false);
-const { t } = useI18n();
+const { locale, t } = useI18n();
 
 // start: the starting text of a new note, saved only once typed in. note: the note already read by the page, shown at once.
 const props = defineProps<{ noteId?: string; parentId?: string; start?: string; note?: ItemDetail }>();
@@ -274,6 +274,22 @@ async function mergeBack(again = true): Promise<void> {
   const open = { label: t('fork.openOriginal'), onClick: () => void navigateTo(`/notes/${origin.fork_of}`) };
   toast.add({ title: t('fork.merged'), color: 'success', actions: [open] });
 }
+// A fork of the text as saved, beside the note, titled like a fork from the history: open to every plan, the history to Pro.
+async function fork() {
+  await saver.flush();
+  if (failed.value) return;
+  const note = await api<ItemDetail>(`/api/notes/${id.value}`);
+  const date = new Date(note.item.updated_at ?? note.item.created_at).toLocaleString(locale.value, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+  const title = t('history.forkTitle', { title: displayTitle(note.item.title, t('untitled')), date });
+  const item = await api<Item>(`/api/notes/${id.value}/forks`, {
+    method: 'POST',
+    body: { content: retitle(note.content ?? '', title) },
+  });
+  await navigateTo(`/notes/${item.id}`);
+}
 // Replaces the text as if typed.
 function setText(content: string) {
   touched.value = true;
@@ -528,7 +544,17 @@ const status = computed(() => {
           :readonly="readonly"
           @restore="restoreVersion"
         />
-        <UTooltip v-if="forkOf && has('noteHistory')" :text="$t('fork.merge')">
+        <UTooltip v-if="id" :text="$t('fork.create')">
+          <UButton
+            :icon="icons.fork"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :aria-label="$t('fork.create')"
+            @click="fork()"
+          />
+        </UTooltip>
+        <UTooltip v-if="forkOf" :text="$t('fork.merge')">
           <UButton
             :icon="icons.merge"
             color="neutral"

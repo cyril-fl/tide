@@ -519,6 +519,7 @@
     "trash": "The trash, to restore a deleted note or folder"
   },
   "fork": {
+    "create": "New note copied from this one",
     "merge": "Merge into the original note",
     "merged": "Copy merged into the original note, its former text kept in the history.",
     "openOriginal": "Open",

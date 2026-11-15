@@ -904,15 +904,13 @@ func TestFiles(t *testing.T) {
 }
 
 // Two accounts in one base: neither sees, changes nor links to what the other has.
-// A fork remembers its original; its merge saves the original as a restore and moves the fork's base. Pro, like the history.
+// A fork remembers its original; its merge saves the original as a restore and moves the fork's base. Open to the base plan.
 func TestForkAndMerge(t *testing.T) {
 	c := newClient(t)
 	var original item
 	c.do("POST", "/api/notes", `{"content":"# Courses\n\n- Pain"}`, http.StatusCreated, &original)
 	path := "/api/notes/" + original.ID
 
-	c.do("POST", path+"/forks", `{"content":"# Copie\n\n- Pain"}`, http.StatusForbidden, nil)
-	c.do("PATCH", "/api/me", `{"plan":"pro"}`, http.StatusOK, nil)
 	var fork item
 	c.do("POST", path+"/forks", `{"content":"# Copie\n\n- Pain"}`, http.StatusCreated, &fork)
 	if !strings.Contains(c.raw("/api/notes/"+fork.ID), `"fork_of":"`+original.ID+`"`) || strings.Contains(c.raw(path), "fork_of") {
@@ -943,7 +941,6 @@ func TestForkAndMerge(t *testing.T) {
 
 	// Another account sees neither the fork nor its origin.
 	bob := c.other(t)
-	bob.do("PATCH", "/api/me", `{"plan":"pro"}`, http.StatusOK, nil)
 	bob.do("GET", "/api/notes/"+fork.ID+"/fork", "", http.StatusNotFound, nil)
 	bob.do("POST", "/api/notes/"+fork.ID+"/merge", `{"content":"x","base":"x"}`, http.StatusNotFound, nil)
 }

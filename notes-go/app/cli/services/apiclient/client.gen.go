@@ -8412,8 +8412,6 @@ type GetApiNotesIdForkResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *ReadforkResult
-	// JSON403 the response for an HTTP 403 `application/json` response
-	JSON403 *RespondFailure
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *RespondFailure
 	// JSON500 the response for an HTTP 500 `application/json` response
@@ -8423,11 +8421,6 @@ type GetApiNotesIdForkResponse struct {
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetApiNotesIdForkResponse) GetJSON200() *ReadforkResult {
 	return r.JSON200
-}
-
-// GetJSON403 returns the response for an HTTP 403 `application/json` response
-func (r GetApiNotesIdForkResponse) GetJSON403() *RespondFailure {
-	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8476,8 +8469,6 @@ type PostApiNotesIdForksResponse struct {
 	JSON201 *DomainItem
 	// JSON400 the response for an HTTP 400 `application/json` response
 	JSON400 *RespondFailure
-	// JSON403 the response for an HTTP 403 `application/json` response
-	JSON403 *RespondFailure
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *RespondFailure
 	// JSON413 the response for an HTTP 413 `application/json` response
@@ -8494,11 +8485,6 @@ func (r PostApiNotesIdForksResponse) GetJSON201() *DomainItem {
 // GetJSON400 returns the response for an HTTP 400 `application/json` response
 func (r PostApiNotesIdForksResponse) GetJSON400() *RespondFailure {
 	return r.JSON400
-}
-
-// GetJSON403 returns the response for an HTTP 403 `application/json` response
-func (r PostApiNotesIdForksResponse) GetJSON403() *RespondFailure {
-	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8607,8 +8593,6 @@ type PostApiNotesIdMergeResponse struct {
 	JSON200 *ReaditemResult
 	// JSON400 the response for an HTTP 400 `application/json` response
 	JSON400 *RespondFailure
-	// JSON403 the response for an HTTP 403 `application/json` response
-	JSON403 *RespondFailure
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *RespondFailure
 	// JSON409 the response for an HTTP 409 `application/json` response
@@ -8627,11 +8611,6 @@ func (r PostApiNotesIdMergeResponse) GetJSON200() *ReaditemResult {
 // GetJSON400 returns the response for an HTTP 400 `application/json` response
 func (r PostApiNotesIdMergeResponse) GetJSON400() *RespondFailure {
 	return r.JSON400
-}
-
-// GetJSON403 returns the response for an HTTP 403 `application/json` response
-func (r PostApiNotesIdMergeResponse) GetJSON403() *RespondFailure {
-	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -13067,13 +13046,6 @@ func ParseGetApiNotesIdForkResponse(rsp *http.Response) (*GetApiNotesIdForkRespo
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest RespondFailure
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest RespondFailure
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -13120,13 +13092,6 @@ func ParsePostApiNotesIdForksResponse(rsp *http.Response) (*PostApiNotesIdForksR
 			return nil, err
 		}
 		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest RespondFailure
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest RespondFailure
@@ -13221,13 +13186,6 @@ func ParsePostApiNotesIdMergeResponse(rsp *http.Response) (*PostApiNotesIdMergeR
 			return nil, err
 		}
 		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest RespondFailure
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest RespondFailure

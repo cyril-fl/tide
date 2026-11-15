@@ -2186,15 +2186,6 @@ export interface paths {
                         "application/json": components["schemas"]["readfork.Result"];
                     };
                 };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["respond.Failure"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
                     headers: {
@@ -2261,15 +2252,6 @@ export interface paths {
                 };
                 /** @description Bad Request */
                 400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["respond.Failure"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2407,15 +2389,6 @@ export interface paths {
                 };
                 /** @description Bad Request */
                 400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["respond.Failure"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
                     headers: {
                         [name: string]: unknown;
                     };

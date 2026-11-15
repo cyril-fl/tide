@@ -696,6 +696,21 @@ test('the Pro history forks the current text of a note never edited', async ({ p
   }
 });
 
+// The base plan forks from the note's toolbar, without the history, and merges back.
+test('the toolbar forks the current text and merges it back on the base plan', async ({ page }) => {
+  const note = await box.note(`# ${box.prefix} toolbar\n\nun`);
+  await page.goto(`/notes/${note.id}`);
+  await page.getByRole('button', { name: 'Nouvelle note copiée de celle-ci' }).click();
+  await expect(page).not.toHaveURL(new RegExp(note.id));
+  await expect(page.locator('.ProseMirror')).toContainText(`${box.prefix} toolbar (version du`);
+  const copy = page.url().split('/').pop()!;
+  await box.api.patch(`/api/notes/${copy}`, { data: { content: `${await box.content(copy)}\n\ndeux` } });
+  await page.reload();
+  await page.getByRole('button', { name: "Fusionner dans la note d'origine" }).click();
+  await expect(page.getByText("Copie fusionnée dans la note d'origine").first()).toBeVisible();
+  expect(await box.content(note.id)).toBe(`# ${box.prefix} toolbar\n\nun\n\ndeux`);
+});
+
 // A fork merges back into its note (Pro): the fork's changes and the note's own, the note keeping its title.
 async function forkAndMerge(
   page: Page,

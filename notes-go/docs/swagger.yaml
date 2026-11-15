@@ -2439,12 +2439,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/readfork.Result'
           description: OK
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/respond.Failure'
-          description: Forbidden
         "404":
           content:
             application/json:
@@ -2491,12 +2485,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/respond.Failure'
           description: Bad Request
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/respond.Failure'
-          description: Forbidden
         "404":
           content:
             application/json:
@@ -2580,12 +2568,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/respond.Failure'
           description: Bad Request
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/respond.Failure'
-          description: Forbidden
         "404":
           content:
             application/json:

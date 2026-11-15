@@ -35,6 +35,14 @@ watch(
     if (turn === opening) editor.value = { ...next, key: editor.value.key + 1, note };
   },
 );
+// The note of the second panel opened in the first trades places with the note there: never one note in both (#62).
+const { beside } = useTabs();
+const split = useSplit();
+watch(
+  () => route.params.id as string,
+  (id, before) => id === beside.value && (beside.value = before === 'new' ? '' : before),
+);
+
 // The panel keeps the related notes and the graph from one note to the next, not for a note opened long after.
 onUnmounted(() => clearNuxtState(['related-shown', 'graph-shown']));
 
@@ -45,12 +53,32 @@ function onCreated(id: string) {
 </script>
 
 <template>
-  <NoteEditor
-    :key="editor.key"
-    :note-id="editor.noteId"
-    :parent-id="editor.parentId"
-    :start="editor.start"
-    :note="editor.note"
-    @created="onCreated"
-  />
+  <div class="flex min-h-0 flex-1">
+    <!-- Split, the first panel is resized like the sidebar, its width kept by the layout's UDashboardGroup. Alone, it
+         fills the page and hides its handle: the same panel either way, or opening a note beside would remount the editor. -->
+    <UDashboardPanel
+      id="note-main"
+      resizable
+      :min-size="20"
+      :default-size="40"
+      :ui="
+        split.shown.value
+          ? { root: 'min-h-0 border-0', handle: 'border-x border-default' }
+          : { root: 'min-h-0 flex-1 border-0 lg:w-auto', handle: 'hidden' }
+      "
+    >
+      <NoteTabs />
+      <NoteEditor
+        :key="editor.key"
+        :note-id="editor.noteId"
+        :parent-id="editor.parentId"
+        :start="editor.start"
+        :note="editor.note"
+        @created="onCreated"
+      />
+    </UDashboardPanel>
+    <section v-if="split.shown.value" :aria-label="$t('note.beside')" class="flex min-w-0 flex-1 flex-col">
+      <NoteEditor :key="beside" :note-id="beside" beside />
+    </section>
+  </div>
 </template>

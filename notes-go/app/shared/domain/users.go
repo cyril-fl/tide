@@ -117,6 +117,8 @@ var (
 // gives each account its features (User.Features) and each plan its own (GET /api/plans) for the app to show.
 var Features = map[string]string{
 	"graph":             "base",
+	"tabs":              "ultra",
+	"splitView":         "ultra",
 	"focusMode":         "pro",
 	"contextPanel":      "pro",
 	"settingsNav":       "pro",

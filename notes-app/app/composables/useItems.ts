@@ -16,6 +16,7 @@ export function useItems() {
   const toast = useToast();
   const { has } = usePro();
   const { addSavedSearch } = useSavedSearches();
+  const { forget } = useTabs();
 
   // On failure the toast already told the user.
   async function act<T>(request: () => Promise<T>): Promise<T | undefined> {
@@ -61,15 +62,17 @@ export function useItems() {
     return removeItems([item]);
   }
 
-  /** The API removes one item per call: they go together, read again once. */
+  /** The API removes one item per call: they go together, read again once. The notes trashed leave the tabs. */
+  // TODO: the notes of a folder trashed keep their tab until opened (the 404 removes it), list them if that bites.
   function removeItems(items: Pick<Item, 'id' | 'kind'>[]) {
-    return act(() =>
-      Promise.all(
+    return act(async () => {
+      await Promise.all(
         items.map((item) =>
           api(`/api/${item.kind === 'folder' ? 'folders' : 'notes'}/${item.id}`, { method: 'DELETE' }),
         ),
-      ),
-    );
+      );
+      forget(items.map((item) => item.id));
+    });
   }
 
   /** One id or several; a null parent is the root. */

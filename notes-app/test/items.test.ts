@@ -10,6 +10,7 @@ function fake({ path = '/', pinned = [] as string[], answer = undefined as unkno
   const calls: Call[] = [];
   const prompts: { alternative?: { label: string } }[] = [];
   const navigations: unknown[] = [];
+  const forgotten: string[][] = [];
   let refreshes = 0;
   Object.assign(globalThis, {
     useApi:
@@ -31,26 +32,29 @@ function fake({ path = '/', pinned = [] as string[], answer = undefined as unkno
     useNuxtData: () => ({ data: { value: pinned.map((id) => ({ id })) } }),
     refreshNuxtData: async () => void refreshes++,
     navigateTo: async (to: unknown) => void navigations.push(to),
+    useTabs: () => ({ forget: (ids: string[]) => void forgotten.push(ids) }),
   });
-  return { calls, navigations, prompts, refreshes: () => refreshes };
+  return { calls, navigations, prompts, forgotten, refreshes: () => refreshes };
 }
 
 const note = { id: 'n1', kind: 'note', title: 'Note' } as Item;
 const folder = { id: 'f1', kind: 'folder', title: 'Folder' } as Item;
 
-test('removing deletes each item at its route, then reads again once', async () => {
+test('removing deletes each item at its route, closes their tabs, then reads again once', async () => {
   const api = fake();
   await useItems().removeItems([note, folder]);
   assert.deepEqual(api.calls, [
     { url: '/api/notes/n1', method: 'DELETE', body: undefined },
     { url: '/api/folders/f1', method: 'DELETE', body: undefined },
   ]);
+  assert.deepEqual(api.forgotten, [['n1', 'f1']]);
   assert.equal(api.refreshes(), 1);
 });
 
 test('a failed request reads nothing again', async () => {
   const api = fake({ fails: true });
   assert.equal(await useItems().removeItem(note), undefined);
+  assert.deepEqual(api.forgotten, []);
   assert.equal(api.refreshes(), 0);
 });
 

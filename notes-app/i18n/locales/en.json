@@ -159,6 +159,10 @@
     "emptyDescription": "The [[…]] links, the backlinks, the forks and the notes with the same tags show up here."
   },
   "note": {
+    "tabs": "Open notes",
+    "closeTab": "Close the tab {title}",
+    "beside": "Note beside",
+    "closeBeside": "Close the note beside",
     "unsaved": "The note is not saved",
     "unsavedDescription": "Your last changes will be lost.",
     "leaveAnyway": "Leave anyway",
@@ -502,6 +506,8 @@
   },
   "features": {
     "graph": "The graph of the notes",
+    "tabs": "The editor's tabs, keeping several notes open",
+    "splitView": "The split view: ⌘ + click on a [[…]] link opens the note beside",
     "focusMode": "Focus mode, which leaves only the note on screen",
     "contextPanel": "The context panel beside the note: its outline, its related notes and its history",
     "settingsNav": "The settings sidebar, one page per section",

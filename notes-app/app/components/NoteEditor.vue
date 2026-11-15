@@ -12,12 +12,20 @@ const focus = useState('focus', () => false);
 const { locale, t } = useI18n();
 
 // start: the starting text of a new note, saved only once typed in. note: the note already read by the page, shown at once.
-const props = defineProps<{ noteId?: string; parentId?: string; start?: string; note?: ItemDetail }>();
+// beside: the second panel of the split view, which leaves the page's title, the renaming and the tabs to the first.
+const props = defineProps<{
+  noteId?: string;
+  parentId?: string;
+  start?: string;
+  note?: ItemDetail;
+  beside?: boolean;
+}>();
 const emit = defineEmits<{ created: [id: string] }>();
 
 const api = useApi();
 const { confirm, confirmMerge, prompt, resolveConflict } = useDialogs();
 const { removeItem } = useItems();
+const { tabs, beside: besideId, forget } = useTabs();
 const baseURL = useRuntimeConfig().public.apiBase;
 const toast = useToast();
 
@@ -25,7 +33,7 @@ const id = ref(props.noteId);
 const parent = ref(props.parentId);
 const path = ref('');
 const title = ref<string>();
-useHead({ title: () => displayTitle(title.value, t('untitled')) });
+if (!props.beside) useHead({ title: () => displayTitle(title.value, t('untitled')) });
 const tags = ref<string[]>([]);
 let links = '';
 const initialContent = ref(props.start ?? '');
@@ -189,11 +197,24 @@ async function load() {
     isEmpty.value = false;
   } catch {
     notFound.value = true;
+    forget([props.noteId]);
   } finally {
     loading.value = false;
   }
 }
 load();
+
+// The Ultra tabs follow the note shown: it takes one once loaded, renamed with it (#128).
+watch(
+  [id, title, loading, ready],
+  ([note, name]) => {
+    if (!note || loading.value || notFound.value || !ready.value) return;
+    const tab = tabs.value.find((tab) => tab.id === note);
+    if (tab) tab.title = name;
+    else if (!props.beside && has('tabs')) tabs.value.push({ id: note, title: name });
+  },
+  { immediate: true },
+);
 
 function place(note: ItemDetail) {
   path.value = note.path.slice(0, note.path.lastIndexOf('/')) || '/';
@@ -428,7 +449,7 @@ async function rename() {
   else tr.insert(0, schema.nodes.heading!.create({ level: 1 }, schema.text(next)));
   editor.view.dispatch(tr);
 }
-renaming.value = rename;
+if (!props.beside) renaming.value = rename;
 onBeforeUnmount(() => renaming.value === rename && (renaming.value = undefined));
 
 function closeBody(changes: Changes) {
@@ -583,10 +604,28 @@ const status = computed(() => {
   <!-- Only the text scrolls: a sticky toolbar inside the scroll moves with Safari's elastic bounce. -->
   <article
     v-else-if="!loading && ready"
-    class="flex min-h-0 flex-1 flex-col pt-4"
+    class="flex min-h-0 flex-1 flex-col"
+    :class="{ 'pt-4': !beside }"
+    :data-note-id="id"
+    :data-beside="beside || undefined"
     @focusin="touched = true"
     @pointerdown.capture="touched = true"
   >
+    <header
+      v-if="beside"
+      class="mb-4 flex shrink-0 items-center gap-1 border-b border-default py-1.5 pr-2 pl-5 text-sm"
+    >
+      <h2 class="truncate">{{ displayTitle(title, $t('untitled')) }}</h2>
+      <UButton
+        :icon="icons.close"
+        color="neutral"
+        variant="ghost"
+        size="xs"
+        class="ml-auto"
+        :aria-label="$t('note.closeBeside')"
+        @click="besideId = ''"
+      />
+    </header>
     <!-- Lazy: CodeMirror is loaded at the first use of the source mode, not with the page. -->
     <LazyNoteSource
       v-if="source !== undefined"
@@ -646,6 +685,7 @@ const status = computed(() => {
         </UTooltip>
         <UDropdownMenu
           v-if="neighbors?.forks.length"
+          :ui="{ content: 'max-w-72' }"
           :items="
             neighbors.forks.map((fork) => ({
               label: displayTitle(fork.title, $t('untitled')),

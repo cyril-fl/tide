@@ -5,6 +5,8 @@
  */
 const groups = {
   graph: 'navigation',
+  tabs: 'display',
+  splitView: 'display',
   focusMode: 'display',
   contextPanel: 'display',
   settingsNav: 'navigation',

@@ -575,6 +575,15 @@
   [contenteditable='true'] {
     @apply select-text;
   }
+
+  /* No scrollbar anywhere: the browser draws them outside the themes; wheel, touch and keys still scroll. */
+  * {
+    scrollbar-width: none;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer components {

@@ -10,7 +10,7 @@ defineProps<{ collapsed?: boolean }>();
 const api = useApi();
 const route = useRoute();
 const { createFolder, tagMenu, pinItem } = useItems();
-const { besideMenu } = useSplit();
+const { besideMenu, besideClick } = useSplit();
 const searchOpen = useState('search-open', () => false);
 const colorMode = useColorMode();
 const { has } = usePro();
@@ -255,6 +255,7 @@ const isOverRoot = useDropFolder(rootLink, () => null);
                 <NuxtLink
                   :to="`/notes/${note.id}`"
                   class="flex min-w-0 flex-1 items-center gap-2 self-stretch leading-7"
+                  @click="besideClick(note.id)($event)"
                 >
                   <span class="truncate">{{ displayTitle(note.title, $t('untitled')) }}</span>
                   <!-- At the end of the row, in line with the chevrons of the folders. -->
@@ -274,7 +275,12 @@ const isOverRoot = useDropFolder(rootLink, () => null);
               :items="besideMenu(note.id)"
               :disabled="!besideMenu(note.id).length"
             >
-              <NuxtLink :to="`/notes/${note.id}`" class="row" :class="{ 'row-active': route.params.id === note.id }">
+              <NuxtLink
+                :to="`/notes/${note.id}`"
+                class="row"
+                :class="{ 'row-active': route.params.id === note.id }"
+                @click="besideClick(note.id)($event)"
+              >
                 <UIcon :name="icons.recent" class="size-4 shrink-0 text-muted" />
                 <span class="truncate">{{ displayTitle(note.title, $t('untitled')) }}</span>
                 <!-- At the end of the row, in line with the chevrons of the folders. -->

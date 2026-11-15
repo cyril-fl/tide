@@ -6,7 +6,7 @@ const { has } = usePro();
 const { t } = useI18n();
 const route = useRoute();
 const { tabs } = useTabs();
-const { besideMenu } = useSplit();
+const { besideMenu, besideClick } = useSplit();
 // The focus mode leaves only the note on screen: the tabs go with the sidebar.
 const focus = useState('focus', () => false);
 
@@ -48,6 +48,7 @@ const shown = computed(() => has('tabs') && tabs.value.length > 0 && !(focus.val
         <NuxtLink
           :to="`/notes/${tab.id}`"
           :aria-current="tab.id === open ? 'page' : undefined"
+          @click="besideClick(tab.id)($event)"
           class="truncate py-2 pr-1 pl-3 text-sm"
         >
           {{ label(tab) }}

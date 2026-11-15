@@ -27,5 +27,16 @@ export function useSplit() {
     return [[{ label: t('note.openBeside'), icon: icons.beside, onSelect: open }]];
   }
 
-  return { can, shown, openOther, besideMenu };
+  // ⌘ + click on a link to a note (tab, sidebar) opens it beside, not in a new tab of the browser. Not in the lists,
+  // where ⌘ + click selects.
+  function besideClick(id: string) {
+    return (event: MouseEvent) => {
+      const [[entry] = []] = besideMenu(id);
+      if (!entry || !(event.metaKey || event.ctrlKey)) return;
+      event.preventDefault();
+      entry.onSelect();
+    };
+  }
+
+  return { can, shown, openOther, besideMenu, besideClick };
 }

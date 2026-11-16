@@ -14,9 +14,11 @@ var ErrInvalid = errors.New("a tag holds only letters, digits, _ or -, with at l
 
 var (
 	word = regexp.MustCompile(`#[\p{L}\p{N}_-]+`)
-	// skipped is what can hold a # without being a tag: fenced code, inline code, link targets, addresses.
-	skipped  = regexp.MustCompile("(?ms)^[ \\t]*```.*?(?:^[ \\t]*```[^\\n]*$|\\z)|`[^`\\n]*`|\\]\\([^)\\n]*\\)|[a-zA-Z][a-zA-Z0-9+.-]*://\\S+")
-	onlyTags = regexp.MustCompile(`^[ \t]*#[\p{L}\p{N}_-]+(?:[ \t]+#[\p{L}\p{N}_-]+)*[ \t]*$`)
+	// skipped is what can hold a # without being a tag: fenced code, indented code, inline code, links
+	// (text and target), addresses. Indented code starts after a blank line, as it cannot cut a paragraph.
+	// TODO: in a loose list, a line indented 4 spaces after a blank line is a nested item, not code; tell them apart if a tag goes missing there.
+	skipped  = regexp.MustCompile("(?ms)^[ \\t]*```.*?(?:^[ \\t]*```[^\\n]*$|\\z)|(?:\\A|^[ \\t]*\\n)(?:(?: {4}|\\t)[^\\n]*(?:\\n|\\z))+|`[^`\\n]*`|\\[[^\\]\\n]*\\]\\([^)\\n]*\\)|\\]\\([^)\\n]*\\)|[a-zA-Z][a-zA-Z0-9+.-]*://\\S+")
+	onlyTags = regexp.MustCompile(`^ {0,3}#[\p{L}\p{N}_-]+(?:[ \t]+#[\p{L}\p{N}_-]+)*[ \t]*$`)
 )
 
 // span is one #tag of a text, [start, end[ with its #.

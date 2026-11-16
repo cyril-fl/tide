@@ -21,7 +21,12 @@ func TestParse(t *testing.T) {
 		"fenced code":        {"```c\n#include <a>\n```\n#sql", []string{"sql"}},
 		"unclosed fence":     {"```\n#go", nil},
 		"link target":        {"[x](http://a.b/#go) [y](/p#sql)", nil},
-		"link text":          {"[#go](http://a.b)", []string{"go"}},
+		"link text":          {"[#go #fyp](http://a.b) ![#img](/f) #sql", []string{"sql"}},
+		"bracket in text":    {"[a [b] #go](http://a.b)", []string{"go"}},
+		"indented code":      {"texte\n\n    ### Titre {#custom-id}\n\t#tab\n\n#sql", []string{"sql"}},
+		"indented at start":  {"    #go\n\n#sql", []string{"sql"}},
+		"indented paragraph": {"texte\n    #go", []string{"go"}},
+		"stuck tags":         {"#Idée#Sicile", []string{"Idée"}},
 		"address":            {"http://a.b/c#go fin", nil},
 	}
 	for name, c := range cases {
@@ -52,6 +57,7 @@ func TestSync(t *testing.T) {
 		"removes":          {"du #go et #sql", []string{"sql"}, "du et #sql"},
 		"removes and adds": {"du #go", []string{"sql"}, "du\n\n#sql"},
 		"keeps the code":   {"`#go` #sql", nil, "`#go`"},
+		"after code":       {"texte\n\n    #a", []string{"go"}, "texte\n\n    #a\n\n#go"},
 	}
 	for name, c := range cases {
 		if got := Sync(c.content, c.tags); got != c.want {

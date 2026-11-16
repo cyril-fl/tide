@@ -21,7 +21,7 @@ test('the account page sets an avatar, shown in the sidebar, then removes it', a
       .poll(() => avatar.evaluate((img: HTMLImageElement) => `${img.naturalWidth}×${img.naturalHeight}`))
       .toBe('256×256');
 
-    await page.getByRole('button', { name: 'Retirer' }).click();
+    await page.getByRole('button', { name: 'Retirer', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Menu du compte' }).locator('img')).toHaveCount(0);
   } finally {
     await request.patch(`${API}/api/me`, { ...api, data: { avatar: '' } });

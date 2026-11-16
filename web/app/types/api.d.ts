@@ -1357,6 +1357,24 @@ export interface paths {
                         "application/json": components["schemas"]["respond.Failure"];
                     };
                 };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
                 /** @description Request Entity Too Large */
                 413: {
                     headers: {
@@ -4524,6 +4542,8 @@ export interface components {
             theme: string;
             /** @description Days before the trash is purged, 0 to never purge. An insert of 0 gets the default: only an update sets it. */
             trash_retention_days: number;
+            /** @description The version of the settings, bumped by every PATCH /api/me: sent back there, it refuses a write made over an older read. */
+            updated_at: string;
             /** @description how the web app lists items, one of Views */
             view: string;
         };
@@ -4569,6 +4589,8 @@ export interface components {
             snippets?: components["schemas"]["domain.Snippet"][];
             theme?: string;
             trash_retention_days?: number;
+            /** @description UpdatedAt is the updated_at of the account as read: a 409 if its settings changed since, nothing written. */
+            updated_at?: string;
             view?: string;
         };
         "forcelayout.Point": {

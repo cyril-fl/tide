@@ -203,9 +203,10 @@ chiffrement) s'applique pareil des trois côtés.
   comprise. `export_notes` ne télécharge pas les images citées : il n'en donne que le chemin.
 - **`delete_tag` et `rename_tag` réécrivent le texte des notes**, corbeille comprise, comme la CLI et
   l'app : chaque note changée garde son texte d'avant dans l'historique.
-- **`save_snippet` et `delete_snippet` relisent la liste puis la réécrivent en entier** : deux écritures
-  au même moment (deux agents, ou un agent et l'app) peuvent effacer le changement de l'autre.
-  `save_search` et `delete_search` aussi.
+- **`save_snippet` et `delete_snippet` relisent la liste puis la réécrivent en entier**, `save_search` et
+  `delete_search` aussi, avec le `updated_at` du compte lu : une écriture arrivée entre-temps n'est pas
+  effacée, l'outil relit et refait son changement une fois, puis répond l'erreur. L'app, elle, réécrit
+  encore ses listes sans ce contrôle : une page de l'app restée ouverte peut effacer le changement d'un agent.
 - **Les recherches enregistrées sont du plan Pro** : hors Pro, les trois outils répondent
   `saved searches (smart folders) need the Pro plan, which this account does not have`. Une recherche
   n'a qu'un `tag_mode` pour tous ses tags : « Recette ET (Végétarien OU Vegan) » ne se dit pas, il faut

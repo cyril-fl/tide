@@ -83,7 +83,7 @@ var statuses = []struct {
 		createsession.ErrBadCredentials, readsession.ErrNoSession,
 	}},
 	{http.StatusForbidden, []error{
-		adduser.ErrBadInvite,
+		adduser.ErrBadInvite, edituser.ErrNoSavedSearches,
 	}},
 	{http.StatusNotFound, []error{
 		deleteapitoken.ErrNotFound, deleteuser.ErrNotFound, editfolder.ErrNotFound, editnote.ErrNotFound, emptytrash.ErrNotFound, edittag.ErrNotFound, exportnotes.ErrNotFound, exportnotes.ErrFolderNotFound, pinnote.ErrNotFound, readfile.ErrNotFound, readfork.ErrNotFork, readitem.ErrNotFound, readsavedsearch.ErrNotFound, readtag.ErrNotFound, resetpassword.ErrNotFound, resolveitem.ErrNotFound,
@@ -92,7 +92,7 @@ var statuses = []struct {
 		createfile.ErrFileType,
 	}},
 	{http.StatusConflict, []error{
-		domain.ErrFolderExists, edittag.ErrAlreadyExists, adduser.ErrNameTaken, deleteuser.ErrSelf, deleteuser.ErrLastAdmin, moveitems.ErrCycle, restoreitems.ErrParentInTrash, patchnote.ErrLocked, patchnote.ErrStale, mergefork.ErrOriginGone, unmergefork.ErrNoMerge, resolveitem.ErrAmbiguous,
+		domain.ErrFolderExists, edittag.ErrAlreadyExists, adduser.ErrNameTaken, deleteuser.ErrSelf, deleteuser.ErrLastAdmin, moveitems.ErrCycle, restoreitems.ErrParentInTrash, patchnote.ErrLocked, patchnote.ErrStale, edituser.ErrStale, mergefork.ErrOriginGone, unmergefork.ErrNoMerge, resolveitem.ErrAmbiguous,
 	}},
 }
 

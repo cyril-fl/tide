@@ -192,3 +192,60 @@ func TestEditUser(t *testing.T) {
 		t.Errorf("no avatar: result = %+v, err = %v; want none", got, process.GetErr())
 	}
 }
+
+func TestEditUserGuards(t *testing.T) {
+	ctx := context.Background()
+	env := postgrey.NewEnvironment()
+	env.ReadEnv()
+	db := env.Connect()
+	defer db.Close()
+
+	schema := createschema.Process(ctx, db)
+	schema.Run()
+	if schema.HasErr() {
+		t.Fatalf("create schema: %v", schema.GetErr())
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx, tx = testaccount.New(t, ctx, tx)
+
+	searches := []domain.SavedSearch{{ID: "s1", Name: "Work"}}
+	process := Process(ctx, tx, Input{SavedSearches: &searches})
+	process.Run()
+	if !errors.Is(process.GetErr(), ErrNoSavedSearches) {
+		t.Errorf("saved searches on base: err = %v, want ErrNoSavedSearches", process.GetErr())
+	}
+
+	pro := "pro"
+	process = Process(ctx, tx, Input{Plan: &pro, SavedSearches: &searches})
+	process.Run()
+	if process.HasErr() {
+		t.Fatalf("saved searches with pro: %v", process.GetErr())
+	}
+	read := process.GetResult().UpdatedAt
+
+	snippets := []domain.Snippet{{Name: "A"}}
+	process = Process(ctx, tx, Input{Snippets: &snippets, UpdatedAt: &read})
+	process.Run()
+	if process.HasErr() || process.GetResult().UpdatedAt.Equal(read) {
+		t.Fatalf("write over the version read: err = %v, updated_at = %v; want saved and bumped", process.GetErr(), process.GetResult().UpdatedAt)
+	}
+
+	other := []domain.Snippet{{Name: "B"}}
+	process = Process(ctx, tx, Input{Snippets: &other, UpdatedAt: &read})
+	process.Run()
+	if !errors.Is(process.GetErr(), ErrStale) {
+		t.Errorf("write over an older version: err = %v, want ErrStale", process.GetErr())
+	}
+	var user domain.User
+	if err := tx.NewSelect().Model(&user).Where("id = ?", domain.UserID(ctx)).Scan(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(user.Snippets) != 1 || user.Snippets[0].Name != "A" {
+		t.Errorf("snippets = %+v, want the first write kept", user.Snippets)
+	}
+}

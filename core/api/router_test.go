@@ -1424,6 +1424,7 @@ func TestPreviewSearch(t *testing.T) {
 
 	body := fmt.Sprintf(`{"id":"","name":"","tag_ids":[%q]}`, tagID)
 	c.do("POST", "/api/searches", body, http.StatusForbidden, nil)
+	c.do("PATCH", "/api/me", `{"saved_searches":[{"id":"s","name":"x"}]}`, http.StatusForbidden, nil)
 	c.do("PATCH", "/api/me", `{"plan":"pro"}`, http.StatusOK, nil)
 
 	var matches []struct {
@@ -1435,4 +1436,15 @@ func TestPreviewSearch(t *testing.T) {
 	}
 	ids := strings.Repeat(`"x",`, 50) + `"x"`
 	c.do("POST", "/api/searches", `{"id":"","name":"","tag_ids":[`+ids+`]}`, http.StatusBadRequest, nil)
+}
+
+// A PATCH /api/me sent with the updated_at it read is refused once another write changed the account (#201).
+func TestEditMeStale(t *testing.T) {
+	c := newClient(t)
+	var me struct {
+		UpdatedAt string `json:"updated_at"`
+	}
+	c.do("GET", "/api/me", "", http.StatusOK, &me)
+	c.do("PATCH", "/api/me", fmt.Sprintf(`{"snippets":[{"name":"A","content":""}],"updated_at":%q}`, me.UpdatedAt), http.StatusOK, nil)
+	c.do("PATCH", "/api/me", fmt.Sprintf(`{"snippets":[{"name":"B","content":""}],"updated_at":%q}`, me.UpdatedAt), http.StatusConflict, nil)
 }

@@ -335,6 +335,9 @@ type DomainUser struct {
 	// TrashRetentionDays Days before the trash is purged, 0 to never purge. An insert of 0 gets the default: only an update sets it.
 	TrashRetentionDays int `json:"trash_retention_days"`
 
+	// UpdatedAt The version of the settings, bumped by every PATCH /api/me: sent back there, it refuses a write made over an older read.
+	UpdatedAt string `json:"updated_at"`
+
 	// View how the web app lists items, one of Views
 	View string `json:"view"`
 }
@@ -397,7 +400,10 @@ type EdituserInput struct {
 	Snippets           *[]DomainSnippet `json:"snippets,omitempty"`
 	Theme              *string          `json:"theme,omitempty"`
 	TrashRetentionDays *int             `json:"trash_retention_days,omitempty"`
-	View               *string          `json:"view,omitempty"`
+
+	// UpdatedAt UpdatedAt is the updated_at of the account as read: a 409 if its settings changed since, nothing written.
+	UpdatedAt *string `json:"updated_at,omitempty"`
+	View      *string `json:"view,omitempty"`
 }
 
 // ForcelayoutPoint defines model for forcelayout.Point.
@@ -7875,6 +7881,10 @@ type PatchApiMeResponse struct {
 	JSON400 *RespondFailure
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *RespondFailure
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *RespondFailure
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *RespondFailure
 	// JSON413 the response for an HTTP 413 `application/json` response
 	JSON413 *RespondFailure
 	// JSON500 the response for an HTTP 500 `application/json` response
@@ -7894,6 +7904,16 @@ func (r PatchApiMeResponse) GetJSON400() *RespondFailure {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r PatchApiMeResponse) GetJSON401() *RespondFailure {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PatchApiMeResponse) GetJSON403() *RespondFailure {
+	return r.JSON403
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r PatchApiMeResponse) GetJSON409() *RespondFailure {
+	return r.JSON409
 }
 
 // GetJSON413 returns the response for an HTTP 413 `application/json` response
@@ -13006,6 +13026,20 @@ func ParsePatchApiMeResponse(rsp *http.Response) (*PatchApiMeResponse, error) {
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
 		var dest RespondFailure

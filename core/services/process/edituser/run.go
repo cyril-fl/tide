@@ -2,11 +2,13 @@ package edituser
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/cyril-fl/tide/core/domain"
@@ -44,6 +46,8 @@ var (
 	ErrInvalidSnippet     = fmt.Errorf("a snippet needs a name, at most %d of them of %d bytes each", MaxSnippets, MaxSnippetSize)
 	ErrInvalidSavedSearch = fmt.Errorf("a saved search needs a name and a known tag/folder mode, at most %d of them", MaxSavedSearches)
 	ErrInvalidSidebar     = errors.New("the sidebar sections are known lists, each at most once")
+	ErrNoSavedSearches    = errors.New("the plan of this account does not include savedSearches")
+	ErrStale              = errors.New("account settings changed elsewhere since they were read")
 )
 
 // Input holds the settings to change: a nil one is kept.
@@ -61,6 +65,8 @@ type Input struct {
 	Snippets           *[]domain.Snippet        `json:"snippets,omitempty" binding:"optional"`         // the whole list, it replaces the saved one
 	SavedSearches      *[]domain.SavedSearch    `json:"saved_searches,omitempty" binding:"optional"`   // the whole list, it replaces the saved one
 	SidebarSections    *[]domain.SidebarSection `json:"sidebar_sections,omitempty" binding:"optional"` // the whole list, in order
+	// UpdatedAt is the updated_at of the account as read: a 409 if its settings changed since, nothing written.
+	UpdatedAt *time.Time `json:"updated_at,omitempty" binding:"optional"`
 }
 
 type run struct {
@@ -87,6 +93,7 @@ func Process(ctx context.Context, db bun.IDB, input Input) *run {
 
 func (p *run) Run() {
 	p.checkInput()
+	p.checkPlan()
 	p.checkAvatar()
 	p.updateUser()
 }
@@ -128,6 +135,28 @@ func (p *run) checkInput() {
 	}
 }
 
+// checkPlan refuses saved searches to an account whose plan, as this edit leaves it, lacks them, as plan.Require does
+// for their routes.
+func (p *run) checkPlan() {
+	if p.HasErr() || p.input.SavedSearches == nil {
+		return
+	}
+
+	var plan string
+	if p.input.Plan != nil {
+		plan = *p.input.Plan
+	} else {
+		err := p.db.NewSelect().Model((*domain.User)(nil)).Column("plan").Where("id = ?", domain.UserID(p.ctx)).Scan(p.ctx, &plan)
+		if err != nil {
+			p.SetErr(err)
+			return
+		}
+	}
+	if !domain.Unlocked("savedSearches", plan) {
+		p.SetErr(ErrNoSavedSearches)
+	}
+}
+
 func (p *run) checkAvatar() {
 	if p.HasErr() || p.input.Avatar == nil || *p.input.Avatar == "" {
 		return
@@ -150,12 +179,15 @@ func (p *run) updateUser() {
 
 	// In a transaction, a savepoint: a name already taken must not abort the caller's.
 	p.SetErr(p.db.RunInTx(p.ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		// "id = id" keeps the query valid when nothing is set: it then only reads the account back.
+		// clock_timestamp, not now(): two edits in one transaction still get two versions.
 		query := tx.NewUpdate().
 			Model(&p.cache.result).
-			Set("id = id").
+			Set("updated_at = clock_timestamp()").
 			Where("id = ?", domain.UserID(p.ctx)).
 			Returning("?Columns")
+		if p.input.UpdatedAt != nil {
+			query.Where("updated_at = ?", *p.input.UpdatedAt)
+		}
 		if p.input.Locale != nil {
 			query.Set("locale = ?", *p.input.Locale)
 		}
@@ -187,7 +219,6 @@ func (p *run) updateUser() {
 			query.Set("avatar = NULLIF(?, '')::uuid", *p.input.Avatar)
 		}
 
-		// TODO: the last of two devices editing the snippets wins, per-snippet endpoints if that bites.
 		if p.input.Snippets != nil {
 			sealed, err := domain.Snippets(*p.input.Snippets).Seal(domain.UserID(p.ctx))
 			if err != nil {
@@ -196,7 +227,6 @@ func (p *run) updateUser() {
 			query.Set("snippets = ?", sealed)
 		}
 
-		// TODO: the last of two devices editing the saved searches wins, same as the snippets above.
 		if p.input.SavedSearches != nil {
 			sealed, err := domain.SavedSearches(*p.input.SavedSearches).Seal(domain.UserID(p.ctx))
 			if err != nil {
@@ -215,6 +245,9 @@ func (p *run) updateUser() {
 
 		var pgErr pgdriver.Error
 		err := query.Scan(ctx)
+		if errors.Is(err, sql.ErrNoRows) && p.input.UpdatedAt != nil {
+			return ErrStale
+		}
 		if errors.As(err, &pgErr) && pgErr.Field('C') == "23505" {
 			return fmt.Errorf("%w: %q", adduser.ErrNameTaken, strings.TrimSpace(*p.input.Name))
 		}

@@ -115,6 +115,8 @@ func Me(db bun.IDB) http.HandlerFunc {
 // @Success  200 {object} domain.User
 // @Failure  400 {object} respond.Failure
 // @Failure  401 {object} respond.Failure
+// @Failure  403 {object} respond.Failure
+// @Failure  409 {object} respond.Failure
 // @Failure  413 {object} respond.Failure
 // @Failure  500 {object} respond.Failure
 // @Router   /api/me [patch]

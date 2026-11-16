@@ -39,8 +39,8 @@ func TestReadSavedSearch(t *testing.T) {
 		t.Fatalf("note: %v", note.GetErr())
 	}
 
-	searches := []domain.SavedSearch{{ID: "s1", Name: "Everything"}}
-	save := edituser.Process(ctx, tx, edituser.Input{SavedSearches: &searches})
+	searches, pro := []domain.SavedSearch{{ID: "s1", Name: "Everything"}}, "pro"
+	save := edituser.Process(ctx, tx, edituser.Input{Plan: &pro, SavedSearches: &searches})
 	save.Run()
 	if save.HasErr() {
 		t.Fatalf("save: %v", save.GetErr())

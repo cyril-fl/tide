@@ -37,6 +37,8 @@ type User struct {
 	// The order of the sidebar lists and which ones show, [] for the app's default.
 	SidebarSections []SidebarSection `bun:",type:jsonb,notnull,default:'[]'" json:"sidebar_sections"`
 	CreatedAt       time.Time        `bun:",notnull,default:current_timestamp" json:"created_at"`
+	// The version of the settings, bumped by every PATCH /api/me: sent back there, it refuses a write made over an older read.
+	UpdatedAt time.Time `bun:",notnull,default:current_timestamp" json:"updated_at"`
 	// Bumped by the triggers of createschema at every write that changes a path, from any process: Paths reads it to
 	// know its cache is still right. From a sequence, so a rolled-back write never hands its number to another.
 	ItemsVersion int64 `bun:",notnull,default:0" json:"-"`

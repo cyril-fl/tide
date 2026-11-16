@@ -548,7 +548,7 @@ async function deleteData() {
         </ul>
       </section>
 
-      <section v-if="show('savedSearches')">
+      <section v-if="show('savedSearches') && has('savedSearches')">
         <SettingsHeading id="savedSearches" />
         <ul class="divide-y divide-default rounded-lg border border-default">
           <li class="flex flex-wrap items-center gap-4 px-4 py-3">

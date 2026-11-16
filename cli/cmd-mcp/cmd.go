@@ -751,18 +751,17 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		Annotations: writes(true, true),
 		Description: "Create a snippet, or replace the one of the same name, the others kept. Answers the account's snippets.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args snippetArgs) (*mcp.CallToolResult, []apiclient.DomainSnippet, error) {
-		snippets, err := readSnippets(ctx, client)
-		if err != nil {
-			return nil, nil, err
-		}
-		saved := apiclient.DomainSnippet{Name: args.Name, Content: args.Content}
-		if i := slices.IndexFunc(snippets, func(s apiclient.DomainSnippet) bool { return s.Name == args.Name }); i >= 0 {
-			snippets[i] = saved
-		} else {
-			snippets = append(snippets, saved)
-		}
-		snippets, err = writeSnippets(ctx, client, snippets)
-		return nil, snippets, err
+		me, err := editMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {
+			snippets := slices.Clone(me.Snippets)
+			saved := apiclient.DomainSnippet{Name: args.Name, Content: args.Content}
+			if i := slices.IndexFunc(snippets, func(s apiclient.DomainSnippet) bool { return s.Name == args.Name }); i >= 0 {
+				snippets[i] = saved
+			} else {
+				snippets = append(snippets, saved)
+			}
+			return apiclient.EdituserInput{Snippets: &snippets}, nil
+		})
+		return nil, append([]apiclient.DomainSnippet{}, me.Snippets...), err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -770,16 +769,17 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		Annotations: writes(true, true),
 		Description: "Remove a snippet by its name, the others kept. Answers the account's snippets.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args snippetNameArgs) (*mcp.CallToolResult, []apiclient.DomainSnippet, error) {
-		snippets, err := readSnippets(ctx, client)
+		me, err := editMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {
+			kept := slices.DeleteFunc(slices.Clone(me.Snippets), func(s apiclient.DomainSnippet) bool { return s.Name == args.Name })
+			if len(kept) == len(me.Snippets) {
+				return apiclient.EdituserInput{}, fmt.Errorf("%w: %q", errNoSnippet, args.Name)
+			}
+			return apiclient.EdituserInput{Snippets: &kept}, nil
+		})
 		if err != nil {
 			return nil, nil, err
 		}
-		kept := slices.DeleteFunc(slices.Clone(snippets), func(s apiclient.DomainSnippet) bool { return s.Name == args.Name })
-		if len(kept) == len(snippets) {
-			return nil, nil, fmt.Errorf("%w: %q", errNoSnippet, args.Name)
-		}
-		kept, err = writeSnippets(ctx, client, kept)
-		return nil, kept, err
+		return nil, append([]apiclient.DomainSnippet{}, me.Snippets...), nil
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -820,8 +820,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		Annotations: writes(true, false),
 		Description: "Create a saved search (a smart folder of the app), or replace one given its id or name, the others kept: its notes match every criterion given, though one tag_mode holds for all its tags (a AND (b OR c) cannot be said). Answers it as saved_searches lists it. Pro plan only.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args saveSearchArgs) (*mcp.CallToolResult, savedSearch, error) {
-		list, err := readSearches(ctx, client)
-		if err != nil {
+		if _, err := readSearches(ctx, client); err != nil {
 			return nil, savedSearch{}, err
 		}
 		search, err := searchOf(ctx, client, args)
@@ -830,16 +829,22 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		}
 		if args.Search == "" {
 			search.Id = rand.Text()
-			list = append(list, search)
-		} else {
-			i, err := findSearch(list, args.Search)
-			if err != nil {
-				return nil, savedSearch{}, err
-			}
-			search.Id = list[i].Id
-			list[i] = search
 		}
-		if _, err := writeSearches(ctx, client, list); err != nil {
+		_, err = editMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {
+			list := slices.Clone(me.SavedSearches)
+			if args.Search == "" {
+				list = append(list, search)
+			} else {
+				i, err := findSearch(list, args.Search)
+				if err != nil {
+					return apiclient.EdituserInput{}, err
+				}
+				search.Id = list[i].Id
+				list[i] = search
+			}
+			return apiclient.EdituserInput{SavedSearches: &list}, nil
+		})
+		if err != nil {
 			return nil, savedSearch{}, err
 		}
 		names, err := searchNames(ctx, client)
@@ -851,18 +856,21 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		Annotations: writes(true, true),
 		Description: "Remove a saved search by its id or name, the others kept; its notes stay as they are. Answers the account's saved searches. Pro plan only.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchNameArgs) (*mcp.CallToolResult, []savedSearch, error) {
-		list, err := readSearches(ctx, client)
+		if _, err := readSearches(ctx, client); err != nil {
+			return nil, nil, err
+		}
+		me, err := editMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {
+			i, err := findSearch(me.SavedSearches, args.Search)
+			if err != nil {
+				return apiclient.EdituserInput{}, err
+			}
+			list := slices.Delete(slices.Clone(me.SavedSearches), i, i+1)
+			return apiclient.EdituserInput{SavedSearches: &list}, nil
+		})
 		if err != nil {
 			return nil, nil, err
 		}
-		i, err := findSearch(list, args.Search)
-		if err != nil {
-			return nil, nil, err
-		}
-		list, err = writeSearches(ctx, client, slices.Delete(list, i, i+1))
-		if err != nil {
-			return nil, nil, err
-		}
+		list := me.SavedSearches
 		names, err := searchNames(ctx, client)
 		out := make([]savedSearch, 0, len(list))
 		for _, search := range list {
@@ -872,8 +880,8 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	})
 }
 
-// readSearches reads the account's saved searches, refusing an account whose plan lacks them: PATCH /api/me would
-// take them, only GET /api/searches/{id} checks the plan.
+// readSearches reads the account's saved searches, refusing an account whose plan lacks them (as PATCH /api/me does,
+// though with a clearer error for an agent).
 func readSearches(ctx context.Context, client *apiclient.ClientWithResponses) ([]apiclient.DomainSavedSearch, error) {
 	me, err := decode[apiclient.DomainUser](client.GetApiMe(ctx))
 	if err != nil {
@@ -883,13 +891,6 @@ func readSearches(ctx context.Context, client *apiclient.ClientWithResponses) ([
 		return nil, errNoPro
 	}
 	return append([]apiclient.DomainSavedSearch{}, me.SavedSearches...), nil
-}
-
-// writeSearches saves the whole list, as PATCH /api/me takes it, the server checking names and modes; the same
-// TODO as writeSnippets holds.
-func writeSearches(ctx context.Context, client *apiclient.ClientWithResponses, list []apiclient.DomainSavedSearch) ([]apiclient.DomainSavedSearch, error) {
-	me, err := decode[apiclient.DomainUser](client.PatchApiMe(ctx, apiclient.EdituserInput{SavedSearches: &list}))
-	return append([]apiclient.DomainSavedSearch{}, me.SavedSearches...), err
 }
 
 // findSearch gives the index of the saved search of id ref, or else of the one named ref: two of that name refuse.
@@ -1028,12 +1029,27 @@ func readSnippets(ctx context.Context, client *apiclient.ClientWithResponses) ([
 	return append([]apiclient.DomainSnippet{}, me.Snippets...), err
 }
 
-// writeSnippets saves the whole list, as PATCH /api/me takes it, the server checking names and sizes.
-// TODO: /api/me has no updated_at check, so two agents (or an agent and the app) saving snippets at the same time
-// overwrite each other's change; per-snippet routes or an updated_at on PATCH /api/me if that bites.
-func writeSnippets(ctx context.Context, client *apiclient.ClientWithResponses, snippets []apiclient.DomainSnippet) ([]apiclient.DomainSnippet, error) {
-	me, err := decode[apiclient.DomainUser](client.PatchApiMe(ctx, apiclient.EdituserInput{Snippets: &snippets}))
-	return append([]apiclient.DomainSnippet{}, me.Snippets...), err
+// errAccountStale is the text of edituser.ErrStale the API answers: the account changed since it was read.
+const errAccountStale = "account settings changed elsewhere since they were read"
+
+// editMe reads the account, has edit build the whole lists to save from it, and saves them through PATCH /api/me with
+// the updated_at read: a write of the app or another agent in between is read again and edit run over it, once.
+func editMe(ctx context.Context, client *apiclient.ClientWithResponses, edit func(apiclient.DomainUser) (apiclient.EdituserInput, error)) (apiclient.DomainUser, error) {
+	for try := 0; ; try++ {
+		me, err := decode[apiclient.DomainUser](client.GetApiMe(ctx))
+		if err != nil {
+			return me, err
+		}
+		input, err := edit(me)
+		if err != nil {
+			return me, err
+		}
+		input.UpdatedAt = &me.UpdatedAt
+		me, err = decode[apiclient.DomainUser](client.PatchApiMe(ctx, input))
+		if err == nil || err.Error() != errAccountStale || try > 0 {
+			return me, err
+		}
+	}
 }
 
 // addTool adds tool to server, unless readOnly and the tool changes something: its annotations tell it.

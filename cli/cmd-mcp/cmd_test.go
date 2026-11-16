@@ -491,3 +491,31 @@ func TestServerNames(t *testing.T) {
 		t.Errorf("filesDir %q, fileURL %q; want %q, %q", filesDir, fileURL("id"), exportnotes.FilesDir, domain.FileURL("id"))
 	}
 }
+
+// TestEditMeRetries reads the account again and edits over it when another write lands between its read and its save.
+func TestEditMeRetries(t *testing.T) {
+	ctx := context.Background()
+	apitest.Serve(t)
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	runs := 0
+	me, err := editMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {
+		runs++
+		if runs == 1 {
+			// The app saves a snippet after the read: the first save must be refused, not overwrite it.
+			app := []apiclient.DomainSnippet{{Name: "App"}}
+			if _, err := decode[apiclient.DomainUser](client.PatchApiMe(ctx, apiclient.EdituserInput{Snippets: &app})); err != nil {
+				t.Fatal(err)
+			}
+		}
+		snippets := append(slices.Clone(me.Snippets), apiclient.DomainSnippet{Name: "Agent"})
+		return apiclient.EdituserInput{Snippets: &snippets}, nil
+	})
+	want := []apiclient.DomainSnippet{{Name: "App"}, {Name: "Agent"}}
+	if err != nil || runs != 2 || !slices.Equal(me.Snippets, want) {
+		t.Errorf("editMe = %+v, %v after %d runs; want %+v after 2", me.Snippets, err, runs, want)
+	}
+}

@@ -5,7 +5,9 @@ package cmdmcp
 import (
 	"archive/zip"
 	"bytes"
+	"cmp"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -246,6 +248,70 @@ type importFile struct {
 	Path    string `json:"path" jsonschema:"the file path, relative (Folder/Note.md)"`
 	Content string `json:"content" jsonschema:"the markdown content"`
 }
+
+type snippetArgs struct {
+	Name    string `json:"name" jsonschema:"the snippet's name; one of that name already is replaced"`
+	Content string `json:"content" jsonschema:"the markdown the snippet inserts; its #hashtags become tags of the note it starts"`
+}
+
+type snippetNameArgs struct {
+	Name string `json:"name" jsonschema:"the name of the snippet to remove"`
+}
+
+var errNoSnippet = errors.New("no snippet of that name")
+
+type savedSearchesArgs struct {
+	Search string `json:"search,omitempty" jsonschema:"the saved search to run: its id, or its name; the list of saved searches when empty"`
+	Limit  *int   `json:"limit,omitempty" jsonschema:"how many notes at most, 50 when left out, 0 for all of them"`
+	Offset int    `json:"offset,omitempty" jsonschema:"how many notes to skip, by path: the next page starts at offset + limit"`
+}
+
+type saveSearchArgs struct {
+	Search      string   `json:"search,omitempty" jsonschema:"the saved search to replace: its id, or its name; a new one when empty"`
+	Name        string   `json:"name" jsonschema:"the name the app shows"`
+	Tags        []string `json:"tags,omitempty" jsonschema:"tags the notes carry, without the #"`
+	TagMode     string   `json:"tag_mode,omitempty" jsonschema:"any (default): one of the tags is enough; all: every tag"`
+	Folders     []string `json:"folders,omitempty" jsonschema:"folders, with their subfolders: their uuid, or their path from the root (/Folder)"`
+	FolderMode  string   `json:"folder_mode,omitempty" jsonschema:"include (default): only the notes of the folders; exclude: every note but theirs"`
+	CreatedFrom string   `json:"created_from,omitempty" jsonschema:"notes created on or after this day (2026-01-31) or instant (RFC 3339)"`
+	CreatedTo   string   `json:"created_to,omitempty" jsonschema:"notes created on or before this day (2026-01-31, the whole day) or instant (RFC 3339)"`
+	EditedFrom  string   `json:"edited_from,omitempty" jsonschema:"notes changed on or after this day (2026-01-31) or instant (RFC 3339)"`
+	EditedTo    string   `json:"edited_to,omitempty" jsonschema:"notes changed on or before this day (2026-01-31, the whole day) or instant (RFC 3339)"`
+	Text        string   `json:"text,omitempty" jsonschema:"a text the title or the content holds"`
+}
+
+type searchNameArgs struct {
+	Search string `json:"search" jsonschema:"the saved search to remove: its id, or its name"`
+}
+
+// savedSearch is a domain.SavedSearch as an agent reads it: tags by name, folders by path.
+type savedSearch struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Tags        []string `json:"tags,omitempty"`
+	TagMode     string   `json:"tag_mode,omitempty"`
+	Folders     []string `json:"folders,omitempty"`
+	FolderMode  string   `json:"folder_mode,omitempty"`
+	CreatedFrom string   `json:"created_from,omitempty"`
+	CreatedTo   string   `json:"created_to,omitempty"`
+	EditedFrom  string   `json:"edited_from,omitempty"`
+	EditedTo    string   `json:"edited_to,omitempty"`
+	Text        string   `json:"text,omitempty"`
+}
+
+// searches is the account's saved searches, or one run with a page of its notes and their total.
+type searches struct {
+	Searches []savedSearch                   `json:"searches,omitempty"`
+	Search   *savedSearch                    `json:"search,omitempty"`
+	Notes    []apiclient.RunsavedsearchMatch `json:"notes,omitempty"`
+	Total    int                             `json:"total,omitempty"`
+}
+
+var (
+	errNoPro    = errors.New("saved searches (smart folders) need the Pro plan, which this account does not have")
+	errNoSearch = errors.New("no saved search of that id or name")
+	errNoTag    = errors.New("no tag of that name")
+)
 
 // Serve speaks MCP on stdin and stdout: nothing else may be printed there.
 func Serve(cobra *cobra.Command, _ []string) error {
@@ -670,6 +736,304 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		result, err := decode[apiclient.ImportnotesResult](client.PostApiImportWithBody(ctx, &apiclient.PostApiImportParams{Parent: &parentID}, "application/zip", &body))
 		return nil, result, err
 	})
+
+	addTool(server, readOnly, &mcp.Tool{
+		Name:        "snippets",
+		Annotations: reads(),
+		Description: "List the account's snippets, the pieces of markdown the app inserts while typing or starts a new note from: their name and content.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []apiclient.DomainSnippet, error) {
+		snippets, err := readSnippets(ctx, client)
+		return nil, snippets, err
+	})
+
+	addTool(server, readOnly, &mcp.Tool{
+		Name:        "save_snippet",
+		Annotations: writes(true, true),
+		Description: "Create a snippet, or replace the one of the same name, the others kept. Answers the account's snippets.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args snippetArgs) (*mcp.CallToolResult, []apiclient.DomainSnippet, error) {
+		snippets, err := readSnippets(ctx, client)
+		if err != nil {
+			return nil, nil, err
+		}
+		saved := apiclient.DomainSnippet{Name: args.Name, Content: args.Content}
+		if i := slices.IndexFunc(snippets, func(s apiclient.DomainSnippet) bool { return s.Name == args.Name }); i >= 0 {
+			snippets[i] = saved
+		} else {
+			snippets = append(snippets, saved)
+		}
+		snippets, err = writeSnippets(ctx, client, snippets)
+		return nil, snippets, err
+	})
+
+	addTool(server, readOnly, &mcp.Tool{
+		Name:        "delete_snippet",
+		Annotations: writes(true, true),
+		Description: "Remove a snippet by its name, the others kept. Answers the account's snippets.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args snippetNameArgs) (*mcp.CallToolResult, []apiclient.DomainSnippet, error) {
+		snippets, err := readSnippets(ctx, client)
+		if err != nil {
+			return nil, nil, err
+		}
+		kept := slices.DeleteFunc(slices.Clone(snippets), func(s apiclient.DomainSnippet) bool { return s.Name == args.Name })
+		if len(kept) == len(snippets) {
+			return nil, nil, fmt.Errorf("%w: %q", errNoSnippet, args.Name)
+		}
+		kept, err = writeSnippets(ctx, client, kept)
+		return nil, kept, err
+	})
+
+	addTool(server, readOnly, &mcp.Tool{
+		Name:        "saved_searches",
+		Annotations: reads(),
+		Description: "List the account's saved searches (the app's smart folders), or run one given its id or name: the notes it matches with their path, the first 50 and the total, unless limit says otherwise. Pro plan only.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args savedSearchesArgs) (*mcp.CallToolResult, searches, error) {
+		list, err := readSearches(ctx, client)
+		if err != nil {
+			return nil, searches{}, err
+		}
+		names, err := searchNames(ctx, client)
+		if err != nil {
+			return nil, searches{}, err
+		}
+		if args.Search == "" {
+			out := make([]savedSearch, 0, len(list))
+			for _, search := range list {
+				out = append(out, names.view(search))
+			}
+			return nil, searches{Searches: out}, nil
+		}
+		i, err := findSearch(list, args.Search)
+		if err != nil {
+			return nil, searches{}, err
+		}
+		limit, offset := limitOf(args.Limit), max(args.Offset, 0)
+		notes, total, err := paged[[]apiclient.RunsavedsearchMatch](client.GetApiSearchesId(ctx, list[i].Id, &apiclient.GetApiSearchesIdParams{Limit: &limit, Offset: &offset}))
+		if err != nil {
+			return nil, searches{}, err
+		}
+		view := names.view(list[i])
+		return nil, searches{Search: &view, Notes: notes, Total: total}, nil
+	})
+
+	addTool(server, readOnly, &mcp.Tool{
+		Name:        "save_search",
+		Annotations: writes(true, false),
+		Description: "Create a saved search (a smart folder of the app), or replace one given its id or name, the others kept: its notes match every criterion given, though one tag_mode holds for all its tags (a AND (b OR c) cannot be said). Answers it as saved_searches lists it. Pro plan only.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args saveSearchArgs) (*mcp.CallToolResult, savedSearch, error) {
+		list, err := readSearches(ctx, client)
+		if err != nil {
+			return nil, savedSearch{}, err
+		}
+		search, err := searchOf(ctx, client, args)
+		if err != nil {
+			return nil, savedSearch{}, err
+		}
+		if args.Search == "" {
+			search.Id = rand.Text()
+			list = append(list, search)
+		} else {
+			i, err := findSearch(list, args.Search)
+			if err != nil {
+				return nil, savedSearch{}, err
+			}
+			search.Id = list[i].Id
+			list[i] = search
+		}
+		if _, err := writeSearches(ctx, client, list); err != nil {
+			return nil, savedSearch{}, err
+		}
+		names, err := searchNames(ctx, client)
+		return nil, names.view(search), err
+	})
+
+	addTool(server, readOnly, &mcp.Tool{
+		Name:        "delete_search",
+		Annotations: writes(true, true),
+		Description: "Remove a saved search by its id or name, the others kept; its notes stay as they are. Answers the account's saved searches. Pro plan only.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchNameArgs) (*mcp.CallToolResult, []savedSearch, error) {
+		list, err := readSearches(ctx, client)
+		if err != nil {
+			return nil, nil, err
+		}
+		i, err := findSearch(list, args.Search)
+		if err != nil {
+			return nil, nil, err
+		}
+		list, err = writeSearches(ctx, client, slices.Delete(list, i, i+1))
+		if err != nil {
+			return nil, nil, err
+		}
+		names, err := searchNames(ctx, client)
+		out := make([]savedSearch, 0, len(list))
+		for _, search := range list {
+			out = append(out, names.view(search))
+		}
+		return nil, out, err
+	})
+}
+
+// readSearches reads the account's saved searches, refusing an account whose plan lacks them: PATCH /api/me would
+// take them, only GET /api/searches/{id} checks the plan.
+func readSearches(ctx context.Context, client *apiclient.ClientWithResponses) ([]apiclient.DomainSavedSearch, error) {
+	me, err := decode[apiclient.DomainUser](client.GetApiMe(ctx))
+	if err != nil {
+		return nil, err
+	}
+	if !slices.Contains(me.Features, "savedSearches") {
+		return nil, errNoPro
+	}
+	return append([]apiclient.DomainSavedSearch{}, me.SavedSearches...), nil
+}
+
+// writeSearches saves the whole list, as PATCH /api/me takes it, the server checking names and modes; the same
+// TODO as writeSnippets holds.
+func writeSearches(ctx context.Context, client *apiclient.ClientWithResponses, list []apiclient.DomainSavedSearch) ([]apiclient.DomainSavedSearch, error) {
+	me, err := decode[apiclient.DomainUser](client.PatchApiMe(ctx, apiclient.EdituserInput{SavedSearches: &list}))
+	return append([]apiclient.DomainSavedSearch{}, me.SavedSearches...), err
+}
+
+// findSearch gives the index of the saved search of id ref, or else of the one named ref: two of that name refuse.
+func findSearch(list []apiclient.DomainSavedSearch, ref string) (int, error) {
+	if i := slices.IndexFunc(list, func(s apiclient.DomainSavedSearch) bool { return s.Id == ref }); i >= 0 {
+		return i, nil
+	}
+	found := -1
+	for i, search := range list {
+		if strings.EqualFold(search.Name, ref) {
+			if found >= 0 {
+				return 0, fmt.Errorf("several saved searches are named %q: give its id", ref)
+			}
+			found = i
+		}
+	}
+	if found < 0 {
+		return 0, fmt.Errorf("%w: %q", errNoSearch, ref)
+	}
+	return found, nil
+}
+
+// searchOf turns the criteria an agent gives into those the API stores: tags into their id, folders into their uuid,
+// a day into its first or last instant in UTC, as the app's dialog does.
+func searchOf(ctx context.Context, client *apiclient.ClientWithResponses, args saveSearchArgs) (apiclient.DomainSavedSearch, error) {
+	search := apiclient.DomainSavedSearch{Name: strings.TrimSpace(args.Name), TagMode: &args.TagMode, FolderMode: &args.FolderMode, Text: &args.Text}
+	if len(args.Tags) > 0 {
+		all, err := decode[[]apiclient.DomainTag](client.GetApiTags(ctx))
+		if err != nil {
+			return search, err
+		}
+		ids := make([]string, 0, len(args.Tags))
+		for _, name := range args.Tags {
+			name = strings.TrimPrefix(name, "#")
+			i := slices.IndexFunc(all, func(tag apiclient.DomainTag) bool { return strings.EqualFold(tag.Value, name) })
+			if i < 0 {
+				return search, fmt.Errorf("%w: %q", errNoTag, name)
+			}
+			ids = append(ids, all[i].Id)
+		}
+		search.TagIds = &ids
+	}
+	if len(args.Folders) > 0 {
+		ids := make([]string, 0, len(args.Folders))
+		for _, ref := range args.Folders {
+			id, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, ref)
+			if err != nil {
+				return search, fmt.Errorf("%s: %w", ref, err)
+			}
+			ids = append(ids, id)
+		}
+		search.FolderIds = &ids
+	}
+	for _, date := range []struct {
+		value string
+		end   bool
+		to    **string
+	}{{args.CreatedFrom, false, &search.CreatedFrom}, {args.CreatedTo, true, &search.CreatedTo}, {args.EditedFrom, false, &search.EditedFrom}, {args.EditedTo, true, &search.EditedTo}} {
+		instant, err := instantOf(date.value, date.end)
+		if err != nil {
+			return search, err
+		}
+		*date.to = instant
+	}
+	return search, nil
+}
+
+// instantOf reads a day (its first instant, or its last when end) or an RFC 3339 instant; nil when empty.
+func instantOf(value string, end bool) (*string, error) {
+	if value == "" {
+		return nil, nil
+	}
+	if day, err := time.Parse(time.DateOnly, value); err == nil {
+		if end {
+			day = day.Add(24*time.Hour - time.Millisecond)
+		}
+		instant := day.Format(time.RFC3339Nano)
+		return &instant, nil
+	}
+	if _, err := time.Parse(time.RFC3339, value); err != nil {
+		return nil, fmt.Errorf("%q is neither a day (2026-01-31) nor an RFC 3339 instant", value)
+	}
+	return &value, nil
+}
+
+// names gives the tags and folders of saved searches by name and path, an id left as it is once its tag or folder is gone.
+type names map[string]string
+
+func searchNames(ctx context.Context, client *apiclient.ClientWithResponses) (names, error) {
+	tags, err := decode[[]apiclient.DomainTag](client.GetApiTags(ctx))
+	if err != nil {
+		return nil, err
+	}
+	folders, err := decode[[]apiclient.ListfoldersFolder](client.GetApiFolders(ctx))
+	if err != nil {
+		return nil, err
+	}
+	out := names{}
+	for _, tag := range tags {
+		out[tag.Id] = tag.Value
+	}
+	for _, folder := range folders {
+		out[folder.Id] = folder.Path
+	}
+	return out, nil
+}
+
+func (n names) of(ids *[]string) []string {
+	out := make([]string, 0, len(apiclient.Deref(ids)))
+	for _, id := range apiclient.Deref(ids) {
+		out = append(out, cmp.Or(n[id], id))
+	}
+	return out
+}
+
+// view turns a saved search the API stores into what the agent reads.
+func (n names) view(search apiclient.DomainSavedSearch) savedSearch {
+	return savedSearch{
+		ID:          search.Id,
+		Name:        search.Name,
+		Tags:        n.of(search.TagIds),
+		TagMode:     apiclient.Deref(search.TagMode),
+		Folders:     n.of(search.FolderIds),
+		FolderMode:  apiclient.Deref(search.FolderMode),
+		CreatedFrom: apiclient.Deref(search.CreatedFrom),
+		CreatedTo:   apiclient.Deref(search.CreatedTo),
+		EditedFrom:  apiclient.Deref(search.EditedFrom),
+		EditedTo:    apiclient.Deref(search.EditedTo),
+		Text:        apiclient.Deref(search.Text),
+	}
+}
+
+// readSnippets reads the account's snippets, [] when it has none.
+func readSnippets(ctx context.Context, client *apiclient.ClientWithResponses) ([]apiclient.DomainSnippet, error) {
+	me, err := decode[apiclient.DomainUser](client.GetApiMe(ctx))
+	return append([]apiclient.DomainSnippet{}, me.Snippets...), err
+}
+
+// writeSnippets saves the whole list, as PATCH /api/me takes it, the server checking names and sizes.
+// TODO: /api/me has no updated_at check, so two agents (or an agent and the app) saving snippets at the same time
+// overwrite each other's change; per-snippet routes or an updated_at on PATCH /api/me if that bites.
+func writeSnippets(ctx context.Context, client *apiclient.ClientWithResponses, snippets []apiclient.DomainSnippet) ([]apiclient.DomainSnippet, error) {
+	me, err := decode[apiclient.DomainUser](client.PatchApiMe(ctx, apiclient.EdituserInput{Snippets: &snippets}))
+	return append([]apiclient.DomainSnippet{}, me.Snippets...), err
 }
 
 // addTool adds tool to server, unless readOnly and the tool changes something: its annotations tell it.

@@ -127,7 +127,7 @@ un jeton d'API ou une connexion OAuth en lecture seule (section 4).
 
 ## 3. Ce qu'il peut faire
 
-À la connexion, l'agent reçoit les vingt-quatre outils avec leur description et leur schéma, puis travaille
+À la connexion, l'agent reçoit les trente et un outils avec leur description et leur schéma, puis travaille
 en langage naturel : « range mes notes de réunion de novembre dans /Travail/Réunions » devient un
 `search_notes`, un `create_folder`, puis une suite de `move_item`.
 
@@ -157,7 +157,13 @@ en langage naturel : « range mes notes de réunion de novembre dans /Travail/R�
 | `read_file` | Une image (que l'agent voit) ou une pièce jointe citée par une note ; sans fichier, la liste des fichiers |
 | `attach_file` | Stocke un fichier envoyé en base64 et rend le markdown qui le cite, à poser avec `create_note` ou `edit_note` |
 | `export_notes` | Un dossier, des éléments ou tout le compte en fichiers markdown, `[[liens]]` réécrits, chaque note avec son id et sa dernière modification : les 50 premiers fichiers et le total, ou `limit` et `offset` |
-| `import_notes` | Des fichiers markdown en notes, leurs répertoires en dossiers, tout ou rien |
+| `import_notes` | Des fichiers markdown en notes, leurs répertoires en dossiers, tout ou rien ; les `[[liens]]` et les liens `[texte](chemin.md)` vers une note de l'import deviennent des liens de notes (pas ceux des notes importées avant la v1.2.0 : les réimporter ou les corriger) |
+| `snippets` | Les snippets du compte, nom et contenu |
+| `save_snippet` | Crée un snippet, ou remplace celui du même nom, les autres gardés |
+| `delete_snippet` | Retire un snippet par son nom, les autres gardés |
+| `saved_searches` | Les recherches enregistrées (dossiers intelligents) du compte, tags par nom et dossiers par chemin ; avec `search` (id, ou nom s'il est unique), les notes qu'elle trouve avec leur chemin : les 50 premières et le total, ou `limit` et `offset`. Plan Pro |
+| `save_search` | Crée une recherche enregistrée (tags par nom, `tag_mode` `any` ou `all`, dossiers par chemin ou uuid, `folder_mode` `include` ou `exclude`, dates de création et de modification, texte), ou remplace celle que `search` désigne, les autres gardées. Plan Pro |
+| `delete_search` | Retire une recherche enregistrée par son id ou son nom, ses notes restent. Plan Pro |
 
 **Un outil par domaine, pas un par processus.** Chaque outil annoncé coûte du contexte à l'agent à
 chaque connexion (environ 300 à 750 octets de nom, description et schéma d'entrée ; le schéma de
@@ -197,6 +203,14 @@ chiffrement) s'applique pareil des trois côtés.
   comprise. `export_notes` ne télécharge pas les images citées : il n'en donne que le chemin.
 - **`delete_tag` et `rename_tag` réécrivent le texte des notes**, corbeille comprise, comme la CLI et
   l'app : chaque note changée garde son texte d'avant dans l'historique.
+- **`save_snippet` et `delete_snippet` relisent la liste puis la réécrivent en entier** : deux écritures
+  au même moment (deux agents, ou un agent et l'app) peuvent effacer le changement de l'autre.
+  `save_search` et `delete_search` aussi.
+- **Les recherches enregistrées sont du plan Pro** : hors Pro, les trois outils répondent
+  `saved searches (smart folders) need the Pro plan, which this account does not have`. Une recherche
+  n'a qu'un `tag_mode` pour tous ses tags : « Recette ET (Végétarien OU Vegan) » ne se dit pas, il faut
+  deux recherches. `save_search` remplace une recherche en entier : un critère non redonné est retiré.
+  Une date seule (`2026-01-31`) vaut le début du jour en `*_from`, sa fin en `*_to`, en UTC comme l'app.
 - **Ce qui n'est pas exposé** : le graphe complet (`note_links` en donne le voisinage note par note),
   les plans, la gestion des comptes, la création d'un tag seul, le vidage de la corbeille.
 
@@ -206,12 +220,12 @@ Chaque outil porte des annotations MCP, pour que le client demande confirmation 
 (« autoriser une fois / toujours / refuser ») : c'est lui qui la propose, pas le serveur.
 
 - `readOnlyHint` : les lectures (`search_notes`, `recent_notes`, `read_note`, `read_notes`, `list_folder`, `tags`,
-  `list_trash`, `note_history`, `note_links`, `read_file`, `export_notes`), qui ne changent rien.
+  `list_trash`, `note_history`, `note_links`, `read_file`, `export_notes`, `snippets`, `saved_searches`), qui ne changent rien.
 - `destructiveHint` : ce qui supprime ou écrase (`edit_note`, `replace_notes`, `delete_note`,
-  `delete_folder`, `delete_tag`). Les autres écritures l'ont à `false` : elles ajoutent, déplacent ou renomment.
+  `delete_folder`, `delete_tag`, `save_snippet`, `delete_snippet`, `save_search`, `delete_search`). Les autres écritures l'ont à `false` : elles ajoutent, déplacent ou renomment.
 - `idempotentHint` : un second appel identique ne change rien de plus (`edit_note`, les suppressions,
-  `move_item`, les renommages, `tag_notes`, `restore_item`) ; pas `create_note`, `create_folder`, `replace_notes`,
-  `attach_file` ni `import_notes`.
+  `move_item`, les renommages, `tag_notes`, `restore_item`, `save_snippet`) ; pas `create_note`, `create_folder`, `replace_notes`,
+  `attach_file`, `import_notes` ni `save_search` (qui crée une nouvelle recherche à chaque appel sans `search`).
 - `openWorldHint` à `false` partout : les outils ne touchent qu'aux notes du compte.
 
 ## 4. Depuis le téléphone ou ChatGPT : le MCP en HTTP
@@ -350,7 +364,7 @@ Rien : le tunnel ou `--mcp-addr`.
 ## Vérifier que ça marche
 
 Le test `cli/cmd-mcp/cmd_test.go` branche un client MCP en mémoire sur le serveur MCP, lui-même
-client d'une vraie API sur la base de test. Il vérifie que les vingt-quatre outils sont annoncés avec un
+client d'une vraie API sur la base de test. Il vérifie que les trente et un outils sont annoncés avec un
 schéma, une description et leurs annotations — ce que le SDK ne sait pas déduire seul d'une structure d'arguments mal
 formée — puis les appelle un à un.
 

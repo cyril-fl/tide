@@ -85,17 +85,17 @@ func TestAddTools(t *testing.T) {
 		switch {
 		case a == nil:
 			t.Errorf("tool %q: no annotations", tool.Name)
-		case strings.HasPrefix(tool.Name, "delete_") || tool.Name == "edit_note" || tool.Name == "replace_notes":
+		case strings.HasPrefix(tool.Name, "delete_") || tool.Name == "edit_note" || tool.Name == "replace_notes" || tool.Name == "save_snippet" || tool.Name == "save_search":
 			if a.ReadOnlyHint || a.DestructiveHint == nil || !*a.DestructiveHint {
 				t.Errorf("tool %q: %+v, want destructive", tool.Name, a)
 			}
-		case slices.Contains([]string{"search_notes", "read_note", "read_notes", "list_folder", "export_notes", "read_file"}, tool.Name):
+		case slices.Contains([]string{"search_notes", "read_note", "read_notes", "list_folder", "export_notes", "read_file", "snippets", "saved_searches"}, tool.Name):
 			if !a.ReadOnlyHint {
 				t.Errorf("tool %q: %+v, want read-only", tool.Name, a)
 			}
 		}
 	}
-	for _, want := range []string{"search_notes", "recent_notes", "read_note", "read_notes", "list_folder", "create_note", "edit_note", "create_folder", "rename_folder", "move_item", "delete_note", "delete_folder", "list_trash", "restore_item", "tags", "tag_notes", "rename_tag", "replace_notes", "delete_tag", "note_history", "note_links", "read_file", "attach_file", "export_notes", "import_notes"} {
+	for _, want := range []string{"search_notes", "recent_notes", "read_note", "read_notes", "list_folder", "create_note", "edit_note", "create_folder", "rename_folder", "move_item", "delete_note", "delete_folder", "list_trash", "restore_item", "tags", "tag_notes", "rename_tag", "replace_notes", "delete_tag", "note_history", "note_links", "read_file", "attach_file", "export_notes", "import_notes", "snippets", "save_snippet", "delete_snippet", "saved_searches", "save_search", "delete_search"} {
 		if !slices.Contains(names, want) {
 			t.Errorf("tools = %v, missing %q", names, want)
 		}
@@ -307,6 +307,119 @@ func TestFiles(t *testing.T) {
 	bad, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "import_notes", Arguments: map[string]any{"files": []importFile{{Path: "../x.md", Content: "x"}}}})
 	if err != nil || !bad.IsError {
 		t.Errorf("import_notes ../x.md = %+v, %v", bad, err)
+	}
+}
+
+// TestSnippets creates, replaces and removes snippets one at a time, the others kept, the server's checks surfacing.
+func TestSnippets(t *testing.T) {
+	agent := connect(t)
+
+	var snippets []apiclient.DomainSnippet
+	call(t, agent, "snippets", map[string]any{}, &snippets)
+	if len(snippets) != 0 {
+		t.Errorf("snippets of a new account = %+v", snippets)
+	}
+	call(t, agent, "save_snippet", map[string]any{"name": "Book", "content": "# Title\n#reading"}, nil)
+	call(t, agent, "save_snippet", map[string]any{"name": "Trip", "content": "# Trip"}, nil)
+	call(t, agent, "save_snippet", map[string]any{"name": "Book", "content": "# Book"}, &snippets)
+	want := []apiclient.DomainSnippet{{Name: "Book", Content: "# Book"}, {Name: "Trip", Content: "# Trip"}}
+	if !slices.Equal(snippets, want) {
+		t.Errorf("save_snippet = %+v, want %+v", snippets, want)
+	}
+
+	call(t, agent, "delete_snippet", map[string]any{"name": "Book"}, nil)
+	call(t, agent, "snippets", map[string]any{}, &snippets)
+	if !slices.Equal(snippets, want[1:]) {
+		t.Errorf("snippets after delete_snippet = %+v, want %+v", snippets, want[1:])
+	}
+
+	// An unknown name and a nameless snippet (refused by the API) are errors, the list left as it was.
+	for name, args := range map[string]map[string]any{"delete_snippet": {"name": "Book"}, "save_snippet": {"name": " ", "content": "x"}} {
+		if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: args}); err != nil || !result.IsError {
+			t.Errorf("%s %v = %+v, %v; want an error", name, args, result, err)
+		}
+	}
+	call(t, agent, "snippets", map[string]any{}, &snippets)
+	if !slices.Equal(snippets, want[1:]) {
+		t.Errorf("snippets after the errors = %+v", snippets)
+	}
+}
+
+// TestSavedSearches saves searches by tag name and folder path, runs them a page at a time, replaces and removes one,
+// then refuses all of it once the account leaves the Pro plan.
+func TestSavedSearches(t *testing.T) {
+	agent := connect(t)
+	call(t, agent, "create_folder", map[string]any{"title": "Work"}, nil)
+	call(t, agent, "create_note", map[string]any{"content": "# Pasta\n#cuisine #italie", "folder": "/Work"}, nil)
+	call(t, agent, "create_note", map[string]any{"content": "# Soup\n#cuisine"}, nil)
+	call(t, agent, "create_note", map[string]any{"content": "# Rome\n#italie"}, nil)
+
+	var saved savedSearch
+	call(t, agent, "save_search", map[string]any{"name": "Italian", "tags": []string{"cuisine", "#Italie"}, "tag_mode": "all"}, &saved)
+	if saved.ID == "" || !slices.Equal(saved.Tags, []string{"cuisine", "italie"}) || saved.TagMode != "all" {
+		t.Errorf("save_search = %+v", saved)
+	}
+	var run searches
+	call(t, agent, "saved_searches", map[string]any{"search": "italian"}, &run)
+	if run.Total != 1 || len(run.Notes) != 1 || run.Notes[0].Path != "/Work/Pasta" || run.Search == nil || run.Search.ID != saved.ID {
+		t.Errorf("saved_searches italian = %+v", run)
+	}
+
+	call(t, agent, "save_search", map[string]any{"name": "Elsewhere", "folders": []string{"/Work"}, "folder_mode": "exclude", "created_to": "2999-12-31"}, &saved)
+	if !slices.Equal(saved.Folders, []string{"/Work"}) || saved.CreatedTo != "2999-12-31T23:59:59.999Z" {
+		t.Errorf("save_search Elsewhere = %+v", saved)
+	}
+	call(t, agent, "saved_searches", map[string]any{"search": saved.ID}, &run)
+	if run.Total != 2 {
+		t.Errorf("saved_searches Elsewhere = %+v", run)
+	}
+
+	// Replacing keeps the id and drops the criteria left out; a page still counts every note.
+	call(t, agent, "save_search", map[string]any{"search": "Elsewhere", "name": "Cooking", "tags": []string{"cuisine"}}, nil)
+	var replaced searches // a fresh one: decoding into run would keep the fields the answer leaves out
+	call(t, agent, "saved_searches", map[string]any{"search": saved.ID, "limit": 1}, &replaced)
+	if replaced.Total != 2 || len(replaced.Notes) != 1 || replaced.Search.Name != "Cooking" || len(replaced.Search.Folders) != 0 || replaced.Search.TagMode != "" {
+		t.Errorf("saved_searches Cooking = %+v, %+v", replaced, replaced.Search)
+	}
+
+	var left []savedSearch
+	call(t, agent, "delete_search", map[string]any{"search": "Italian"}, &left)
+	var listed searches
+	call(t, agent, "saved_searches", map[string]any{}, &listed)
+	if len(left) != 1 || len(listed.Searches) != 1 || listed.Searches[0].ID != saved.ID {
+		t.Errorf("delete_search = %+v, saved_searches = %+v", left, listed)
+	}
+
+	// An unknown tag, folder, search or a date that is none are errors.
+	for name, args := range map[string]map[string]any{
+		"save_search":    {"name": "x", "tags": []string{"nope"}},
+		"saved_searches": {"search": "Italian"},
+		"delete_search":  {"search": "Italian"},
+	} {
+		if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: args}); err != nil || !result.IsError {
+			t.Errorf("%s %v = %+v, %v; want an error", name, args, result, err)
+		}
+	}
+	for _, args := range []map[string]any{{"name": "x", "folders": []string{"/Nowhere"}}, {"name": "x", "edited_from": "yesterday"}} {
+		if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "save_search", Arguments: args}); err != nil || !result.IsError {
+			t.Errorf("save_search %v = %+v, %v; want an error", args, result, err)
+		}
+	}
+
+	// Outside the Pro plan, every saved search tool says so.
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := domain.Plans[0]
+	if _, err := decode[apiclient.DomainUser](client.PatchApiMe(context.Background(), apiclient.EdituserInput{Plan: &base})); err != nil {
+		t.Fatal(err)
+	}
+	for name, args := range map[string]map[string]any{"saved_searches": {}, "save_search": {"name": "x"}, "delete_search": {"search": "Cooking"}} {
+		result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: args})
+		if err != nil || !result.IsError || !strings.Contains(result.Content[0].(*mcp.TextContent).Text, "Pro plan") {
+			t.Errorf("%s outside Pro = %+v, %v; want the Pro plan error", name, result, err)
+		}
 	}
 }
 

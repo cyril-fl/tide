@@ -14,13 +14,18 @@ import (
 
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/cyril-fl/tide/core/domain"
+	"github.com/cyril-fl/tide/core/services/hashtag"
 	"github.com/cyril-fl/tide/core/services/notetitle"
 	"github.com/cyril-fl/tide/core/services/process/createfile"
 	"github.com/cyril-fl/tide/core/services/process/createfolder"
 	"github.com/cyril-fl/tide/core/services/process/createnote"
+	"github.com/cyril-fl/tide/core/services/process/editnote"
 	"github.com/cyril-fl/tide/core/services/process/exportnotes"
+	"github.com/cyril-fl/tide/core/services/secret"
 	"github.com/cyril-fl/tide/core/services/silo"
+	"github.com/cyril-fl/tide/core/services/wikilink"
 	"github.com/uptrace/bun"
+	"golang.org/x/text/unicode/norm"
 )
 
 // imagePattern finds the markdown images ![alt](target "title") and ![alt](<target with spaces>), and the links
@@ -72,12 +77,15 @@ type cache struct {
 	folders map[string]string      // directory path -> folder id
 	images  map[string]domain.File // file path -> the image or attachment made of it
 	names   map[string][]string    // file name -> its paths in Dir, read at the first ![[name]]
+	notes   map[string]domain.Item // NFC path of a .md file -> the note made of it
+	linking map[string]string      // id of a note with a [label](path.md) link -> its file path
 	result  Result
 }
 
 // Process imports markdown files as notes and their directories as folders, all or nothing: a folder
 // name already taken stops it. Titles, #tags and [[links]] come from the text, as for any note; the images
-// a note cites by a relative path or by ![[name]] become files of the account, exportnotes.FilesDir no folder.
+// a note cites by a relative path or by ![[name]] become files of the account, exportnotes.FilesDir no folder;
+// a [label](path.md) link to a note of the import becomes a link to it.
 func Process(ctx context.Context, db bun.IDB, store silo.Store, input Input) *run {
 	return &run{
 		ctx:   ctx,
@@ -90,13 +98,18 @@ func Process(ctx context.Context, db bun.IDB, store silo.Store, input Input) *ru
 // Run removes the bytes of the images made when it fails: the rolled-back rows no longer cite them.
 func (p *run) Run() {
 	err := p.db.RunInTx(p.ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		p.cache = cache{folders: map[string]string{".": p.input.ParentID}, images: map[string]domain.File{}}
-		return fs.WalkDir(p.input.Dir, ".", func(name string, entry fs.DirEntry, err error) error {
+		p.cache = cache{folders: map[string]string{".": p.input.ParentID}, images: map[string]domain.File{},
+			notes: map[string]domain.Item{}, linking: map[string]string{}}
+		err := fs.WalkDir(p.input.Dir, ".", func(name string, entry fs.DirEntry, err error) error {
 			if err != nil || name == "." {
 				return err
 			}
 			return p.importEntry(ctx, tx, name, entry)
 		})
+		if err != nil {
+			return err
+		}
+		return p.resolvePaths(ctx, tx)
 	})
 	if err != nil {
 		// A client gone has canceled p.ctx: the cleanup must still reach Silo.
@@ -143,6 +156,37 @@ func (p *run) importEntry(ctx context.Context, tx bun.Tx, name string, entry fs.
 		return fmt.Errorf("%s: %w", name, note.GetErr())
 	}
 	p.cache.result.Notes++
+	p.cache.notes[norm.NFC.String(name)] = note.GetResult()
+	if len(wikilink.Paths(content)) > 0 {
+		p.cache.linking[note.GetResult().ID] = name
+	}
+	return nil
+}
+
+// resolvePaths writes the [label](path.md) links to a note of the import as links to it, once every note has its id:
+// the path is relative to the file, URL-encoded, and compared in NFC (macOS and Notion write accents in NFD). A path
+// to no imported note stays as written, listbrokenlinks lists it.
+func (p *run) resolvePaths(ctx context.Context, tx bun.Tx) error {
+	for id, name := range p.cache.linking {
+		var content secret.Text
+		// Read again: createnote, and the notes made after it, resolved its [[links]].
+		if err := tx.NewRaw("SELECT content FROM metadata_notes WHERE item_id = ?", id).Scan(ctx, &content); err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+		resolved := wikilink.ResolvePaths(string(content), func(target string) (string, string, bool) {
+			target, err := url.PathUnescape(target)
+			note, ok := p.cache.notes[norm.NFC.String(path.Join(path.Dir(name), target))]
+			return note.ID, string(note.Title), err == nil && ok
+		})
+		if resolved == string(content) {
+			continue
+		}
+		edit := editnote.Process(ctx, tx, editnote.Input{ID: id, Content: resolved, Tags: hashtag.Parse(resolved)})
+		edit.Run()
+		if edit.HasErr() {
+			return fmt.Errorf("%s: %w", name, edit.GetErr())
+		}
+	}
 	return nil
 }
 

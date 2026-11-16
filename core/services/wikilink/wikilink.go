@@ -5,6 +5,7 @@
 package wikilink
 
 import (
+	"path"
 	"regexp"
 	"slices"
 	"strings"
@@ -13,6 +14,8 @@ import (
 var (
 	byTitle = regexp.MustCompile(`\[\[([^\[\]\n]+)\]\]`)
 	byID    = regexp.MustCompile(`\[([^\[\]\n]*)\]\(note:([0-9a-fA-F-]{36})(?:#([^()\n]*))?\)`)
+	// byPath is a markdown link [label](target) or [label](<target>), filtered by mdSpans to a relative .md file.
+	byPath = regexp.MustCompile(`\[([^\[\]\n]*)\]\(<?([^()<>\n]+)>?\)`)
 	// skipped is what can hold a link without being one: fenced and inline code.
 	skipped = regexp.MustCompile("(?ms)^[ \\t]*```.*?(?:^[ \\t]*```[^\\n]*$|\\z)|`[^`\\n]*`")
 )
@@ -128,7 +131,45 @@ func Link(id, title, heading string) string {
 	return "[" + label + "#" + heading + "](note:" + id + "#" + heading + ")"
 }
 
+// Paths gives the targets of the [label](path.md) links, a relative path to another markdown file as written, without
+// its #anchor: an import resolves those to the notes it made, the others lead nowhere in the app.
+func Paths(content string) []string {
+	var targets []string
+	for _, l := range mdSpans(content) {
+		targets = append(targets, l.value)
+	}
+	return targets
+}
+
+// ResolvePaths writes every [label](path.md) that resolve finds as a link to the note's id, labelled with its
+// title; resolve gets the path as written, without its #anchor.
+func ResolvePaths(content string, resolve func(target string) (id, title string, ok bool)) string {
+	links := mdSpans(content)
+	slices.Reverse(links)
+	for _, l := range links {
+		if id, title, ok := resolve(l.value); ok {
+			content = content[:l.start] + Link(id, title, "") + content[l.end:]
+		}
+	}
+	return content
+}
+
 // Helpers
+
+// mdSpans gives the [label](path.md) links of content outside code, value their path without #anchor: not an image,
+// a URL (scheme:), an absolute path or an anchor of the note itself.
+func mdSpans(content string) []span {
+	var result []span
+	for _, l := range spans(content, byPath, 2) {
+		l.value, _, _ = strings.Cut(l.value, "#")
+		image := l.start > 0 && content[l.start-1] == '!'
+		if image || strings.Contains(l.value, ":") || strings.HasPrefix(l.value, "/") || !strings.EqualFold(path.Ext(l.value), ".md") {
+			continue
+		}
+		result = append(result, l)
+	}
+	return result
+}
 
 // spans looks for code only around links: skipped backtracks, 90% of listbrokenlinks at 50,000 notes run on each.
 func spans(content string, pattern *regexp.Regexp, group int) []span {

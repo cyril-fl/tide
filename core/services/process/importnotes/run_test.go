@@ -237,8 +237,8 @@ func TestImportExportAttachments(t *testing.T) {
 	}
 	parent := create.GetResult().ID
 
-	// A link to a Word document and a ![[sound]] become attachments; a link to a note, a web link and an ![image]
-	// that is a PDF keep theirs.
+	// A link to a Word document and a ![[sound]] become attachments, a link to a note a link to it; a web link and an
+	// ![image] that is a PDF keep theirs.
 	dir := fstest.MapFS{
 		"A.md":          {Data: []byte("# A\n\n[rapport](rapport.docx) ![[son.mp3]] [B](B.md) [web](https://x.org/a.pdf) ![pdf](doc.pdf)")},
 		"B.md":          {Data: []byte("# B")},
@@ -278,8 +278,92 @@ func TestImportExportAttachments(t *testing.T) {
 		got = append(got, f.Path+"="+f.Content)
 	}
 	docxPath, mp3Path := "_files/"+docx.ID+".docx", "_files/"+mp3.ID+".mp3"
-	want := "A.md=# A\n\n[rapport](" + docxPath + ") [son.mp3](" + mp3Path + ") [B](B.md) [web](https://x.org/a.pdf) ![pdf](doc.pdf)"
+	want := "A.md=# A\n\n[rapport](" + docxPath + ") [son.mp3](" + mp3Path + ") [[B]] [web](https://x.org/a.pdf) ![pdf](doc.pdf)"
 	if !slices.Contains(got, want) || !slices.Contains(got, docxPath+"=") || !slices.Contains(got, mp3Path+"=") {
 		t.Errorf("export = %q, want %q and both files", got, want)
 	}
+}
+
+// A [label](path.md) link to a note of the import becomes a link to it, its path relative to the file, URL-encoded,
+// its accents in NFD as macOS and Notion write them; the others stay as written.
+func TestImportPathLinks(t *testing.T) {
+	ctx := context.Background()
+	env := postgrey.NewEnvironment()
+	env.ReadEnv()
+	db := env.Connect()
+	defer db.Close()
+
+	schema := createschema.Process(ctx, db)
+	schema.Run()
+	if schema.HasErr() {
+		t.Fatalf("create schema: %v", schema.GetErr())
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx, tx = testaccount.New(t, ctx, tx)
+
+	create := createfolder.Process(ctx, tx, createfolder.Input{Title: fmt.Sprintf("paths-%d", time.Now().UnixNano())})
+	create.Run()
+	if create.HasErr() {
+		t.Fatal(create.GetErr())
+	}
+
+	tests := []struct {
+		name, link, want string
+	}{
+		{"accented NFD", "[boulet](Boulet%20a%CC%80%20la%20lie%CC%81geoise.md)", "[[Boulet à la liégeoise]]"},
+		{"space as %20", "[mou](Recettes/Moussaka%20maison.md)", "[[Moussaka maison]]"},
+		{"angle brackets", "[mou](<Recettes/Moussaka maison.md>)", "[[Moussaka maison]]"},
+		{"anchor dropped", "[mou](Recettes/Moussaka%20maison.md#four)", "[[Moussaka maison]]"},
+		{"missing target", "[nulle](Nulle%20part.md)", "[nulle](Nulle%20part.md)"},
+		{"external URL", "[web](https://x.org/a.md)", "[web](https://x.org/a.md)"},
+		{"anchor only", "[haut](#haut)", "[haut](#haut)"},
+		{"in code", "`[mou](Recettes/Moussaka%20maison.md)`", "`[mou](Recettes/Moussaka%20maison.md)`"},
+	}
+	var links []string
+	for _, tt := range tests {
+		links = append(links, tt.link)
+	}
+	dir := fstest.MapFS{
+		"Index.md": {Data: []byte("# Index\n\n" + strings.Join(links, "\n\n"))},
+		// NFD as in the file names of a Notion export unzipped on macOS.
+		"Boulet a\u0300 la lie\u0301geoise.md": {Data: []byte("# Boulet à la liégeoise")},
+		"Recettes/Moussaka maison.md":          {Data: []byte("[index](../Index.md)")},
+	}
+	run := Process(ctx, tx, silo.NewMemory(), Input{Dir: dir, ParentID: create.GetResult().ID})
+	run.Run()
+	if run.HasErr() {
+		t.Fatalf("import: %v", run.GetErr())
+	}
+
+	// The export writes the links to notes back as [[Title]].
+	export := exportnotes.Process(ctx, tx, create.GetResult().ID)
+	export.Run()
+	if export.HasErr() {
+		t.Fatal(export.GetErr())
+	}
+	contents := map[string]string{}
+	for _, file := range export.GetResult() {
+		contents[file.Path] = file.Content
+	}
+	index := strings.Split(strings.TrimPrefix(contents["Index.md"], "# Index\n\n"), "\n\n")
+	if len(index) != len(tests) {
+		t.Fatalf("Index.md = %q", contents["Index.md"])
+	}
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if index[i] != tt.want {
+				t.Errorf("link %q = %q, want %q", tt.link, index[i], tt.want)
+			}
+		})
+	}
+	t.Run("subfolder ../", func(t *testing.T) {
+		if got, want := contents["Recettes/Moussaka maison.md"], "# Moussaka maison\n\n[[Index]]"; got != want {
+			t.Errorf("Moussaka maison.md = %q, want %q", got, want)
+		}
+	})
 }

@@ -102,3 +102,35 @@ func TestEmbed(t *testing.T) {
 		t.Errorf("Unresolve = %q, want %q", got, "![[Courses]]")
 	}
 }
+
+func TestResolvePaths(t *testing.T) {
+	resolve := func(target string) (string, string, bool) {
+		return idA, "Courses", target == "a%20b.md" || target == "../a b.md"
+	}
+	tests := []struct {
+		name, content, want string
+		paths               []string
+	}{
+		{"relative .md", "[x](a%20b.md)", "[Courses](note:" + idA + ")", []string{"a%20b.md"}},
+		{"angle brackets, anchor", "[x](<../a b.md#h>)", "[Courses](note:" + idA + ")", []string{"../a b.md"}},
+		{"not found", "[x](c.md)", "[x](c.md)", []string{"c.md"}},
+		{"upper-case extension", "[x](C.MD)", "[x](C.MD)", []string{"C.MD"}},
+		{"external URL", "[x](https://a.org/a%20b.md)", "[x](https://a.org/a%20b.md)", nil},
+		{"absolute path", "[x](/a%20b.md)", "[x](/a%20b.md)", nil},
+		{"anchor only", "[x](#a%20b.md)", "[x](#a%20b.md)", nil},
+		{"image", "![x](a%20b.md)", "![x](a%20b.md)", nil},
+		{"not markdown", "[x](a.png)", "[x](a.png)", nil},
+		{"note link", "[x](note:" + idB + ")", "[x](note:" + idB + ")", nil},
+		{"in code", "`[x](a%20b.md)`", "`[x](a%20b.md)`", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ResolvePaths(tt.content, resolve); got != tt.want {
+				t.Errorf("ResolvePaths(%q) = %q, want %q", tt.content, got, tt.want)
+			}
+			if got := Paths(tt.content); !slices.Equal(got, tt.paths) {
+				t.Errorf("Paths(%q) = %q, want %q", tt.content, got, tt.paths)
+			}
+		})
+	}
+}

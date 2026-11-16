@@ -69,9 +69,11 @@ func Waiting(userID, content string) ([]string, error) {
 	return blinds, nil
 }
 
-// Linked tells whether content has what listbrokenlinks checks: a [[link]], a link to a note, the address of a file.
+// Linked tells whether content has what listbrokenlinks checks: a [[link]], a link to a note, a [label](path.md) link,
+// the address of a file.
 func Linked(content string) bool {
-	return len(wikilink.Parse(content)) > 0 || len(wikilink.IDs(content)) > 0 || domain.FilePattern.MatchString(content)
+	return len(wikilink.Parse(content)) > 0 || len(wikilink.IDs(content)) > 0 || len(wikilink.Paths(content)) > 0 ||
+		domain.FilePattern.MatchString(content)
 }
 
 // HeadingName gives heading as a [[Note#Heading]] names it: no parentheses, trimmed. Blind ignores the case.

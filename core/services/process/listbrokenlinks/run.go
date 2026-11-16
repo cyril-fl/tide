@@ -17,7 +17,7 @@ import (
 
 // The kinds of broken link.
 const (
-	UNRESOLVED = "unresolved" // [[target]] that no other note has as title or path, a heading the note lacks
+	UNRESOLVED = "unresolved" // [[target]] that no other note has as title or path, a heading the note lacks, a [label](path.md) an import left
 	AMBIGUOUS  = "ambiguous"  // [[target]] that several other notes have
 	MISSING    = "missing"    // a link to a note trashed or purged since
 	FILE       = "file"       // an image or attachment /api/files/<id> the account does not keep: imported from another, purged
@@ -196,6 +196,10 @@ func (p *run) check() {
 			if !slices.Contains(p.cache.headings[link.ID], blind) {
 				add(link.Label, UNRESOLVED)
 			}
+		}
+		// A relative .md path leads nowhere in the app: the import resolved those of its notes.
+		for _, target := range wikilink.Paths(content) {
+			add(target, UNRESOLVED)
 		}
 		labels := wikilink.Labels(content)
 		for _, id := range wikilink.IDs(content) {

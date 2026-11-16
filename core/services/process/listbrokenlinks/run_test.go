@@ -51,7 +51,7 @@ func TestBrokenLinks(t *testing.T) {
 		{"Single", "# Single\n\n## Here\n\n## Old (Draft)"},
 		{"Gone", "# Gone"},
 		// Single and Gone resolve on creation, the rest waits.
-		{"Source", "# Source\n\n[[Twin#h]] [[Nowhere]] [[Single]] [[Single#Here]] [[Single#old draft]] [[Single#Away]] [[Gone]] [[#Top]] [[#Gone (old)]] [[Source]] `[[Code]]`\n\n## Top\n\n![](" + kept + ") ![](" + gone + ")"},
+		{"Source", "# Source\n\n[[Twin#h]] [[Nowhere]] [[Single]] [[Single#Here]] [[Single#old draft]] [[Single#Away]] [[Gone]] [[#Top]] [[#Gone (old)]] [[Source]] `[[Code]]` [Ailleurs](Ailleurs.md)\n\n## Top\n\n![](" + kept + ") ![](" + gone + ")"},
 	} {
 		process := createnote.Process(ctx, tx, createnote.Input{Content: note.content})
 		process.Run()
@@ -80,7 +80,7 @@ func TestBrokenLinks(t *testing.T) {
 		got = append(got, link.Kind+":"+link.Target)
 	}
 	// [[Source]] names only the note itself: it never resolves.
-	want := []string{"ambiguous:Twin#h", "unresolved:Nowhere", "unresolved:#Gone (old)", "unresolved:Source", "unresolved:Single#Away", "missing:Gone", "file:" + gone}
+	want := []string{"ambiguous:Twin#h", "unresolved:Nowhere", "unresolved:#Gone (old)", "unresolved:Source", "unresolved:Single#Away", "unresolved:Ailleurs.md", "missing:Gone", "file:" + gone}
 	if !slices.Equal(got, want) {
 		t.Errorf("links = %q, want %q", got, want)
 	}

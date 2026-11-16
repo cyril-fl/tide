@@ -62,7 +62,7 @@ Write `[[Title]]` in a note to link it to the note with that title, capitals or 
 
 `![[Title]]`, like in Obsidian, includes the note: it becomes `![Title](note:<uuid>)` like a link, and becomes `![[Title]]` again on export. In the app, the included note is displayed read-only under a link that opens it; its own inclusions stay links, so that a note that includes itself, or includes a note that includes it, stops there.
 
-`GET /api/notes/{id}/neighbors` gives its links (`links`) and its backlinks (`backlinks`), and the graph also connects linked notes. In the app, typing `[[` offers the notes, and a click on a link opens it. `GET /api/links/broken` lists the links of live notes that lead nowhere: `unresolved` (no other note with that title or path, or a `#Section` link to a heading the note does not have), `ambiguous` (several), `missing` (link to a note put in the trash or purged) or `file` (image or attachment `/api/files/<id>` that the account does not have: imported from another account, purged).
+`GET /api/notes/{id}/neighbors` gives its links (`links`) and its backlinks (`backlinks`), and the graph also connects linked notes. In the app, typing `[[` offers the notes, and a click on a link opens it. `GET /api/links/broken` lists the links of live notes that lead nowhere: `unresolved` (no other note with that title or path, a `#Section` link to a heading the note does not have, or a `[label](path.md)` link to a markdown file, which leads nowhere in the app), `ambiguous` (several), `missing` (link to a note put in the trash or purged) or `file` (image or attachment `/api/files/<id>` that the account does not have: imported from another account, purged).
 
 ## Trash
 
@@ -72,13 +72,13 @@ Deleted items go through the trash. `tide restore` only accepts UUIDs, displayed
 
 `export` writes into a new or empty folder, never over files: a folder becomes a directory, a note a `<title>.md` file with its text as is (title and `#tags` included). `[Title](note:<uuid>)` links become `[[Title]]` again, since ids mean nothing outside this database. Two notes with the same title in the same folder give `Title.md` and `Title (2).md`.
 
-`import` does the opposite, all or nothing: a folder name already taken at the same place stops the whole import, leaving nothing behind. Hidden files (`.obsidian`, `.git`…) and those that are not `.md` are ignored. A text without a markdown title gets its file name at the top, `# Name`, like in Obsidian. `[[links]]` are linked at import, as when typing.
+`import` does the opposite, all or nothing: a folder name already taken at the same place stops the whole import, leaving nothing behind. Hidden files (`.obsidian`, `.git`…) and those that are not `.md` are ignored. A text without a markdown title gets its file name at the top, `# Name`, like in Obsidian. `[[links]]` are linked at import, as when typing, and so is a markdown link to a `.md` file of the import (`[Moussaka](Moussaka.md)`, `[Boulet](../Boulet%20a%CC%80%20la%20lie%CC%81geoise.md)` of a Notion export): its path is relative to the file, URL-encoded, its accents compared whatever their Unicode form. A `.md` link to no note of the import stays as written, and `GET /api/links/broken` lists it as `unresolved`. Notes imported before v1.2.0 keep their `.md` links as written: import them again, or edit the links.
 
 Images follow the notes:
 
 - On export, the images a note cites are copied into `_files/` at the root of the export, and the note cites them by a relative path (`../_files/<uuid>.png`). An attachment keeps the extension of its name (`.docx`, `.xlsx`…).
 - On import, an image cited by a relative path (`![](photo.png)`, `![](<photo de mer.png>)`) becomes an image of the note, wherever it is in the folder. `_files/` does not become a folder. An image that is missing or not PNG, JPEG, GIF or WebP keeps its link as is.
-- A link to a file of the folder (`[rapport](rapport.docx)`) or a `![[son.mp3]]` that is not an image makes it an attachment, cited by a link; a link to a note or to a refused type stays as is.
+- A link to a file of the folder (`[rapport](rapport.docx)`) or a `![[son.mp3]]` that is not an image makes it an attachment, cited by a link; a link to a refused type stays as is.
 - Obsidian's `![[image.png]]` and `![[image.png|300]]` are imported too: the image is looked up by name in the whole folder (the one in the note's folder first), and the width becomes the closest editor size (`"small"` up to 300 px, `"medium"` up to 600, nothing beyond).
 
 ## Images and attachments

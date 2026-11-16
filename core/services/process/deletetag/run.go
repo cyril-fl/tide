@@ -80,7 +80,7 @@ func (p *run) deleteInTx() {
 	}))
 }
 
-// rewriteNotes also reaches the trash: a note restored later must not bring the tag back.
+// rewriteNotes keeps a version of each note it changes. It also reaches the trash: a note restored later must not bring the tag back.
 func (p *run) rewriteNotes(ctx context.Context, tx bun.Tx) error {
 	var notes []domain.MetadataNote
 	err := tx.NewSelect().
@@ -95,7 +95,16 @@ func (p *run) rewriteNotes(ctx context.Context, tx bun.Tx) error {
 	}
 
 	for i := range notes {
-		content := hashtag.Remove(string(notes[i].Content), p.cache.values...)
+		old := string(notes[i].Content)
+		content := hashtag.Remove(old, p.cache.values...)
+		// Its text before stays in its history: nothing else holds it.
+		version, err := domain.NewNoteVersion(p.ctx, notes[i].ItemID, old)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.NewInsert().Model(&version).Exec(ctx); err != nil {
+			return err
+		}
 		sealed, err := secret.Seal(domain.UserID(p.ctx), content)
 		if err != nil {
 			return err

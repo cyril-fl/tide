@@ -367,6 +367,8 @@ type EditpasswordInput struct {
 
 // EdittagBody defines model for edittag.Body.
 type EdittagBody struct {
+	// Merge Merge folds the tag into value when value is another tag already, instead of a 409.
+	Merge *bool  `json:"merge,omitempty"`
 	Value string `json:"value"`
 }
 
@@ -1485,14 +1487,14 @@ type ClientInterface interface {
 	// Corresponds with GET /api/tags/{value} (the `GetApiTagsValue` operationId).
 	GetApiTagsValue(ctx context.Context, value string, params *GetApiTagsValueParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PatchApiTagsValueWithBody Rename a tag, in the text of its notes too
+	// PatchApiTagsValueWithBody Rename a tag, in the text of its notes too, or merge it into another with merge
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with PATCH /api/tags/{value} (the `PatchApiTagsValue` operationId).
 	PatchApiTagsValueWithBody(ctx context.Context, value string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PatchApiTagsValue Rename a tag, in the text of its notes too
+	// PatchApiTagsValue Rename a tag, in the text of its notes too, or merge it into another with merge
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -2923,7 +2925,7 @@ func (c *Client) GetApiTagsValue(ctx context.Context, value string, params *GetA
 	return c.Client.Do(req)
 }
 
-// PatchApiTagsValueWithBody Rename a tag, in the text of its notes too
+// PatchApiTagsValueWithBody Rename a tag, in the text of its notes too, or merge it into another with merge
 //
 // Takes any type of body and a specified content type.
 //
@@ -2940,7 +2942,7 @@ func (c *Client) PatchApiTagsValueWithBody(ctx context.Context, value string, co
 	return c.Client.Do(req)
 }
 
-// PatchApiTagsValue Rename a tag, in the text of its notes too
+// PatchApiTagsValue Rename a tag, in the text of its notes too, or merge it into another with merge
 //
 // Takes a body of the `application/json` content type.
 //
@@ -6562,14 +6564,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/tags/{value} (the `GetApiTagsValue` operationId).
 	GetApiTagsValueWithResponse(ctx context.Context, value string, params *GetApiTagsValueParams, reqEditors ...RequestEditorFn) (*GetApiTagsValueResponse, error)
 
-	// PatchApiTagsValueWithBodyWithResponse Rename a tag, in the text of its notes too
+	// PatchApiTagsValueWithBodyWithResponse Rename a tag, in the text of its notes too, or merge it into another with merge
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PATCH /api/tags/{value} (the `PatchApiTagsValue` operationId).
 	PatchApiTagsValueWithBodyWithResponse(ctx context.Context, value string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiTagsValueResponse, error)
 
-	// PatchApiTagsValueWithResponse Rename a tag, in the text of its notes too
+	// PatchApiTagsValueWithResponse Rename a tag, in the text of its notes too, or merge it into another with merge
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -11939,7 +11941,7 @@ func (c *ClientWithResponses) GetApiTagsValueWithResponse(ctx context.Context, v
 	return ParseGetApiTagsValueResponse(rsp)
 }
 
-// PatchApiTagsValueWithBodyWithResponse Rename a tag, in the text of its notes too
+// PatchApiTagsValueWithBodyWithResponse Rename a tag, in the text of its notes too, or merge it into another with merge
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -11952,7 +11954,7 @@ func (c *ClientWithResponses) PatchApiTagsValueWithBodyWithResponse(ctx context.
 	return ParsePatchApiTagsValueResponse(rsp)
 }
 
-// PatchApiTagsValueWithResponse Rename a tag, in the text of its notes too
+// PatchApiTagsValueWithResponse Rename a tag, in the text of its notes too, or merge it into another with merge
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //

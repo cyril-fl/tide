@@ -3844,7 +3844,7 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        /** Rename a tag, in the text of its notes too */
+        /** Rename a tag, in the text of its notes too, or merge it into another with merge */
         patch: {
             parameters: {
                 query?: never;
@@ -4546,6 +4546,8 @@ export interface components {
             new: string;
         };
         "edittag.Body": {
+            /** @description Merge folds the tag into value when value is another tag already, instead of a 409. */
+            merge?: boolean;
             value: string;
         };
         "edituser.Input": {

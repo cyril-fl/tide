@@ -93,6 +93,9 @@ func TestDeleteIgnoresCaseAndUnknown(t *testing.T) {
 	if got := read.GetResult(); got.Content != "du ici" || len(got.Tags) != 0 {
 		t.Errorf("after delete: %+v, %v", got, read.GetErr())
 	}
+	if n, err := tx.NewSelect().Table("note_versions").Where("item_id = ?", kept.GetResult().ID).Count(ctx); n != 1 || err != nil {
+		t.Errorf("versions after delete = %d, %v; want 1", n, err)
+	}
 	trashed := readitem.Process(ctx, tx, domain.NOTE, bare.GetResult().ID)
 	trashed.Run()
 	if !errors.Is(trashed.GetErr(), readitem.ErrNotFound) {

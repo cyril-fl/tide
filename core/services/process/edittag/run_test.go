@@ -21,7 +21,7 @@ import (
 // No DB needed: makeValues fails first and updateTag is guarded, so a nil db is never touched.
 func TestBlankValues(t *testing.T) {
 	for _, values := range [][2]string{{"", "go"}, {"go", "  "}} {
-		process := Process(context.Background(), nil, values[0], values[1])
+		process := Process(context.Background(), nil, values[0], values[1], false)
 		process.Run()
 
 		if !errors.Is(process.GetErr(), ErrNoValue) {
@@ -62,7 +62,7 @@ func TestRename(t *testing.T) {
 
 	// Case-only rename, matched case-insensitively.
 	upper := "TEST" + value[4:]
-	rename := Process(ctx, tx, " "+value+" ", upper)
+	rename := Process(ctx, tx, " "+value+" ", upper, false)
 	rename.Run()
 	if rename.HasErr() {
 		t.Fatalf("rename: %v", rename.GetErr())
@@ -77,7 +77,7 @@ func TestRename(t *testing.T) {
 		t.Fatalf("note: %v", note.GetErr())
 	}
 	renamedTo := other + "-renamed"
-	inText := Process(ctx, tx, other, renamedTo)
+	inText := Process(ctx, tx, other, renamedTo, false)
 	inText.Run()
 	if inText.HasErr() {
 		t.Fatalf("rename in text: %v", inText.GetErr())
@@ -89,20 +89,54 @@ func TestRename(t *testing.T) {
 	}
 	other = renamedTo
 
-	invalid := Process(ctx, tx, value, "a b")
+	invalid := Process(ctx, tx, value, "a b", false)
 	invalid.Run()
 	if !errors.Is(invalid.GetErr(), hashtag.ErrInvalid) {
 		t.Errorf("invalid: err = %v, want %v", invalid.GetErr(), hashtag.ErrInvalid)
 	}
 
-	unknown := Process(ctx, tx, value+"-unknown", "x")
+	unknown := Process(ctx, tx, value+"-unknown", "x", false)
 	unknown.Run()
 	if !errors.Is(unknown.GetErr(), ErrNotFound) {
 		t.Errorf("unknown: err = %v, want %v", unknown.GetErr(), ErrNotFound)
 	}
 
+	// The renamed note keeps its text before in its history.
+	if n, err := tx.NewSelect().Table("note_versions").Where("item_id = ?", note.GetResult().ID).Count(ctx); n != 1 || err != nil {
+		t.Errorf("versions after rename = %d, %v; want 1", n, err)
+	}
+
+	// Merge: the tag folds into an existing one, a note carrying both keeps it once.
+	from, into := value+"-from", value+"-into"
+	alone := createnote.Process(ctx, tx, createnote.Input{Content: "a #" + from})
+	alone.Run()
+	both := createnote.Process(ctx, tx, createnote.Input{Content: "b #" + from + " #" + into})
+	both.Run()
+	if alone.HasErr() || both.HasErr() {
+		t.Fatalf("merge notes: %v, %v", alone.GetErr(), both.GetErr())
+	}
+	merge := Process(ctx, tx, from, into, true)
+	merge.Run()
+	if merge.HasErr() || string(merge.GetResult().Value) != into {
+		t.Fatalf("merge: %+v, %v", merge.GetResult(), merge.GetErr())
+	}
+	for id, want := range map[string]string{alone.GetResult().ID: "a #" + into, both.GetResult().ID: "b #" + into} {
+		read := readitem.Process(ctx, tx, domain.NOTE, id)
+		read.Run()
+		if got := read.GetResult(); got.Content != want || !slices.Equal(got.Tags, []string{into}) {
+			t.Errorf("after merge: %q %v, want %q", got.Content, got.Tags, want)
+		}
+	}
+	gone, err := domain.BlindTags(ctx, []string{from})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := tx.NewSelect().Table("tags").Where("value_hash = ?", gone[0]).Count(ctx); n != 0 || err != nil {
+		t.Errorf("merged tag left: %d, %v", n, err)
+	}
+
 	// Last: the unique violation aborts the transaction.
-	collision := Process(ctx, tx, other, value)
+	collision := Process(ctx, tx, other, value, false)
 	collision.Run()
 	if !errors.Is(collision.GetErr(), ErrAlreadyExists) {
 		t.Errorf("collision: err = %v, want %v", collision.GetErr(), ErrAlreadyExists)

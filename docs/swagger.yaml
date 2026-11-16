@@ -473,6 +473,10 @@ components:
       type: object
     edittag.Body:
       properties:
+        merge:
+          description: Merge folds the tag into value when value is another tag already,
+            instead of a 409.
+          type: boolean
         value:
           type: string
       required:
@@ -3621,7 +3625,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/respond.Failure'
           description: Internal Server Error
-      summary: Rename a tag, in the text of its notes too
+      summary: Rename a tag, in the text of its notes too, or merge it into another
+        with merge
       tags:
       - tags
   /api/trash:

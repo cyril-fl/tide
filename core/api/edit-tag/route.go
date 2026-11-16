@@ -10,10 +10,12 @@ import (
 
 type Body struct {
 	Value string `json:"value"`
+	// Merge folds the tag into value when value is another tag already, instead of a 409.
+	Merge bool `json:"merge,omitempty" binding:"optional"`
 }
 
 // Handler renames a tag: PATCH /api/tags/{value}.
-// @Summary  Rename a tag, in the text of its notes too
+// @Summary  Rename a tag, in the text of its notes too, or merge it into another with merge
 // @Tags     tags
 // @Accept   json
 // @Produce  json
@@ -33,7 +35,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 			return
 		}
 
-		process := edittag.Process(r.Context(), db, r.PathValue("value"), input.Value)
+		process := edittag.Process(r.Context(), db, r.PathValue("value"), input.Value, input.Merge)
 		process.Run()
 		if process.HasErr() {
 			respond.Error(w, process.GetErr())

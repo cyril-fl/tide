@@ -36,6 +36,29 @@ func TestParse(t *testing.T) {
 	}
 }
 
+func TestUnstick(t *testing.T) {
+	cases := map[string]struct {
+		content string
+		want    string
+	}{
+		"stuck tags":    {"#Idée#Sicile", "#Idée #Sicile"},
+		"chain":         {"du #a#b#c fin", "du #a #b #c fin"},
+		"invalid next":  {"#a#123 #a#", "#a#123 #a#"},
+		"not a tag":     {"C#a#b #123#go &#39;#go a#b#c", "C#a#b #123#go &#39;#go a#b#c"},
+		"double hash":   {"#a##b", "#a##b"},
+		"inline code":   {"`#a#b` #c#d", "`#a#b` #c #d"},
+		"fenced code":   {"```\n#a#b\n```", "```\n#a#b\n```"},
+		"indented code": {"texte\n\n    #a#b", "texte\n\n    #a#b"},
+		"link":          {"[#a#b](/p#c#d) #e#f", "[#a#b](/p#c#d) #e #f"},
+		"address":       {"http://x/#a#b", "http://x/#a#b"},
+	}
+	for name, c := range cases {
+		if got := Unstick(c.content); got != c.want {
+			t.Errorf("%s: Unstick(%q) = %q, want %q", name, c.content, got, c.want)
+		}
+	}
+}
+
 func TestValid(t *testing.T) {
 	for value, want := range map[string]bool{"go": true, "idée": true, "go-lang_2": true, "123": false, "a b": false, "#go": false, "": false} {
 		if got := Valid(value); got != want {
@@ -58,6 +81,7 @@ func TestSync(t *testing.T) {
 		"removes and adds": {"du #go", []string{"sql"}, "du\n\n#sql"},
 		"keeps the code":   {"`#go` #sql", nil, "`#go`"},
 		"after code":       {"texte\n\n    #a", []string{"go"}, "texte\n\n    #a\n\n#go"},
+		"keeps unstuck":    {"#a#b", []string{"a"}, "#a #b"},
 	}
 	for name, c := range cases {
 		if got := Sync(c.content, c.tags); got != c.want {

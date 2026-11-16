@@ -43,10 +43,19 @@ func Parse(content string) []string {
 	return tags
 }
 
-// Sync makes the #tags of content exactly tags: removes the others, adds the missing ones at the end.
+// Sync makes the #tags of content exactly tags: removes the others, adds the missing ones at the end. It first
+// unsticks #a#b into #a #b, and keeps the tags that brings out: no caller could have known of them (#199).
 func Sync(content string, tags []string) string {
 	var extra, missing []string
+	stuck := Parse(content)
+	content = Unstick(content)
 	current := Parse(content)
+	tags = slices.Clone(tags)
+	for _, tag := range current {
+		if !contains(stuck, tag) {
+			tags = append(tags, tag)
+		}
+	}
 	for _, tag := range current {
 		if !contains(tags, tag) {
 			extra = append(extra, tag)
@@ -58,6 +67,28 @@ func Sync(content string, tags []string) string {
 		}
 	}
 	return appendTags(Remove(content, extra...), missing)
+}
+
+// Unstick writes #a#b as #a #b when #a is a tag and b a valid one, as Parse reads only #a there. A chain
+// #a#b#c is cut whole; C#a#b, #a##b, #123#go, code, links and addresses are left as they are.
+func Unstick(content string) string {
+	hidden := skipped.FindAllStringIndex(content, -1)
+	var cuts []int
+	for _, tag := range spans(content) {
+		for at := tag.end; strings.HasPrefix(content[at:], "#") && !inside(hidden, at); {
+			next := word.FindStringIndex(content[at:])
+			if next == nil || next[0] != 0 || !Valid(content[at+1:at+next[1]]) {
+				break
+			}
+			cuts = append(cuts, at)
+			at += next[1]
+		}
+	}
+	slices.Reverse(cuts)
+	for _, at := range cuts {
+		content = content[:at] + " " + content[at:]
+	}
+	return content
 }
 
 // Rename writes every #from of content as #to.

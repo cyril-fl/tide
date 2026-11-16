@@ -64,6 +64,7 @@ func TestResolvePaths(t *testing.T) {
 		return process.GetResult().ID
 	}
 	idea := note("Idea")
+	slashed := note("Paris / Rome")
 	twin1, twin2 := note("Twin"), note("Twin")
 	trashed := note("Trashed")
 	trash := deleteitems.Process(ctx, tx, domain.NOTE, []string{trashed})
@@ -87,6 +88,7 @@ func TestResolvePaths(t *testing.T) {
 	}{
 		"folder":          {domain.FOLDER, []string{base}, []string{folderID}, nil},
 		"nested":          {domain.NOTE, []string{base + "/Idea"}, []string{idea}, nil},
+		"/ in the title":  {domain.NOTE, []string{base + "/Paris / Rome"}, []string{slashed}, nil},
 		"kept in order":   {domain.NOTE, []string{"a-uuid", base + "/Idea"}, []string{"a-uuid", idea}, nil},
 		"kind filters":    {domain.FOLDER, []string{base + "/Idea"}, []string{same.GetResult().ID}, nil},
 		"wrong kind":      {domain.NOTE, []string{base}, nil, ErrNotFound},
@@ -111,10 +113,10 @@ func TestResolvePaths(t *testing.T) {
 		}
 	}
 
-	// The error gives both ids, so the user can pick one.
+	// The error gives both ids with their date, so the user can pick one.
 	twins := Process(ctx, tx, domain.NOTE, []string{base + "/Twin"})
 	twins.Run()
-	if !twins.HasErr() || !strings.Contains(twins.GetErr().Error(), twin1) || !strings.Contains(twins.GetErr().Error(), twin2) {
-		t.Errorf("err = %v, want both %s and %s", twins.GetErr(), twin1, twin2)
+	if !twins.HasErr() || !strings.Contains(twins.GetErr().Error(), twin1+" (note changed ") || !strings.Contains(twins.GetErr().Error(), twin2) {
+		t.Errorf("err = %v, want both %s and %s with their date", twins.GetErr(), twin1, twin2)
 	}
 }

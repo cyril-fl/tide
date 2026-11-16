@@ -16,6 +16,7 @@ import (
 // Handler gives every live note as a zip of markdown files, one directory per folder, the images in _files:
 // GET /api/export, or only some items with what they hold: GET /api/export?id=<uuid>&id=<uuid>, or what a folder
 // holds without the folder itself: GET /api/export?parent=<uuid>. files=false leaves the images empty, only named.
+// Each entry of a folder or a note has its last change as its date and its id as its zip comment.
 // @Summary  Export the notes as markdown files
 // @Tags     transfer
 // @Produce  application/zip
@@ -51,7 +52,8 @@ func Handler(db bun.IDB, store silo.Store) http.HandlerFunc {
 			if file.Dir {
 				name += "/" // Keeps the empty folders.
 			}
-			entry, err := archive.Create(name)
+			// The comment holds the item's id, for tide mcp to give it back: unzip shows neither.
+			entry, err := archive.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Deflate, Modified: file.Modified, Comment: file.ID})
 			if err == nil && (files || file.Key == "") {
 				err = write(r, store, entry, file)
 			}

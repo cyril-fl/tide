@@ -72,7 +72,7 @@ func TestExportNotes(t *testing.T) {
 		{Path: "Courses.md", Content: "# Courses\n\ndu pain"},
 		{Path: "courses (2).md", Content: "# courses\n\ndu lait"},
 	}
-	if got := export.GetResult(); !slices.Equal(got, want) {
+	if got := withoutIDs(t, export.GetResult()); !slices.Equal(got, want) {
 		t.Errorf("files = %+v, want %+v", got, want)
 	}
 
@@ -87,7 +87,7 @@ func TestExportNotes(t *testing.T) {
 		{Path: "Sous-dossier/voir Courses.md", Content: "voir [[Courses]]"},
 		{Path: "courses.md", Content: "# courses\n\ndu lait"},
 	}
-	if got := selection.GetResult(); !slices.Equal(got, want) {
+	if got := withoutIDs(t, selection.GetResult()); !slices.Equal(got, want) {
 		t.Errorf("selection = %+v, want %+v", got, want)
 	}
 	unknown := Process(ctx, tx, "", milk, "00000000-0000-0000-0000-000000000000")
@@ -101,6 +101,19 @@ func TestExportNotes(t *testing.T) {
 	if !missing.HasErr() {
 		t.Error("export of a missing folder: want an error")
 	}
+}
+
+// withoutIDs checks every folder and note has its id and date, then clears them for a comparison of the rest.
+func withoutIDs(t *testing.T, files []File) []File {
+	t.Helper()
+	out := slices.Clone(files)
+	for i, file := range out {
+		if file.ID == "" || file.Modified.IsZero() {
+			t.Errorf("%s: id %q, modified %v", file.Path, file.ID, file.Modified)
+		}
+		out[i].ID, out[i].Modified = "", time.Time{}
+	}
+	return out
 }
 
 func TestFileName(t *testing.T) {

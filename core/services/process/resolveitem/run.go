@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/cyril-fl/tide/core/domain"
@@ -24,6 +25,13 @@ type run struct {
 	db   bun.IDB // *bun.DB or bun.Tx: tests run inside a rolled-back transaction
 	kind domain.Kind
 	refs []string
+}
+
+// candidate is an item at the path asked.
+type candidate struct {
+	ID       string      `bun:"id"`
+	Kind     domain.Kind `bun:"kind"`
+	Modified time.Time   `bun:"modified"`
 }
 
 type cache struct {
@@ -81,20 +89,26 @@ func (p *run) resolvePath(path string) {
 			ids = append(ids, id)
 		}
 	}
+	var found []candidate
 	if len(ids) > 0 {
-		err = p.db.NewRaw("SELECT id FROM items WHERE id IN (?) AND (? = '' OR kind = ?) ORDER BY id", bun.In(ids), p.kind, p.kind).Scan(p.ctx, &ids)
+		err = p.db.NewRaw("SELECT id, kind, coalesce(updated_at, created_at) AS modified FROM items WHERE id IN (?) AND (? = '' OR kind = ?) ORDER BY id", bun.In(ids), p.kind, p.kind).Scan(p.ctx, &found)
 	}
 	if err != nil {
 		p.SetErr(err)
 		return
 	}
 
-	switch len(ids) {
+	switch len(found) {
 	case 0:
 		p.SetErr(fmt.Errorf("%w: %q", ErrNotFound, path))
 	case 1:
-		p.cache.result = append(p.cache.result, ids[0])
+		p.cache.result = append(p.cache.result, found[0].ID)
 	default:
-		p.SetErr(fmt.Errorf("%w: %q is %s", ErrAmbiguous, path, strings.Join(ids, ", ")))
+		// The kind and the date of each, for the caller to tell them apart without reading them all.
+		described := make([]string, 0, len(found))
+		for _, c := range found {
+			described = append(described, fmt.Sprintf("%s (%s changed %s)", c.ID, c.Kind, c.Modified.UTC().Format(time.RFC3339)))
+		}
+		p.SetErr(fmt.Errorf("%w: %q is %s", ErrAmbiguous, path, strings.Join(described, ", ")))
 	}
 }

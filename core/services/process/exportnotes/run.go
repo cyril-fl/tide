@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/cyril-fl/tide/core/domain"
@@ -26,12 +27,15 @@ var (
 const FilesDir = "_files"
 
 // File is one entry of the export, its Path relative to the export directory: a folder (Dir), a note, or an
-// image whose bytes the writer reads from Silo at Key.
+// image whose bytes the writer reads from Silo at Key. A folder or a note has its ID and its last change in Modified:
+// a duplicate title becomes "Title (2)" and a / a -, so the path alone does not lead back to the item.
 type File struct {
-	Path    string
-	Dir     bool
-	Content string
-	Key     string
+	Path     string
+	Dir      bool
+	Content  string
+	Key      string
+	ID       string
+	Modified time.Time
 }
 
 // item is a live item of the exported tree.
@@ -41,6 +45,7 @@ type item struct {
 	Kind     domain.Kind `bun:"kind"`
 	Title    secret.Text `bun:"title"`
 	Content  secret.Text `bun:"content"`
+	Modified time.Time   `bun:"modified"`
 }
 
 type run struct {
@@ -132,7 +137,7 @@ func (p *run) loadTree() {
 			SELECT id FROM items WHERE deleted_at IS NULL AND user_id = ? AND ?
 			UNION SELECT child.id FROM items AS child JOIN tree ON child.parent_id = tree.id WHERE child.deleted_at IS NULL
 		)
-		SELECT i.id, coalesce(i.parent_id::text, '') AS parent_id, i.kind, i.title, mn.content
+		SELECT i.id, coalesce(i.parent_id::text, '') AS parent_id, i.kind, i.title, mn.content, coalesce(i.updated_at, i.created_at) AS modified
 		FROM tree
 		JOIN items AS i ON i.id = tree.id
 		LEFT JOIN metadata_notes AS mn ON mn.item_id = i.id
@@ -202,7 +207,7 @@ func (p *run) makeFiles(parentID, dir string) {
 			ext = ".md"
 		}
 		name := uniqueName(fileName(string(it.Title)), ext, taken)
-		file := File{Path: path.Join(dir, name), Dir: it.Kind == domain.FOLDER, Content: p.citeImages(wikilink.Unresolve(string(it.Content)), dir)}
+		file := File{Path: path.Join(dir, name), Dir: it.Kind == domain.FOLDER, Content: p.citeImages(wikilink.Unresolve(string(it.Content)), dir), ID: it.ID, Modified: it.Modified}
 		p.cache.files = append(p.cache.files, file)
 		if file.Dir {
 			p.makeFiles(it.ID, file.Path)

@@ -127,7 +127,7 @@ un jeton d'API ou une connexion OAuth en lecture seule (section 4).
 
 ## 3. Ce qu'il peut faire
 
-À la connexion, l'agent reçoit les vingt-trois outils avec leur description et leur schéma, puis travaille
+À la connexion, l'agent reçoit les vingt-quatre outils avec leur description et leur schéma, puis travaille
 en langage naturel : « range mes notes de réunion de novembre dans /Travail/Réunions » devient un
 `search_notes`, un `create_folder`, puis une suite de `move_item`.
 
@@ -135,11 +135,13 @@ en langage naturel : « range mes notes de réunion de novembre dans /Travail/R�
 |---|---|
 | `search_notes` | Les notes dont le titre ou le contenu contient un texte, avec la ligne trouvée : les 50 premières, ou `limit` (0 pour toutes) |
 | `recent_notes` | Les notes modifiées le plus récemment, la plus récente d'abord |
-| `read_note` | Le contenu d'une note, son chemin et ses tags |
-| `list_folder` | Les notes et dossiers directement dans un dossier |
-| `tags` | Les notes portant un tag, avec leur chemin ; sans tag, les tags du compte, les plus utilisés d'abord |
+| `read_note` | Le contenu d'une note, son chemin, ses tags (`[]` sans tag) et ses dates (`created_at`, `updated_at`) |
+| `read_notes` | Plusieurs notes d'un coup, 50 au plus, chacune comme `read_note` ; une seule introuvable fait échouer l'appel |
+| `list_folder` | Les notes et dossiers directement dans un dossier, avec leurs dates : les 50 premiers et le total, ou `limit` (0 pour tous) et `offset` |
+| `tags` | Les notes portant un tag, avec leur chemin : les 50 premières et le total, ou `limit` et `offset` ; sans tag, les tags du compte, les plus utilisés d'abord |
 | `create_note` | Une note à partir de markdown : le premier titre devient le titre, les `#hashtags` des tags |
-| `edit_note` | Remplace **tout** le contenu d'une note ; refuse une note verrouillée |
+| `edit_note` | Remplace **tout** le contenu d'une note (son premier titre devient le titre) et la rend sans son contenu ; refuse une note verrouillée |
+| `tag_notes` | Ajoute ou retire des tags sur des notes sans envoyer leur contenu : seuls leurs `#tags` changent, chaque note changée garde son texte dans l'historique ; une note verrouillée est laissée, avec l'erreur |
 | `create_folder` | Un dossier, à la racine ou dans un autre |
 | `rename_folder` | Le titre d'un dossier |
 | `move_item` | Déplace une note ou un dossier ; un dossier emmène son contenu |
@@ -147,14 +149,14 @@ en langage naturel : « range mes notes de réunion de novembre dans /Travail/R�
 | `delete_folder` | Met un dossier **et tout son contenu** à la corbeille |
 | `list_trash` | Ce qui est à la corbeille, avec l'uuid que `restore_item` attend |
 | `restore_item` | Ressort de la corbeille, avec ce qui y est parti en même temps |
-| `rename_tag` | Renomme un tag sur toutes ses notes, dans leur texte aussi |
+| `rename_tag` | Renomme un tag sur toutes ses notes, dans leur texte aussi ; vers un tag qui existe déjà, refuse, sauf avec `merge` qui les fusionne |
 | `replace_notes` | Remplace un texte brut dans plusieurs notes d'un coup (`folder` pour limiter, `dry_run` pour compter avant) ; les notes verrouillées sont laissées, chaque note changée garde son texte dans l'historique |
 | `delete_tag` | Retire un tag de toutes ses notes ; une note qui ne contenait que lui part à la corbeille |
 | `note_history` | Les versions antérieures d'une note (sans `version`), ou le texte de l'une d'elles |
 | `note_links` | Les liens d'une note, ses rétroliens et les notes qui partagent ses tags ; sans note, les liens cassés de tout le compte |
 | `read_file` | Une image (que l'agent voit) ou une pièce jointe citée par une note ; sans fichier, la liste des fichiers |
 | `attach_file` | Stocke un fichier envoyé en base64 et rend le markdown qui le cite, à poser avec `create_note` ou `edit_note` |
-| `export_notes` | Un dossier, des éléments ou tout le compte en fichiers markdown, `[[liens]]` réécrits |
+| `export_notes` | Un dossier, des éléments ou tout le compte en fichiers markdown, `[[liens]]` réécrits, chaque note avec son id et sa dernière modification : les 50 premiers fichiers et le total, ou `limit` et `offset` |
 | `import_notes` | Des fichiers markdown en notes, leurs répertoires en dossiers, tout ou rien |
 
 **Un outil par domaine, pas un par processus.** Chaque outil annoncé coûte du contexte à l'agent à
@@ -174,11 +176,14 @@ chiffrement) s'applique pareil des trois côtés.
 
 - **Une note ou un dossier se désigne par son uuid ou par son chemin** depuis la racine
   (`/Dossier/Note`). Seul `restore_item` exige l'uuid : un élément à la corbeille n'a plus de chemin à
-  résoudre. Un chemin qui désigne deux éléments est refusé (`several items at this path, use a uuid`).
+  résoudre. Un chemin qui désigne deux éléments est refusé (`several items at this path, use a uuid`),
+  avec l'uuid, le type et la date de dernière modification de chacun. Le chemin d'un export ne se relit
+  pas toujours (un titre en double y devient « Titre (2) », un « / » un « - ») : l'id qu'il donne, si.
 - **`edit_note` écrase.** Rien n'est conservé de l'ancien contenu, l'agent doit lire la note avant. Le
   texte remplacé va dans l'historique de la note comme pour une modification dans l'app (à la première
   modification d'une session d'écriture, puis au moins une fois par heure), d'où `note_history` et
-  l'app le ressortent. Les `#tags` du contenu restent, ceux de `tags` s'y ajoutent.
+  l'app le ressortent. Les `#tags` du contenu restent, ceux de `tags` s'y ajoutent. Pour seulement
+  taguer, `tag_notes` évite de recopier la note (et d'en perdre un bout, le titre compris).
 - **Une suppression passe par la corbeille**, d'où `restore_item` la ressort. Mais la corbeille se
   vide d'elle-même passé le délai de rétention du compte (`purgeitems`, lancé par le serveur), sauf si ce compte garde sa corbeille indéfiniment : ce n'est pas un
   filet garanti. Le vidage définitif, lui, n'est pas donné à
@@ -189,9 +194,9 @@ chiffrement) s'applique pareil des trois côtés.
   réorganisation reste la règle.
 - **Les fichiers passent par le serveur**, qui les range dans Silo. `attach_file` accepte jusqu'à
   20 Mo, `import_notes` un zip de 200 Mo. `read_file` rend le fichier entier en un bloc, une vidéo
-  comprise. `export_notes` télécharge aussi les octets des images citées, pour n'en garder que l'id.
-- **`delete_tag` et `rename_tag` réécrivent le texte des notes**, corbeille comprise, sans passer par
-  l'historique : c'est le comportement de la CLI et de l'app.
+  comprise. `export_notes` ne télécharge pas les images citées : il n'en donne que le chemin.
+- **`delete_tag` et `rename_tag` réécrivent le texte des notes**, corbeille comprise, comme la CLI et
+  l'app : chaque note changée garde son texte d'avant dans l'historique.
 - **Ce qui n'est pas exposé** : le graphe complet (`note_links` en donne le voisinage note par note),
   les plans, la gestion des comptes, la création d'un tag seul, le vidage de la corbeille.
 
@@ -200,12 +205,12 @@ chiffrement) s'applique pareil des trois côtés.
 Chaque outil porte des annotations MCP, pour que le client demande confirmation au bon moment
 (« autoriser une fois / toujours / refuser ») : c'est lui qui la propose, pas le serveur.
 
-- `readOnlyHint` : les lectures (`search_notes`, `recent_notes`, `read_note`, `list_folder`, `tags`,
+- `readOnlyHint` : les lectures (`search_notes`, `recent_notes`, `read_note`, `read_notes`, `list_folder`, `tags`,
   `list_trash`, `note_history`, `note_links`, `read_file`, `export_notes`), qui ne changent rien.
 - `destructiveHint` : ce qui supprime ou écrase (`edit_note`, `replace_notes`, `delete_note`,
   `delete_folder`, `delete_tag`). Les autres écritures l'ont à `false` : elles ajoutent, déplacent ou renomment.
 - `idempotentHint` : un second appel identique ne change rien de plus (`edit_note`, les suppressions,
-  `move_item`, les renommages, `restore_item`) ; pas `create_note`, `create_folder`, `replace_notes`,
+  `move_item`, les renommages, `tag_notes`, `restore_item`) ; pas `create_note`, `create_folder`, `replace_notes`,
   `attach_file` ni `import_notes`.
 - `openWorldHint` à `false` partout : les outils ne touchent qu'aux notes du compte.
 
@@ -345,7 +350,7 @@ Rien : le tunnel ou `--mcp-addr`.
 ## Vérifier que ça marche
 
 Le test `cli/cmd-mcp/cmd_test.go` branche un client MCP en mémoire sur le serveur MCP, lui-même
-client d'une vraie API sur la base de test. Il vérifie que les vingt-trois outils sont annoncés avec un
+client d'une vraie API sur la base de test. Il vérifie que les vingt-quatre outils sont annoncés avec un
 schéma, une description et leurs annotations — ce que le SDK ne sait pas déduire seul d'une structure d'arguments mal
 formée — puis les appelle un à un.
 

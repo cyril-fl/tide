@@ -14,8 +14,11 @@ import (
 	"io/fs"
 	"net/http"
 	"path"
+	"slices"
+	"strconv"
 	"strings"
 	"testing/fstest"
+	"time"
 
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/cyril-fl/tide/config"
@@ -34,30 +37,58 @@ func fileURL(id string) string {
 	return "/api/files/" + id
 }
 
-// item is a note or a folder as an agent needs it: no timestamps, no model, nothing to read twice.
+// item is a note or a folder as an agent needs it, with its dates to judge whether it is still current.
 type item struct {
-	ID    string `json:"id"`
-	Kind  string `json:"kind"`
-	Title string `json:"title"`
+	ID        string `json:"id"`
+	Kind      string `json:"kind"`
+	Title     string `json:"title"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+}
+
+// folderPage is a page of the items of a folder, and how many it holds in all.
+type folderPage struct {
+	Items []item `json:"items"`
+	Total int    `json:"total"`
 }
 
 // note is what the read and the writes answer, the content left out when the agent did not ask for it.
 type note struct {
-	ID       string   `json:"id"`
-	Title    string   `json:"title"`
-	Path     string   `json:"path"`
-	Content  string   `json:"content,omitempty"`
-	Tags     []string `json:"tags,omitempty"`
-	Readonly bool     `json:"readonly,omitempty"`
+	ID        string   `json:"id"`
+	Title     string   `json:"title"`
+	Path      string   `json:"path"`
+	Content   string   `json:"content,omitempty"`
+	Tags      []string `json:"tags"` // [] rather than left out: the agent sees the note has none
+	Readonly  bool     `json:"readonly,omitempty"`
+	CreatedAt string   `json:"created_at"`
+	UpdatedAt string   `json:"updated_at,omitempty"`
 }
 
-// searchLimit is how many notes search_notes gives when the agent names no limit: a common word matches tens of
-// thousands of them, megabytes an agent cannot read.
-const searchLimit = 50
+// pageSize is how many results a list gives when the agent names no limit: a common word or a flat folder holds
+// thousands of notes, megabytes an agent cannot read.
+const pageSize = 50
+
+// limitOf is the limit an agent asked, pageSize when it named none, 0 (all) for a negative one.
+func limitOf(asked *int) int {
+	if asked == nil {
+		return pageSize
+	}
+	return max(*asked, 0)
+}
 
 type searchArgs struct {
 	Text  string `json:"text" jsonschema:"the text to find in the title or the content of the notes"`
 	Limit *int   `json:"limit,omitempty" jsonschema:"how many notes at most, 50 when left out, 0 for all of them"`
+}
+
+type notesArgs struct {
+	Notes []string `json:"notes" jsonschema:"the notes: their uuid, or their path from the root (/Folder/Note); 50 at most"`
+}
+
+type listFolderArgs struct {
+	Folder string `json:"folder,omitempty" jsonschema:"the folder: its uuid, or its path from the root (/Folder); the root itself when empty"`
+	Limit  *int   `json:"limit,omitempty" jsonschema:"how many items at most, 50 when left out, 0 for all of them"`
+	Offset int    `json:"offset,omitempty" jsonschema:"how many items to skip, folders first then by title: the next page starts at offset + limit"`
 }
 
 type noteArgs struct {
@@ -104,19 +135,39 @@ type tagArgs struct {
 }
 
 type tagsArgs struct {
-	Tag string `json:"tag,omitempty" jsonschema:"the tag, without the #; the list of tags when empty"`
+	Tag    string `json:"tag,omitempty" jsonschema:"the tag, without the #; the list of tags when empty"`
+	Limit  *int   `json:"limit,omitempty" jsonschema:"how many notes of the tag at most, 50 when left out, 0 for all of them"`
+	Offset int    `json:"offset,omitempty" jsonschema:"how many notes of the tag to skip: the next page starts at offset + limit"`
 }
 
-// tags is the account's tags with their count, or one tag with the notes carrying it.
+// tags is the account's tags with their count, or one tag with a page of the notes carrying it and their total.
 type tags struct {
 	Tags  []apiclient.CounttagsTagCount `json:"tags,omitempty"`
 	Tag   *apiclient.DomainTag          `json:"tag,omitempty"`
 	Notes []apiclient.ReadtagNote       `json:"notes,omitempty"`
+	Total int                           `json:"total,omitempty"`
 }
 
 type renameTagArgs struct {
-	Tag string `json:"tag" jsonschema:"the tag to rename, without the #"`
-	To  string `json:"to" jsonschema:"its new name, without the #"`
+	Tag   string `json:"tag" jsonschema:"the tag to rename, without the #"`
+	To    string `json:"to" jsonschema:"its new name, without the #"`
+	Merge bool   `json:"merge,omitempty" jsonschema:"when to is another tag already, fold the tag into it instead of refusing"`
+}
+
+type tagNotesArgs struct {
+	Notes  []string `json:"notes" jsonschema:"the notes: their uuid, or their path from the root (/Folder/Note)"`
+	Add    []string `json:"add,omitempty" jsonschema:"tags to add, without the #"`
+	Remove []string `json:"remove,omitempty" jsonschema:"tags to remove, without the #"`
+}
+
+// tagged is a note after tag_notes, its content left out, or why it was left as it was.
+type tagged struct {
+	Note  string   `json:"note"`
+	ID    string   `json:"id,omitempty"`
+	Title string   `json:"title,omitempty"`
+	Path  string   `json:"path,omitempty"`
+	Tags  []string `json:"tags,omitempty"`
+	Error string   `json:"error,omitempty"`
 }
 
 type replaceArgs struct {
@@ -167,13 +218,23 @@ type attached struct {
 type exportArgs struct {
 	Folder string   `json:"folder,omitempty" jsonschema:"the folder to export: its uuid, or its path from the root (/Folder); everything when empty"`
 	Items  []string `json:"items,omitempty" jsonschema:"notes or folders to export instead of a folder: their uuid, or their path from the root"`
+	Limit  *int     `json:"limit,omitempty" jsonschema:"how many files at most, 50 when left out, 0 for all of them"`
+	Offset int      `json:"offset,omitempty" jsonschema:"how many files to skip: the next page starts at offset + limit"`
 }
 
-// exported is a note as a markdown file, or a file it cites, whose bytes read_file gives.
+// exported is a note as a markdown file with its id and last change, or a file it cites, whose bytes read_file gives.
 type exported struct {
-	Path    string `json:"path"`
-	Content string `json:"content,omitempty"`
-	File    string `json:"file,omitempty"`
+	Path      string `json:"path"`
+	ID        string `json:"id,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+	Content   string `json:"content,omitempty"`
+	File      string `json:"file,omitempty"`
+}
+
+// export is a page of the exported files, and how many there are in all.
+type export struct {
+	Files []exported `json:"files"`
+	Total int        `json:"total"`
 }
 
 type importArgs struct {
@@ -206,10 +267,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		Annotations: reads(),
 		Description: "Find the notes whose title or content contains a text, with the line where it was found: the first 50, title matches first, unless limit says otherwise.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, []apiclient.SearchnotesMatch, error) {
-		limit := searchLimit
-		if args.Limit != nil {
-			limit = max(*args.Limit, 0)
-		}
+		limit := limitOf(args.Limit)
 		matches, err := decode[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, &apiclient.GetApiSearchParams{Q: args.Text, Limit: &limit}))
 		return nil, matches, err
 	})
@@ -237,15 +295,42 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
+		Name:        "read_notes",
+		Annotations: reads(),
+		Description: "Read several notes at once, up to 50, each as read_note gives it, in the order asked: one missing fails the call.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args notesArgs) (*mcp.CallToolResult, []note, error) {
+		if len(args.Notes) > pageSize {
+			return nil, nil, fmt.Errorf("%d notes asked, %d at most", len(args.Notes), pageSize)
+		}
+		// TODO: one request per note, fine for 50 on the same network; a batch route on the API if it gets slow.
+		read := make([]note, 0, len(args.Notes))
+		for _, ref := range args.Notes {
+			id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, ref)
+			if err != nil {
+				return nil, nil, fmt.Errorf("%s: %w", ref, err)
+			}
+			found, err := readNote(decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, id)))
+			if err != nil {
+				return nil, nil, fmt.Errorf("%s: %w", ref, err)
+			}
+			read = append(read, found)
+		}
+		return nil, read, nil
+	})
+
+	addTool(server, readOnly, &mcp.Tool{
 		Name:        "list_folder",
 		Annotations: reads(),
-		Description: "List the notes and folders directly inside a folder.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args folderArgs) (*mcp.CallToolResult, []item, error) {
+		Description: "List the notes and folders directly inside a folder, folders first then by title: the first 50 and the total, unless limit says otherwise.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args listFolderArgs) (*mcp.CallToolResult, folderPage, error) {
 		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
-			return nil, nil, err
+			return nil, folderPage{}, err
 		}
-		return made(decode[[]apiclient.DomainItem](client.GetApiItems(ctx, &apiclient.GetApiItemsParams{Parent: &parentID})))
+		limit, offset := limitOf(args.Limit), max(args.Offset, 0)
+		found, total, err := paged[[]apiclient.DomainItem](client.GetApiItems(ctx, &apiclient.GetApiItemsParams{Parent: &parentID, Limit: &limit, Offset: &offset}))
+		_, items, err := made(found, err)
+		return nil, folderPage{Items: items, Total: total}, err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -269,7 +354,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "edit_note",
 		Annotations: writes(true, true),
-		Description: "Replace the content of a note. Read it first: nothing is kept of the old content. A locked note refuses.",
+		Description: "Replace the content of a note, answered without it. Read it first: nothing is kept of the old content, and its first heading becomes the title. To only add or remove tags, use tag_notes. A locked note refuses.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args editArgs) (*mcp.CallToolResult, note, error) {
 		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
 		if err != nil {
@@ -282,7 +367,29 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 			input.Tags = &tags
 		}
 		edited, err := readNote(decode[apiclient.ReaditemResult](client.PatchApiNotesId(ctx, id, input)))
+		edited.Content = "" // the agent has just sent it
 		return nil, edited, err
+	})
+
+	addTool(server, readOnly, &mcp.Tool{
+		Name:        "tag_notes",
+		Annotations: writes(false, true),
+		Description: "Add or remove tags on notes without sending their content: only their #tags change, the rest of the text stays as it is, and each note changed keeps its earlier text in note_history. A locked note is left, with the error.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, []tagged, error) {
+		for _, tag := range args.Add {
+			if !hashtag.Valid(tag) {
+				return nil, nil, fmt.Errorf("%w: %q", hashtag.ErrInvalid, tag)
+			}
+		}
+		out := make([]tagged, 0, len(args.Notes))
+		for _, ref := range args.Notes {
+			done, err := tagNote(ctx, client, ref, args.Add, args.Remove)
+			if err != nil {
+				done.Error = err.Error()
+			}
+			out = append(out, done)
+		}
+		return nil, out, nil
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -372,25 +479,26 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tags",
 		Annotations: reads(),
-		Description: "List the notes carrying a tag, with their path. Without a tag, the account's tags, most used first. Tags of a note are set by create_note and edit_note.",
+		Description: "List the notes carrying a tag, with their path: the first 50 and the total, unless limit says otherwise. Without a tag, the account's tags, most used first. Tags of a note are set by create_note and edit_note.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagsArgs) (*mcp.CallToolResult, tags, error) {
 		if args.Tag == "" {
 			counts, err := decode[[]apiclient.CounttagsTagCount](client.GetApiGraph(ctx))
 			return nil, tags{Tags: counts}, err
 		}
-		result, err := decode[apiclient.ReadtagResult](client.GetApiTagsValue(ctx, args.Tag, nil))
+		limit, offset := limitOf(args.Limit), max(args.Offset, 0)
+		result, total, err := paged[apiclient.ReadtagResult](client.GetApiTagsValue(ctx, args.Tag, &apiclient.GetApiTagsValueParams{Limit: &limit, Offset: &offset}))
 		if err != nil {
 			return nil, tags{}, err
 		}
-		return nil, tags{Tag: &result.Tag, Notes: result.Notes}, nil
+		return nil, tags{Tag: &result.Tag, Notes: result.Notes, Total: total}, nil
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "rename_tag",
 		Annotations: writes(false, true),
-		Description: "Rename a tag on every note carrying it, in their text too.",
+		Description: "Rename a tag on every note carrying it, in their text too, each note changed keeping its earlier text in note_history. A name taken by another tag refuses, unless merge folds the tag into it.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, apiclient.DomainTag, error) {
-		renamed, err := decode[apiclient.DomainTag](client.PatchApiTagsValue(ctx, args.Tag, apiclient.EdittagBody{Value: args.To}))
+		renamed, err := decode[apiclient.DomainTag](client.PatchApiTagsValue(ctx, args.Tag, apiclient.EdittagBody{Value: args.To, Merge: &args.Merge}))
 		return nil, renamed, err
 	})
 
@@ -414,7 +522,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "delete_tag",
 		Annotations: writes(true, true),
-		Description: "Remove a tag from every note carrying it, in their text too. A note holding nothing but the tag goes to the trash.",
+		Description: "Remove a tag from every note carrying it, in their text too, each note changed keeping its earlier text in note_history. A note holding nothing but the tag goes to the trash.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagArgs) (*mcp.CallToolResult, []apiclient.DomainTag, error) {
 		deleted, err := decode[[]apiclient.DomainTag](client.DeleteApiTagsValue(ctx, args.Tag))
 		return nil, deleted, err
@@ -501,17 +609,17 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "export_notes",
 		Annotations: reads(),
-		Description: "Export notes as markdown files, [[links]] written back, their folders as directories.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args exportArgs) (*mcp.CallToolResult, []exported, error) {
+		Description: "Export notes as markdown files with their id and last change, [[links]] written back, their folders as directories: the first 50 files and the total, unless limit says otherwise. A path may not lead back to its note (a duplicate title becomes 'Title (2)', a / a -): read a note by its id.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args exportArgs) (*mcp.CallToolResult, export, error) {
 		folderID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
-			return nil, nil, err
+			return nil, export{}, err
 		}
 		ids := make([]string, 0, len(args.Items))
 		for _, ref := range args.Items {
 			id, err := apiclient.Resolve(ctx, client, "", ref)
 			if err != nil {
-				return nil, nil, err
+				return nil, export{}, err
 			}
 			ids = append(ids, id)
 		}
@@ -523,17 +631,19 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		}
 		response, err := client.GetApiExportWithResponse(ctx, &params)
 		if err != nil {
-			return nil, nil, err
+			return nil, export{}, err
 		}
 		if response.StatusCode() != http.StatusOK {
-			return nil, nil, apiclient.Fail(response.HTTPResponse, response.Body)
+			return nil, export{}, apiclient.Fail(response.HTTPResponse, response.Body)
 		}
 		archive, err := zip.NewReader(bytes.NewReader(response.Body), int64(len(response.Body)))
 		if err != nil {
-			return nil, nil, err
+			return nil, export{}, err
 		}
 		files, err := exportedFiles(archive)
-		return nil, files, err
+		// TODO: the API still builds the whole export, images left out, for each page; page it on the server if a
+		// big account's export gets slow.
+		return nil, export{Files: page(files, limitOf(args.Limit), max(args.Offset, 0)), Total: len(files)}, err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -598,6 +708,25 @@ func decode[T any](response *http.Response, err error) (T, error) {
 	return out, json.Unmarshal(body, &out)
 }
 
+// paged decodes a page of a list, and the X-Total-Count of the whole list.
+func paged[T any](response *http.Response, err error) (T, int, error) {
+	out, err := decode[T](response, err)
+	if err != nil {
+		return out, 0, err
+	}
+	total, err := strconv.Atoi(response.Header.Get("X-Total-Count"))
+	return out, total, err
+}
+
+// page is domain.Page, which the CLI cannot import: limit items from offset, all of them from offset when limit is 0.
+func page[T any](list []T, limit, offset int) []T {
+	offset = min(offset, len(list))
+	if limit == 0 || limit > len(list)-offset {
+		return list[offset:]
+	}
+	return list[offset : offset+limit]
+}
+
 // fileContent shows an image or plays an audio to the agent; anything else comes as a resource of its type.
 func fileContent(id, contentType string, data []byte) mcp.Content {
 	switch {
@@ -639,7 +768,12 @@ func exportedFiles(archive *zip.Reader) ([]exported, error) {
 			if err != nil {
 				return nil, err
 			}
-			out = append(out, exported{Path: name, Content: string(content)})
+			// GET /api/export gives a note's id as the entry's comment and its last change as its date.
+			md := exported{Path: name, ID: entry.Comment, Content: string(content)}
+			if entry.Comment != "" { // an entry without a date reads as 1979: only those with an id have one
+				md.UpdatedAt = entry.Modified.UTC().Format(time.RFC3339)
+			}
+			out = append(out, md)
 		}
 	}
 	return out, nil
@@ -660,7 +794,7 @@ func importDir(files []importFile) (fstest.MapFS, error) {
 
 // one turns an item the API answers into what the agent reads.
 func one(found apiclient.DomainItem) item {
-	return item{ID: found.Id, Kind: string(found.Kind), Title: found.Title}
+	return item{ID: found.Id, Kind: string(found.Kind), Title: found.Title, CreatedAt: found.CreatedAt, UpdatedAt: apiclient.Deref(found.UpdatedAt)}
 }
 
 // made turns the items of an answer into what the agent reads, for a tool answering them.
@@ -683,17 +817,51 @@ func resolveFolder(ctx context.Context, client *apiclient.ClientWithResponses, r
 	return apiclient.Resolve(ctx, client, apiclient.FOLDER, ref)
 }
 
+// tagNote makes the #tags of a note its own plus add, minus remove, through hashtag.Sync as the server does for the
+// tags of PATCH, but sent as content: restore keeps the text replaced in the history even within a writing session,
+// and updated_at refuses a note saved meanwhile.
+func tagNote(ctx context.Context, client *apiclient.ClientWithResponses, ref string, add, remove []string) (tagged, error) {
+	done := tagged{Note: ref}
+	id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, ref)
+	if err != nil {
+		return done, err
+	}
+	read, err := decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, id))
+	if err != nil {
+		return done, err
+	}
+	content := apiclient.Deref(read.Content)
+	tags := slices.DeleteFunc(hashtag.Parse(content), func(tag string) bool {
+		return slices.ContainsFunc(remove, func(r string) bool { return strings.EqualFold(r, tag) })
+	})
+	if next := hashtag.Sync(content, append(tags, add...)); next != content {
+		seen := read.Item.UpdatedAt
+		if seen == nil {
+			seen = &read.Item.CreatedAt
+		}
+		restore := true
+		read, err = decode[apiclient.ReaditemResult](client.PatchApiNotesId(ctx, id, apiclient.EditnoteBody{Content: &next, UpdatedAt: seen, Restore: &restore}))
+		if err != nil {
+			return done, err
+		}
+	}
+	done.ID, done.Title, done.Path, done.Tags = read.Item.Id, read.Item.Title, read.Path, apiclient.Deref(read.Tags)
+	return done, nil
+}
+
 // readNote turns the note the API answers into what the agent reads.
 func readNote(result apiclient.ReaditemResult, err error) (note, error) {
 	if err != nil {
 		return note{}, err
 	}
 	return note{
-		ID:       result.Item.Id,
-		Title:    result.Item.Title,
-		Path:     result.Path,
-		Content:  apiclient.Deref(result.Content),
-		Tags:     apiclient.Deref(result.Tags),
-		Readonly: apiclient.Deref(result.Readonly),
+		ID:        result.Item.Id,
+		Title:     result.Item.Title,
+		Path:      result.Path,
+		Content:   apiclient.Deref(result.Content),
+		Tags:      append([]string{}, apiclient.Deref(result.Tags)...),
+		Readonly:  apiclient.Deref(result.Readonly),
+		CreatedAt: result.Item.CreatedAt,
+		UpdatedAt: apiclient.Deref(result.Item.UpdatedAt),
 	}, nil
 }

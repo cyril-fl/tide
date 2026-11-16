@@ -85,7 +85,7 @@ tide add token "backup script" --expires 30d   # an API token for a script
 tide mcp    # an MCP server on stdin/stdout, acting for your `tide login` session
 ```
 
-It gives an agent (Claude Code, Codex…) 23 tools to read, write, tag, move and trash your notes. For the Claude app on a phone or ChatGPT, the server can also serve them over HTTP with an OAuth sign-in. Setup and precautions: **[MCP.md](./MCP.md)** (in French).
+It gives an agent (Claude Code, Codex…) 25 tools to read, write, tag, move and trash your notes. For the Claude app on a phone or ChatGPT, the server can also serve them over HTTP with an OAuth sign-in. Setup and precautions: **[MCP.md](./MCP.md)** (in French).
 
 ## The API
 

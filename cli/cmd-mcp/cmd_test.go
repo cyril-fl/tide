@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/cyril-fl/tide/cli/services/apiclient/apitest"
@@ -88,13 +89,13 @@ func TestAddTools(t *testing.T) {
 			if a.ReadOnlyHint || a.DestructiveHint == nil || !*a.DestructiveHint {
 				t.Errorf("tool %q: %+v, want destructive", tool.Name, a)
 			}
-		case slices.Contains([]string{"search_notes", "read_note", "list_folder", "export_notes", "read_file"}, tool.Name):
+		case slices.Contains([]string{"search_notes", "read_note", "read_notes", "list_folder", "export_notes", "read_file"}, tool.Name):
 			if !a.ReadOnlyHint {
 				t.Errorf("tool %q: %+v, want read-only", tool.Name, a)
 			}
 		}
 	}
-	for _, want := range []string{"search_notes", "recent_notes", "read_note", "list_folder", "create_note", "edit_note", "create_folder", "rename_folder", "move_item", "delete_note", "delete_folder", "list_trash", "restore_item", "tags", "rename_tag", "replace_notes", "delete_tag", "note_history", "note_links", "read_file", "attach_file", "export_notes", "import_notes"} {
+	for _, want := range []string{"search_notes", "recent_notes", "read_note", "read_notes", "list_folder", "create_note", "edit_note", "create_folder", "rename_folder", "move_item", "delete_note", "delete_folder", "list_trash", "restore_item", "tags", "tag_notes", "rename_tag", "replace_notes", "delete_tag", "note_history", "note_links", "read_file", "attach_file", "export_notes", "import_notes"} {
 		if !slices.Contains(names, want) {
 			t.Errorf("tools = %v, missing %q", names, want)
 		}
@@ -119,16 +120,41 @@ func TestNotes(t *testing.T) {
 		t.Errorf("create_note = %+v", created)
 	}
 
-	// The #tags of the content stay, the tags given are added.
+	// The #tags of the content stay, the tags given are added; the answer leaves the content out.
 	var edited note
 	call(t, agent, "edit_note", map[string]any{"note": "/Projects/Plan", "content": "# Plan\nshipped #go", "tags": []string{"done"}}, &edited)
-	if !strings.Contains(edited.Content, "shipped") || !slices.Equal(slices.Sorted(slices.Values(edited.Tags)), []string{"done", "go"}) {
+	if edited.Content != "" || edited.Path != "/Projects/Plan" || !slices.Equal(slices.Sorted(slices.Values(edited.Tags)), []string{"done", "go"}) {
 		t.Errorf("edit_note = %+v", edited)
 	}
 	var read note
 	call(t, agent, "read_note", map[string]any{"note": created.ID}, &read)
-	if read.Content != edited.Content {
+	if read.Content != "# Plan\nshipped #go\n\n#done" || read.CreatedAt == "" {
 		t.Errorf("read_note = %+v", read)
+	}
+
+	// A note without tags says so with [], and several notes are read in one call, in the order asked.
+	var bare note
+	call(t, agent, "create_note", map[string]any{"content": "# Bare"}, &bare)
+	result := call(t, agent, "read_note", map[string]any{"note": bare.ID}, nil)
+	if data, _ := json.Marshal(result.StructuredContent); !strings.Contains(string(data), `"tags":[]`) {
+		t.Errorf("read_note without tags = %s, want tags []", data)
+	}
+	var both []note
+	call(t, agent, "read_notes", map[string]any{"notes": []string{"/Bare", created.ID}}, &both)
+	if len(both) != 2 || both[0].ID != bare.ID || both[1].Content != "# Plan\nshipped #go\n\n#done" {
+		t.Errorf("read_notes = %+v", both)
+	}
+	call(t, agent, "delete_note", map[string]any{"note": bare.ID}, nil)
+
+	// tag_notes changes only the #tags, the rest of the text kept byte for byte, an unknown note reported.
+	var retagged []tagged
+	call(t, agent, "tag_notes", map[string]any{"notes": []string{"/Projects/Plan", "/Nowhere"}, "add": []string{"old"}, "remove": []string{"GO"}}, &retagged)
+	if len(retagged) != 2 || retagged[0].Error != "" || !slices.Equal(slices.Sorted(slices.Values(retagged[0].Tags)), []string{"done", "old"}) || retagged[1].Error == "" {
+		t.Errorf("tag_notes = %+v", retagged)
+	}
+	call(t, agent, "read_note", map[string]any{"note": created.ID}, &read)
+	if read.Content != "# Plan\nshipped\n\n#done #old" {
+		t.Errorf("read_note after tag_notes = %q", read.Content)
 	}
 
 	var matches []map[string]any
@@ -139,11 +165,17 @@ func TestNotes(t *testing.T) {
 		t.Errorf("search_notes = %v, recent_notes = %v", matches, recent)
 	}
 
-	var moved, listed []item
+	var moved []item
+	var listed folderPage
 	call(t, agent, "move_item", map[string]any{"item": "/Projects/Plan", "folder": "/Inbox"}, &moved)
 	call(t, agent, "list_folder", map[string]any{"folder": "/Inbox"}, &listed)
-	if len(moved) != 1 || len(listed) != 1 || listed[0].ID != created.ID {
+	if len(moved) != 1 || listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].ID != created.ID || listed.Items[0].CreatedAt == "" {
 		t.Errorf("move_item = %+v, list_folder = %+v", moved, listed)
+	}
+	// A page past the end is empty, the total still counts them all.
+	call(t, agent, "list_folder", map[string]any{"limit": 1, "offset": 5}, &listed)
+	if listed.Total != 2 || len(listed.Items) != 0 {
+		t.Errorf("list_folder of the root, offset 5 = %+v", listed)
 	}
 
 	// A folder goes to the trash with its content, and comes back with it.
@@ -155,7 +187,7 @@ func TestNotes(t *testing.T) {
 	var trash []map[string]any
 	call(t, agent, "list_trash", map[string]any{}, &trash)
 	call(t, agent, "restore_item", map[string]any{"item": inbox.ID}, &restored)
-	if len(trash) != 1 || len(restored) != 2 {
+	if len(trash) != 2 || len(restored) != 2 { // The folder and the Bare note deleted earlier.
 		t.Errorf("list_trash = %v, restore_item = %+v", trash, restored)
 	}
 	call(t, agent, "delete_note", map[string]any{"note": "/Inbox/Plan"}, &removed)
@@ -180,8 +212,8 @@ func TestTagsHistoryLinks(t *testing.T) {
 
 	var counted, tagged tags
 	call(t, agent, "tags", map[string]any{}, &counted)
-	call(t, agent, "tags", map[string]any{"tag": "go"}, &tagged)
-	if len(counted.Tags) != 1 || counted.Tags[0].Notes != 2 || len(tagged.Notes) != 2 {
+	call(t, agent, "tags", map[string]any{"tag": "go", "limit": 1}, &tagged)
+	if len(counted.Tags) != 1 || counted.Tags[0].Notes != 2 || len(tagged.Notes) != 1 || tagged.Total != 2 {
 		t.Errorf("tags = %+v, %+v", counted, tagged)
 	}
 
@@ -208,6 +240,12 @@ func TestTagsHistoryLinks(t *testing.T) {
 		Value string `json:"value"`
 	}
 	call(t, agent, "rename_tag", map[string]any{"tag": "go", "to": "golang"}, &renamed)
+	// A name taken refuses, unless merged.
+	call(t, agent, "create_note", map[string]any{"content": "# Merged\n#gl"}, nil)
+	if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "rename_tag", Arguments: map[string]any{"tag": "gl", "to": "golang"}}); err != nil || !result.IsError {
+		t.Errorf("rename_tag onto a taken name = %+v, %v; want an error", result, err)
+	}
+	call(t, agent, "rename_tag", map[string]any{"tag": "gl", "to": "golang", "merge": true}, &renamed)
 	var replaced struct {
 		Notes       int `json:"notes"`
 		Occurrences int `json:"occurrences"`
@@ -249,10 +287,20 @@ func TestFiles(t *testing.T) {
 	if imported.Folders != 1 || imported.Notes != 1 {
 		t.Errorf("import_notes = %+v", imported)
 	}
-	var out []exported
+	var out export
 	call(t, agent, "export_notes", map[string]any{"folder": "/Trip"}, &out)
-	if len(out) != 2 || out[0].Path != "Day.md" || !strings.Contains(out[0].Content, "# Day") || out[1].File != file.ID {
+	if out.Total != 2 || len(out.Files) != 2 || out.Files[0].Path != "Day.md" || !strings.Contains(out.Files[0].Content, "# Day") || out.Files[1].File != file.ID {
 		t.Errorf("export_notes = %+v", out)
+	}
+	// The path is not enough to read a note back: its id is.
+	var day note
+	call(t, agent, "read_note", map[string]any{"note": out.Files[0].ID}, &day)
+	if day.Path != "/Trip/Day" || out.Files[0].UpdatedAt == "" {
+		t.Errorf("export_notes id = %+v, read_note = %+v", out.Files[0], day)
+	}
+	call(t, agent, "export_notes", map[string]any{"folder": "/Trip", "offset": 1}, &out)
+	if out.Total != 2 || len(out.Files) != 1 || out.Files[0].File != file.ID {
+		t.Errorf("export_notes, offset 1 = %+v", out)
 	}
 
 	// A path climbing out of the import is refused before anything is sent.
@@ -281,8 +329,13 @@ func TestExportedFiles(t *testing.T) {
 	id := "0b6f8e2a-1c3d-4e5f-8a9b-0c1d2e3f4a5b"
 	var body bytes.Buffer
 	archive := zip.NewWriter(&body)
+	modified := time.Date(2026, 11, 2, 9, 30, 0, 0, time.UTC)
 	for name, content := range map[string]string{"Folder/": "", "Folder/Note.md": "text", filesDir + "/" + id + ".png": "bytes", filesDir + "/Other.md": "note"} {
-		entry, _ := archive.Create(name)
+		header := &zip.FileHeader{Name: name}
+		if name == "Folder/Note.md" {
+			header.Comment, header.Modified = "note-id", modified
+		}
+		entry, _ := archive.CreateHeader(header)
 		entry.Write([]byte(content))
 	}
 	archive.Close()
@@ -293,10 +346,29 @@ func TestExportedFiles(t *testing.T) {
 
 	got, err := exportedFiles(reader)
 	slices.SortFunc(got, func(a, b exported) int { return strings.Compare(a.Path, b.Path) })
-	want := []exported{{Path: "Folder/Note.md", Content: "text"}, {Path: filesDir + "/" + id + ".png", File: id}, {Path: filesDir + "/Other.md", Content: "note"}}
+	want := []exported{{Path: "Folder/Note.md", ID: "note-id", UpdatedAt: "2026-11-02T09:30:00Z", Content: "text"}, {Path: filesDir + "/" + id + ".png", File: id}, {Path: filesDir + "/Other.md", Content: "note"}}
 	slices.SortFunc(want, func(a, b exported) int { return strings.Compare(a.Path, b.Path) })
 	if err != nil || !slices.Equal(got, want) {
 		t.Errorf("exportedFiles = %v, %v, want %v", got, err, want)
+	}
+}
+
+func TestPage(t *testing.T) {
+	items := []int{0, 1, 2, 3, 4}
+	tests := map[string]struct {
+		limit, offset int
+		want          []int
+	}{
+		"every item":   {0, 0, items},
+		"first page":   {2, 0, []int{0, 1}},
+		"last page":    {2, 4, []int{4}},
+		"past the end": {2, 9, []int{}},
+		"all after":    {0, 3, []int{3, 4}},
+	}
+	for name, test := range tests {
+		if got := page(items, test.limit, test.offset); !slices.Equal(got, test.want) {
+			t.Errorf("%s: %v, want %v", name, got, test.want)
+		}
 	}
 }
 

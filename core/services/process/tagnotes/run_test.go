@@ -113,4 +113,12 @@ func TestTag(t *testing.T) {
 			t.Errorf("versions of %s = %+v, %v; want %d", id, versions.GetResult(), versions.GetErr(), want)
 		}
 	}
+
+	// #214: a stray ``` (its opening one read as indented code) no longer hides the tags written after it.
+	stray := note("# Markdown\n\n  \n    Code\n    ```\n{}\n```\n\n #Markdown #Code")
+	process = Process(ctx, tx, Input{Notes: []string{stray}, Add: []string{"Ressource"}})
+	process.Run()
+	if got := process.GetResult(); process.HasErr() || got[0].Error != "" || !slices.Equal(got[0].Tags, []string{"Code", "Markdown", "Ressource"}) {
+		t.Errorf("stray fence = %+v, %v", got, process.GetErr())
+	}
 }

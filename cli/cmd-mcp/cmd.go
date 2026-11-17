@@ -498,7 +498,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tag_notes",
 		Annotations: writes(false, true),
-		Description: "Add or remove tags on notes without sending their content: only their #tags change, the rest of the text stays as it is, and each note changed keeps its earlier text in note_history. A locked note is left, with the error. Instead of naming the notes, text, max_length, untagged and updated_before tag every note search_notes would find, without reading them; with dry_run, only lists those notes.",
+		Description: "Add or remove tags on notes without sending their content: only their #tags change, the rest of the text stays as it is, and each note changed keeps its earlier text in note_history. Missing tags are written at the end of the note, on its last line of tags or a new one. A #tag is read anywhere but in code (a closed ``` block, lines indented 4 spaces or a tab after a blank line, `inline`), a link or an address. A locked note, or a tag that would not be read where it is written, leaves the note as it was, with the error. Instead of naming the notes, text, max_length, untagged and updated_before tag every note search_notes would find, without reading them; with dry_run, only lists those notes.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, []tagged, error) {
 		for _, tag := range args.Add {
 			if !hashtag.Valid(tag) {

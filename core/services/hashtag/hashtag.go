@@ -1,4 +1,10 @@
 // Package hashtag reads the #tags of a note's markdown: they are what makes the tags of the note.
+//
+// The rule: a tag is # then letters, digits, _ or - (at least one letter), not glued to a letter, digit, #, \, &, /,
+// _ or - before it. It is not read inside a fenced block (``` to a closing ``` line), indented code (lines of 4
+// spaces or a tab after a blank line), inline code, a link (text and target) or an address. A ``` line that no
+// later ``` line closes hides nothing (#214): a stray one, often left by an import, would hide the rest of the
+// note, the tags Sync writes at its end too.
 package hashtag
 
 import (
@@ -14,10 +20,10 @@ var ErrInvalid = errors.New("a tag holds only letters, digits, _ or -, with at l
 
 var (
 	word = regexp.MustCompile(`#[\p{L}\p{N}_-]+`)
-	// skipped is what can hold a # without being a tag: fenced code, indented code, inline code, links
+	// skipped is what can hold a # without being a tag: fenced code (closed only), indented code, inline code, links
 	// (text and target), addresses. Indented code starts after a blank line, as it cannot cut a paragraph.
 	// TODO: in a loose list, a line indented 4 spaces after a blank line is a nested item, not code; tell them apart if a tag goes missing there.
-	skipped  = regexp.MustCompile("(?ms)^[ \\t]*```.*?(?:^[ \\t]*```[^\\n]*$|\\z)|(?:\\A|^[ \\t]*\\n)(?:(?: {4}|\\t)[^\\n]*(?:\\n|\\z))+|`[^`\\n]*`|\\[[^\\]\\n]*\\]\\([^)\\n]*\\)|\\]\\([^)\\n]*\\)|[a-zA-Z][a-zA-Z0-9+.-]*://\\S+")
+	skipped  = regexp.MustCompile("(?ms)^[ \\t]*```.*?^[ \\t]*```[^\\n]*$|(?:\\A|^[ \\t]*\\n)(?:(?: {4}|\\t)[^\\n]*(?:\\n|\\z))+|`[^`\\n]*`|\\[[^\\]\\n]*\\]\\([^)\\n]*\\)|\\]\\([^)\\n]*\\)|[a-zA-Z][a-zA-Z0-9+.-]*://\\S+")
 	onlyTags = regexp.MustCompile(`^ {0,3}#[\p{L}\p{N}_-]+(?:[ \t]+#[\p{L}\p{N}_-]+)*[ \t]*$`)
 )
 

@@ -19,7 +19,11 @@ func TestParse(t *testing.T) {
 		"inside a word":      {"C# a#b &#39;", nil},
 		"inline code":        {"`#go` #sql", []string{"sql"}},
 		"fenced code":        {"```c\n#include <a>\n```\n#sql", []string{"sql"}},
-		"unclosed fence":     {"```\n#go", nil},
+		"unclosed fence":     {"```\n#go", []string{"go"}},
+		"fence closed later": {"```\n#go\n```\n#sql\n```", []string{"sql"}},
+		// #214: the opening ``` is indented code, so the closing one opened a fence that hid the rest of the note.
+		"stray fence":        {"  \n    Code\n    ```\n{}\n```\n  \n\n #Markdown #Code \n\n#Ressource", []string{"Markdown", "Code", "Ressource"}},
+		"indented in a list": {"- item\n\n    #go", nil},
 		"link target":        {"[x](http://a.b/#go) [y](/p#sql)", nil},
 		"link text":          {"[#go #fyp](http://a.b) ![#img](/f) #sql", []string{"sql"}},
 		"bracket in text":    {"[a [b] #go](http://a.b)", []string{"go"}},
@@ -73,15 +77,16 @@ func TestSync(t *testing.T) {
 		tags    []string
 		want    string
 	}{
-		"nothing to do":    {"du #go", []string{"GO"}, "du #go"},
-		"adds a paragraph": {"texte", []string{"go", "sql"}, "texte\n\n#go #sql"},
-		"adds to tag line": {"texte\n\n#go", []string{"go", "sql"}, "texte\n\n#go #sql"},
-		"adds to empty":    {"", []string{"go"}, "#go"},
-		"removes":          {"du #go et #sql", []string{"sql"}, "du et #sql"},
-		"removes and adds": {"du #go", []string{"sql"}, "du\n\n#sql"},
-		"keeps the code":   {"`#go` #sql", nil, "`#go`"},
-		"after code":       {"texte\n\n    #a", []string{"go"}, "texte\n\n    #a\n\n#go"},
-		"keeps unstuck":    {"#a#b", []string{"a"}, "#a #b"},
+		"nothing to do":     {"du #go", []string{"GO"}, "du #go"},
+		"adds a paragraph":  {"texte", []string{"go", "sql"}, "texte\n\n#go #sql"},
+		"adds to tag line":  {"texte\n\n#go", []string{"go", "sql"}, "texte\n\n#go #sql"},
+		"adds to empty":     {"", []string{"go"}, "#go"},
+		"removes":           {"du #go et #sql", []string{"sql"}, "du et #sql"},
+		"removes and adds":  {"du #go", []string{"sql"}, "du\n\n#sql"},
+		"keeps the code":    {"`#go` #sql", nil, "`#go`"},
+		"after code":        {"texte\n\n    #a", []string{"go"}, "texte\n\n    #a\n\n#go"},
+		"keeps unstuck":     {"#a#b", []string{"a"}, "#a #b"},
+		"after a stray ```": {"texte\n```", []string{"go"}, "texte\n```\n\n#go"},
 	}
 	for name, c := range cases {
 		if got := Sync(c.content, c.tags); got != c.want {

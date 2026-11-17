@@ -2,6 +2,7 @@ package tagnotes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -14,6 +15,9 @@ import (
 	"github.com/cyril-fl/tide/core/services/process/resolveitem"
 	"github.com/uptrace/bun"
 )
+
+// ErrUnread is a tag written in the text where hashtag.Parse would not read it: the note is left as it was.
+var ErrUnread = errors.New("the tag would not be read where it is written")
 
 // Input names the notes by uuid or path from the root (/Folder/Note), and the tags without their #.
 type Input struct {
@@ -120,7 +124,13 @@ func (p *run) tagNote(tx bun.Tx, done *Tagged) error {
 	tags := slices.DeleteFunc(hashtag.Parse(note.Content), func(tag string) bool {
 		return slices.ContainsFunc(p.input.Remove, func(r string) bool { return strings.EqualFold(r, tag) })
 	})
-	if next := hashtag.Sync(note.Content, append(tags, p.input.Add...)); next != note.Content {
+	next := hashtag.Sync(note.Content, append(tags, p.input.Add...))
+	for _, tag := range p.input.Add {
+		if !slices.ContainsFunc(hashtag.Parse(next), func(t string) bool { return strings.EqualFold(t, tag) }) {
+			return fmt.Errorf("%w: %q", ErrUnread, tag)
+		}
+	}
+	if next != note.Content {
 		// Restore keeps the text replaced even within a writing session: nothing else holds it.
 		patch := patchnote.Process(p.ctx, tx, patchnote.Input{ID: note.Item.ID, Content: &next, Restore: true})
 		patch.Run()

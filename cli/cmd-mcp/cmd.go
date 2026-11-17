@@ -647,7 +647,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		for _, found := range result.Notes {
 			read := carrier{ID: found.Id, Title: found.Title, Path: found.Path, Readonly: apiclient.Deref(found.Readonly)}
 			if args.Dates {
-				read.CreatedAt, read.UpdatedAt = found.CreatedAt, apiclient.Deref(found.UpdatedAt)
+				read.CreatedAt, read.UpdatedAt = found.CreatedAt, editedAt(found.UpdatedAt, found.CreatedAt)
 			}
 			notes = append(notes, read)
 		}
@@ -1292,9 +1292,17 @@ func importDir(files []importFile) (fstest.MapFS, error) {
 	return dir, nil
 }
 
+// editedAt is the API's updated_at, which a note never edited lacks: its version is then created_at.
+func editedAt(updated *string, created string) string {
+	if updated == nil {
+		return created
+	}
+	return *updated
+}
+
 // one turns an item the API answers into what the agent reads.
 func one(found apiclient.DomainItem) item {
-	return item{ID: found.Id, Kind: string(found.Kind), Title: found.Title, CreatedAt: found.CreatedAt, UpdatedAt: apiclient.Deref(found.UpdatedAt)}
+	return item{ID: found.Id, Kind: string(found.Kind), Title: found.Title, CreatedAt: found.CreatedAt, UpdatedAt: editedAt(found.UpdatedAt, found.CreatedAt)}
 }
 
 // made turns the items of an answer into what the agent reads, for a tool answering them.
@@ -1345,6 +1353,6 @@ func readNote(result apiclient.ReaditemResult, err error) (note, error) {
 		Tags:      append([]string{}, apiclient.Deref(result.Tags)...),
 		Readonly:  apiclient.Deref(result.Readonly),
 		CreatedAt: result.Item.CreatedAt,
-		UpdatedAt: apiclient.Deref(result.Item.UpdatedAt),
+		UpdatedAt: editedAt(result.Item.UpdatedAt, result.Item.CreatedAt),
 	}, nil
 }

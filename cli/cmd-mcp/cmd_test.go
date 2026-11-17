@@ -188,6 +188,12 @@ func TestNotes(t *testing.T) {
 	if len(both) != 2 || both[0].ID != bare.ID || both[1].Content != "# Plan\nshipped #go\n\n#done" {
 		t.Errorf("read_notes = %+v", both)
 	}
+	// A note never edited has no updated_at in the API: the agent gets created_at (#215).
+	var dated []note
+	call(t, agent, "read_notes", map[string]any{"notes": []string{"/Bare"}}, &dated)
+	if len(dated) != 1 || dated[0].UpdatedAt == "" || dated[0].UpdatedAt != dated[0].CreatedAt {
+		t.Errorf("read_notes = %+v, want updated_at = created_at", dated)
+	}
 	// max_chars gives the start of each content and its whole length; a short one is left whole.
 	call(t, agent, "read_notes", map[string]any{"notes": []string{"/Bare", created.ID}, "max_chars": 7}, &both)
 	if len(both) != 2 || both[0].Truncated || both[0].Content != "# Bare" || both[0].Length == nil || *both[0].Length != 6 ||

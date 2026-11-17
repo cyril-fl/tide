@@ -176,7 +176,10 @@ func (p *run) loadChildren() {
 // toDomainErr turns no row, or an id that is not a uuid, into ErrNotFound.
 func toDomainErr(err error, id string) error {
 	var pgErr pgdriver.Error
-	if errors.Is(err, sql.ErrNoRows) || errors.As(err, &pgErr) && pgErr.Field('C') == invalidText {
+	if errors.As(err, &pgErr) && pgErr.Field('C') == invalidText {
+		return fmt.Errorf("%w: %q is not a uuid, and a path starts with / (/Folder/Note)", ErrNotFound, id)
+	}
+	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("%w: %q", ErrNotFound, id)
 	}
 	return err

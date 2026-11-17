@@ -128,3 +128,13 @@ func TestResolvePaths(t *testing.T) {
 		t.Errorf("err = %v, want both %s and %s with their date", twins.GetErr(), twin1, twin2)
 	}
 }
+
+func TestCloseTo(t *testing.T) {
+	paths := map[string]string{"1": "/Archives/8pt system", "2": "/Other/x"}
+	if got := closeTo(paths, "/8PT system"); !strings.Contains(got, "/Archives/8pt system") {
+		t.Errorf("closeTo = %q", got)
+	}
+	if got := closeTo(paths, "/nothing"); got != "" {
+		t.Errorf("closeTo = %q, want empty", got)
+	}
+}

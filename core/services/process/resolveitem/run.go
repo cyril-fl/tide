@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -113,7 +114,7 @@ func (p *run) resolvePath(path string) {
 		// Said apart from a wrong path, so the caller turns to the right command instead of searching for it.
 		p.SetErr(fmt.Errorf("%w: %q is a %s, not a %s", ErrNotFound, path, all[0].Kind, p.kind))
 	case len(found) == 0:
-		p.SetErr(fmt.Errorf("%w: %q", ErrNotFound, path))
+		p.SetErr(fmt.Errorf("%w: %q%s", ErrNotFound, path, closeTo(p.cache.paths, path)))
 	case len(found) == 1:
 		p.cache.result = append(p.cache.result, found[0].ID)
 	default:
@@ -124,4 +125,20 @@ func (p *run) resolvePath(path string) {
 		}
 		p.SetErr(fmt.Errorf("%w: %q is %s", ErrAmbiguous, path, strings.Join(described, ", ")))
 	}
+}
+
+// closeTo lists up to three paths holding the last name of path, for a wrong folder or a case slip; empty when none.
+func closeTo(paths map[string]string, path string) string {
+	name := strings.ToLower(path[strings.LastIndex(path, "/")+1:])
+	var close []string
+	for _, at := range paths {
+		if name != "" && strings.Contains(strings.ToLower(at), name) {
+			close = append(close, at)
+		}
+	}
+	if len(close) == 0 {
+		return ""
+	}
+	slices.Sort(close)
+	return " (close paths: " + strings.Join(close[:min(3, len(close))], ", ") + ")"
 }

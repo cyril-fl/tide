@@ -3,6 +3,7 @@ package readnotes
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -16,6 +17,16 @@ func TestInvalid(t *testing.T) {
 		process.Run()
 		if !errors.Is(process.GetErr(), ErrInvalid) {
 			t.Errorf("%s: err = %v, want %v", name, process.GetErr(), ErrInvalid)
+		}
+	}
+	// The message names the faulty parameter and the value received.
+	for process, want := range map[*run]string{
+		Process(context.Background(), nil, make([]string, MaxNotes+1), 0): "notes: 51 items received",
+		Process(context.Background(), nil, []string{"x"}, -1):             "max_chars: -1 received",
+	} {
+		process.Run()
+		if !strings.Contains(process.GetErr().Error(), want) {
+			t.Errorf("err = %v, want it to contain %q", process.GetErr(), want)
 		}
 	}
 }

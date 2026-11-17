@@ -15,7 +15,7 @@ import (
 // MaxNotes is how many notes one call reads: an agent's batch, not the account.
 const MaxNotes = 50
 
-var ErrInvalid = errors.New("between 1 and 50 notes, and max_chars not negative")
+var ErrInvalid = errors.New("invalid argument")
 
 // Note is a note as readitem gives it, with the whole content's length and truncated when max_chars cut it.
 type Note struct {
@@ -65,8 +65,11 @@ func (p *run) GetResult() []Note {
 // Methods
 
 func (p *run) checkInput() {
-	if len(p.refs) == 0 || len(p.refs) > MaxNotes || p.maxChars < 0 {
-		p.SetErr(ErrInvalid)
+	switch {
+	case len(p.refs) == 0 || len(p.refs) > MaxNotes:
+		p.SetErr(fmt.Errorf("%w: notes: %d items received, between 1 and %d wanted", ErrInvalid, len(p.refs), MaxNotes))
+	case p.maxChars < 0:
+		p.SetErr(fmt.Errorf("%w: max_chars: %d received, 0 or more wanted", ErrInvalid, p.maxChars))
 	}
 }
 

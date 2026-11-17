@@ -81,14 +81,22 @@ func (p *run) resolveRefs() {
 	p.SetErr(process.GetErr())
 }
 
-// TODO: readitem loads the account's paths for each note, fine for 50; one load for the batch if it gets slow.
+// readNotes loads the account's paths once for the batch, not once per note.
 func (p *run) readNotes() {
+	if p.HasErr() {
+		return
+	}
+	paths, err := domain.Paths(p.ctx, p.db)
+	if err != nil {
+		p.SetErr(err)
+		return
+	}
 	for i, id := range p.cache.ids {
 		if p.HasErr() {
 			return
 		}
 
-		process := readitem.Process(p.ctx, p.db, domain.NOTE, id)
+		process := readitem.Process(p.ctx, p.db, domain.NOTE, id).WithPaths(paths)
 		process.Run()
 		if process.HasErr() {
 			p.SetErr(fmt.Errorf("%s: %w", p.refs[i], process.GetErr()))

@@ -86,17 +86,18 @@ func TestResolvePaths(t *testing.T) {
 		want    []string
 		wantErr error
 	}{
-		"folder":          {domain.FOLDER, []string{base}, []string{folderID}, nil},
-		"nested":          {domain.NOTE, []string{base + "/Idea"}, []string{idea}, nil},
-		"/ in the title":  {domain.NOTE, []string{base + "/Paris / Rome"}, []string{slashed}, nil},
-		"kept in order":   {domain.NOTE, []string{"a-uuid", base + "/Idea"}, []string{"a-uuid", idea}, nil},
-		"kind filters":    {domain.FOLDER, []string{base + "/Idea"}, []string{same.GetResult().ID}, nil},
-		"wrong kind":      {domain.NOTE, []string{base}, nil, ErrNotFound},
-		"any kind":        {"", []string{base}, []string{folderID}, nil},
-		"any kind, twins": {"", []string{base + "/Idea"}, nil, ErrAmbiguous},
-		"not found":       {domain.NOTE, []string{base + "/Nope"}, nil, ErrNotFound},
-		"trashed":         {domain.NOTE, []string{base + "/Trashed"}, nil, ErrNotFound},
-		"ambiguous":       {domain.NOTE, []string{base + "/Twin"}, nil, ErrAmbiguous},
+		"folder":            {domain.FOLDER, []string{base}, []string{folderID}, nil},
+		"nested":            {domain.NOTE, []string{base + "/Idea"}, []string{idea}, nil},
+		"/ in the title":    {domain.NOTE, []string{base + "/Paris / Rome"}, []string{slashed}, nil},
+		"kept in order":     {domain.NOTE, []string{"a-uuid", base + "/Idea"}, []string{"a-uuid", idea}, nil},
+		"paths loaded once": {domain.NOTE, []string{base + "/Idea", base + "/Paris / Rome"}, []string{idea, slashed}, nil},
+		"kind filters":      {domain.FOLDER, []string{base + "/Idea"}, []string{same.GetResult().ID}, nil},
+		"wrong kind":        {domain.NOTE, []string{base}, nil, ErrNotFound},
+		"any kind":          {"", []string{base}, []string{folderID}, nil},
+		"any kind, twins":   {"", []string{base + "/Idea"}, nil, ErrAmbiguous},
+		"not found":         {domain.NOTE, []string{base + "/Nope"}, nil, ErrNotFound},
+		"trashed":           {domain.NOTE, []string{base + "/Trashed"}, nil, ErrNotFound},
+		"ambiguous":         {domain.NOTE, []string{base + "/Twin"}, nil, ErrAmbiguous},
 	}
 
 	for name, test := range tests {

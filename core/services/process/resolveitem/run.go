@@ -35,6 +35,7 @@ type candidate struct {
 }
 
 type cache struct {
+	paths  map[string]string // loaded at the first path, for every path of the refs
 	result []string
 }
 
@@ -78,13 +79,17 @@ func (p *run) resolveRefs() {
 
 // resolvePath fails on several matches: titles are not unique, and acting on the wrong note is worse than an error.
 func (p *run) resolvePath(path string) {
-	paths, err := domain.Paths(p.ctx, p.db)
-	if err != nil {
-		p.SetErr(err)
-		return
+	if p.cache.paths == nil {
+		paths, err := domain.Paths(p.ctx, p.db)
+		if err != nil {
+			p.SetErr(err)
+			return
+		}
+		p.cache.paths = paths
 	}
 	var ids []string
-	for id, at := range paths {
+	var err error
+	for id, at := range p.cache.paths {
 		if at == path {
 			ids = append(ids, id)
 		}

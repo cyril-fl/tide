@@ -39,11 +39,12 @@ type run struct {
 	plumprimitive.Process
 	cache
 
-	ctx  context.Context
-	db   bun.IDB // *bun.DB or bun.Tx: tests run inside a rolled-back transaction
-	kind domain.Kind
-	id   string
-	skip bool // no children: the web app reads them by pages
+	ctx   context.Context
+	db    bun.IDB // *bun.DB or bun.Tx: tests run inside a rolled-back transaction
+	kind  domain.Kind
+	id    string
+	skip  bool              // no children: the web app reads them by pages
+	paths map[string]string // the account's paths, loaded once for a batch; loaded here when nil
 }
 
 type cache struct {
@@ -73,6 +74,12 @@ func (p *run) Run() {
 	p.loadPath()
 	p.loadNote()
 	p.loadChildren()
+}
+
+// WithPaths reuses the account's paths of domain.Paths, for a caller reading many items.
+func (p *run) WithPaths(paths map[string]string) *run {
+	p.paths = paths
+	return p
 }
 
 // Getters & Setters
@@ -142,7 +149,10 @@ func (p *run) loadPath() {
 		return
 	}
 
-	paths, err := domain.Paths(p.ctx, p.db)
+	paths, err := p.paths, error(nil)
+	if paths == nil {
+		paths, err = domain.Paths(p.ctx, p.db)
+	}
 	p.cache.result.Path = paths[p.cache.result.Item.ID]
 	if err == nil && p.cache.result.Path == "" {
 		err = fmt.Errorf("%w: %q", ErrNotFound, p.cache.id) // in a trashed folder

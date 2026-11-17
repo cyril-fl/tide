@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/cyril-fl/tide/core/domain"
@@ -24,6 +25,15 @@ func TestInvalidTag(t *testing.T) {
 
 	if !errors.Is(process.GetErr(), hashtag.ErrInvalid) {
 		t.Fatalf("err = %v, want %v", process.GetErr(), hashtag.ErrInvalid)
+	}
+}
+
+func TestTagInAddAndRemove(t *testing.T) {
+	process := Process(context.Background(), nil, Input{Notes: []string{"x"}, Add: []string{"Foo"}, Remove: []string{"foo"}})
+	process.Run()
+
+	if !errors.Is(process.GetErr(), hashtag.ErrInvalid) || !strings.Contains(process.GetErr().Error(), "Foo in both") {
+		t.Fatalf("err = %v, want %v naming Foo", process.GetErr(), hashtag.ErrInvalid)
 	}
 }
 

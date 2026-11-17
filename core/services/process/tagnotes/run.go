@@ -74,6 +74,10 @@ func (p *run) checkInput() {
 			p.SetErr(fmt.Errorf("%w: %q", hashtag.ErrInvalid, tag))
 			return
 		}
+		if slices.ContainsFunc(p.input.Remove, func(r string) bool { return strings.EqualFold(r, tag) }) {
+			p.SetErr(fmt.Errorf("%w: add and remove: %s in both", hashtag.ErrInvalid, tag))
+			return
+		}
 	}
 }
 

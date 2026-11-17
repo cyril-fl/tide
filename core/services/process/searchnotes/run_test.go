@@ -236,6 +236,7 @@ func TestSearchFilter(t *testing.T) {
 	ctx, tx = testaccount.New(t, ctx, tx)
 
 	word := fmt.Sprintf("zq%d", time.Now().UnixNano())
+	ids := map[string]string{}
 	for _, content := range []string{
 		"# Empty",
 		"# Tagged\n\n#" + word,
@@ -247,6 +248,7 @@ func TestSearchFilter(t *testing.T) {
 		if process.HasErr() {
 			t.Fatalf("note %q: %v", content, process.GetErr())
 		}
+		ids[string(process.GetResult().Title)] = process.GetResult().ID
 		if content == "# Trashed" {
 			trash := deleteitems.Process(ctx, tx, domain.NOTE, []string{process.GetResult().ID})
 			trash.Run()
@@ -279,6 +281,33 @@ func TestSearchFilter(t *testing.T) {
 		slices.Sort(titles)
 		if search.HasErr() || strings.Join(titles, ",") != test.want || search.GetTotal() != len(titles) {
 			t.Errorf("%s: titles = %v of %d, %v; want %s", name, titles, search.GetTotal(), search.GetErr(), test.want)
+		}
+	}
+
+	// Stale notes: changed (or created) before the date, the oldest first without a text, ranked as usual with one.
+	for title, date := range map[string]string{"Long": "2020-01-01", "Empty": "2021-01-01", "Trashed": "2019-01-01"} {
+		if _, err := tx.NewRaw("UPDATE items SET created_at = ?, updated_at = ? WHERE id = ?", date, date, ids[title]).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, test := range map[string]struct {
+		text   string
+		filter Filter
+		want   string
+	}{
+		"stale oldest first": {"", Filter{UpdatedBefore: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)}, "Long,Empty"},
+		"stale before both":  {"", Filter{UpdatedBefore: time.Date(2020, 6, 1, 0, 0, 0, 0, time.UTC)}, "Long"},
+		"stale and untagged": {"", Filter{UpdatedBefore: time.Now().Add(time.Hour), Untagged: true}, "Long,Empty"},
+		"stale and text":     {word, Filter{UpdatedBefore: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)}, "Long"},
+	} {
+		search := Process(ctx, tx, test.text).Filter(test.filter)
+		search.Run()
+		var titles []string
+		for _, match := range search.GetResult() {
+			titles = append(titles, match.Title)
+		}
+		if search.HasErr() || strings.Join(titles, ",") != test.want {
+			t.Errorf("%s: titles = %v, %v; want %s", name, titles, search.GetErr(), test.want)
 		}
 	}
 

@@ -82,11 +82,12 @@ func limitOf(asked *int) int {
 }
 
 type searchArgs struct {
-	Text      string `json:"text,omitempty" jsonschema:"the text to find in the title or the content of the notes; may be left out with max_length or untagged"`
-	MaxLength *int   `json:"max_length,omitempty" jsonschema:"only the notes whose content, title line included, has at most that many characters: the empty or title-only ones"`
-	Untagged  bool   `json:"untagged,omitempty" jsonschema:"only the notes with no tag"`
-	Limit     *int   `json:"limit,omitempty" jsonschema:"how many notes at most, 50 when left out, 0 for all of them"`
-	Offset    int    `json:"offset,omitempty" jsonschema:"how many matches to skip: the next page starts at offset + limit"`
+	Text          string `json:"text,omitempty" jsonschema:"the text to find in the title or the content of the notes; may be left out with max_length, untagged or updated_before"`
+	MaxLength     *int   `json:"max_length,omitempty" jsonschema:"only the notes whose content, title line included, has at most that many characters: the empty or title-only ones"`
+	Untagged      bool   `json:"untagged,omitempty" jsonschema:"only the notes with no tag"`
+	UpdatedBefore string `json:"updated_before,omitempty" jsonschema:"only the notes last changed before this day (2026-01-31) or RFC 3339 instant: the stale ones, the oldest first when there is no text"`
+	Limit         *int   `json:"limit,omitempty" jsonschema:"how many notes at most, 50 when left out, 0 for all of them"`
+	Offset        int    `json:"offset,omitempty" jsonschema:"how many matches to skip: the next page starts at offset + limit"`
 }
 
 // searchPage is a page of matches and their total: those read, and the notes after them that may match.
@@ -363,10 +364,13 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "search_notes",
 		Annotations: reads(),
-		Description: "Find the notes whose title or content contains a text, with the line where it was found, and their total: the first 50, title matches first, or limit and offset. max_length and untagged keep only the short or untagged notes, with or without a text, so that sorting the account reads only those.",
+		Description: "Find the notes whose title or content contains a text, with the line where it was found, and their total: the first 50, title matches first, or limit and offset. max_length, untagged and updated_before keep only the short, untagged or stale notes, with or without a text, so that sorting the account reads only those.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, searchPage, error) {
 		limit := limitOf(args.Limit)
 		params := &apiclient.GetApiSearchParams{Q: &args.Text, MaxLength: args.MaxLength, Untagged: &args.Untagged, Limit: &limit, Offset: &args.Offset}
+		if args.UpdatedBefore != "" {
+			params.UpdatedBefore = &args.UpdatedBefore
+		}
 		matches, total, err := paged[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, params))
 		return nil, searchPage{Matches: append([]apiclient.SearchnotesMatch{}, matches...), Total: total}, err
 	})

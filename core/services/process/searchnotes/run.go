@@ -44,8 +44,9 @@ type run struct {
 
 // Filter keeps the notes of a search, with or without a text: what an agent sorting the account reads first.
 type Filter struct {
-	MaxLength int  // content (title line included) of at most that many characters; 0: any length
-	Untagged  bool // notes with no tag
+	MaxLength     int       // content (title line included) of at most that many characters; 0: any length
+	Untagged      bool      // notes with no tag
+	UpdatedBefore time.Time // notes last changed (or created, never changed) before it, the oldest first without a text; zero: any date
 }
 
 type cache struct {
@@ -135,6 +136,10 @@ func (p *run) loadCandidates() {
 	if p.filter.Untagged {
 		query += " AND NOT EXISTS (SELECT 1 FROM notes_on_tags AS nt WHERE nt.note_id = i.id)"
 	}
+	if !p.filter.UpdatedBefore.IsZero() {
+		query += " AND coalesce(i.updated_at, i.created_at) < ?"
+		args = append(args, p.filter.UpdatedBefore)
+	}
 	var rows []candidate
 	p.SetErr(p.db.NewRaw(`
 		SELECT i.id, coalesce(i.updated_at, i.created_at) AS updated_at, coalesce(mn.headings @> ?::smallint[], false) AS in_heading
@@ -171,7 +176,11 @@ func (p *run) loadCandidates() {
 		rows[i].InTitle = strings.Contains(strings.ToLower(p.cache.tree.Titles[rows[i].ID]), text)
 		rows[i].Backlinks = backlinks[rows[i].ID]
 	}
+	oldestFirst := text == "" && !p.filter.UpdatedBefore.IsZero() // looking for stale notes: the first page the oldest
 	live := domain.Live(p.cache.tree, rows, func(c candidate) string { return c.ID }, func(a, b candidate) int {
+		if oldestFirst {
+			return a.UpdatedAt.Compare(b.UpdatedAt)
+		}
 		return cmp.Or(
 			boolOrder(b.InTitle)-boolOrder(a.InTitle),
 			boolOrder(b.InHeading)-boolOrder(a.InHeading),

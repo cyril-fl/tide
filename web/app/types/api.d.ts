@@ -3325,12 +3325,14 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    /** @description text to find, may be left out with max_length or untagged */
+                    /** @description text to find, may be left out with max_length, untagged or updated_before */
                     q?: string;
                     /** @description only the notes whose content (title line included) has at most that many characters */
                     max_length?: number;
                     /** @description only the notes with no tag */
                     untagged?: boolean;
+                    /** @description only the notes last changed before this day (2026-01-31) or RFC 3339 instant, the oldest first without q */
+                    updated_before?: string;
                     /** @description matches in the page, all when left out or 0 */
                     limit?: number;
                     /** @description matches skipped before the page */

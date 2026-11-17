@@ -776,7 +776,7 @@ type GetApiResolveParams struct {
 
 // GetApiSearchParams defines parameters for GetApiSearch.
 type GetApiSearchParams struct {
-	// Q text to find, may be left out with max_length or untagged
+	// Q text to find, may be left out with max_length, untagged or updated_before
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
 
 	// MaxLength only the notes whose content (title line included) has at most that many characters
@@ -784,6 +784,9 @@ type GetApiSearchParams struct {
 
 	// Untagged only the notes with no tag
 	Untagged *bool `form:"untagged,omitempty" json:"untagged,omitempty"`
+
+	// UpdatedBefore only the notes last changed before this day (2026-01-31) or RFC 3339 instant, the oldest first without q
+	UpdatedBefore *string `form:"updated_before,omitempty" json:"updated_before,omitempty"`
 
 	// Limit matches in the page, all when left out or 0
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -5246,6 +5249,18 @@ func NewGetApiSearchRequest(server string, params *GetApiSearchParams) (*http.Re
 		if params.Untagged != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "untagged", *params.Untagged, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.UpdatedBefore != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "updated_before", *params.UpdatedBefore, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

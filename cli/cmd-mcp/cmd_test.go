@@ -158,6 +158,14 @@ func TestNotes(t *testing.T) {
 			t.Errorf("search_notes %v = %+v, want Bare alone", args, short)
 		}
 	}
+	// updated_before alone gives the notes changed before it (their order is that of the test transaction's now()).
+	for date, want := range map[string]int{"2999-01-01": 2, "2000-01-01": 0} {
+		var stale searchPage
+		call(t, agent, "search_notes", map[string]any{"updated_before": date}, &stale)
+		if len(stale.Matches) != want || stale.Total != want {
+			t.Errorf("search_notes updated_before %s = %+v, want %d notes", date, stale, want)
+		}
+	}
 	// The next page is empty, the total still counts Bare.
 	var after searchPage
 	call(t, agent, "search_notes", map[string]any{"untagged": true, "offset": 1}, &after)

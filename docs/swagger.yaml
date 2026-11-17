@@ -3204,7 +3204,7 @@ paths:
       description: The text in the title first, then in a heading, then the notes
         with the most backlinks, the latest edited, by path.
       parameters:
-      - description: text to find, may be left out with max_length or untagged
+      - description: text to find, may be left out with max_length, untagged or updated_before
         in: query
         name: q
         schema:
@@ -3220,6 +3220,12 @@ paths:
         name: untagged
         schema:
           type: boolean
+      - description: only the notes last changed before this day (2026-01-31) or RFC
+          3339 instant, the oldest first without q
+        in: query
+        name: updated_before
+        schema:
+          type: string
       - description: matches in the page, all when left out or 0
         in: query
         name: limit

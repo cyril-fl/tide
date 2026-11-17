@@ -51,7 +51,7 @@ func Handler(api http.Handler, version string) http.Handler {
 			return
 		}
 
-		server := mcp.NewServer(&mcp.Implementation{Name: config.Current.Name, Title: config.Title(), Version: version}, nil)
+		server := mcp.NewServer(&mcp.Implementation{Name: config.Current.Name, Title: config.Title(), Version: version}, &mcp.ServerOptions{Instructions: cmdmcp.Instructions(readOnly)})
 		cmdmcp.AddTools(server, client, readOnly)
 		mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, options).ServeHTTP(w, r)
 	})

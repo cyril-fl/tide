@@ -354,9 +354,28 @@ func Serve(cobra *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	server := mcp.NewServer(&mcp.Implementation{Name: config.Current.Name, Title: config.Title(), Version: cobra.Root().Version}, nil)
+	server := mcp.NewServer(&mcp.Implementation{Name: config.Current.Name, Title: config.Title(), Version: cobra.Root().Version}, &mcp.ServerOptions{Instructions: Instructions(false)})
 	AddTools(server, client, false)
 	return server.Run(cobra.Context(), &mcp.StdioTransport{})
+}
+
+// Instructions tells an agent the cheap way through a big account, which its client puts in its system prompt: in the
+// benchmark of #198, reading whole notes and rewriting them to tag them made most of the cost. The writing tips are
+// left out when readOnly, whose tools cannot write.
+func Instructions(readOnly bool) string {
+	text := "The account's markdown notes, in folders; name a note or folder by its uuid or its path from the root (/Folder/Note).\n" +
+		"Work through many notes reading as little as possible:\n" +
+		"- Call tags once for the account's tags (prefix or min_notes to narrow it) and keep the list.\n" +
+		"- Find the candidates on the server instead of reading: search_notes with untagged, max_length (empty or title-only notes), updated_before (stale notes) or a text.\n" +
+		"- Read up to 50 notes per call with read_notes and max_chars first; in full only those that need it.\n" +
+		"- Lists give 50 items and the total: split a big folder into list_folder pages (limit, offset), one per subagent if you have them.\n" +
+		"- Subagents do not receive these instructions: put the lines they need in their prompt."
+	if !readOnly {
+		text += "\n- Tag with tag_notes, given the notes or the filters of search_notes (dry_run first), never by rewriting a note with edit_note, which replaces all of it.\n" +
+			"- Fold a tag into another with rename_tag and merge; replace a text in every note with replace_notes (dry_run first).\n" +
+			"- Rewrites keep the old text in note_history, deletions go to the trash."
+	}
+	return text
 }
 
 // AddTools gives the server the tools acting through client, for the account of its session; the reading ones only
@@ -608,7 +627,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tags",
 		Annotations: reads(),
-		Description: "List the notes carrying a tag, with their path: the first 50 and the total, unless limit says otherwise; dates adds when each was created and changed. Without a tag, the account's tags, most used first, prefix and min_notes keeping only some. Tags of a note are set by create_note and edit_note.",
+		Description: "List the notes carrying a tag, with their path: the first 50 and the total, unless limit says otherwise; dates adds when each was created and changed. Without a tag, the account's tags, most used first, prefix and min_notes keeping only some. Tags of a note are set by tag_notes.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagsArgs) (*mcp.CallToolResult, tags, error) {
 		if args.Tag == "" {
 			counts, err := decode[[]apiclient.CounttagsTagCount](client.GetApiGraph(ctx))

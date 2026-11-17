@@ -131,6 +131,15 @@ un jeton d'API ou une connexion OAuth en lecture seule (section 4).
 en langage naturel : « range mes notes de réunion de novembre dans /Travail/Réunions » devient un
 `search_notes`, un `create_folder`, puis une suite de `move_item`.
 
+Le serveur lui donne aussi des consignes, que Claude Code met dans son prompt système : la façon économe de
+traiter beaucoup de notes, celle du banc d'essai #198. Appeler `tags` une fois et garder la liste, trouver
+les candidates sur le serveur avant de lire (`search_notes` avec `untagged`, `max_length`, `updated_before`),
+lire par lots en aperçu (`read_notes` avec `max_chars`), découper un gros dossier en pages de `list_folder`,
+une par sous-agent, taguer avec `tag_notes` (jamais en réécrivant la note par `edit_note`), fusionner deux
+tags avec `rename_tag` et `merge`. Avec un jeton en lecture seule, les consignes d'écriture sont retirées.
+Les sous-agents de Claude Code ne les reçoivent pas (vérifié le 2026-11-17) : les consignes demandent à
+l'agent principal de leur passer ce qu'il leur faut.
+
 | Outil | Ce qu'il fait |
 |---|---|
 | `search_notes` | Les notes dont le titre ou le contenu contient un texte, avec la ligne trouvée, et leur total : les 50 premières, ou `limit` (0 pour toutes) et `offset`. `max_length` (au plus N caractères, ligne de titre comprise : les notes vides ou réduites au titre) `untagged` (sans tag) et `updated_before` (modifiées avant un jour ou un instant, les plus anciennes d'abord sans texte) ne gardent que les candidates, avec ou sans texte. Un motif d'inachèvement (`[Table could not be rendered]`, un `/` seul) se cherche comme texte |

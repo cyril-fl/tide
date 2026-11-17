@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -99,6 +100,49 @@ func TestAddTools(t *testing.T) {
 		if !slices.Contains(names, want) {
 			t.Errorf("tools = %v, missing %q", names, want)
 		}
+	}
+}
+
+// TestInstructions catches instructions naming a tool or an argument the server does not announce, renamed or only
+// in the writing tools: the agent would look for it in vain.
+func TestInstructions(t *testing.T) {
+	for _, readOnly := range []bool{false, true} {
+		ctx := context.Background()
+		client, err := apiclient.NewClientWithResponses("http://unused") // listing the tools calls no route
+		if err != nil {
+			t.Fatal(err)
+		}
+		server := mcp.NewServer(&mcp.Implementation{Name: "notes"}, &mcp.ServerOptions{Instructions: Instructions(readOnly)})
+		AddTools(server, client, readOnly)
+		serverTransport, clientTransport := mcp.NewInMemoryTransports()
+		session, err := server.Connect(ctx, serverTransport, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		agent, err := mcp.NewClient(&mcp.Implementation{Name: "test"}, nil).Connect(ctx, clientTransport, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := agent.ListTools(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		known := map[string]bool{}
+		for _, tool := range result.Tools {
+			known[tool.Name] = true
+			properties, _ := tool.InputSchema.(map[string]any)["properties"].(map[string]any) // none without arguments
+			for name := range properties {
+				known[name] = true
+			}
+		}
+		instructions := agent.InitializeResult().Instructions
+		for _, name := range regexp.MustCompile(`\b[a-z]+(?:_[a-z]+)+\b`).FindAllString(instructions, -1) {
+			if !known[name] {
+				t.Errorf("readOnly %v: the instructions name %q, which no tool announces", readOnly, name)
+			}
+		}
+		agent.Close()
+		session.Close()
 	}
 }
 

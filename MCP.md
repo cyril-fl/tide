@@ -137,8 +137,8 @@ en langage naturel : « range mes notes de réunion de novembre dans /Travail/R�
 | `recent_notes` | Les notes modifiées le plus récemment, la plus récente d'abord |
 | `read_note` | Le contenu d'une note, son chemin, ses tags (`[]` sans tag) et ses dates (`created_at`, `updated_at`) ; `max_chars` n'en rend que le début, avec `length` (la taille entière, en caractères) et `truncated` |
 | `read_notes` | Plusieurs notes d'un coup, 50 au plus, chacune comme `read_note` ; une seule introuvable fait échouer l'appel. Pour trier beaucoup de notes, les lire d'abord en aperçu (`max_chars`), puis en entier seulement celles qui le demandent |
-| `list_folder` | Les notes et dossiers directement dans un dossier, avec leurs dates : les 50 premiers et le total, ou `limit` (0 pour tous) et `offset` |
-| `tags` | Les notes portant un tag, avec leur chemin : les 50 premières et le total, ou `limit` et `offset` ; sans tag, les tags du compte, les plus utilisés d'abord |
+| `list_folder` | Les notes et dossiers directement dans un dossier : les 50 premiers et le total, ou `limit` (0 pour tous) et `offset` ; `dates` ajoute leurs dates (`created_at`, `updated_at`) |
+| `tags` | Les notes portant un tag, avec leur chemin : les 50 premières et le total, ou `limit` et `offset`, `dates` ajoutant leurs dates ; sans tag, les tags du compte, les plus utilisés d'abord, `prefix` (début du nom, sans casse) et `min_notes` (au moins N notes) n'en gardant qu'une partie |
 | `create_note` | Une note à partir de markdown : le premier titre devient le titre, les `#hashtags` des tags |
 | `edit_note` | Remplace **tout** le contenu d'une note (son premier titre devient le titre) et la rend sans son contenu ; refuse une note verrouillée |
 | `tag_notes` | Ajoute ou retire des tags sur des notes sans envoyer leur contenu : seuls leurs `#tags` changent, chaque note changée garde son texte dans l'historique ; une note verrouillée est laissée, avec l'erreur. À la place de `notes`, `text`, `max_length` et `untagged` taguent toutes les notes que `search_notes` trouverait, sans les lire ; `dry_run` liste seulement ces notes |

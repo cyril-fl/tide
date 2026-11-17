@@ -39,12 +39,13 @@ func fileURL(id string) string {
 	return "/api/files/" + id
 }
 
-// item is a note or a folder as an agent needs it, with its dates to judge whether it is still current.
+// item is a note or a folder as an agent needs it, with its dates to judge whether it is still current (list_folder
+// leaves them out unless asked).
 type item struct {
 	ID        string `json:"id"`
 	Kind      string `json:"kind"`
 	Title     string `json:"title"`
-	CreatedAt string `json:"created_at"`
+	CreatedAt string `json:"created_at,omitempty"`
 	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
@@ -103,6 +104,7 @@ type listFolderArgs struct {
 	Folder string `json:"folder,omitempty" jsonschema:"the folder: its uuid, or its path from the root (/Folder); the root itself when empty"`
 	Limit  *int   `json:"limit,omitempty" jsonschema:"how many items at most, 50 when left out, 0 for all of them"`
 	Offset int    `json:"offset,omitempty" jsonschema:"how many items to skip, folders first then by title: the next page starts at offset + limit"`
+	Dates  bool   `json:"dates,omitempty" jsonschema:"also the created_at and updated_at of each item, to judge whether it is still current"`
 }
 
 type noteArgs struct {
@@ -150,17 +152,30 @@ type tagArgs struct {
 }
 
 type tagsArgs struct {
-	Tag    string `json:"tag,omitempty" jsonschema:"the tag, without the #; the list of tags when empty"`
-	Limit  *int   `json:"limit,omitempty" jsonschema:"how many notes of the tag at most, 50 when left out, 0 for all of them"`
-	Offset int    `json:"offset,omitempty" jsonschema:"how many notes of the tag to skip: the next page starts at offset + limit"`
+	Tag      string `json:"tag,omitempty" jsonschema:"the tag, without the #; the list of tags when empty"`
+	Prefix   string `json:"prefix,omitempty" jsonschema:"without a tag, only the tags starting with this text, whatever the case"`
+	MinNotes int    `json:"min_notes,omitempty" jsonschema:"without a tag, only the tags carried by at least that many notes"`
+	Limit    *int   `json:"limit,omitempty" jsonschema:"how many notes of the tag at most, 50 when left out, 0 for all of them"`
+	Offset   int    `json:"offset,omitempty" jsonschema:"how many notes of the tag to skip: the next page starts at offset + limit"`
+	Dates    bool   `json:"dates,omitempty" jsonschema:"also the created_at and updated_at of each note of the tag, to judge whether it is still current"`
 }
 
 // tags is the account's tags with their count, or one tag with a page of the notes carrying it and their total.
 type tags struct {
 	Tags  []apiclient.CounttagsTagCount `json:"tags,omitempty"`
-	Tag   *apiclient.DomainTag          `json:"tag,omitempty"`
-	Notes []apiclient.ReadtagNote       `json:"notes,omitempty"`
+	Tag   string                        `json:"tag,omitempty"`
+	Notes []carrier                     `json:"notes,omitempty"`
 	Total int                           `json:"total,omitempty"`
+}
+
+// carrier is a note carrying a tag, its dates left out unless asked.
+type carrier struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Path      string `json:"path"`
+	Readonly  bool   `json:"readonly,omitempty"`
+	CreatedAt string `json:"created_at,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
 type renameTagArgs struct {
@@ -405,7 +420,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "list_folder",
 		Annotations: reads(),
-		Description: "List the notes and folders directly inside a folder, folders first then by title: the first 50 and the total, unless limit says otherwise.",
+		Description: "List the notes and folders directly inside a folder, folders first then by title: the first 50 and the total, unless limit says otherwise. dates adds when each was created and changed.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args listFolderArgs) (*mcp.CallToolResult, folderPage, error) {
 		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
@@ -414,6 +429,11 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		limit, offset := limitOf(args.Limit), max(args.Offset, 0)
 		found, total, err := paged[[]apiclient.DomainItem](client.GetApiItems(ctx, &apiclient.GetApiItemsParams{Parent: &parentID, Limit: &limit, Offset: &offset}))
 		_, items, err := made(found, err)
+		if !args.Dates {
+			for i := range items {
+				items[i].CreatedAt, items[i].UpdatedAt = "", ""
+			}
+		}
 		return nil, folderPage{Items: items, Total: total}, err
 	})
 
@@ -586,10 +606,14 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tags",
 		Annotations: reads(),
-		Description: "List the notes carrying a tag, with their path: the first 50 and the total, unless limit says otherwise. Without a tag, the account's tags, most used first. Tags of a note are set by create_note and edit_note.",
+		Description: "List the notes carrying a tag, with their path: the first 50 and the total, unless limit says otherwise; dates adds when each was created and changed. Without a tag, the account's tags, most used first, prefix and min_notes keeping only some. Tags of a note are set by create_note and edit_note.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagsArgs) (*mcp.CallToolResult, tags, error) {
 		if args.Tag == "" {
 			counts, err := decode[[]apiclient.CounttagsTagCount](client.GetApiGraph(ctx))
+			prefix := strings.ToLower(strings.TrimPrefix(args.Prefix, "#"))
+			counts = slices.DeleteFunc(counts, func(count apiclient.CounttagsTagCount) bool {
+				return count.Notes < args.MinNotes || !strings.HasPrefix(strings.ToLower(count.Value), prefix)
+			})
 			return nil, tags{Tags: counts}, err
 		}
 		limit, offset := limitOf(args.Limit), max(args.Offset, 0)
@@ -597,7 +621,15 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		if err != nil {
 			return nil, tags{}, err
 		}
-		return nil, tags{Tag: &result.Tag, Notes: result.Notes, Total: total}, nil
+		notes := make([]carrier, 0, len(result.Notes))
+		for _, found := range result.Notes {
+			read := carrier{ID: found.Id, Title: found.Title, Path: found.Path, Readonly: apiclient.Deref(found.Readonly)}
+			if args.Dates {
+				read.CreatedAt, read.UpdatedAt = found.CreatedAt, apiclient.Deref(found.UpdatedAt)
+			}
+			notes = append(notes, read)
+		}
+		return nil, tags{Tag: result.Tag.Value, Notes: notes, Total: total}, nil
 	})
 
 	addTool(server, readOnly, &mcp.Tool{

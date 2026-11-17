@@ -200,8 +200,13 @@ func TestNotes(t *testing.T) {
 	var listed folderPage
 	call(t, agent, "move_item", map[string]any{"item": "/Projects/Plan", "folder": "/Inbox"}, &moved)
 	call(t, agent, "list_folder", map[string]any{"folder": "/Inbox"}, &listed)
-	if len(moved) != 1 || listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].ID != created.ID || listed.Items[0].CreatedAt == "" {
+	if len(moved) != 1 || listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].ID != created.ID || listed.Items[0].CreatedAt != "" {
 		t.Errorf("move_item = %+v, list_folder = %+v", moved, listed)
+	}
+	// The dates only when asked.
+	call(t, agent, "list_folder", map[string]any{"folder": "/Inbox", "dates": true}, &listed)
+	if len(listed.Items) != 1 || listed.Items[0].CreatedAt == "" {
+		t.Errorf("list_folder with dates = %+v", listed)
 	}
 	// A page past the end is empty, the total still counts them all.
 	call(t, agent, "list_folder", map[string]any{"limit": 1, "offset": 5}, &listed)
@@ -241,11 +246,18 @@ func TestTagsHistoryLinks(t *testing.T) {
 	call(t, agent, "create_note", map[string]any{"content": "# Target\n#go"}, &target)
 	call(t, agent, "create_note", map[string]any{"content": "# Source\nsee [[Target]] and [[Nowhere]] #go"}, &source)
 
-	var counted, tagged tags
-	call(t, agent, "tags", map[string]any{}, &counted)
+	call(t, agent, "create_note", map[string]any{"content": "# Other\n#golf #rust"}, nil)
+	var counted, tagged, dated tags
+	call(t, agent, "tags", map[string]any{"prefix": "GO", "min_notes": 2}, &counted)
 	call(t, agent, "tags", map[string]any{"tag": "go", "limit": 1}, &tagged)
-	if len(counted.Tags) != 1 || counted.Tags[0].Notes != 2 || len(tagged.Notes) != 1 || tagged.Total != 2 {
-		t.Errorf("tags = %+v, %+v", counted, tagged)
+	call(t, agent, "tags", map[string]any{"tag": "go", "limit": 1, "dates": true}, &dated)
+	if len(counted.Tags) != 1 || counted.Tags[0].Value != "go" || counted.Tags[0].Notes != 2 || tagged.Tag != "go" || len(tagged.Notes) != 1 || tagged.Total != 2 || tagged.Notes[0].CreatedAt != "" || len(dated.Notes) != 1 || dated.Notes[0].CreatedAt == "" {
+		t.Errorf("tags = %+v, %+v, %+v", counted, tagged, dated)
+	}
+	var all tags
+	call(t, agent, "tags", map[string]any{"prefix": "#go"}, &all)
+	if len(all.Tags) != 2 {
+		t.Errorf("tags prefix #go = %+v, want go and golf", all)
 	}
 
 	var linked, broken links

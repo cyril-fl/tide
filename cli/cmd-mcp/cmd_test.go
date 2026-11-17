@@ -195,6 +195,11 @@ func TestNotes(t *testing.T) {
 		t.Errorf("tag_notes by text = %+v, then %q", retagged, read.Content)
 	}
 	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "remove": []string{"review"}}, nil)
+	// updated_before alone picks the notes too: none changed before 2000.
+	call(t, agent, "tag_notes", map[string]any{"updated_before": "2000-01-01", "add": []string{"stale"}, "dry_run": true}, &retagged)
+	if len(retagged) != 0 {
+		t.Errorf("tag_notes updated_before = %+v, want none", retagged)
+	}
 
 	var matches searchPage
 	call(t, agent, "search_notes", map[string]any{"text": "shipped"}, &matches)

@@ -166,8 +166,12 @@ en langage naturel : « range mes notes de réunion de novembre dans /Travail/R�
 | `delete_search` | Retire une recherche enregistrée par son id ou son nom, ses notes restent. Plan Pro |
 
 **Un outil par domaine, pas un par processus.** Chaque outil annoncé coûte du contexte à l'agent à
-chaque connexion (environ 300 à 750 octets de nom, description et schéma d'entrée ; le schéma de
-sortie, que les clients ne donnent en général pas au modèle, double à peu près ce chiffre). Lister et
+chaque requête : les trente et un font environ 17 Ko de nom, description et schéma d'entrée (de 450 octets
+pour `read_file` à 1,6 Ko pour `save_search`, ~5 000 tokens en tout, presque toujours lus depuis le cache) ;
+leurs schémas de sortie (11 Ko), les clients ne les donnent pas au modèle. Regrouper les tags, les snippets
+et les recherches enregistrées en un outil de lecture et un d'écriture chacun n'en retirerait qu'environ
+2 % (#208, mesuré le 2026-11-17) : le coût d'un passage est dans ce que les outils lisent et rendent, pas
+dans leur liste. Lister et
 lire passent donc par le même outil, un argument vide donnant la liste (`tags`, `note_history`,
 `note_links`, `read_file`) : `list_tags` et `read_tag` sont devenus `tags`, et les treize processus
 ajoutés ensuite tiennent en huit outils. La création d'un tag seul n'est pas exposée,

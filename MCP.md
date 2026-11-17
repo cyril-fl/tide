@@ -141,7 +141,7 @@ en langage naturel : « range mes notes de réunion de novembre dans /Travail/R�
 | `tags` | Les notes portant un tag, avec leur chemin : les 50 premières et le total, ou `limit` et `offset` ; sans tag, les tags du compte, les plus utilisés d'abord |
 | `create_note` | Une note à partir de markdown : le premier titre devient le titre, les `#hashtags` des tags |
 | `edit_note` | Remplace **tout** le contenu d'une note (son premier titre devient le titre) et la rend sans son contenu ; refuse une note verrouillée |
-| `tag_notes` | Ajoute ou retire des tags sur des notes sans envoyer leur contenu : seuls leurs `#tags` changent, chaque note changée garde son texte dans l'historique ; une note verrouillée est laissée, avec l'erreur |
+| `tag_notes` | Ajoute ou retire des tags sur des notes sans envoyer leur contenu : seuls leurs `#tags` changent, chaque note changée garde son texte dans l'historique ; une note verrouillée est laissée, avec l'erreur. À la place de `notes`, `text`, `max_length` et `untagged` taguent toutes les notes que `search_notes` trouverait, sans les lire ; `dry_run` liste seulement ces notes |
 | `create_folder` | Un dossier, à la racine ou dans un autre |
 | `rename_folder` | Le titre d'un dossier |
 | `move_item` | Déplace une note ou un dossier ; un dossier emmène son contenu |

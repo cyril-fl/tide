@@ -176,6 +176,17 @@ func TestNotes(t *testing.T) {
 	if read.Content != "# Plan\nshipped\n\n#done #old" {
 		t.Errorf("read_note after tag_notes = %q", read.Content)
 	}
+	// tag_notes on what a search finds: dry_run lists the notes and changes nothing, then the call tags them.
+	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "add": []string{"review"}, "dry_run": true}, &retagged)
+	if len(retagged) != 1 || retagged[0].ID != created.ID || retagged[0].Title != "Plan" {
+		t.Errorf("tag_notes dry_run = %+v", retagged)
+	}
+	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "add": []string{"review"}}, &retagged)
+	call(t, agent, "read_note", map[string]any{"note": created.ID}, &read)
+	if len(retagged) != 1 || retagged[0].Error != "" || read.Content != "# Plan\nshipped\n\n#done #old #review" {
+		t.Errorf("tag_notes by text = %+v, then %q", retagged, read.Content)
+	}
+	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "remove": []string{"review"}}, nil)
 
 	var matches searchPage
 	call(t, agent, "search_notes", map[string]any{"text": "shipped"}, &matches)

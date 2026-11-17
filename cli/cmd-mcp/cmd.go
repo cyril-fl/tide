@@ -170,9 +170,13 @@ type renameTagArgs struct {
 }
 
 type tagNotesArgs struct {
-	Notes  []string `json:"notes" jsonschema:"the notes: their uuid, or their path from the root (/Folder/Note)"`
-	Add    []string `json:"add,omitempty" jsonschema:"tags to add, without the #"`
-	Remove []string `json:"remove,omitempty" jsonschema:"tags to remove, without the #"`
+	Notes     []string `json:"notes,omitempty" jsonschema:"the notes: their uuid, or their path from the root (/Folder/Note); or leave out for the notes text, max_length and untagged find"`
+	Text      string   `json:"text,omitempty" jsonschema:"instead of notes, every note whose title or content contains this text, as search_notes finds it"`
+	MaxLength *int     `json:"max_length,omitempty" jsonschema:"instead of notes, every note whose content, title line included, has at most that many characters"`
+	Untagged  bool     `json:"untagged,omitempty" jsonschema:"instead of notes, every note with no tag"`
+	DryRun    bool     `json:"dry_run,omitempty" jsonschema:"with text, max_length or untagged, only list the notes found, change nothing: do it first"`
+	Add       []string `json:"add,omitempty" jsonschema:"tags to add, without the #"`
+	Remove    []string `json:"remove,omitempty" jsonschema:"tags to remove, without the #"`
 }
 
 // tagged is a note after tag_notes, its content left out, or why it was left as it was.
@@ -454,12 +458,35 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tag_notes",
 		Annotations: writes(false, true),
-		Description: "Add or remove tags on notes without sending their content: only their #tags change, the rest of the text stays as it is, and each note changed keeps its earlier text in note_history. A locked note is left, with the error.",
+		Description: "Add or remove tags on notes without sending their content: only their #tags change, the rest of the text stays as it is, and each note changed keeps its earlier text in note_history. A locked note is left, with the error. Instead of naming the notes, text, max_length and untagged tag every note search_notes would find, without reading them; with dry_run, only lists those notes.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, []tagged, error) {
 		for _, tag := range args.Add {
 			if !hashtag.Valid(tag) {
 				return nil, nil, fmt.Errorf("%w: %q", hashtag.ErrInvalid, tag)
 			}
+		}
+		if searched := args.Text != "" || args.MaxLength != nil || args.Untagged; searched {
+			if len(args.Notes) > 0 {
+				return nil, nil, errors.New("give either notes or text, max_length and untagged, not both")
+			}
+			all := 0
+			params := &apiclient.GetApiSearchParams{Q: &args.Text, MaxLength: args.MaxLength, Untagged: &args.Untagged, Limit: &all}
+			matches, _, err := paged[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, params))
+			if err != nil {
+				return nil, nil, err
+			}
+			for _, match := range matches {
+				args.Notes = append(args.Notes, match.Id)
+			}
+			if args.DryRun {
+				out := make([]tagged, 0, len(matches))
+				for _, match := range matches {
+					out = append(out, tagged{Note: match.Id, ID: match.Id, Title: match.Title, Path: match.Path})
+				}
+				return nil, out, nil
+			}
+		} else if args.DryRun {
+			return nil, nil, errors.New("dry_run goes with text, max_length or untagged")
 		}
 		out := make([]tagged, 0, len(args.Notes))
 		for _, ref := range args.Notes {

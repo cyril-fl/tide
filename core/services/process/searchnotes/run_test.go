@@ -317,4 +317,13 @@ func TestSearchFilter(t *testing.T) {
 	if page.HasErr() || len(page.GetResult()) != 1 || page.GetTotal() != 2 {
 		t.Errorf("page = %+v of %d, %v; want 1 of 2", page.GetResult(), page.GetTotal(), page.GetErr())
 	}
+
+	// The total of a max_length search counts the notes that pass it, whatever the page (#213): only "Empty" does.
+	for _, offset := range []int{0, 1, 5} {
+		page := Process(ctx, tx, "").Filter(Filter{MaxLength: 20}).Page(1, offset)
+		page.Run()
+		if page.HasErr() || page.GetTotal() != 1 {
+			t.Errorf("offset %d: total = %d, %v; want 1", offset, page.GetTotal(), page.GetErr())
+		}
+	}
 }

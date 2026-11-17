@@ -217,7 +217,7 @@ const (
 // its case, and whose content has at most maxLength characters when it is not 0: limit of them from offset, every one
 // when limit is 0. No text nor maxLength: every note, none opened for its content.
 // The index gives a few notes that do not hold the text, so they are opened until the page is full, not all of them:
-// the total counts the matches met and the notes left unopened, and a page costs the ones before it.
+// the total counts the matches met and the notes left unopened (none with maxLength: all are opened, so the total is exact), and a page costs the ones before it.
 // TODO: the last pages of a search with tens of thousands of matches open them all (1 s at 50,000 notes), as every
 // page did; a cursor instead of an offset if they are ever read.
 func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, text string, maxLength, limit, offset int) ([]Match, int, error) {
@@ -239,7 +239,9 @@ func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, te
 	}
 	found := at
 	var matches []Match
-	for size := batch; at < len(ids) && (limit <= 0 || found < offset+limit); size = min(size*4, maxBatch) {
+	// With maxLength the total is exact, so every note is opened: the unopened ones cannot be assumed to pass the filter.
+	full := func() bool { return maxLength <= 0 && limit > 0 && found >= offset+limit }
+	for size := batch; at < len(ids) && !full(); size = min(size*4, maxBatch) {
 		opened := ids[at:min(at+size, len(ids))]
 		var rows []row
 		err := db.NewRaw(`
@@ -256,7 +258,7 @@ func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, te
 			byID[r.ID] = r
 		}
 		for _, id := range opened {
-			if limit > 0 && found == offset+limit {
+			if full() {
 				break
 			}
 			at++
@@ -267,7 +269,7 @@ func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, te
 			if maxLength > 0 && utf8.RuneCountInString(string(r.Content)) > maxLength {
 				continue
 			}
-			if found >= offset {
+			if found >= offset && (limit <= 0 || found < offset+limit) {
 				match := Match{ID: id, Title: tree.Titles[id], Path: tree.Paths[id], Readonly: r.Readonly}
 				if text != "" {
 					match.Snippet = Snippet(string(r.Content), text)

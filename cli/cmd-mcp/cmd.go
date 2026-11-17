@@ -83,7 +83,7 @@ func limitOf(asked *int) int {
 
 type searchArgs struct {
 	Text          string `json:"text,omitempty" jsonschema:"the text to find in the title or the content of the notes; may be left out with max_length, untagged or updated_before"`
-	MaxLength     *int   `json:"max_length,omitempty" jsonschema:"only the notes whose content, title line included, has at most that many characters: the empty or title-only ones"`
+	MaxLength     *int   `json:"max_length,omitempty" jsonschema:"only the notes whose content, title line included, has at most that many characters (unicode characters, not bytes): the empty or title-only ones"`
 	Untagged      bool   `json:"untagged,omitempty" jsonschema:"only the notes with no tag"`
 	UpdatedBefore string `json:"updated_before,omitempty" jsonschema:"only the notes last changed before this day (2026-01-31) or RFC 3339 instant: the stale ones, the oldest first when there is no text"`
 	Limit         *int   `json:"limit,omitempty" jsonschema:"how many notes at most, 50 when left out, 0 for all of them"`

@@ -113,6 +113,13 @@ func TestResolvePaths(t *testing.T) {
 		}
 	}
 
+	// A path of the other kind says what it is, not just that nothing is there.
+	wrong := Process(ctx, tx, domain.NOTE, []string{base})
+	wrong.Run()
+	if want := fmt.Sprintf("%q is a folder, not a note", base); !wrong.HasErr() || !strings.HasSuffix(wrong.GetErr().Error(), want) {
+		t.Errorf("err = %v, want it to end with %s", wrong.GetErr(), want)
+	}
+
 	// The error gives both ids with their date, so the user can pick one.
 	twins := Process(ctx, tx, domain.NOTE, []string{base + "/Twin"})
 	twins.Run()

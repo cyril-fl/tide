@@ -244,6 +244,20 @@ func TestNotes(t *testing.T) {
 	if err != nil || !result.IsError {
 		t.Errorf("delete_note of a folder = %+v, %v", result, err)
 	}
+
+	// A path of the other kind names the tool to use, not just "no item".
+	call(t, agent, "create_note", map[string]any{"content": "# Kept", "folder": "/Projects"}, &created)
+	for name, args := range map[string]map[string]any{
+		"read_note":   {"note": "/Projects"},
+		"read_notes":  {"notes": []string{"/Projects"}},
+		"list_folder": {"folder": "/Projects/Kept"},
+	} {
+		want := map[string]string{"read_note": "use list_folder", "read_notes": "use list_folder", "list_folder": "use read_note"}[name]
+		result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: args})
+		if err != nil || !result.IsError || !strings.Contains(result.Content[0].(*mcp.TextContent).Text, want) {
+			t.Errorf("%s of the other kind = %+v, %v, want %q", name, result, err, want)
+		}
+	}
 }
 
 // TestTagsHistoryLinks reads what surrounds a note: its tags, its versions, its links.

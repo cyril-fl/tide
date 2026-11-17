@@ -1142,7 +1142,24 @@ func addTool[In, Out any](server *mcp.Server, readOnly bool, tool *mcp.Tool, han
 	if readOnly && !tool.Annotations.ReadOnlyHint {
 		return
 	}
-	mcp.AddTool(server, tool, handler)
+	mcp.AddTool(server, tool, func(ctx context.Context, request *mcp.CallToolRequest, args In) (*mcp.CallToolResult, Out, error) {
+		result, out, err := handler(ctx, request, args)
+		return result, out, kindHint(err)
+	})
+}
+
+// kindHint names the tool for a path of the other kind, which the API only tells as text: without it an agent takes
+// the path for wrong and searches for it.
+func kindHint(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case strings.HasSuffix(err.Error(), "is a folder, not a note"):
+		return fmt.Errorf("%w: use list_folder", err)
+	case strings.HasSuffix(err.Error(), "is a note, not a folder"):
+		return fmt.Errorf("%w: use read_note", err)
+	}
+	return err
 }
 
 // reads marks a tool that changes nothing, so a client runs it without asking. Every tool stays in the account's notes.

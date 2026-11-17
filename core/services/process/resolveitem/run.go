@@ -89,19 +89,27 @@ func (p *run) resolvePath(path string) {
 			ids = append(ids, id)
 		}
 	}
-	var found []candidate
+	var all, found []candidate
 	if len(ids) > 0 {
-		err = p.db.NewRaw("SELECT id, kind, coalesce(updated_at, created_at) AS modified FROM items WHERE id IN (?) AND (? = '' OR kind = ?) ORDER BY id", bun.In(ids), p.kind, p.kind).Scan(p.ctx, &found)
+		err = p.db.NewRaw("SELECT id, kind, coalesce(updated_at, created_at) AS modified FROM items WHERE id IN (?) ORDER BY id", bun.In(ids)).Scan(p.ctx, &all)
 	}
 	if err != nil {
 		p.SetErr(err)
 		return
 	}
+	for _, c := range all {
+		if p.kind == "" || c.Kind == p.kind {
+			found = append(found, c)
+		}
+	}
 
-	switch len(found) {
-	case 0:
+	switch {
+	case len(all) > 0 && len(found) == 0:
+		// Said apart from a wrong path, so the caller turns to the right command instead of searching for it.
+		p.SetErr(fmt.Errorf("%w: %q is a %s, not a %s", ErrNotFound, path, all[0].Kind, p.kind))
+	case len(found) == 0:
 		p.SetErr(fmt.Errorf("%w: %q", ErrNotFound, path))
-	case 1:
+	case len(found) == 1:
 		p.cache.result = append(p.cache.result, found[0].ID)
 	default:
 		// The kind and the date of each, for the caller to tell them apart without reading them all.

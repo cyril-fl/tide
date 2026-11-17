@@ -372,6 +372,7 @@ func Instructions(readOnly bool) string {
 		"- Subagents do not receive these instructions: put the lines they need in their prompt."
 	if !readOnly {
 		text += "\n- Tag with tag_notes, given the notes or the filters of search_notes (dry_run first), never by rewriting a note with edit_note, which replaces all of it.\n" +
+			"- Tag in few calls: decide the tags of a whole batch first, then one tag_notes per change, all its notes at once (every note getting Obsolete in one call), not one call per note. tags with a tag lists the notes already carrying it.\n" +
 			"- Fold a tag into another with rename_tag and merge; replace a text in every note with replace_notes (dry_run first).\n" +
 			"- Rewrites keep the old text in note_history, deletions go to the trash."
 	}

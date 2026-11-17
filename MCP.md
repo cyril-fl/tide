@@ -135,7 +135,9 @@ Le serveur lui donne aussi des consignes, que Claude Code met dans son prompt sy
 traiter beaucoup de notes, celle du banc d'essai #198. Appeler `tags` une fois et garder la liste, trouver
 les candidates sur le serveur avant de lire (`search_notes` avec `untagged`, `max_length`, `updated_before`),
 lire par lots en aperçu (`read_notes` avec `max_chars`), découper un gros dossier en pages de `list_folder`,
-une par sous-agent, taguer avec `tag_notes` (jamais en réécrivant la note par `edit_note`), fusionner deux
+une par sous-agent, taguer avec `tag_notes` (jamais en réécrivant la note par `edit_note`), un appel par tag
+posé sur toutes les notes d'un lot plutôt qu'un appel par note (au passage 3 de #198, 198 appels note par note
+faisaient l'essentiel du coût), fusionner deux
 tags avec `rename_tag` et `merge`. Avec un jeton en lecture seule, les consignes d'écriture sont retirées.
 Les sous-agents de Claude Code ne les reçoivent pas (vérifié le 2026-11-17) : les consignes demandent à
 l'agent principal de leur passer ce qu'il leur faut.

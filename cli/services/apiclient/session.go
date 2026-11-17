@@ -6,15 +6,50 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cyril-fl/tide/config"
 )
 
-var ErrNoSession = errors.New("not logged in: run " + config.Current.Name + " login <url>")
+var (
+	ErrNoSession = errors.New("not logged in: run " + config.Current.Name + " login <url>")
+	ErrTimeout   = errors.New("the server did not answer in time")
+)
+
+// Timeout bounds a call to the API, so a server that goes silent does not freeze a command or the MCP; Transfer is
+// the longer limit Long gives an import, an export or a file.
+var Timeout, Transfer = 60 * time.Second, 10 * time.Minute
+
+// New is the API client of every command: a call ends after Timeout, or at the deadline its ctx already has.
+func New(server string, opts ...ClientOption) (*ClientWithResponses, error) {
+	return NewClientWithResponses(server, append(opts, WithHTTPClient(doer{}))...)
+}
+
+// Long gives ctx the limit of a big transfer instead of Timeout.
+func Long(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, Transfer)
+}
+
+type doer struct{}
+
+func (doer) Do(req *http.Request) (*http.Response, error) {
+	client := &http.Client{Timeout: Timeout}
+	if _, ok := req.Context().Deadline(); ok {
+		client = http.DefaultClient
+	}
+	response, err := client.Do(req)
+	var netErr net.Error
+	if errors.Is(err, context.DeadlineExceeded) || errors.As(err, &netErr) && netErr.Timeout() {
+		return nil, fmt.Errorf("%w (%s %s): %w", ErrTimeout, req.Method, req.URL.Path, err)
+	}
+	return response, err
+}
 
 // Session is the server and the session token of tide login, or of TIDE_URL and TIDE_SESSION.
 type Session struct {
@@ -80,7 +115,7 @@ func (s Session) Client() (*ClientWithResponses, error) {
 	if s.URL == "" || s.Token == "" {
 		return nil, ErrNoSession
 	}
-	return NewClientWithResponses(s.URL, WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
+	return New(s.URL, WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
 		req.Header.Set("Authorization", "Bearer "+s.Token)
 		return nil
 	}))

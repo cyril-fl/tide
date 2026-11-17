@@ -43,7 +43,9 @@ func Export(cobra *cobra.Command, args []string) error {
 	}
 
 	// Not the WithResponse variant: it would hold every image of the account in memory.
-	response, err := client.GetApiExport(cobra.Context(), &params)
+	ctx, cancel := apiclient.Long(cobra.Context())
+	defer cancel()
+	response, err := client.GetApiExport(ctx, &params)
 	if err != nil {
 		return err
 	}

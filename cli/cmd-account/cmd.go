@@ -32,7 +32,7 @@ func Login(cobra *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, err := apiclient.NewClientWithResponses(args[0])
+	client, err := apiclient.New(args[0])
 	if err != nil {
 		return err
 	}

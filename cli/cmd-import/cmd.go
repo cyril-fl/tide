@@ -36,7 +36,9 @@ func Import(cobra *cobra.Command, args []string) error {
 	body, writer := io.Pipe()
 	go func() { writer.CloseWithError(zipDir(writer, os.DirFS(args[0]))) }()
 	defer body.Close()
-	response, err := client.PostApiImportWithBodyWithResponse(cobra.Context(), &params, "application/zip", body)
+	ctx, cancel := apiclient.Long(cobra.Context())
+	defer cancel()
+	response, err := client.PostApiImportWithBodyWithResponse(ctx, &params, "application/zip", body)
 	if err != nil {
 		return err
 	}

@@ -644,6 +644,8 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 			files, err := decode[[]apiclient.DomainFile](client.GetApiFiles(ctx))
 			return nil, files, err
 		}
+		ctx, cancel := apiclient.Long(ctx)
+		defer cancel()
 		response, err := client.GetApiFilesIdWithResponse(ctx, args.File)
 		if err != nil {
 			return nil, nil, err
@@ -664,6 +666,8 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		if err != nil {
 			return nil, attached{}, fmt.Errorf("data is not base64: %w", err)
 		}
+		ctx, cancel := apiclient.Long(ctx)
+		defer cancel()
 		// The server reads the type from the bytes, not from this header.
 		file, err := decode[apiclient.DomainFile](client.PostApiFilesWithBody(ctx, &apiclient.PostApiFilesParams{Name: &args.Name}, "application/octet-stream", bytes.NewReader(data)))
 		if err != nil {
@@ -695,6 +699,8 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		if len(ids) > 0 {
 			params.Id = &ids // An empty list would still send id=.
 		}
+		ctx, cancel := apiclient.Long(ctx)
+		defer cancel()
 		response, err := client.GetApiExportWithResponse(ctx, &params)
 		if err != nil {
 			return nil, export{}, err
@@ -733,6 +739,8 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		if err := archive.Close(); err != nil {
 			return nil, apiclient.ImportnotesResult{}, err
 		}
+		ctx, cancel := apiclient.Long(ctx)
+		defer cancel()
 		result, err := decode[apiclient.ImportnotesResult](client.PostApiImportWithBody(ctx, &apiclient.PostApiImportParams{Parent: &parentID}, "application/zip", &body))
 		return nil, result, err
 	})

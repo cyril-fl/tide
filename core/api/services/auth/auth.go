@@ -23,7 +23,7 @@ var Cookie = config.Current.Name + "_session"
 const ReadOnlyHeader = "Notes-Read-Only"
 
 // readRoutes are the routes that read with a POST, for a body too long for a query: a read-only token may call them.
-var readRoutes = map[string]bool{"/api/notes/tags": true, "/api/searches": true}
+var readRoutes = map[string]bool{"/api/notes/tags": true, "/api/notes/read": true, "/api/searches": true}
 
 // Public routes answer without a session.
 var public = map[string]bool{"POST /api/login": true, "POST /api/signup": true, "GET /api/add-user": true}

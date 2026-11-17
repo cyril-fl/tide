@@ -894,6 +894,55 @@ components:
       - note
       - original
       type: object
+    readnotes.Body:
+      properties:
+        max_chars:
+          description: only the start of each content, with its length and truncated
+          type: integer
+        notes:
+          description: uuids, or paths from the root (/Folder/Note); 50 at most
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+      required:
+      - notes
+      type: object
+    readnotes.Note:
+      properties:
+        children:
+          items:
+            $ref: '#/components/schemas/domain.Item'
+          type: array
+          uniqueItems: false
+        content:
+          type: string
+        fork_of:
+          description: 'a fork: the note it merges back into'
+          type: string
+        item:
+          $ref: '#/components/schemas/domain.Item'
+        length:
+          description: the whole content's characters, given with max_chars
+          type: integer
+        path:
+          type: string
+        pinned:
+          type: boolean
+        readonly:
+          description: 'locked: PATCH refuses its content and tags'
+          type: boolean
+        tags:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        truncated:
+          type: boolean
+      required:
+      - item
+      - path
+      type: object
     readnotetags.Body:
       properties:
         ids:
@@ -2959,6 +3008,53 @@ paths:
                 $ref: '#/components/schemas/respond.Failure'
           description: Internal Server Error
       summary: Read a version of a note
+      tags:
+      - notes
+  /api/notes/read:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/readnotes.Body'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/readnotes.Note'
+                type: array
+          description: in the order asked
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: a note missing, named in the error
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Conflict
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Read several notes
       tags:
       - notes
   /api/notes/tags:

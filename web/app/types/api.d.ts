@@ -2884,6 +2884,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notes/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read several notes */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description body */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["readnotes.Body"];
+                };
+            };
+            responses: {
+                /** @description in the order asked */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["readnotes.Note"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description a note missing, named in the error */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes/tags": {
         parameters: {
             query?: never;
@@ -4733,6 +4810,27 @@ export interface components {
             note: components["schemas"]["readitem.Result"];
             /** @description a fork: the live note it merges back into, else empty */
             original: components["schemas"]["readneighbors.Linked"][];
+        };
+        "readnotes.Body": {
+            /** @description only the start of each content, with its length and truncated */
+            max_chars?: number;
+            /** @description uuids, or paths from the root (/Folder/Note); 50 at most */
+            notes: string[];
+        };
+        "readnotes.Note": {
+            children?: components["schemas"]["domain.Item"][];
+            content?: string;
+            /** @description a fork: the note it merges back into */
+            fork_of?: string;
+            item: components["schemas"]["domain.Item"];
+            /** @description the whole content's characters, given with max_chars */
+            length?: number;
+            path: string;
+            pinned?: boolean;
+            /** @description locked: PATCH refuses its content and tags */
+            readonly?: boolean;
+            tags?: string[];
+            truncated?: boolean;
         };
         "readnotetags.Body": {
             ids: string[];

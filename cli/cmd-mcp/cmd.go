@@ -403,21 +403,16 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		Annotations: reads(),
 		Description: "Read several notes at once, up to 50, each as read_note gives it, in the order asked: one missing fails the call. To sort many notes, read them first with max_chars (the start of each, its length and truncated), then in full only those that need it.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args notesArgs) (*mcp.CallToolResult, []note, error) {
-		if len(args.Notes) > pageSize {
-			return nil, nil, fmt.Errorf("%d notes asked, %d at most", len(args.Notes), pageSize)
+		// One request for the batch, the preview cut on the server: the agent may be far over Tailscale (#210).
+		found, err := decode[[]apiclient.ReadnotesNote](client.PostApiNotesRead(ctx, apiclient.ReadnotesBody{Notes: args.Notes, MaxChars: &args.MaxChars}))
+		if err != nil {
+			return nil, nil, err
 		}
-		// TODO: one request per note, fine for 50 on the same network; a batch route on the API if it gets slow.
-		read := make([]note, 0, len(args.Notes))
-		for _, ref := range args.Notes {
-			id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, ref)
-			if err != nil {
-				return nil, nil, fmt.Errorf("%s: %w", ref, err)
-			}
-			found, err := readNote(decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, id)))
-			if err != nil {
-				return nil, nil, fmt.Errorf("%s: %w", ref, err)
-			}
-			read = append(read, preview(found, args.MaxChars))
+		read := make([]note, 0, len(found))
+		for _, f := range found {
+			n, _ := readNote(apiclient.ReaditemResult{Item: f.Item, Path: f.Path, Content: f.Content, Readonly: f.Readonly, Tags: f.Tags}, nil)
+			n.Length, n.Truncated = f.Length, apiclient.Deref(f.Truncated)
+			read = append(read, n)
 		}
 		return nil, read, nil
 	})

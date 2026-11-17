@@ -31,10 +31,13 @@ func TestReadOnlyAPIToken(t *testing.T) {
 		c.api.ServeHTTP(w, r)
 		return w
 	}
+	var note item
+	c.do("POST", "/api/notes", `{"content":"# readable"}`, http.StatusCreated, &note)
 	for _, route := range [][3]string{
 		{"GET", "/api/notes", ""},
 		{"GET", "/api/me", ""},
 		{"POST", "/api/notes/tags", `{"ids":[]}`},
+		{"POST", "/api/notes/read", `{"notes":["` + note.ID + `"]}`},
 	} {
 		if w := send(route[0], route[1], route[2]); w.Code >= 400 || w.Header().Get(auth.ReadOnlyHeader) != "true" {
 			t.Errorf("%s %s read-only: status = %d, header = %q; want it served, the header set: %s", route[0], route[1], w.Code, w.Header().Get(auth.ReadOnlyHeader), w.Body)

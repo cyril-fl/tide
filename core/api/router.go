@@ -29,6 +29,7 @@ import (
 	apireadgraph "github.com/cyril-fl/tide/core/api/read-graph"
 	apireadnote "github.com/cyril-fl/tide/core/api/read-note"
 	apireadnotetags "github.com/cyril-fl/tide/core/api/read-note-tags"
+	apireadnotes "github.com/cyril-fl/tide/core/api/read-notes"
 	apireadpath "github.com/cyril-fl/tide/core/api/read-path"
 	apireadpinned "github.com/cyril-fl/tide/core/api/read-pinned"
 	apireadplans "github.com/cyril-fl/tide/core/api/read-plans"
@@ -84,6 +85,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("POST /api/notes", apicreatenote.Handler(db))
 	mux.Handle("DELETE /api/notes", apideleteitems.Handler(db, domain.NOTE))
 	mux.Handle("POST /api/notes/tags", apireadnotetags.Handler(db))
+	mux.Handle("POST /api/notes/read", apireadnotes.Handler(db))
 	mux.Handle("GET /api/notes/{id}", apireadnote.Handler(db))
 	mux.Handle("PATCH /api/notes/{id}", apieditnote.Handler(db))
 	mux.Handle("DELETE /api/notes/{id}", apideletenote.Handler(db))

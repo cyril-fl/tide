@@ -589,6 +589,35 @@ type ReadneighborsResult struct {
 	Original []ReadneighborsLinked `json:"original"`
 }
 
+// ReadnotesBody defines model for readnotes.Body.
+type ReadnotesBody struct {
+	// MaxChars only the start of each content, with its length and truncated
+	MaxChars *int `json:"max_chars,omitempty"`
+
+	// Notes uuids, or paths from the root (/Folder/Note); 50 at most
+	Notes []string `json:"notes"`
+}
+
+// ReadnotesNote defines model for readnotes.Note.
+type ReadnotesNote struct {
+	Children *[]DomainItem `json:"children,omitempty"`
+	Content  *string       `json:"content,omitempty"`
+
+	// ForkOf a fork: the note it merges back into
+	ForkOf *string    `json:"fork_of,omitempty"`
+	Item   DomainItem `json:"item"`
+
+	// Length the whole content's characters, given with max_chars
+	Length *int   `json:"length,omitempty"`
+	Path   string `json:"path"`
+	Pinned *bool  `json:"pinned,omitempty"`
+
+	// Readonly locked: PATCH refuses its content and tags
+	Readonly  *bool     `json:"readonly,omitempty"`
+	Tags      *[]string `json:"tags,omitempty"`
+	Truncated *bool     `json:"truncated,omitempty"`
+}
+
 // ReadnotetagsBody defines model for readnotetags.Body.
 type ReadnotetagsBody struct {
 	Ids []string `json:"ids"`
@@ -860,6 +889,9 @@ type DeleteApiNotesJSONRequestBody = DeleteitemsBody
 
 // PostApiNotesJSONRequestBody defines body for PostApiNotes for application/json ContentType.
 type PostApiNotesJSONRequestBody = CreatenoteInput
+
+// PostApiNotesReadJSONRequestBody defines body for PostApiNotesRead for application/json ContentType.
+type PostApiNotesReadJSONRequestBody = ReadnotesBody
 
 // PostApiNotesTagsJSONRequestBody defines body for PostApiNotesTags for application/json ContentType.
 type PostApiNotesTagsJSONRequestBody = ReadnotetagsBody
@@ -1246,6 +1278,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/notes (the `PostApiNotes` operationId).
 	PostApiNotes(ctx context.Context, body PostApiNotesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiNotesReadWithBody Read several notes
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/notes/read (the `PostApiNotesRead` operationId).
+	PostApiNotesReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiNotesRead Read several notes
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/notes/read (the `PostApiNotesRead` operationId).
+	PostApiNotesRead(ctx context.Context, body PostApiNotesReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiNotesTagsWithBody Read the tags of notes
 	//
@@ -2265,6 +2311,40 @@ func (c *Client) PostApiNotesWithBody(ctx context.Context, contentType string, b
 // Corresponds with POST /api/notes (the `PostApiNotes` operationId).
 func (c *Client) PostApiNotes(ctx context.Context, body PostApiNotesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiNotesRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiNotesReadWithBody Read several notes
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/notes/read (the `PostApiNotesRead` operationId).
+func (c *Client) PostApiNotesReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiNotesReadRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiNotesRead Read several notes
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/notes/read (the `PostApiNotesRead` operationId).
+func (c *Client) PostApiNotesRead(ctx context.Context, body PostApiNotesReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiNotesReadRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4417,6 +4497,46 @@ func NewPostApiNotesRequestWithBody(server string, contentType string, body io.R
 	return req, nil
 }
 
+// NewPostApiNotesReadRequest calls the generic PostApiNotesRead builder with application/json body
+func NewPostApiNotesReadRequest(server string, body PostApiNotesReadJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiNotesReadRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiNotesReadRequestWithBody constructs an http.Request for the PostApiNotesRead method, with any body, and a specified content type
+func NewPostApiNotesReadRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/notes/read")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPostApiNotesTagsRequest calls the generic PostApiNotesTags builder with application/json body
 func NewPostApiNotesTagsRequest(server string, body PostApiNotesTagsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -6329,6 +6449,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/notes (the `PostApiNotes` operationId).
 	PostApiNotesWithResponse(ctx context.Context, body PostApiNotesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesResponse, error)
+
+	// PostApiNotesReadWithBodyWithResponse Read several notes
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/notes/read (the `PostApiNotesRead` operationId).
+	PostApiNotesReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiNotesReadResponse, error)
+
+	// PostApiNotesReadWithResponse Read several notes
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/notes/read (the `PostApiNotesRead` operationId).
+	PostApiNotesReadWithResponse(ctx context.Context, body PostApiNotesReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesReadResponse, error)
 
 	// PostApiNotesTagsWithBodyWithResponse Read the tags of notes
 	//
@@ -8597,6 +8731,75 @@ func (r PostApiNotesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostApiNotesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiNotesReadResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]ReadnotesNote
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *RespondFailure
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostApiNotesReadResponse) GetJSON200() *[]ReadnotesNote {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostApiNotesReadResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PostApiNotesReadResponse) GetJSON404() *RespondFailure {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r PostApiNotesReadResponse) GetJSON409() *RespondFailure {
+	return r.JSON409
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PostApiNotesReadResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PostApiNotesReadResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiNotesReadResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiNotesReadResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiNotesReadResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -11475,6 +11678,32 @@ func (c *ClientWithResponses) PostApiNotesWithResponse(ctx context.Context, body
 	return ParsePostApiNotesResponse(rsp)
 }
 
+// PostApiNotesReadWithBodyWithResponse Read several notes
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/notes/read (the `PostApiNotesRead` operationId).
+func (c *ClientWithResponses) PostApiNotesReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiNotesReadResponse, error) {
+	rsp, err := c.PostApiNotesReadWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiNotesReadResponse(rsp)
+}
+
+// PostApiNotesReadWithResponse Read several notes
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/notes/read (the `PostApiNotesRead` operationId).
+func (c *ClientWithResponses) PostApiNotesReadWithResponse(ctx context.Context, body PostApiNotesReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesReadResponse, error) {
+	rsp, err := c.PostApiNotesRead(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiNotesReadResponse(rsp)
+}
+
 // PostApiNotesTagsWithBodyWithResponse Read the tags of notes
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -13554,6 +13783,60 @@ func ParsePostApiNotesResponse(rsp *http.Response) (*PostApiNotesResponse, error
 			return nil, err
 		}
 		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiNotesReadResponse parses an HTTP response from a PostApiNotesReadWithResponse call
+func ParsePostApiNotesReadResponse(rsp *http.Response) (*PostApiNotesReadResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiNotesReadResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []ReadnotesNote
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest RespondFailure

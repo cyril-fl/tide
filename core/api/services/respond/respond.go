@@ -37,6 +37,7 @@ import (
 	"github.com/cyril-fl/tide/core/services/process/readfile"
 	"github.com/cyril-fl/tide/core/services/process/readfork"
 	"github.com/cyril-fl/tide/core/services/process/readitem"
+	"github.com/cyril-fl/tide/core/services/process/readnotes"
 	"github.com/cyril-fl/tide/core/services/process/readsavedsearch"
 	"github.com/cyril-fl/tide/core/services/process/readsession"
 	"github.com/cyril-fl/tide/core/services/process/readtag"
@@ -74,6 +75,7 @@ var statuses = []struct {
 		listitems.ErrInvalidID, listitems.ErrInvalidKind, listitems.ErrInvalidPage,
 		moveitems.ErrNoValue, moveitems.ErrInvalidID, moveitems.ErrParentNotFound,
 		readitem.ErrNoValue,
+		readnotes.ErrInvalid,
 		readtag.ErrNoValue,
 		restoreitems.ErrNoValue, restoreitems.ErrInvalidID,
 		replacenotes.ErrNoValue,

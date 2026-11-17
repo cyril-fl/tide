@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/cyril-fl/tide/core/api/services/respond"
 	"github.com/cyril-fl/tide/core/domain"
 	"github.com/cyril-fl/tide/core/services/password"
 	"github.com/cyril-fl/tide/core/services/process/adduser"
@@ -154,6 +155,23 @@ func TestNotes(t *testing.T) {
 	if strings.Contains(c.raw(path), "children") {
 		t.Errorf("a note has no children field: %s", c.raw(path))
 	}
+
+	// Several notes in one request, by id or path, in the order asked; max_chars gives the start and the length.
+	var batch []struct {
+		detail
+		Length    int  `json:"length"`
+		Truncated bool `json:"truncated"`
+	}
+	c.do("POST", "/api/notes/read", fmt.Sprintf(`{"notes":["/%s",%q],"max_chars":2}`, title, note.ID), http.StatusOK, &batch)
+	if len(batch) != 2 || batch[0].Content != "# " || batch[0].Length != len([]rune(read.Content)) || !batch[0].Truncated || batch[1].Item.ID != note.ID {
+		t.Errorf("batch = %+v", batch)
+	}
+	var missing respond.Failure
+	c.do("POST", "/api/notes/read", fmt.Sprintf(`{"notes":[%q,"/%s/nope"]}`, note.ID, title), http.StatusNotFound, &missing)
+	if !strings.Contains(missing.Error, "/"+title+"/nope") {
+		t.Errorf("a missing note is not named: %s", missing.Error)
+	}
+	c.do("POST", "/api/notes/read", `{"notes":[]}`, http.StatusBadRequest, nil)
 
 	// One field changed, the others kept; the tags are those of the text, the title its first words.
 	// The PATCH answers the note as GET does.

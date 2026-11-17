@@ -183,19 +183,22 @@ func TestNotes(t *testing.T) {
 	if data, _ := json.Marshal(result.StructuredContent); !strings.Contains(string(data), `"tags":[]`) {
 		t.Errorf("read_note without tags = %s, want tags []", data)
 	}
-	var both []note
-	call(t, agent, "read_notes", map[string]any{"notes": []string{"/Bare", created.ID}}, &both)
+	var batched batch
+	call(t, agent, "read_notes", map[string]any{"notes": []string{"/Bare", created.ID}}, &batched)
+	both := batched.Notes
 	if len(both) != 2 || both[0].ID != bare.ID || both[1].Content != "# Plan\nshipped #go\n\n#done" {
 		t.Errorf("read_notes = %+v", both)
 	}
 	// A note never edited has no updated_at in the API: the agent gets created_at (#215).
-	var dated []note
-	call(t, agent, "read_notes", map[string]any{"notes": []string{"/Bare"}}, &dated)
+	var datedBatch batch
+	call(t, agent, "read_notes", map[string]any{"notes": []string{"/Bare"}}, &datedBatch)
+	dated := datedBatch.Notes
 	if len(dated) != 1 || dated[0].UpdatedAt == "" || dated[0].UpdatedAt != dated[0].CreatedAt {
 		t.Errorf("read_notes = %+v, want updated_at = created_at", dated)
 	}
 	// max_chars gives the start of each content and its whole length; a short one is left whole.
-	call(t, agent, "read_notes", map[string]any{"notes": []string{"/Bare", created.ID}, "max_chars": 7}, &both)
+	call(t, agent, "read_notes", map[string]any{"notes": []string{"/Bare", created.ID}, "max_chars": 7}, &batched)
+	both = batched.Notes
 	if len(both) != 2 || both[0].Truncated || both[0].Content != "# Bare" || both[0].Length == nil || *both[0].Length != 6 ||
 		!both[1].Truncated || both[1].Content != "# Plan\n" || both[1].Length == nil || *both[1].Length != 25 {
 		t.Errorf("read_notes max_chars = %+v", both)
@@ -225,28 +228,35 @@ func TestNotes(t *testing.T) {
 	call(t, agent, "delete_note", map[string]any{"note": bare.ID}, nil)
 
 	// tag_notes changes only the #tags, the rest of the text kept byte for byte, an unknown note reported.
-	var retagged []tagged
-	call(t, agent, "tag_notes", map[string]any{"notes": []string{"/Projects/Plan", "/Nowhere"}, "add": []string{"old"}, "remove": []string{"GO"}}, &retagged)
-	if len(retagged) != 2 || retagged[0].Error != "" || !slices.Equal(slices.Sorted(slices.Values(retagged[0].Tags)), []string{"done", "old"}) || retagged[1].Error == "" {
-		t.Errorf("tag_notes = %+v", retagged)
+	var tagRes tagResult
+	call(t, agent, "tag_notes", map[string]any{"notes": []string{"/Projects/Plan", "/Nowhere"}, "add": []string{"old", "DONE"}, "remove": []string{"GO", "nope"}}, &tagRes)
+	retagged := tagRes.Notes
+	if len(retagged) != 2 || tagRes.Changed != 1 || tagRes.Unchanged != 0 || tagRes.Failed != 1 || retagged[0].Error != "" || retagged[0].ID != created.ID || retagged[0].Note != "" ||
+		!slices.Equal(retagged[0].Added, []string{"old"}) || !slices.Equal(retagged[0].AlreadyPresent, []string{"DONE"}) ||
+		!slices.Equal(retagged[0].Removed, []string{"GO"}) || !slices.Equal(retagged[0].NotPresent, []string{"nope"}) ||
+		retagged[1].Error == "" || retagged[1].Note != "/Nowhere" {
+		t.Errorf("tag_notes = %+v", tagRes)
 	}
 	call(t, agent, "read_note", map[string]any{"note": created.ID}, &read)
 	if read.Content != "# Plan\nshipped\n\n#done #old" {
 		t.Errorf("read_note after tag_notes = %q", read.Content)
 	}
 	// tag_notes on what a search finds: dry_run lists the notes and changes nothing, then the call tags them.
-	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "add": []string{"review"}, "dry_run": true}, &retagged)
+	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "add": []string{"review"}, "dry_run": true}, &tagRes)
+	retagged = tagRes.Notes
 	if len(retagged) != 1 || retagged[0].ID != created.ID || retagged[0].Title != "Plan" {
 		t.Errorf("tag_notes dry_run = %+v", retagged)
 	}
-	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "add": []string{"review"}}, &retagged)
+	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "add": []string{"review"}}, &tagRes)
+	retagged = tagRes.Notes
 	call(t, agent, "read_note", map[string]any{"note": created.ID}, &read)
 	if len(retagged) != 1 || retagged[0].Error != "" || read.Content != "# Plan\nshipped\n\n#done #old #review" {
 		t.Errorf("tag_notes by text = %+v, then %q", retagged, read.Content)
 	}
 	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "remove": []string{"review"}}, nil)
 	// updated_before alone picks the notes too: none changed before 2000.
-	call(t, agent, "tag_notes", map[string]any{"updated_before": "2000-01-01", "add": []string{"stale"}, "dry_run": true}, &retagged)
+	call(t, agent, "tag_notes", map[string]any{"updated_before": "2000-01-01", "add": []string{"stale"}, "dry_run": true}, &tagRes)
+	retagged = tagRes.Notes
 	if len(retagged) != 0 {
 		t.Errorf("tag_notes updated_before = %+v, want none", retagged)
 	}
@@ -450,10 +460,15 @@ func TestSnippets(t *testing.T) {
 	}
 	call(t, agent, "save_snippet", map[string]any{"name": "Book", "content": "# Title\n#reading"}, nil)
 	call(t, agent, "save_snippet", map[string]any{"name": "Trip", "content": "# Trip"}, nil)
-	call(t, agent, "save_snippet", map[string]any{"name": "Book", "content": "# Book"}, &snippets)
+	var saved apiclient.DomainSnippet
+	call(t, agent, "save_snippet", map[string]any{"name": "Book", "content": "# Book"}, &saved)
 	want := []apiclient.DomainSnippet{{Name: "Book", Content: "# Book"}, {Name: "Trip", Content: "# Trip"}}
+	if saved != want[0] {
+		t.Errorf("save_snippet = %+v, want only %+v", saved, want[0])
+	}
+	call(t, agent, "snippets", map[string]any{}, &snippets)
 	if !slices.Equal(snippets, want) {
-		t.Errorf("save_snippet = %+v, want %+v", snippets, want)
+		t.Errorf("snippets = %+v, want %+v", snippets, want)
 	}
 
 	call(t, agent, "delete_snippet", map[string]any{"name": "Book"}, nil)
@@ -646,5 +661,24 @@ func TestEditMeRetries(t *testing.T) {
 	want := []apiclient.DomainSnippet{{Name: "App"}, {Name: "Agent"}}
 	if err != nil || runs != 2 || !slices.Equal(me.Snippets, want) {
 		t.Errorf("editMe = %+v, %v after %d runs; want %+v after 2", me.Snippets, err, runs, want)
+	}
+}
+
+func TestFactor(t *testing.T) {
+	read := []note{
+		{ID: "1", Title: "A", Path: "/F/A", CreatedAt: "d", UpdatedAt: "e1"},
+		{ID: "2", Title: "B", Path: "/F/B2", CreatedAt: "d", UpdatedAt: "e2"},
+	}
+	got := factor(read)
+	if got.Common != (batchCommon{Folder: "/F/", CreatedAt: "d"}) || got.Notes[0].Path != "" || got.Notes[0].Name != "" || got.Notes[1].Name != "B2" ||
+		got.Notes[0].CreatedAt != "" || got.Notes[0].UpdatedAt != "e1" || got.Notes[0].ID != "1" {
+		t.Errorf("factor = %+v", got)
+	}
+	read[1].Path = "/G/B"
+	if got := factor(read); got.Common.Folder != "" || got.Notes[1].Path != "/G/B" {
+		t.Errorf("factor of other folders = %+v", got)
+	}
+	if got := factor(read[:1]); got.Common != (batchCommon{}) || got.Notes[0].Path != "/F/A" {
+		t.Errorf("factor of one note = %+v", got)
 	}
 }

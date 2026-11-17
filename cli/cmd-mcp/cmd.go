@@ -74,6 +74,72 @@ type note struct {
 	UpdatedAt string   `json:"updated_at,omitempty"`
 }
 
+// batchNote is a note of read_notes: what all the notes share is left to batch.Common.
+type batchNote struct {
+	ID        string   `json:"id"`
+	Title     string   `json:"title"`
+	Path      string   `json:"path,omitempty"` // left out when batch.Common.Folder holds it
+	Name      string   `json:"name,omitempty"` // the last part of the path, when Common.Folder is given and it is not the title
+	Content   string   `json:"content,omitempty"`
+	Length    *int     `json:"length,omitempty"`
+	Truncated bool     `json:"truncated,omitempty"`
+	Tags      []string `json:"tags"`
+	Readonly  bool     `json:"readonly,omitempty"`
+	CreatedAt string   `json:"created_at,omitempty"`
+	UpdatedAt string   `json:"updated_at,omitempty"`
+}
+
+// batchCommon is what every note of a batch of several has alike, said once.
+type batchCommon struct {
+	Folder    string `json:"folder,omitempty"`
+	CreatedAt string `json:"created_at,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+}
+
+// batch is the notes of read_notes, with the fields they share factored.
+type batch struct {
+	Common batchCommon `json:"common"`
+	Notes  []batchNote `json:"notes"`
+}
+
+// factor builds the batch: a field every note of several gives alike moves to Common, the notes keep the others.
+func factor(read []note) batch {
+	out := batch{Notes: make([]batchNote, 0, len(read))}
+	for _, n := range read {
+		out.Notes = append(out.Notes, batchNote{ID: n.ID, Title: n.Title, Path: n.Path, Content: n.Content, Length: n.Length, Truncated: n.Truncated,
+			Tags: n.Tags, Readonly: n.Readonly, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt})
+	}
+	if len(read) < 2 {
+		return out
+	}
+	folder := func(path string) string { return path[:max(strings.LastIndex(path, "/"), 0)] + "/" }
+	same := func(of func(note) string) bool {
+		return !slices.ContainsFunc(read, func(n note) bool { return of(n) != of(read[0]) })
+	}
+	if same(func(n note) string { return folder(n.Path) }) {
+		out.Common.Folder = folder(read[0].Path)
+		for i, n := range read {
+			out.Notes[i].Path = ""
+			if name := n.Path[strings.LastIndex(n.Path, "/")+1:]; name != n.Title {
+				out.Notes[i].Name = name
+			}
+		}
+	}
+	if same(func(n note) string { return n.CreatedAt }) {
+		out.Common.CreatedAt = read[0].CreatedAt
+		for i := range out.Notes {
+			out.Notes[i].CreatedAt = ""
+		}
+	}
+	if same(func(n note) string { return n.UpdatedAt }) {
+		out.Common.UpdatedAt = read[0].UpdatedAt
+		for i := range out.Notes {
+			out.Notes[i].UpdatedAt = ""
+		}
+	}
+	return out
+}
+
 // pageSize is how many results a list gives when the agent names no limit: a common word or a flat folder holds
 // thousands of notes, megabytes an agent cannot read.
 const pageSize = 50
@@ -207,14 +273,40 @@ type tagNotesArgs struct {
 	Remove        []string `json:"remove,omitempty" jsonschema:"tags to remove, without the #"`
 }
 
-// tagged is a note after tag_notes, its content left out, or why it was left as it was.
+// tagged is a note after tag_notes, its content left out: what happened to the tags asked, or why it was left as it was.
 type tagged struct {
-	Note  string   `json:"note"`
-	ID    string   `json:"id,omitempty"`
-	Title string   `json:"title,omitempty"`
-	Path  string   `json:"path,omitempty"`
-	Tags  []string `json:"tags,omitempty"`
-	Error string   `json:"error,omitempty"`
+	ID             string   `json:"id,omitempty"`
+	Title          string   `json:"title,omitempty"`
+	Note           string   `json:"note,omitempty"` // as asked, only for a note that failed: it has no id then
+	Added          []string `json:"added,omitempty"`
+	AlreadyPresent []string `json:"already_present,omitempty"`
+	Removed        []string `json:"removed,omitempty"`
+	NotPresent     []string `json:"not_present,omitempty"`
+	Error          string   `json:"error,omitempty"`
+}
+
+// tagResult counts the notes changed, left as they were and failed, then gives the notes with their diff.
+type tagResult struct {
+	Changed   int      `json:"changed"`
+	Unchanged int      `json:"unchanged"`
+	Failed    int      `json:"failed"`
+	Notes     []tagged `json:"notes"`
+}
+
+// tagCounts counts the notes: failed ones, changed ones (a tag added or removed) and the rest.
+func tagCounts(notes []tagged) tagResult {
+	out := tagResult{Notes: notes}
+	for _, n := range notes {
+		switch {
+		case n.Error != "":
+			out.Failed++
+		case len(n.Added)+len(n.Removed) > 0:
+			out.Changed++
+		default:
+			out.Unchanged++
+		}
+	}
+	return out
 }
 
 type replaceArgs struct {
@@ -383,7 +475,7 @@ func Instructions(readOnly bool) string {
 		"- Subagents do not receive these instructions: put the lines they need in their prompt."
 	if !readOnly {
 		text += "\n- Tag with tag_notes, given the notes or the filters of search_notes (dry_run first), never by rewriting a note with edit_note, which replaces all of it.\n" +
-			"- Tag in few calls: decide the tags of a whole batch first, then one tag_notes per change, all its notes at once (every note getting Obsolete in one call), not one call per note. tags with a tag lists the notes already carrying it.\n" +
+			"- Tag in few calls: decide the tags of a whole batch first, then one tag_notes per change, all its notes at once (every note getting Obsolete in one call), not one call per note: it answers counts and each note's diff, no need to read the notes back. tags with a tag lists the notes already carrying it.\n" +
 			"- Fold a tag into another with rename_tag and merge; replace a text in every note with replace_notes (dry_run first).\n" +
 			"- Rewrites keep the old text in note_history, deletions go to the trash."
 	}
@@ -432,12 +524,12 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "read_notes",
 		Annotations: reads(),
-		Description: "Read several notes at once, up to 50, each as read_note gives it, in the order asked: one missing fails the call. To sort many notes, read them first with max_chars (the start of each, its length and truncated), then in full only those that need it.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args notesArgs) (*mcp.CallToolResult, []note, error) {
+		Description: "Read several notes at once, up to 50, each as read_note gives it, in the order asked: one missing fails the call. Answers {common, notes}: what every note shares (folder, created_at, updated_at) is said once in common and left out of the notes, whose path is then common.folder plus name (name left out when it is the title). To sort many notes, read them first with max_chars (the start of each, its length and truncated), then in full only those that need it.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args notesArgs) (*mcp.CallToolResult, batch, error) {
 		// One request for the batch, the preview cut on the server: the agent may be far over Tailscale (#210).
 		found, err := decode[[]apiclient.ReadnotesNote](client.PostApiNotesRead(ctx, apiclient.ReadnotesBody{Notes: args.Notes, MaxChars: &args.MaxChars}))
 		if err != nil {
-			return nil, nil, err
+			return nil, batch{}, err
 		}
 		read := make([]note, 0, len(found))
 		for _, f := range found {
@@ -445,7 +537,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 			n.Length, n.Truncated = f.Length, apiclient.Deref(f.Truncated)
 			read = append(read, n)
 		}
-		return nil, read, nil
+		return nil, factor(read), nil
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -512,16 +604,16 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tag_notes",
 		Annotations: writes(false, true),
-		Description: "Add or remove tags on notes without sending their content: only their #tags change, the rest of the text stays as it is, and each note changed keeps its earlier text in note_history. Missing tags are written at the end of the note, on its last line of tags or a new one. A #tag is read anywhere but in code (a closed ``` block, lines indented 4 spaces or a tab after a blank line, `inline`), a link or an address. A locked note, or a tag that would not be read where it is written, leaves the note as it was, with the error. Instead of naming the notes, text, max_length, untagged and updated_before tag every note search_notes would find, without reading them; with dry_run, only lists those notes.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, []tagged, error) {
+		Description: "Add or remove tags on notes without sending their content: only their #tags change, the rest of the text stays as it is, and each note changed keeps its earlier text in note_history. Answers the counts changed, unchanged and failed, and for each note its id, title and what happened to the tags asked: added, already_present, removed, not_present (a failed one gives note, as asked, and error). Missing tags are written at the end of the note, on its last line of tags or a new one. A #tag is read anywhere but in code (a closed ``` block, lines indented 4 spaces or a tab after a blank line, `inline`), a link or an address. A locked note, or a tag that would not be read where it is written, leaves the note as it was, with the error. Instead of naming the notes, text, max_length, untagged and updated_before tag every note search_notes would find, without reading them; with dry_run, only lists those notes.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, tagResult, error) {
 		for _, tag := range args.Add {
 			if !hashtag.Valid(tag) {
-				return nil, nil, fmt.Errorf("%w: %q", hashtag.ErrInvalid, tag)
+				return nil, tagResult{}, fmt.Errorf("%w: %q", hashtag.ErrInvalid, tag)
 			}
 		}
 		if searched := args.Text != "" || args.MaxLength != nil || args.Untagged || args.UpdatedBefore != ""; searched {
 			if len(args.Notes) > 0 {
-				return nil, nil, errors.New("give either notes or text, max_length, untagged and updated_before, not both")
+				return nil, tagResult{}, errors.New("give either notes or text, max_length, untagged and updated_before, not both")
 			}
 			all := 0
 			params := &apiclient.GetApiSearchParams{Q: &args.Text, MaxLength: args.MaxLength, Untagged: &args.Untagged, Limit: &all}
@@ -530,7 +622,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 			}
 			matches, _, err := paged[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, params))
 			if err != nil {
-				return nil, nil, err
+				return nil, tagResult{}, err
 			}
 			for _, match := range matches {
 				args.Notes = append(args.Notes, match.Id)
@@ -538,21 +630,26 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 			if args.DryRun {
 				out := make([]tagged, 0, len(matches))
 				for _, match := range matches {
-					out = append(out, tagged{Note: match.Id, ID: match.Id, Title: match.Title, Path: match.Path})
+					out = append(out, tagged{ID: match.Id, Title: match.Title})
 				}
-				return nil, out, nil
+				return nil, tagCounts(out), nil
 			}
 		} else if args.DryRun {
-			return nil, nil, errors.New("dry_run goes with text, max_length, untagged or updated_before")
+			return nil, tagResult{}, errors.New("dry_run goes with text, max_length, untagged or updated_before")
 		}
 		if len(args.Notes) == 0 {
-			return nil, []tagged{}, nil
+			return nil, tagCounts([]tagged{}), nil
 		}
-		// The same fields: the API's answer is what the agent reads. Hundreds of notes take longer than Timeout.
+		// The API's answer carries the diff of each note. Hundreds of notes take longer than Timeout.
 		ctx, cancel := apiclient.Long(ctx)
 		defer cancel()
 		out, err := decode[[]tagged](client.PatchApiNotesTags(ctx, apiclient.TagnotesInput{Notes: args.Notes, Add: &args.Add, Remove: &args.Remove}))
-		return nil, out, err
+		for i := range out {
+			if out[i].Error == "" {
+				out[i].Note = "" // the id says which note
+			}
+		}
+		return nil, tagCounts(out), err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -866,11 +963,11 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "save_snippet",
 		Annotations: writes(true, true),
-		Description: "Create a snippet, or replace the one of the same name, the others kept. Answers the account's snippets.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args snippetArgs) (*mcp.CallToolResult, []apiclient.DomainSnippet, error) {
-		me, err := editMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {
+		Description: "Create a snippet, or replace the one of the same name, the others kept. Answers only the snippet saved.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args snippetArgs) (*mcp.CallToolResult, apiclient.DomainSnippet, error) {
+		saved := apiclient.DomainSnippet{Name: args.Name, Content: args.Content}
+		_, err := editMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {
 			snippets := slices.Clone(me.Snippets)
-			saved := apiclient.DomainSnippet{Name: args.Name, Content: args.Content}
 			if i := slices.IndexFunc(snippets, func(s apiclient.DomainSnippet) bool { return s.Name == args.Name }); i >= 0 {
 				snippets[i] = saved
 			} else {
@@ -878,7 +975,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 			}
 			return apiclient.EdituserInput{Snippets: &snippets}, nil
 		})
-		return nil, append([]apiclient.DomainSnippet{}, me.Snippets...), err
+		return nil, saved, err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{

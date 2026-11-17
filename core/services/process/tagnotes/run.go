@@ -34,6 +34,23 @@ type Tagged struct {
 	Path  string   `json:"path,omitempty" binding:"optional"`
 	Tags  []string `json:"tags,omitempty" binding:"optional"`
 	Error string   `json:"error,omitempty" binding:"optional"`
+	// What the call did with each tag asked, against the tags the note had before (the case ignored).
+	Added          []string `json:"added,omitempty" binding:"optional"`
+	AlreadyPresent []string `json:"already_present,omitempty" binding:"optional"`
+	Removed        []string `json:"removed,omitempty" binding:"optional"`
+	NotPresent     []string `json:"not_present,omitempty" binding:"optional"`
+}
+
+// diff sorts the tags asked into those the note had (before) and those it had not.
+func diff(before, asked []string) (had, hadNot []string) {
+	for _, tag := range asked {
+		if slices.ContainsFunc(before, func(b string) bool { return strings.EqualFold(b, tag) }) {
+			had = append(had, tag)
+		} else {
+			hadNot = append(hadNot, tag)
+		}
+	}
+	return had, hadNot
 }
 
 type run struct {
@@ -120,6 +137,9 @@ func (p *run) tagNote(tx bun.Tx, done *Tagged) error {
 		return read.GetErr()
 	}
 	note := read.GetResult()
+	before := hashtag.Parse(note.Content)
+	done.AlreadyPresent, done.Added = diff(before, p.input.Add)
+	done.Removed, done.NotPresent = diff(before, p.input.Remove)
 
 	tags := slices.DeleteFunc(hashtag.Parse(note.Content), func(tag string) bool {
 		return slices.ContainsFunc(p.input.Remove, func(r string) bool { return strings.EqualFold(r, tag) })

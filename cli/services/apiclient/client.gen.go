@@ -709,14 +709,19 @@ type TagnotesInput struct {
 
 // TagnotesTagged defines model for tagnotes.Tagged.
 type TagnotesTagged struct {
-	Error *string `json:"error,omitempty"`
-	Id    *string `json:"id,omitempty"`
+	// Added What the call did with each tag asked, against the tags the note had before (the case ignored).
+	Added          *[]string `json:"added,omitempty"`
+	AlreadyPresent *[]string `json:"already_present,omitempty"`
+	Error          *string   `json:"error,omitempty"`
+	Id             *string   `json:"id,omitempty"`
+	NotPresent     *[]string `json:"not_present,omitempty"`
 
 	// Note the uuid or path asked
-	Note  string    `json:"note"`
-	Path  *string   `json:"path,omitempty"`
-	Tags  *[]string `json:"tags,omitempty"`
-	Title *string   `json:"title,omitempty"`
+	Note    string    `json:"note"`
+	Path    *string   `json:"path,omitempty"`
+	Removed *[]string `json:"removed,omitempty"`
+	Tags    *[]string `json:"tags,omitempty"`
+	Title   *string   `json:"title,omitempty"`
 }
 
 // UsersAccount defines model for users.Account.

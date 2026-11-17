@@ -1116,15 +1116,37 @@ components:
       type: object
     tagnotes.Tagged:
       properties:
+        added:
+          description: What the call did with each tag asked, against the tags the
+            note had before (the case ignored).
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        already_present:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
         error:
           type: string
         id:
           type: string
+        not_present:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
         note:
           description: the uuid or path asked
           type: string
         path:
           type: string
+        removed:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
         tags:
           items:
             type: string

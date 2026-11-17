@@ -4938,11 +4938,16 @@ export interface components {
             remove?: string[];
         };
         "tagnotes.Tagged": {
+            /** @description What the call did with each tag asked, against the tags the note had before (the case ignored). */
+            added?: string[];
+            already_present?: string[];
             error?: string;
             id?: string;
+            not_present?: string[];
             /** @description the uuid or path asked */
             note: string;
             path?: string;
+            removed?: string[];
             tags?: string[];
             title?: string;
         };

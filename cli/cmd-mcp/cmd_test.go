@@ -144,6 +144,14 @@ func TestNotes(t *testing.T) {
 	if len(both) != 2 || both[0].ID != bare.ID || both[1].Content != "# Plan\nshipped #go\n\n#done" {
 		t.Errorf("read_notes = %+v", both)
 	}
+	// Without a text, the filters alone keep the untagged and the short notes: Bare each time, Plan neither.
+	for _, args := range []map[string]any{{"untagged": true}, {"max_length": 10}} {
+		var short []map[string]any
+		call(t, agent, "search_notes", args, &short)
+		if len(short) != 1 || short[0]["id"] != bare.ID {
+			t.Errorf("search_notes %v = %v, want Bare alone", args, short)
+		}
+	}
 	call(t, agent, "delete_note", map[string]any{"note": bare.ID}, nil)
 
 	// tag_notes changes only the #tags, the rest of the text kept byte for byte, an unknown note reported.

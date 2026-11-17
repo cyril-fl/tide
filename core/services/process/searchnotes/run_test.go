@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cyril-fl/tide/core/services/testaccount"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -109,7 +110,7 @@ func TestSearchNotes(t *testing.T) {
 		t.Fatal(err)
 	}
 	candidates := []string{ids["Percent"], ids["Z "+word], ids["A in content"]}
-	filled, total, err := Matches(ctx, tx, tree, candidates, "inside", 1, 0)
+	filled, total, err := Matches(ctx, tx, tree, candidates, "inside", 0, 1, 0)
 	if err != nil || len(filled) != 1 || filled[0].ID != ids["A in content"] || total != 1 {
 		t.Errorf("matches = %+v of %d, %v; want A in content of 1", filled, total, err)
 	}
@@ -211,5 +212,80 @@ func TestSearchOrder(t *testing.T) {
 		if search.HasErr() || strings.Join(titles, ",") != want {
 			t.Errorf("search %q = %v, %v; want %s", text, titles, search.GetErr(), want)
 		}
+	}
+}
+
+func TestSearchFilter(t *testing.T) {
+	ctx := context.Background()
+	env := postgrey.NewEnvironment()
+	env.ReadEnv()
+	db := env.Connect()
+	defer db.Close()
+
+	schema := createschema.Process(ctx, db)
+	schema.Run()
+	if schema.HasErr() {
+		t.Fatalf("create schema: %v", schema.GetErr())
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx, tx = testaccount.New(t, ctx, tx)
+
+	word := fmt.Sprintf("zq%d", time.Now().UnixNano())
+	for _, content := range []string{
+		"# Empty",
+		"# Tagged\n\n#" + word,
+		"# Long\n\n" + strings.Repeat("é", 40) + " " + word,
+		"# Trashed",
+	} {
+		process := createnote.Process(ctx, tx, createnote.Input{Content: content})
+		process.Run()
+		if process.HasErr() {
+			t.Fatalf("note %q: %v", content, process.GetErr())
+		}
+		if content == "# Trashed" {
+			trash := deleteitems.Process(ctx, tx, domain.NOTE, []string{process.GetResult().ID})
+			trash.Run()
+			if trash.HasErr() {
+				t.Fatalf("trash: %v", trash.GetErr())
+			}
+		}
+	}
+
+	// Lengths count characters, not bytes, title line included: "# Empty" is 7, "# Tagged\n\n#zq…" more than 20.
+	tests := map[string]struct {
+		text   string
+		filter Filter
+		want   string
+	}{
+		"untagged":            {"", Filter{Untagged: true}, "Empty,Long"},
+		"short":               {"", Filter{MaxLength: 20}, "Empty"},
+		"exact length":        {"", Filter{MaxLength: 7}, "Empty"},
+		"multibyte in length": {"", Filter{MaxLength: 50 + len(word)}, "Empty,Long,Tagged"},
+		"text and untagged":   {word, Filter{Untagged: true}, "Long"},
+		"text and short":      {word, Filter{MaxLength: 30 + len(word)}, "Tagged"},
+	}
+	for name, test := range tests {
+		search := Process(ctx, tx, test.text).Filter(test.filter)
+		search.Run()
+		var titles []string
+		for _, match := range search.GetResult() {
+			titles = append(titles, match.Title)
+		}
+		slices.Sort(titles)
+		if search.HasErr() || strings.Join(titles, ",") != test.want || search.GetTotal() != len(titles) {
+			t.Errorf("%s: titles = %v of %d, %v; want %s", name, titles, search.GetTotal(), search.GetErr(), test.want)
+		}
+	}
+
+	// A page of a filter without a text skips the notes it drops: the second short or untagged note.
+	page := Process(ctx, tx, "").Filter(Filter{Untagged: true, MaxLength: 100}).Page(1, 1)
+	page.Run()
+	if page.HasErr() || len(page.GetResult()) != 1 || page.GetTotal() != 2 {
+		t.Errorf("page = %+v of %d, %v; want 1 of 2", page.GetResult(), page.GetTotal(), page.GetErr())
 	}
 }

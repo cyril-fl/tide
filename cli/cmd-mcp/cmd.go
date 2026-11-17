@@ -79,8 +79,10 @@ func limitOf(asked *int) int {
 }
 
 type searchArgs struct {
-	Text  string `json:"text" jsonschema:"the text to find in the title or the content of the notes"`
-	Limit *int   `json:"limit,omitempty" jsonschema:"how many notes at most, 50 when left out, 0 for all of them"`
+	Text      string `json:"text,omitempty" jsonschema:"the text to find in the title or the content of the notes; may be left out with max_length or untagged"`
+	MaxLength *int   `json:"max_length,omitempty" jsonschema:"only the notes whose content, title line included, has at most that many characters: the empty or title-only ones"`
+	Untagged  bool   `json:"untagged,omitempty" jsonschema:"only the notes with no tag"`
+	Limit     *int   `json:"limit,omitempty" jsonschema:"how many notes at most, 50 when left out, 0 for all of them"`
 }
 
 type notesArgs struct {
@@ -331,10 +333,11 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "search_notes",
 		Annotations: reads(),
-		Description: "Find the notes whose title or content contains a text, with the line where it was found: the first 50, title matches first, unless limit says otherwise.",
+		Description: "Find the notes whose title or content contains a text, with the line where it was found: the first 50, title matches first, unless limit says otherwise. max_length and untagged keep only the short or untagged notes, with or without a text, so that sorting the account reads only those.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, []apiclient.SearchnotesMatch, error) {
 		limit := limitOf(args.Limit)
-		matches, err := decode[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, &apiclient.GetApiSearchParams{Q: args.Text, Limit: &limit}))
+		params := &apiclient.GetApiSearchParams{Q: &args.Text, MaxLength: args.MaxLength, Untagged: &args.Untagged, Limit: &limit}
+		matches, err := decode[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, params))
 		return nil, matches, err
 	})
 

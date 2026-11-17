@@ -628,6 +628,8 @@ func TestTagsAndGraph(t *testing.T) {
 		t.Errorf("no match = %q, want []", got)
 	}
 	c.do("GET", "/api/search", "", http.StatusBadRequest, nil)
+	c.do("GET", "/api/search?max_length=-1", "", http.StatusBadRequest, nil)
+	c.do("GET", "/api/search?untagged=true&max_length=0", "", http.StatusOK, nil)
 	if got := c.raw("/api/search?limit=1&offset=1&q=needle-" + first); strings.TrimSpace(got) != "[]" {
 		t.Errorf("past the end = %q, want []", got)
 	}

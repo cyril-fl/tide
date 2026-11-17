@@ -3324,9 +3324,13 @@ export interface paths {
          */
         get: {
             parameters: {
-                query: {
-                    /** @description text to find */
-                    q: string;
+                query?: {
+                    /** @description text to find, may be left out with max_length or untagged */
+                    q?: string;
+                    /** @description only the notes whose content (title line included) has at most that many characters */
+                    max_length?: number;
+                    /** @description only the notes with no tag */
+                    untagged?: boolean;
                     /** @description matches in the page, all when left out or 0 */
                     limit?: number;
                     /** @description matches skipped before the page */

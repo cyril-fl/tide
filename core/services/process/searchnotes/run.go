@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/cyril-fl/tide/core/domain"
@@ -18,7 +19,7 @@ import (
 // snippetWidth is how many characters of content a match shows around the text found.
 const snippetWidth = 60
 
-var ErrNoValue = errors.New("no text to search")
+var ErrNoValue = errors.New("no text nor filter to search")
 
 // Match is a note containing the text, with the content line where it was found.
 type Match struct {
@@ -38,6 +39,13 @@ type run struct {
 	text   string
 	limit  int // 0: every match
 	offset int
+	filter Filter
+}
+
+// Filter keeps the notes of a search, with or without a text: what an agent sorting the account reads first.
+type Filter struct {
+	MaxLength int  // content (title line included) of at most that many characters; 0: any length
+	Untagged  bool // notes with no tag
 }
 
 type cache struct {
@@ -69,6 +77,12 @@ func (p *run) Page(limit, offset int) *run {
 	return p
 }
 
+// Filter keeps only the notes filter accepts; with one, the text may be empty.
+func (p *run) Filter(filter Filter) *run {
+	p.filter = filter
+	return p
+}
+
 func (p *run) Run() {
 	p.makeText()
 	p.loadCandidates()
@@ -92,7 +106,7 @@ func (p *run) GetTotal() int {
 
 func (p *run) makeText() {
 	p.cache.text = strings.TrimSpace(p.text)
-	if p.cache.text == "" {
+	if p.cache.text == "" && p.filter == (Filter{}) {
 		p.SetErr(ErrNoValue)
 	}
 }
@@ -117,6 +131,9 @@ func (p *run) loadCandidates() {
 	if err != nil {
 		p.SetErr(err)
 		return
+	}
+	if p.filter.Untagged {
+		query += " AND NOT EXISTS (SELECT 1 FROM notes_on_tags AS nt WHERE nt.note_id = i.id)"
 	}
 	var rows []candidate
 	p.SetErr(p.db.NewRaw(`
@@ -174,7 +191,7 @@ func (p *run) loadMatches() {
 	}
 
 	var err error
-	p.cache.result, p.cache.total, err = Matches(p.ctx, p.db, p.cache.tree, p.cache.ids, p.cache.text, p.limit, p.offset)
+	p.cache.result, p.cache.total, err = Matches(p.ctx, p.db, p.cache.tree, p.cache.ids, p.cache.text, p.filter.MaxLength, p.limit, p.offset)
 	p.SetErr(err)
 }
 
@@ -188,16 +205,17 @@ const (
 )
 
 // Matches opens the notes of ids, in their order, and keeps those holding text in their title or content whatever
-// its case: limit of them from offset, every one when limit is 0. No text: every note, none opened for its content.
+// its case, and whose content has at most maxLength characters when it is not 0: limit of them from offset, every one
+// when limit is 0. No text nor maxLength: every note, none opened for its content.
 // The index gives a few notes that do not hold the text, so they are opened until the page is full, not all of them:
 // the total counts the matches met and the notes left unopened, and a page costs the ones before it.
 // TODO: the last pages of a search with tens of thousands of matches open them all (1 s at 50,000 notes), as every
 // page did; a cursor instead of an offset if they are ever read.
-func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, text string, limit, offset int) ([]Match, int, error) {
+func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, text string, maxLength, limit, offset int) ([]Match, int, error) {
 	lower := strings.ToLower(text)
 	inTitle := func(id string) bool { return strings.Contains(strings.ToLower(tree.Titles[id]), lower) }
 	columns := "mn.item_id AS id, mn.readonly"
-	if text != "" {
+	if text != "" || maxLength > 0 {
 		columns += ", mn.content"
 	}
 	if limit <= 0 {
@@ -205,9 +223,9 @@ func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, te
 	}
 	limit, offset = min(limit, len(ids)), min(offset, len(ids)) // huge numbers: offset+limit must not overflow
 
-	// The notes before the page whose title holds the text are counted unopened.
+	// The notes before the page whose title holds the text are counted unopened, unless their length is checked.
 	at := 0
-	for at < offset && at < len(ids) && inTitle(ids[at]) {
+	for maxLength <= 0 && at < offset && at < len(ids) && inTitle(ids[at]) {
 		at++
 	}
 	found := at
@@ -236,6 +254,9 @@ func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, te
 			r, ok := byID[id]
 			if !ok || !inTitle(id) && !strings.Contains(strings.ToLower(string(r.Content)), lower) {
 				continue // trashed since, or one the index gave without the text
+			}
+			if maxLength > 0 && utf8.RuneCountInString(string(r.Content)) > maxLength {
+				continue
 			}
 			if found >= offset {
 				match := Match{ID: id, Title: tree.Titles[id], Path: tree.Paths[id], Readonly: r.Readonly}

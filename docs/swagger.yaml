@@ -3204,12 +3204,22 @@ paths:
       description: The text in the title first, then in a heading, then the notes
         with the most backlinks, the latest edited, by path.
       parameters:
-      - description: text to find
+      - description: text to find, may be left out with max_length or untagged
         in: query
         name: q
-        required: true
         schema:
           type: string
+      - description: only the notes whose content (title line included) has at most
+          that many characters
+        in: query
+        name: max_length
+        schema:
+          type: integer
+      - description: only the notes with no tag
+        in: query
+        name: untagged
+        schema:
+          type: boolean
       - description: matches in the page, all when left out or 0
         in: query
         name: limit

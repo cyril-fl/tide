@@ -53,7 +53,7 @@ func fetch(ctx context.Context, text string, limit int) ([]apiclient.Searchnotes
 	if err != nil {
 		return nil, 0, err
 	}
-	response, err := client.GetApiSearchWithResponse(ctx, &apiclient.GetApiSearchParams{Q: text, Limit: &limit})
+	response, err := client.GetApiSearchWithResponse(ctx, &apiclient.GetApiSearchParams{Q: &text, Limit: &limit})
 	if err != nil {
 		return nil, 0, err
 	}

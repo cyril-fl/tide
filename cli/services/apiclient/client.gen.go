@@ -370,9 +370,27 @@ type EditpasswordInput struct {
 
 // EdittagBody defines model for edittag.Body.
 type EdittagBody struct {
+	// DryRun DryRun answers with the notes it would rewrite and their diff, and writes nothing.
+	DryRun *bool `json:"dry_run,omitempty"`
+
 	// Merge Merge folds the tag into value when value is another tag already, instead of a 409.
 	Merge *bool  `json:"merge,omitempty"`
 	Value string `json:"value"`
+}
+
+// EdittagChanged defines model for edittag.Changed.
+type EdittagChanged struct {
+	Diff  []string `json:"diff"`
+	Id    string   `json:"id"`
+	Path  string   `json:"path"`
+	Title string   `json:"title"`
+}
+
+// EdittagRenamed defines model for edittag.Renamed.
+type EdittagRenamed struct {
+	Id    string            `json:"id"`
+	Notes *[]EdittagChanged `json:"notes,omitempty"`
+	Value string            `json:"value"`
 }
 
 // EdituserInput defines model for edituser.Input.
@@ -702,7 +720,10 @@ type SearchnotesMatch struct {
 
 // TagnotesInput defines model for tagnotes.Input.
 type TagnotesInput struct {
-	Add    *[]string `json:"add,omitempty"`
+	Add *[]string `json:"add,omitempty"`
+
+	// DryRun DryRun runs everything then rolls it back: the answer is the one of a real call, with the diff of each note.
+	DryRun *bool     `json:"dry_run,omitempty"`
 	Notes  []string  `json:"notes"`
 	Remove *[]string `json:"remove,omitempty"`
 }
@@ -712,9 +733,12 @@ type TagnotesTagged struct {
 	// Added What the call did with each tag asked, against the tags the note had before (the case ignored).
 	Added          *[]string `json:"added,omitempty"`
 	AlreadyPresent *[]string `json:"already_present,omitempty"`
-	Error          *string   `json:"error,omitempty"`
-	Id             *string   `json:"id,omitempty"`
-	NotPresent     *[]string `json:"not_present,omitempty"`
+
+	// Diff With dry_run only: the lines of the text that change ("- old", "+ new").
+	Diff       *[]string `json:"diff,omitempty"`
+	Error      *string   `json:"error,omitempty"`
+	Id         *string   `json:"id,omitempty"`
+	NotPresent *[]string `json:"not_present,omitempty"`
 
 	// Note the uuid or path asked
 	Note    string    `json:"note"`
@@ -10799,7 +10823,7 @@ type PatchApiTagsValueResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *DomainTag
+	JSON200 *EdittagRenamed
 	// JSON400 the response for an HTTP 400 `application/json` response
 	JSON400 *RespondFailure
 	// JSON404 the response for an HTTP 404 `application/json` response
@@ -10813,7 +10837,7 @@ type PatchApiTagsValueResponse struct {
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r PatchApiTagsValueResponse) GetJSON200() *DomainTag {
+func (r PatchApiTagsValueResponse) GetJSON200() *EdittagRenamed {
 	return r.JSON200
 }
 
@@ -15512,7 +15536,7 @@ func ParsePatchApiTagsValueResponse(rsp *http.Response) (*PatchApiTagsValueRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DomainTag
+		var dest EdittagRenamed
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

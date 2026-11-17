@@ -84,6 +84,22 @@ func TestTag(t *testing.T) {
 		t.Fatalf("lock: %v", lock.GetErr())
 	}
 
+	// A dry run answers with the diff of each note and writes nothing, not even a version.
+	dry := Process(ctx, tx, Input{Notes: []string{"/Plan", same}, Add: []string{"old"}, Remove: []string{"GO"}, DryRun: true})
+	dry.Run()
+	if d := dry.GetResult(); dry.HasErr() || len(d) != 2 || !slices.Equal(d[0].Tags, []string{"old"}) ||
+		!slices.Equal(d[0].Diff, []string{"- ship it #go", "+ ship it", "+ ", "+ #old"}) || len(d[1].Diff) != 0 {
+		t.Fatalf("dry run = %+v, %v", d, dry.GetErr())
+	}
+	if c := content(plan); c != "# Plan\n\nship it #go" {
+		t.Fatalf("plan written by a dry run: %q", c)
+	}
+	versions := listversions.Process(ctx, tx, plan)
+	versions.Run()
+	if len(versions.GetResult()) != 0 {
+		t.Fatalf("versions written by a dry run: %+v", versions.GetResult())
+	}
+
 	process := Process(ctx, tx, Input{Notes: []string{"/Plan", same, locked, "/Nowhere", "not-a-uuid"}, Add: []string{"old"}, Remove: []string{"GO"}})
 	process.Run()
 	if process.HasErr() {

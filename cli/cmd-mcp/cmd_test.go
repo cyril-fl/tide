@@ -244,7 +244,7 @@ func TestNotes(t *testing.T) {
 	// tag_notes on what a search finds: dry_run lists the notes and changes nothing, then the call tags them.
 	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "add": []string{"review"}, "dry_run": true}, &tagRes)
 	retagged = tagRes.Notes
-	if len(retagged) != 1 || retagged[0].ID != created.ID || retagged[0].Title != "Plan" {
+	if len(retagged) != 1 || retagged[0].ID != created.ID || retagged[0].Title != "Plan" || !slices.Equal(retagged[0].Added, []string{"review"}) || !slices.Equal(retagged[0].Diff, []string{"- #done #old", "+ #done #old #review"}) {
 		t.Errorf("tag_notes dry_run = %+v", retagged)
 	}
 	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "add": []string{"review"}}, &tagRes)
@@ -377,6 +377,23 @@ func TestTagsHistoryLinks(t *testing.T) {
 
 	var renamed struct {
 		Value string `json:"value"`
+	}
+	// dry_run previews the notes rewritten and writes nothing: the real call then renames the tag.
+	var preview struct {
+		Value string `json:"value"`
+		Notes []struct {
+			Path string   `json:"path"`
+			Diff []string `json:"diff"`
+		} `json:"notes"`
+	}
+	call(t, agent, "rename_tag", map[string]any{"tag": "go", "to": "golang", "dry_run": true}, &preview)
+	if preview.Value != "golang" || len(preview.Notes) == 0 || len(preview.Notes[0].Diff) == 0 {
+		t.Errorf("rename_tag dry_run = %+v", preview)
+	}
+	var still tags
+	call(t, agent, "tags", map[string]any{"tag": "go", "limit": 1}, &still)
+	if still.Total == 0 {
+		t.Errorf("rename_tag dry_run renamed the tag: %+v", still)
 	}
 	call(t, agent, "rename_tag", map[string]any{"tag": "go", "to": "golang"}, &renamed)
 	// A name taken refuses, unless merged.

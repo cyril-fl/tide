@@ -257,9 +257,16 @@ type carrier struct {
 }
 
 type renameTagArgs struct {
-	Tag   string `json:"tag" jsonschema:"the tag to rename, without the #"`
-	To    string `json:"to" jsonschema:"its new name, without the #"`
-	Merge bool   `json:"merge,omitempty" jsonschema:"when to is another tag already, fold the tag into it instead of refusing"`
+	Tag    string `json:"tag" jsonschema:"the tag to rename, without the #"`
+	To     string `json:"to" jsonschema:"its new name, without the #"`
+	Merge  bool   `json:"merge,omitempty" jsonschema:"when to is another tag already, fold the tag into it instead of refusing"`
+	DryRun bool   `json:"dry_run,omitempty" jsonschema:"change nothing: answer with each note it would rewrite and the lines of its text that change (- old, + new); do it first"`
+}
+
+// renamedTag is the tag renamed; with dry_run, the notes it would rewrite, nothing being written.
+type renamedTag struct {
+	apiclient.DomainTag
+	Notes []apiclient.EdittagChanged `json:"notes,omitempty"`
 }
 
 type tagNotesArgs struct {
@@ -268,7 +275,7 @@ type tagNotesArgs struct {
 	MaxLength     *int     `json:"max_length,omitempty" jsonschema:"instead of notes, every note whose content, title line included, has at most that many characters"`
 	Untagged      bool     `json:"untagged,omitempty" jsonschema:"instead of notes, every note with no tag"`
 	UpdatedBefore string   `json:"updated_before,omitempty" jsonschema:"instead of notes, every note last changed before this day (2026-01-31) or RFC 3339 instant"`
-	DryRun        bool     `json:"dry_run,omitempty" jsonschema:"with text, max_length, untagged or updated_before, only list the notes found, change nothing: do it first"`
+	DryRun        bool     `json:"dry_run,omitempty" jsonschema:"change nothing: answer with each note it would change, what happens to the tags asked and the lines of its text that change (- old, + new); do it first"`
 	Add           []string `json:"add,omitempty" jsonschema:"tags to add, without the #"`
 	Remove        []string `json:"remove,omitempty" jsonschema:"tags to remove, without the #"`
 }
@@ -282,6 +289,7 @@ type tagged struct {
 	AlreadyPresent []string `json:"already_present,omitempty"`
 	Removed        []string `json:"removed,omitempty"`
 	NotPresent     []string `json:"not_present,omitempty"`
+	Diff           []string `json:"diff,omitempty"` // with dry_run: the lines of the text that change (- old, + new)
 	Error          string   `json:"error,omitempty"`
 }
 
@@ -615,7 +623,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tag_notes",
 		Annotations: writes(false, true),
-		Description: "Add or remove tags on notes without sending their content: only their #tags change, the rest of the text stays as it is, and each note changed keeps its earlier text in note_history. Answers the counts changed, unchanged and failed, and for each note its id, title and what happened to the tags asked: added, already_present, removed, not_present (a failed one gives note, as asked, and error). Missing tags are written at the end of the note, on its last line of tags or a new one. A #tag is read anywhere but in code (a closed ``` block, lines indented 4 spaces or a tab after a blank line, `inline`), a link or an address. A locked note, or a tag that would not be read where it is written, leaves the note as it was, with the error. Instead of naming the notes, text, max_length, untagged and updated_before tag every note search_notes would find, without reading them; with dry_run, only lists those notes.",
+		Description: "Add or remove tags on notes without sending their content: only their #tags change, the rest of the text stays as it is, and each note changed keeps its earlier text in note_history. Missing tags are written at the end of the note, on its last line of tags or a new one. A #tag is read anywhere but in code (a closed ``` block, lines indented 4 spaces or a tab after a blank line, `inline`), a link or an address. A locked note, or a tag that would not be read where it is written, leaves the note as it was, with the error. Instead of naming the notes, text, max_length, untagged and updated_before tag every note search_notes would find, without reading them. With dry_run, nothing is written: the answer lists each note it would change, what happens to the tags asked and the lines of its text that change (- old, + new), as the real call would, so do it first on a bulk change.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, tagResult, error) {
 		for _, tag := range args.Add {
 			if !hashtag.Valid(tag) {
@@ -638,15 +646,6 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 			for _, match := range matches {
 				args.Notes = append(args.Notes, match.Id)
 			}
-			if args.DryRun {
-				out := make([]tagged, 0, len(matches))
-				for _, match := range matches {
-					out = append(out, tagged{ID: match.Id, Title: match.Title})
-				}
-				return nil, tagCounts(out), nil
-			}
-		} else if args.DryRun {
-			return nil, tagResult{}, errors.New("dry_run goes with text, max_length, untagged or updated_before")
 		}
 		if len(args.Notes) == 0 {
 			return nil, tagCounts([]tagged{}), nil
@@ -654,7 +653,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		// The API's answer carries the diff of each note. Hundreds of notes take longer than Timeout.
 		ctx, cancel := apiclient.Long(ctx)
 		defer cancel()
-		out, err := decode[[]tagged](client.PatchApiNotesTags(ctx, apiclient.TagnotesInput{Notes: args.Notes, Add: &args.Add, Remove: &args.Remove}))
+		out, err := decode[[]tagged](client.PatchApiNotesTags(ctx, apiclient.TagnotesInput{Notes: args.Notes, Add: &args.Add, Remove: &args.Remove, DryRun: &args.DryRun}))
 		for i := range out {
 			if out[i].Error == "" {
 				out[i].Note = "" // the id says which note
@@ -779,9 +778,9 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "rename_tag",
 		Annotations: writes(false, true),
-		Description: "Rename a tag on every note carrying it, in their text too, each note changed keeping its earlier text in note_history. A name taken by another tag refuses, unless merge folds the tag into it.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, apiclient.DomainTag, error) {
-		renamed, err := decode[apiclient.DomainTag](client.PatchApiTagsValue(ctx, args.Tag, apiclient.EdittagBody{Value: args.To, Merge: &args.Merge}))
+		Description: "Rename a tag on every note carrying it, in their text too, each note changed keeping its earlier text in note_history. A name taken by another tag refuses, unless merge folds the tag into it. With dry_run, nothing is written: the answer lists each note it would rewrite with the lines of its text that change (- old, + new): do it first.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, renamedTag, error) {
+		renamed, err := decode[renamedTag](client.PatchApiTagsValue(ctx, args.Tag, apiclient.EdittagBody{Value: args.To, Merge: &args.Merge, DryRun: &args.DryRun}))
 		return nil, renamed, err
 	})
 

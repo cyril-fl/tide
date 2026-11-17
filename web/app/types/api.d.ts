@@ -4012,7 +4012,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["domain.Tag"];
+                        "application/json": components["schemas"]["edittag.Renamed"];
                     };
                 };
                 /** @description Bad Request */
@@ -4692,8 +4692,21 @@ export interface components {
             new: string;
         };
         "edittag.Body": {
+            /** @description DryRun answers with the notes it would rewrite and their diff, and writes nothing. */
+            dry_run?: boolean;
             /** @description Merge folds the tag into value when value is another tag already, instead of a 409. */
             merge?: boolean;
+            value: string;
+        };
+        "edittag.Changed": {
+            diff: string[];
+            id: string;
+            path: string;
+            title: string;
+        };
+        "edittag.Renamed": {
+            id: string;
+            notes?: components["schemas"]["edittag.Changed"][];
             value: string;
         };
         "edituser.Input": {
@@ -4934,6 +4947,8 @@ export interface components {
         };
         "tagnotes.Input": {
             add?: string[];
+            /** @description DryRun runs everything then rolls it back: the answer is the one of a real call, with the diff of each note. */
+            dry_run?: boolean;
             notes: string[];
             remove?: string[];
         };
@@ -4941,6 +4956,8 @@ export interface components {
             /** @description What the call did with each tag asked, against the tags the note had before (the case ignored). */
             added?: string[];
             already_present?: string[];
+            /** @description With dry_run only: the lines of the text that change ("- old", "+ new"). */
+            diff?: string[];
             error?: string;
             id?: string;
             not_present?: string[];

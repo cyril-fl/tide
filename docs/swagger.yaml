@@ -478,6 +478,10 @@ components:
       type: object
     edittag.Body:
       properties:
+        dry_run:
+          description: DryRun answers with the notes it would rewrite and their diff,
+            and writes nothing.
+          type: boolean
         merge:
           description: Merge folds the tag into value when value is another tag already,
             instead of a 409.
@@ -485,6 +489,40 @@ components:
         value:
           type: string
       required:
+      - value
+      type: object
+    edittag.Changed:
+      properties:
+        diff:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        id:
+          type: string
+        path:
+          type: string
+        title:
+          type: string
+      required:
+      - diff
+      - id
+      - path
+      - title
+      type: object
+    edittag.Renamed:
+      properties:
+        id:
+          type: string
+        notes:
+          items:
+            $ref: '#/components/schemas/edittag.Changed'
+          type: array
+          uniqueItems: false
+        value:
+          type: string
+      required:
+      - id
       - value
       type: object
     edituser.Input:
@@ -1103,6 +1141,10 @@ components:
             type: string
           type: array
           uniqueItems: false
+        dry_run:
+          description: 'DryRun runs everything then rolls it back: the answer is the
+            one of a real call, with the diff of each note.'
+          type: boolean
         notes:
           items:
             type: string
@@ -1126,6 +1168,13 @@ components:
           type: array
           uniqueItems: false
         already_present:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        diff:
+          description: 'With dry_run only: the lines of the text that change ("- old",
+            "+ new").'
           items:
             type: string
           type: array
@@ -3825,7 +3874,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/domain.Tag'
+                $ref: '#/components/schemas/edittag.Renamed'
           description: OK
         "400":
           content:

@@ -142,3 +142,60 @@ func TestRename(t *testing.T) {
 		t.Errorf("collision: err = %v, want %v", collision.GetErr(), ErrAlreadyExists)
 	}
 }
+
+// A dry run answers like the real call, with the notes and their diff, and leaves the tag and the texts as they were.
+func TestDryRun(t *testing.T) {
+	ctx := context.Background()
+	env := postgrey.NewEnvironment()
+	env.ReadEnv()
+	db := env.Connect()
+	defer db.Close()
+
+	schema := createschema.Process(ctx, db)
+	schema.Run()
+	if schema.HasErr() {
+		t.Fatalf("create schema: %v", schema.GetErr())
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx, tx = testaccount.New(t, ctx, tx)
+
+	value := fmt.Sprintf("dry-%d", time.Now().UnixNano())
+	note := createnote.Process(ctx, tx, createnote.Input{Content: "# Dry\n\nabout #" + value + " here"})
+	note.Run()
+	if note.HasErr() {
+		t.Fatalf("note: %v", note.GetErr())
+	}
+
+	dry := Process(ctx, tx, value, value+"-new", false).DryRun()
+	dry.Run()
+	if dry.HasErr() || string(dry.GetResult().Value) != value+"-new" {
+		t.Fatalf("dry run: %+v, %v", dry.GetResult(), dry.GetErr())
+	}
+	got := dry.GetNotes()
+	want := []string{"- about #" + value + " here", "+ about #" + value + "-new here"}
+	if len(got) != 1 || got[0].ID != note.GetResult().ID || got[0].Path != "/Dry" || !slices.Equal(got[0].Diff, want) {
+		t.Fatalf("notes = %+v, want the diff %q", got, want)
+	}
+
+	read := readitem.Process(ctx, tx, domain.NOTE, note.GetResult().ID)
+	read.Run()
+	if c := read.GetResult().Content; c != "# Dry\n\nabout #"+value+" here" {
+		t.Errorf("note written by a dry run: %q", c)
+	}
+	if n, err := tx.NewSelect().Table("note_versions").Where("item_id = ?", note.GetResult().ID).Count(ctx); n != 0 || err != nil {
+		t.Errorf("versions after a dry run = %d, %v", n, err)
+	}
+	hashes, err := domain.BlindTags(ctx, []string{value, value + "-new"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []int64{1, 0} {
+		if n, err := tx.NewSelect().Table("tags").Where("value_hash = ?", hashes[i]).Count(ctx); n != want || err != nil {
+			t.Errorf("tags %d after a dry run = %d, %v; want %d", i, n, err, want)
+		}
+	}
+}

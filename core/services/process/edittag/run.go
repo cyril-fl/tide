@@ -11,6 +11,8 @@ import (
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/cyril-fl/tide/core/domain"
 	"github.com/cyril-fl/tide/core/services/hashtag"
+	"github.com/cyril-fl/tide/core/services/linediff"
+	"github.com/cyril-fl/tide/core/services/process/readitem"
 	"github.com/cyril-fl/tide/core/services/secret"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/driver/pgdriver"
@@ -20,7 +22,18 @@ var (
 	ErrNoValue       = errors.New("no tag value given")
 	ErrNotFound      = errors.New("tag not found")
 	ErrAlreadyExists = errors.New("tag already exists")
+
+	// errDryRun makes the transaction of a dry run roll back; it never leaves the process.
+	errDryRun = errors.New("dry run")
 )
+
+// Changed is a note whose text the rename rewrites, with the lines that change ("- old", "+ new").
+type Changed struct {
+	ID    string   `json:"id"`
+	Title string   `json:"title"`
+	Path  string   `json:"path"`
+	Diff  []string `json:"diff"`
+}
 
 // uniqueViolation is the Postgres SQLSTATE raised here by ux_tags_value_lower.
 const uniqueViolation = "23505"
@@ -34,12 +47,14 @@ type run struct {
 	from  string
 	to    string
 	merge bool
+	dry   bool
 }
 
 type cache struct {
 	from   string
 	to     string
 	result domain.Tag
+	notes  []Changed
 }
 
 // Process renames the tag from as to. A to that is another tag already is refused, unless merge: from is then folded
@@ -54,6 +69,12 @@ func Process(ctx context.Context, db bun.IDB, from string, to string, merge bool
 	}
 }
 
+// DryRun runs everything then rolls it back: the result is the one of a real call, GetNotes the notes it rewrote.
+func (p *run) DryRun() *run {
+	p.dry = true
+	return p
+}
+
 func (p *run) Run() {
 	p.makeValues()
 	p.renameInTx()
@@ -64,6 +85,11 @@ func (p *run) Run() {
 // GetResult returns the renamed tag.
 func (p *run) GetResult() domain.Tag {
 	return p.cache.result
+}
+
+// GetNotes returns, after a DryRun, the notes rewritten with their diff.
+func (p *run) GetNotes() []Changed {
+	return p.cache.notes
 }
 
 // Methods
@@ -85,16 +111,21 @@ func (p *run) renameInTx() {
 		return
 	}
 
-	p.SetErr(p.db.RunInTx(p.ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+	err := p.db.RunInTx(p.ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		merged, err := p.mergeTag(ctx, tx)
-		if err != nil || merged {
-			return err
+		if err == nil && !merged {
+			if err = p.updateTag(ctx, tx); err == nil {
+				err = p.rewriteNotes(ctx, tx, p.cache.result.ID)
+			}
 		}
-		if err := p.updateTag(ctx, tx); err != nil {
-			return err
+		if err == nil && p.dry {
+			err = errDryRun // the same steps ran, nothing stays
 		}
-		return p.rewriteNotes(ctx, tx, p.cache.result.ID)
-	}))
+		return err
+	})
+	if !errors.Is(err, errDryRun) {
+		p.SetErr(err)
+	}
 }
 
 // mergeTag folds from into the tag to when merge is asked and to is another tag: from's notes carry to, in their
@@ -185,6 +216,15 @@ func (p *run) rewriteNotes(ctx context.Context, tx bun.Tx, tagID string) error {
 		}
 		if _, err := tx.NewInsert().Model(&version).Exec(ctx); err != nil {
 			return err
+		}
+		if p.dry {
+			read := readitem.Process(p.ctx, tx, domain.NOTE, notes[i].ItemID).SkipChildren()
+			read.Run()
+			if read.HasErr() {
+				return read.GetErr()
+			}
+			r := read.GetResult()
+			p.cache.notes = append(p.cache.notes, Changed{ID: r.Item.ID, Title: string(r.Item.Title), Path: r.Path, Diff: linediff.Lines(old, content)})
 		}
 		sealed, err := secret.Seal(domain.UserID(p.ctx), content)
 		if err != nil {

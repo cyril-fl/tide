@@ -10,6 +10,7 @@ import (
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/cyril-fl/tide/core/domain"
 	"github.com/cyril-fl/tide/core/services/hashtag"
+	"github.com/cyril-fl/tide/core/services/linediff"
 	"github.com/cyril-fl/tide/core/services/process/patchnote"
 	"github.com/cyril-fl/tide/core/services/process/readitem"
 	"github.com/cyril-fl/tide/core/services/process/resolveitem"
@@ -17,6 +18,9 @@ import (
 )
 
 // ErrUnread is a tag written in the text where hashtag.Parse would not read it: the note is left as it was.
+// errDryRun makes the transaction of a dry run roll back; it never leaves the process.
+var errDryRun = errors.New("dry run")
+
 var ErrUnread = errors.New("the tag would not be read where it is written")
 
 // Input names the notes by uuid or path from the root (/Folder/Note), and the tags without their #.
@@ -24,6 +28,8 @@ type Input struct {
 	Notes  []string `json:"notes"`
 	Add    []string `json:"add,omitempty" binding:"optional"`
 	Remove []string `json:"remove,omitempty" binding:"optional"`
+	// DryRun runs everything then rolls it back: the answer is the one of a real call, with the diff of each note.
+	DryRun bool `json:"dry_run,omitempty" binding:"optional"`
 }
 
 // Tagged is a note after the call, its content left out, or why it was left as it was.
@@ -33,6 +39,8 @@ type Tagged struct {
 	Title string   `json:"title,omitempty" binding:"optional"`
 	Path  string   `json:"path,omitempty" binding:"optional"`
 	Tags  []string `json:"tags,omitempty" binding:"optional"`
+	// With dry_run only: the lines of the text that change ("- old", "+ new").
+	Diff  []string `json:"diff,omitempty" binding:"optional"`
 	Error string   `json:"error,omitempty" binding:"optional"`
 	// What the call did with each tag asked, against the tags the note had before (the case ignored).
 	Added          []string `json:"added,omitempty" binding:"optional"`
@@ -109,7 +117,7 @@ func (p *run) tagNotes() {
 
 	p.cache.result = make([]Tagged, 0, len(p.input.Notes))
 	// p.ctx, not the one RunInTx hands: a bun.Tx's own ctx may act for another account.
-	p.SetErr(p.db.RunInTx(p.ctx, nil, func(_ context.Context, tx bun.Tx) error {
+	err := p.db.RunInTx(p.ctx, nil, func(_ context.Context, tx bun.Tx) error {
 		for _, ref := range p.input.Notes {
 			done := Tagged{Note: ref}
 			// A savepoint per note: one failing leaves the others, and the transaction usable.
@@ -120,8 +128,14 @@ func (p *run) tagNotes() {
 			}
 			p.cache.result = append(p.cache.result, done)
 		}
+		if p.input.DryRun {
+			return errDryRun // the same steps ran, nothing stays
+		}
 		return nil
-	}))
+	})
+	if !errors.Is(err, errDryRun) {
+		p.SetErr(err)
+	}
 }
 
 // tagNote makes the #tags of a note its own plus add, minus remove, through hashtag.Sync as patchnote does for tags.
@@ -140,6 +154,7 @@ func (p *run) tagNote(tx bun.Tx, done *Tagged) error {
 	before := hashtag.Parse(note.Content)
 	done.AlreadyPresent, done.Added = diff(before, p.input.Add)
 	done.Removed, done.NotPresent = diff(before, p.input.Remove)
+	text := note.Content
 
 	tags := slices.DeleteFunc(hashtag.Parse(note.Content), func(tag string) bool {
 		return slices.ContainsFunc(p.input.Remove, func(r string) bool { return strings.EqualFold(r, tag) })
@@ -158,6 +173,9 @@ func (p *run) tagNote(tx bun.Tx, done *Tagged) error {
 			return patch.GetErr()
 		}
 		note = patch.GetResult()
+	}
+	if p.input.DryRun {
+		done.Diff = linediff.Lines(text, next)
 	}
 	done.ID, done.Title, done.Path, done.Tags = note.Item.ID, string(note.Item.Title), note.Path, note.Tags
 	return nil

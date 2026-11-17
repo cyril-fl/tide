@@ -47,7 +47,6 @@ type cache struct {
 
 // Process adds and removes #tags on notes in one transaction, the rest of their text kept as it is: a note missing or
 // locked is left with its error, the others tagged; each note changed keeps a version of its text before.
-// TODO: every note goes through readitem and patchnote within the 30 s of a request, fine for a few thousand; a job if more.
 func Process(ctx context.Context, db bun.IDB, input Input) *run {
 	return &run{
 		ctx:   ctx,

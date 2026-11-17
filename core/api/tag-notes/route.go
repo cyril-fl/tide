@@ -2,6 +2,7 @@ package tagnotes
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/cyril-fl/tide/core/api/services/respond"
 	"github.com/cyril-fl/tide/core/services/process/tagnotes"
@@ -26,6 +27,8 @@ func Handler(db bun.IDB) http.HandlerFunc {
 			return
 		}
 
+		// Hundreds of notes go through patchnote one by one: past the 30 s the server gives a request.
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
 		process := tagnotes.Process(r.Context(), db, input)
 		process.Run()
 		if process.HasErr() {

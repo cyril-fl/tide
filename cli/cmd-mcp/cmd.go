@@ -514,7 +514,9 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		if len(args.Notes) == 0 {
 			return nil, []tagged{}, nil
 		}
-		// The same fields: the API's answer is what the agent reads.
+		// The same fields: the API's answer is what the agent reads. Hundreds of notes take longer than Timeout.
+		ctx, cancel := apiclient.Long(ctx)
+		defer cancel()
 		out, err := decode[[]tagged](client.PatchApiNotesTags(ctx, apiclient.TagnotesInput{Notes: args.Notes, Add: &args.Add, Remove: &args.Remove}))
 		return nil, out, err
 	})

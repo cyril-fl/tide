@@ -3028,7 +3028,50 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Tag several notes */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description body */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["tagnotes.Input"];
+                };
+            };
+            responses: {
+                /** @description in the order asked */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["tagnotes.Tagged"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/pinned": {
@@ -4888,6 +4931,20 @@ export interface components {
             readonly?: boolean;
             snippet: string;
             title: string;
+        };
+        "tagnotes.Input": {
+            add?: string[];
+            notes: string[];
+            remove?: string[];
+        };
+        "tagnotes.Tagged": {
+            error?: string;
+            id?: string;
+            /** @description the uuid or path asked */
+            note: string;
+            path?: string;
+            tags?: string[];
+            title?: string;
         };
         "users.Account": {
             admin: boolean;

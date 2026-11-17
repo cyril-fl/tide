@@ -45,6 +45,7 @@ import (
 	"github.com/cyril-fl/tide/core/api/services/compress"
 	"github.com/cyril-fl/tide/core/api/services/guard"
 	"github.com/cyril-fl/tide/core/api/services/plan"
+	apitagnotes "github.com/cyril-fl/tide/core/api/tag-notes"
 	apiusers "github.com/cyril-fl/tide/core/api/users"
 	"github.com/cyril-fl/tide/core/domain"
 	"github.com/cyril-fl/tide/core/services/silo"
@@ -86,6 +87,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("DELETE /api/notes", apideleteitems.Handler(db, domain.NOTE))
 	mux.Handle("POST /api/notes/tags", apireadnotetags.Handler(db))
 	mux.Handle("POST /api/notes/read", apireadnotes.Handler(db))
+	mux.Handle("PATCH /api/notes/tags", apitagnotes.Handler(db))
 	mux.Handle("GET /api/notes/{id}", apireadnote.Handler(db))
 	mux.Handle("PATCH /api/notes/{id}", apieditnote.Handler(db))
 	mux.Handle("DELETE /api/notes/{id}", apideletenote.Handler(db))

@@ -511,15 +511,12 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		} else if args.DryRun {
 			return nil, nil, errors.New("dry_run goes with text, max_length, untagged or updated_before")
 		}
-		out := make([]tagged, 0, len(args.Notes))
-		for _, ref := range args.Notes {
-			done, err := tagNote(ctx, client, ref, args.Add, args.Remove)
-			if err != nil {
-				done.Error = err.Error()
-			}
-			out = append(out, done)
+		if len(args.Notes) == 0 {
+			return nil, []tagged{}, nil
 		}
-		return nil, out, nil
+		// The same fields: the API's answer is what the agent reads.
+		out, err := decode[[]tagged](client.PatchApiNotesTags(ctx, apiclient.TagnotesInput{Notes: args.Notes, Add: &args.Add, Remove: &args.Remove}))
+		return nil, out, err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -1296,38 +1293,6 @@ func resolveFolder(ctx context.Context, client *apiclient.ClientWithResponses, r
 		return "", nil
 	}
 	return apiclient.Resolve(ctx, client, apiclient.FOLDER, ref)
-}
-
-// tagNote makes the #tags of a note its own plus add, minus remove, through hashtag.Sync as the server does for the
-// tags of PATCH, but sent as content: restore keeps the text replaced in the history even within a writing session,
-// and updated_at refuses a note saved meanwhile.
-func tagNote(ctx context.Context, client *apiclient.ClientWithResponses, ref string, add, remove []string) (tagged, error) {
-	done := tagged{Note: ref}
-	id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, ref)
-	if err != nil {
-		return done, err
-	}
-	read, err := decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, id))
-	if err != nil {
-		return done, err
-	}
-	content := apiclient.Deref(read.Content)
-	tags := slices.DeleteFunc(hashtag.Parse(content), func(tag string) bool {
-		return slices.ContainsFunc(remove, func(r string) bool { return strings.EqualFold(r, tag) })
-	})
-	if next := hashtag.Sync(content, append(tags, add...)); next != content {
-		seen := read.Item.UpdatedAt
-		if seen == nil {
-			seen = &read.Item.CreatedAt
-		}
-		restore := true
-		read, err = decode[apiclient.ReaditemResult](client.PatchApiNotesId(ctx, id, apiclient.EditnoteBody{Content: &next, UpdatedAt: seen, Restore: &restore}))
-		if err != nil {
-			return done, err
-		}
-	}
-	done.ID, done.Title, done.Path, done.Tags = read.Item.Id, read.Item.Title, read.Path, apiclient.Deref(read.Tags)
-	return done, nil
 }
 
 // preview cuts the content to its first maxChars characters and says how long it was, the note left whole when

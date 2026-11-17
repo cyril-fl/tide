@@ -1094,6 +1094,47 @@ components:
       - snippet
       - title
       type: object
+    tagnotes.Input:
+      properties:
+        add:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        notes:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        remove:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+      required:
+      - notes
+      type: object
+    tagnotes.Tagged:
+      properties:
+        error:
+          type: string
+        id:
+          type: string
+        note:
+          description: the uuid or path asked
+          type: string
+        path:
+          type: string
+        tags:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        title:
+          type: string
+      required:
+      - note
+      type: object
     users.Account:
       properties:
         admin:
@@ -3058,6 +3099,40 @@ paths:
       tags:
       - notes
   /api/notes/tags:
+    patch:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/tagnotes.Input'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/tagnotes.Tagged'
+                type: array
+          description: in the order asked
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Tag several notes
+      tags:
+      - notes
     post:
       requestBody:
         content:

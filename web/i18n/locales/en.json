@@ -27,7 +27,8 @@
     "failed": "Something went wrong.",
     "notInPlan": "Your plan does not include this feature.",
     "tooLarge": "Too large, the API refused it.",
-    "tooManyTries": "Too many wrong passwords: try again in {wait}."
+    "tooManyTries": "Too many wrong passwords: try again in {wait}.",
+    "staleSettings": "Your settings changed elsewhere meanwhile: nothing was saved, here is the current version."
   },
   "sidebar": {
     "favorites": "Favorites",

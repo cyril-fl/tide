@@ -1,5 +1,5 @@
 import type { ContextMenuItem } from '@nuxt/ui';
-import type { FolderPath, Item, ItemDetail, Pinned, SavedSearch, Tag, User } from '~/types/items';
+import type { FolderPath, Item, ItemDetail, Pinned, SavedSearch, Tag } from '~/types/items';
 
 // The part of the API's message saying a folder name is taken (domain.ErrFolderExists).
 const TAKEN = 'already exists here';
@@ -377,31 +377,27 @@ export function useTags() {
 /** Saved searches ("smart folders"): create/edit/delete/reorder all replace the whole list via PATCH /api/me,
  * exactly like the snippets of the settings page. */
 export function useSavedSearches() {
-  const api = useApi();
   const { t } = useI18n();
   const { icons } = useIcons();
   const { savedSearch, confirm } = useDialogs();
+  const editMe = useEditMe();
 
-  async function save(searches: SavedSearch[]) {
-    const me = await api<User>('/api/me', { method: 'PATCH', body: { saved_searches: searches } });
-    useNuxtData<User>('me').data.value = me;
-    return me.saved_searches;
-  }
-
-  function list() {
-    return useNuxtData<User>('me').data.value?.saved_searches ?? [];
+  // change makes the new list from the account's: on a 409 it runs again on the fresh one.
+  function save(change: (searches: SavedSearch[]) => SavedSearch[]) {
+    return editMe((me) => ({ saved_searches: change(me.saved_searches ?? []) }));
   }
 
   async function addSavedSearch() {
     const added = await savedSearch({ title: t('search.saved.add') });
     if (!added) return;
-    await save([...list(), { ...added, id: crypto.randomUUID() }]);
+    const id = crypto.randomUUID();
+    await save((searches) => [...searches, { ...added, id }]);
   }
 
   async function editSavedSearch(search: SavedSearch) {
     const changed = await savedSearch({ title: t('search.saved.edit'), value: search });
     if (!changed) return;
-    await save(list().map((s) => (s.id === search.id ? { ...changed, id: search.id } : s)));
+    await save((searches) => searches.map((s) => (s.id === search.id ? { ...changed, id: search.id } : s)));
   }
 
   async function removeSavedSearch(search: SavedSearch) {
@@ -409,19 +405,21 @@ export function useSavedSearches() {
       title: t('search.saved.delete', { name: search.name }),
       action: t('common.delete'),
     });
-    if (confirmed) await save(list().filter((s) => s.id !== search.id));
+    if (confirmed) await save((searches) => searches.filter((s) => s.id !== search.id));
   }
 
   /** Drops what useDragItem carried onto this saved search, moving the dragged one right before it. */
   async function reorderSavedSearch(draggedId: string, targetId: string) {
     if (draggedId === targetId) return;
-    const searches = [...list()];
-    const from = searches.findIndex((s) => s.id === draggedId);
-    const to = searches.findIndex((s) => s.id === targetId);
-    if (from < 0 || to < 0) return;
-    const [moved] = searches.splice(from, 1);
-    searches.splice(to, 0, moved!);
-    await save(searches);
+    await save((current) => {
+      const searches = [...current];
+      const from = searches.findIndex((s) => s.id === draggedId);
+      const to = searches.findIndex((s) => s.id === targetId);
+      if (from < 0 || to < 0) return searches;
+      const [moved] = searches.splice(from, 1);
+      searches.splice(to, 0, moved!);
+      return searches;
+    });
   }
 
   function savedSearchMenu(search: SavedSearch): ContextMenuItem[][] {

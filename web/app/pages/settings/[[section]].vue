@@ -175,33 +175,41 @@ async function changeAfterMerge(next: string) {
 const { confirm, snippet: editSnippet, importNotes } = useDialogs();
 const { addSavedSearch } = useSavedSearches();
 
-// The API takes the whole list: an edit sends it back with the one changed.
-async function saveSnippets(snippets: Snippet[]) {
-  me.value = await api<User>('/api/me', { method: 'PATCH', body: { snippets } });
+// The API takes the whole list: an edit sends it back with the one changed. change makes it from the account's, and
+// runs again on the fresh one after a 409; a snippet is found there by its name, as it has no id.
+const editMe = useEditMe();
+function saveSnippets(change: (snippets: Snippet[]) => Snippet[]) {
+  return editMe((account) => ({ snippets: change([...(account.snippets ?? [])]) }));
 }
 
 async function addSnippet() {
   const added = await editSnippet({ title: t('settings.addSnippet') });
-  if (added) await saveSnippets([...(me.value?.snippets ?? []), added]);
+  if (added) await saveSnippets((snippets) => [...snippets, added]);
 }
 
 async function changeSnippet(index: number) {
-  const snippets = [...(me.value?.snippets ?? [])];
-  const changed = await editSnippet({ title: t('settings.editSnippet'), value: snippets[index] });
+  const old = me.value?.snippets?.[index];
+  const changed = await editSnippet({ title: t('settings.editSnippet'), value: old });
   if (!changed) return;
-  snippets[index] = changed;
-  await saveSnippets(snippets);
+  await saveSnippets((snippets) => {
+    const at = snippets.findIndex((s) => s.name === old?.name);
+    snippets.splice(at < 0 ? snippets.length : at, 1, changed);
+    return snippets;
+  });
 }
 
 async function removeSnippet(index: number) {
-  const snippets = [...(me.value?.snippets ?? [])];
+  const old = me.value?.snippets?.[index];
   const confirmed = await confirm({
-    title: t('settings.deleteSnippet', { name: snippets[index]?.name }),
+    title: t('settings.deleteSnippet', { name: old?.name }),
     action: t('common.delete'),
   });
   if (!confirmed) return;
-  snippets.splice(index, 1);
-  await saveSnippets(snippets);
+  await saveSnippets((snippets) => {
+    const at = snippets.findIndex((s) => s.name === old?.name);
+    if (at >= 0) snippets.splice(at, 1);
+    return snippets;
+  });
 }
 
 // The accounts of the server, for an admin only: read where the section shows, like the links and the files.

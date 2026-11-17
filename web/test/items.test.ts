@@ -35,6 +35,7 @@ function fake({
     useIcons: () => ({ icons: new Proxy({}, { get: (_, name) => name }) }),
     useI18n: () => ({ t: (key: string) => key }),
     useToast: () => ({ add: () => {} }),
+    useEditMe: () => async () => {},
     useNuxtData: () => ({ data: { value: pinned.map((id) => ({ id })) } }),
     refreshNuxtData: async () => void refreshes++,
     navigateTo: async (to: unknown) => void navigations.push(to),

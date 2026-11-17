@@ -133,7 +133,7 @@ en langage naturel : « range mes notes de réunion de novembre dans /Travail/R�
 
 | Outil | Ce qu'il fait |
 |---|---|
-| `search_notes` | Les notes dont le titre ou le contenu contient un texte, avec la ligne trouvée : les 50 premières, ou `limit` (0 pour toutes). `max_length` (au plus N caractères, ligne de titre comprise : les notes vides ou réduites au titre) et `untagged` (sans tag) ne gardent que les candidates, avec ou sans texte. Un motif d'inachèvement (`[Table could not be rendered]`, un `/` seul) se cherche comme texte |
+| `search_notes` | Les notes dont le titre ou le contenu contient un texte, avec la ligne trouvée, et leur total : les 50 premières, ou `limit` (0 pour toutes) et `offset`. `max_length` (au plus N caractères, ligne de titre comprise : les notes vides ou réduites au titre) et `untagged` (sans tag) ne gardent que les candidates, avec ou sans texte. Un motif d'inachèvement (`[Table could not be rendered]`, un `/` seul) se cherche comme texte |
 | `recent_notes` | Les notes modifiées le plus récemment, la plus récente d'abord |
 | `read_note` | Le contenu d'une note, son chemin, ses tags (`[]` sans tag) et ses dates (`created_at`, `updated_at`) |
 | `read_notes` | Plusieurs notes d'un coup, 50 au plus, chacune comme `read_note` ; une seule introuvable fait échouer l'appel |

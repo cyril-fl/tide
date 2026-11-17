@@ -146,11 +146,17 @@ func TestNotes(t *testing.T) {
 	}
 	// Without a text, the filters alone keep the untagged and the short notes: Bare each time, Plan neither.
 	for _, args := range []map[string]any{{"untagged": true}, {"max_length": 10}} {
-		var short []map[string]any
+		var short searchPage
 		call(t, agent, "search_notes", args, &short)
-		if len(short) != 1 || short[0]["id"] != bare.ID {
-			t.Errorf("search_notes %v = %v, want Bare alone", args, short)
+		if len(short.Matches) != 1 || short.Matches[0].Id != bare.ID || short.Total != 1 {
+			t.Errorf("search_notes %v = %+v, want Bare alone", args, short)
 		}
+	}
+	// The next page is empty, the total still counts Bare.
+	var after searchPage
+	call(t, agent, "search_notes", map[string]any{"untagged": true, "offset": 1}, &after)
+	if len(after.Matches) != 0 || after.Total != 1 {
+		t.Errorf("search_notes offset 1 = %+v, want no match of 1", after)
 	}
 	call(t, agent, "delete_note", map[string]any{"note": bare.ID}, nil)
 
@@ -165,11 +171,11 @@ func TestNotes(t *testing.T) {
 		t.Errorf("read_note after tag_notes = %q", read.Content)
 	}
 
-	var matches []map[string]any
+	var matches searchPage
 	call(t, agent, "search_notes", map[string]any{"text": "shipped"}, &matches)
 	var recent []map[string]any
 	call(t, agent, "recent_notes", map[string]any{}, &recent)
-	if len(matches) != 1 || len(recent) != 1 {
+	if len(matches.Matches) != 1 || len(recent) != 1 {
 		t.Errorf("search_notes = %v, recent_notes = %v", matches, recent)
 	}
 

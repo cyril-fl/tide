@@ -83,6 +83,13 @@ type searchArgs struct {
 	MaxLength *int   `json:"max_length,omitempty" jsonschema:"only the notes whose content, title line included, has at most that many characters: the empty or title-only ones"`
 	Untagged  bool   `json:"untagged,omitempty" jsonschema:"only the notes with no tag"`
 	Limit     *int   `json:"limit,omitempty" jsonschema:"how many notes at most, 50 when left out, 0 for all of them"`
+	Offset    int    `json:"offset,omitempty" jsonschema:"how many matches to skip: the next page starts at offset + limit"`
+}
+
+// searchPage is a page of matches and their total: those read, and the notes after them that may match.
+type searchPage struct {
+	Matches []apiclient.SearchnotesMatch `json:"matches"`
+	Total   int                          `json:"total"`
 }
 
 type notesArgs struct {
@@ -333,12 +340,12 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "search_notes",
 		Annotations: reads(),
-		Description: "Find the notes whose title or content contains a text, with the line where it was found: the first 50, title matches first, unless limit says otherwise. max_length and untagged keep only the short or untagged notes, with or without a text, so that sorting the account reads only those.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, []apiclient.SearchnotesMatch, error) {
+		Description: "Find the notes whose title or content contains a text, with the line where it was found, and their total: the first 50, title matches first, or limit and offset. max_length and untagged keep only the short or untagged notes, with or without a text, so that sorting the account reads only those.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, searchPage, error) {
 		limit := limitOf(args.Limit)
-		params := &apiclient.GetApiSearchParams{Q: &args.Text, MaxLength: args.MaxLength, Untagged: &args.Untagged, Limit: &limit}
-		matches, err := decode[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, params))
-		return nil, matches, err
+		params := &apiclient.GetApiSearchParams{Q: &args.Text, MaxLength: args.MaxLength, Untagged: &args.Untagged, Limit: &limit, Offset: &args.Offset}
+		matches, total, err := paged[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, params))
+		return nil, searchPage{Matches: append([]apiclient.SearchnotesMatch{}, matches...), Total: total}, err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{

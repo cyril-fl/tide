@@ -144,6 +144,12 @@ func TestNotes(t *testing.T) {
 	if len(both) != 2 || both[0].ID != bare.ID || both[1].Content != "# Plan\nshipped #go\n\n#done" {
 		t.Errorf("read_notes = %+v", both)
 	}
+	// max_chars gives the start of each content and its whole length; a short one is left whole.
+	call(t, agent, "read_notes", map[string]any{"notes": []string{"/Bare", created.ID}, "max_chars": 7}, &both)
+	if len(both) != 2 || both[0].Truncated || both[0].Content != "# Bare" || both[0].Length == nil || *both[0].Length != 6 ||
+		!both[1].Truncated || both[1].Content != "# Plan\n" || both[1].Length == nil || *both[1].Length != 25 {
+		t.Errorf("read_notes max_chars = %+v", both)
+	}
 	// Without a text, the filters alone keep the untagged and the short notes: Bare each time, Plan neither.
 	for _, args := range []map[string]any{{"untagged": true}, {"max_length": 10}} {
 		var short searchPage

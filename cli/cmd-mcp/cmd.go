@@ -60,6 +60,8 @@ type note struct {
 	Title     string   `json:"title"`
 	Path      string   `json:"path"`
 	Content   string   `json:"content,omitempty"`
+	Length    *int     `json:"length,omitempty"` // the whole content's characters, given with max_chars
+	Truncated bool     `json:"truncated,omitempty"`
 	Tags      []string `json:"tags"` // [] rather than left out: the agent sees the note has none
 	Readonly  bool     `json:"readonly,omitempty"`
 	CreatedAt string   `json:"created_at"`
@@ -93,7 +95,8 @@ type searchPage struct {
 }
 
 type notesArgs struct {
-	Notes []string `json:"notes" jsonschema:"the notes: their uuid, or their path from the root (/Folder/Note); 50 at most"`
+	Notes    []string `json:"notes" jsonschema:"the notes: their uuid, or their path from the root (/Folder/Note); 50 at most"`
+	MaxChars int      `json:"max_chars,omitempty" jsonschema:"only the first that many characters of each content, with its whole length and truncated: a preview to sort notes before reading in full only those that need it"`
 }
 
 type listFolderArgs struct {
@@ -103,7 +106,8 @@ type listFolderArgs struct {
 }
 
 type noteArgs struct {
-	Note string `json:"note" jsonschema:"the note: its uuid, or its path from the root (/Folder/Note)"`
+	Note     string `json:"note" jsonschema:"the note: its uuid, or its path from the root (/Folder/Note)"`
+	MaxChars int    `json:"max_chars,omitempty" jsonschema:"only the first that many characters of the content, with its whole length and truncated: a preview before reading it in full"`
 }
 
 type folderArgs struct {
@@ -360,20 +364,20 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "read_note",
 		Annotations: reads(),
-		Description: "Read a note: its content, its path and its tags.",
+		Description: "Read a note: its content, its path and its tags. max_chars gives only the start of the content, with its length and truncated.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args noteArgs) (*mcp.CallToolResult, note, error) {
 		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
 		if err != nil {
 			return nil, note{}, err
 		}
 		read, err := readNote(decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, id)))
-		return nil, read, err
+		return nil, preview(read, args.MaxChars), err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "read_notes",
 		Annotations: reads(),
-		Description: "Read several notes at once, up to 50, each as read_note gives it, in the order asked: one missing fails the call.",
+		Description: "Read several notes at once, up to 50, each as read_note gives it, in the order asked: one missing fails the call. To sort many notes, read them first with max_chars (the start of each, its length and truncated), then in full only those that need it.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args notesArgs) (*mcp.CallToolResult, []note, error) {
 		if len(args.Notes) > pageSize {
 			return nil, nil, fmt.Errorf("%d notes asked, %d at most", len(args.Notes), pageSize)
@@ -389,7 +393,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 			if err != nil {
 				return nil, nil, fmt.Errorf("%s: %w", ref, err)
 			}
-			read = append(read, found)
+			read = append(read, preview(found, args.MaxChars))
 		}
 		return nil, read, nil
 	})
@@ -1245,6 +1249,21 @@ func tagNote(ctx context.Context, client *apiclient.ClientWithResponses, ref str
 	}
 	done.ID, done.Title, done.Path, done.Tags = read.Item.Id, read.Item.Title, read.Path, apiclient.Deref(read.Tags)
 	return done, nil
+}
+
+// preview cuts the content to its first maxChars characters and says how long it was, the note left whole when
+// maxChars is not positive.
+func preview(read note, maxChars int) note {
+	if maxChars <= 0 {
+		return read
+	}
+	content := []rune(read.Content)
+	length := len(content)
+	read.Length, read.Truncated = &length, length > maxChars
+	if read.Truncated {
+		read.Content = string(content[:maxChars])
+	}
+	return read
 }
 
 // readNote turns the note the API answers into what the agent reads.

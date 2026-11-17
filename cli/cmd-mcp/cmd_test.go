@@ -271,6 +271,15 @@ func TestNotes(t *testing.T) {
 	if len(listed.Items) != 1 || listed.Items[0].CreatedAt == "" {
 		t.Errorf("list_folder with dates = %+v", listed)
 	}
+	// The options, and the end marker: the one note of /Inbox, then a page of the root that goes on.
+	call(t, agent, "list_folder", map[string]any{"folder": "/Inbox", "tags": true, "length": true, "preview": 3}, &listed)
+	if it := listed.Items[0]; it.Tags == nil || it.Length == nil || *it.Length < 3 || len([]rune(it.Preview)) != 3 || listed.HasMore {
+		t.Errorf("list_folder with tags, length and preview = %+v", listed)
+	}
+	call(t, agent, "list_folder", map[string]any{"limit": 1}, &listed)
+	if len(listed.Items) != 1 || listed.Total != 2 || !listed.HasMore {
+		t.Errorf("list_folder of the root, limit 1 = %+v", listed)
+	}
 	// A page past the end is empty, the total still counts them all.
 	call(t, agent, "list_folder", map[string]any{"limit": 1, "offset": 5}, &listed)
 	if listed.Total != 2 || len(listed.Items) != 0 {

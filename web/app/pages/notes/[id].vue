@@ -53,7 +53,8 @@ function onCreated(id: string) {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1">
+  <div class="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-y-auto">
+    <!-- Below lg the two panels stack, half the height each; the page scrolls only when a half would get under 18rem. -->
     <!-- Split, the first panel is resized like the sidebar, its width kept by the layout's UDashboardGroup. Alone, it
          fills the page and hides its handle: the same panel either way, or opening a note beside would remount the editor. -->
     <UDashboardPanel
@@ -63,7 +64,7 @@ function onCreated(id: string) {
       :default-size="40"
       :ui="
         split.shown.value
-          ? { root: 'min-h-0 border-0', handle: 'border-x border-default' }
+          ? { root: 'min-h-0 border-0 max-lg:min-h-72 max-lg:flex-1', handle: 'border-x border-default' }
           : { root: 'min-h-0 flex-1 border-0 lg:w-auto', handle: 'hidden' }
       "
     >
@@ -77,7 +78,11 @@ function onCreated(id: string) {
         @created="onCreated"
       />
     </UDashboardPanel>
-    <section v-if="split.shown.value" :aria-label="$t('note.beside')" class="flex min-w-0 flex-1 flex-col">
+    <section
+      v-if="split.shown.value"
+      :aria-label="$t('note.beside')"
+      class="flex min-w-0 flex-1 flex-col max-lg:min-h-72 max-lg:border-t max-lg:border-default"
+    >
       <NoteEditor :key="beside" :note-id="beside" beside />
     </section>
   </div>

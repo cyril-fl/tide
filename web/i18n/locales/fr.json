@@ -530,7 +530,7 @@
   "features": {
     "graph": "Le graphe des notes",
     "tabs": "Les onglets de l'éditeur, qui gardent plusieurs notes ouvertes",
-    "splitView": "La vue scindée : ⌘ + clic sur un lien [[…]] ouvre la note à côté",
+    "splitView": "La vue scindée : ⌘ + clic ou clic droit sur un lien [[…]] ouvre la note à côté, en dessous sur un écran étroit",
     "focusMode": "Le mode focus, qui ne laisse que la note à l'écran",
     "contextPanel": "Le panneau de contexte à droite de la note : son plan, ses notes liées et son historique",
     "settingsNav": "La barre latérale des réglages, une page par section",

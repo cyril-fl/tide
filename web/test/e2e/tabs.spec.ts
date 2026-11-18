@@ -53,7 +53,8 @@ test('the Ultra tabs keep the open notes', async ({ page }) => {
 });
 
 // The Ultra split view (#128): ⌘ + click on a [[link]] opens its note beside, the context panel gives way, both
-// editors save, the panel survives a reload and closes by its button; a right click or ⌘ + click on a tab and the ⌘ K palette open it beside again.
+// editors save, the panel survives a reload and closes by its button; a right click or ⌘ + click on a tab, the ⌘ K
+// palette and a right click on the link open it beside again; on a phone the two notes stack.
 test('the Ultra split view edits two notes side by side', async ({ page }) => {
   const beside = await box.note(`# Beside ${box.prefix}\n\nAutre`);
   const main = await box.note(`# Main ${box.prefix}\n\nVoir [Beside ${box.prefix}](note:${beside.id})`);
@@ -106,6 +107,19 @@ test('the Ultra split view edits two notes side by side', async ({ page }) => {
     await expect(besideEditor.getByText('Autre là')).toBeVisible();
     await expect(page).toHaveURL(`/notes/${main.id}`);
     expect(page.context().pages()).toHaveLength(1);
+
+    // A right click on the [[link]] itself opens it beside.
+    await panel.getByRole('button', { name: 'Fermer la note à côté' }).click();
+    await mainEditor.locator('a[data-wikilink]').click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Ouvrir à côté' }).click();
+    await expect(besideEditor.getByText('Autre là')).toBeVisible();
+    await expect(page).toHaveURL(`/notes/${main.id}`);
+
+    // On a phone the two notes stack, the one beside under the other.
+    await page.setViewportSize({ width: 390, height: 844 });
+    const [top, under] = await Promise.all([mainEditor.boundingBox(), besideEditor.boundingBox()]);
+    expect(under!.y).toBeGreaterThan(top!.y);
+    expect(under!.x).toBeLessThan(top!.x + top!.width);
   } finally {
     await box.api.patch('/api/me', { data: { plan: 'base' } });
   }

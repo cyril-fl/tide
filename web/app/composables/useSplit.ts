@@ -1,4 +1,4 @@
-/** The Ultra split view: a second note beside the open one, on a wide screen and out of the focus mode, like the context panel. */
+/** The Ultra split view: a second note beside the open one, out of the focus mode; below the one under it (the note page). */
 export function useSplit() {
   const { has } = usePro();
   const { icons } = useIcons();
@@ -6,8 +6,7 @@ export function useSplit() {
   const { beside } = useTabs();
   const route = useRoute();
   const focus = useState('focus', () => false);
-  const wide = useMediaQuery('(min-width: 1024px)');
-  const can = computed(() => has('splitView') && wide.value && !(focus.value && has('focusMode')));
+  const can = computed(() => has('splitView') && !(focus.value && has('focusMode')));
   const shown = computed(() => can.value && !!beside.value && route.path.startsWith('/notes/'));
 
   // ⌘ + click on a link: the note opens in the other panel. One already on screen only takes the focus: two editors
@@ -20,10 +19,11 @@ export function useSplit() {
   }
 
   // What right-clicking a note offers wherever it is listed (tabs, sidebar, folders): opening it beside, not the
-  // notes already on screen. Away from a note, there is nothing to open it beside: it opens.
-  function besideMenu(id: string) {
+  // notes already on screen. Away from a note, there is nothing to open it beside: it opens. fromBeside: a link of the
+  // second panel, whose other panel is the first.
+  function besideMenu(id: string, fromBeside = false) {
     if (!can.value || id === route.params.id || id === beside.value) return [];
-    const open = () => (route.path.startsWith('/notes/') ? openOther(id, false) : navigateTo(`/notes/${id}`));
+    const open = () => (route.path.startsWith('/notes/') ? openOther(id, fromBeside) : navigateTo(`/notes/${id}`));
     return [[{ label: t('note.openBeside'), icon: icons.beside, onSelect: open }]];
   }
 

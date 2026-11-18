@@ -530,7 +530,7 @@
   "features": {
     "graph": "The graph of the notes",
     "tabs": "The editor's tabs, keeping several notes open",
-    "splitView": "The split view: ⌘ + click on a [[…]] link opens the note beside",
+    "splitView": "The split view: ⌘ + click or right click on a [[…]] link opens the note beside, below on a narrow screen",
     "focusMode": "Focus mode, which leaves only the note on screen",
     "contextPanel": "The context panel beside the note: its outline, its related notes and its history",
     "settingsNav": "The settings sidebar, one page per section",

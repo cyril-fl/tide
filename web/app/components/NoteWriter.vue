@@ -156,6 +156,20 @@ useEventListener(window, 'keydown', slashKey);
 // Not on a touch screen: a long press sends contextmenu, the menu would take the place of the native copy and paste one.
 const touch = useMediaQuery('(pointer: coarse)');
 const contextMenu = computed(() => (has('contextMenu') && !props.readonly && !touch.value ? slashMenu.value : []));
+// A right click or a long press on a link to a note opens a menu of its own, before the editor's: open it beside.
+const { besideMenu } = useSplit();
+const linkAt = shallowRef<{ items: DropdownMenuItem[][]; left: number; top: number } | null>(null);
+function linkMenu(event: MouseEvent) {
+  const link = (event.target as HTMLElement).closest<HTMLElement>('[data-note]');
+  const items = link?.dataset.note ? besideMenu(link.dataset.note, !!link.closest('[data-beside]')) : [];
+  if (!items.length) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  linkAt.value = { items, left: event.clientX, top: event.clientY };
+}
+// Safari on iOS sends no contextmenu on a long press.
+onLongPress(useTemplateRef('writer'), (event) => event.pointerType !== 'mouse' && linkMenu(event));
+const linkOpen = computed({ get: () => !!linkAt.value, set: (open) => !open && (linkAt.value = null) });
 // The menu keeps the browser from moving the cursor on a right click: it goes where the click was, unless inside the selected text.
 function placeCursor(event: MouseEvent) {
   const editor = editorRef.value?.editor;
@@ -211,7 +225,13 @@ const toolbar = computed(() =>
 
 <template>
   <!-- UEditor hands its listeners to TipTap, not to the page: clicks on links are caught here. -->
-  <div v-if="ready" class="flex min-h-0 flex-1 flex-col" @click="parts.onClick">
+  <div
+    v-if="ready"
+    ref="writer"
+    class="flex min-h-0 flex-1 flex-col"
+    @click="parts.onClick"
+    @contextmenu.capture="linkMenu"
+  >
     <!-- A div takes the menu's listeners: UEditor hands its own to TipTap. -->
     <UContextMenu :items="contextMenu" :disabled="!contextMenu.length">
       <div class="flex min-h-0 flex-1 flex-col" @contextmenu.capture="placeCursor" @scroll.capture="placeBubbles">
@@ -284,6 +304,9 @@ const toolbar = computed(() =>
       :content="{ align: 'start', onCloseAutoFocus: (event: Event) => event.preventDefault() }"
     >
       <span class="fixed size-0" :style="{ left: `${slashAt?.left}px`, top: `${slashAt?.top}px` }" />
+    </UDropdownMenu>
+    <UDropdownMenu v-model:open="linkOpen" :items="linkAt?.items" :content="{ align: 'start' }">
+      <span class="fixed size-0" :style="{ left: `${linkAt?.left}px`, top: `${linkAt?.top}px` }" />
     </UDropdownMenu>
   </div>
 </template>

@@ -71,7 +71,7 @@ func addSavedSearchTools(server *mcp.Server, client *apiclient.ClientWithRespons
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "saved_searches",
 		Annotations: reads(),
-		Description: "List the saved searches (the app's smart folders), or run one: its notes and their total; Pro plan.",
+		Description: "List the saved searches (the app's smart folders), or run one: its notes and total; Pro plan.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args savedSearchesArgs) (*mcp.CallToolResult, searches, error) {
 		list, err := readSearches(ctx, client)
 		if err != nil {

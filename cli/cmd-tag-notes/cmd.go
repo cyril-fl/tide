@@ -8,6 +8,7 @@ import (
 
 	plumcliconfig "github.com/cyril-fl/plum/cli/config"
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
+	plumdebug "github.com/cyril-fl/plum/utils/debug"
 	cmdsearch "github.com/cyril-fl/tide/cli/cmd-search"
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/cyril-fl/tide/config"
@@ -29,7 +30,8 @@ func Flags() []plumcliconfig.Cmdflags {
 }
 
 // Tag adds and removes tags on the notes named or found by the filters of tide search, through PATCH /api/notes/tags
-// as the MCP's tag_notes does; --dry-run prints each note's diff and writes nothing.
+// as the MCP's tag_notes does; --dry-run prints each note's diff and writes nothing, --summary only the counts and the
+// notes that failed.
 func Tag(cobra *cobra.Command, args []string) error {
 	ctx := cobra.Context()
 	flags := cobra.Flags()
@@ -49,8 +51,8 @@ func Tag(cobra *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	var dryRun, asJSON bool
-	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"dry-run": &dryRun, "json": &asJSON}); err != nil {
+	var dryRun, asJSON, summary bool
+	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"dry-run": &dryRun, "json": &asJSON, "summary": &summary}); err != nil {
 		return err
 	}
 	if len(add)+len(remove) == 0 {
@@ -83,35 +85,59 @@ func Tag(cobra *cobra.Command, args []string) error {
 		tagged = *response.JSON200
 	}
 
-	if asJSON {
+	switch {
+	case asJSON && summary:
+		plumdebug.Json(summarize(tagged))
+	case asJSON:
 		screen.PrintJSON(tagged)
-		return nil
+	default:
+		printTagged(tagged, dryRun, summary)
 	}
-	printTagged(tagged, dryRun)
 	return nil
 }
 
-// printTagged gives each note with what happened to the tags asked and, with --dry-run, the lines that change, then the
-// counts.
-func printTagged(tagged []apiclient.TagnotesTagged, dryRun bool) {
-	changed, unchanged, failed := 0, 0, 0
+// counts is the answer of --summary --json: the counts, then the notes that failed.
+type counts struct {
+	Changed   int                        `json:"changed"`
+	Unchanged int                        `json:"unchanged"`
+	Failed    int                        `json:"failed"`
+	Notes     []apiclient.TagnotesTagged `json:"notes"`
+}
+
+// summarize counts the notes failed, changed (a tag added or removed) and the rest, and keeps only the failed ones.
+func summarize(tagged []apiclient.TagnotesTagged) counts {
+	out := counts{Notes: []apiclient.TagnotesTagged{}}
 	for _, note := range tagged {
+		switch {
+		case note.Error != nil:
+			out.Failed++
+			out.Notes = append(out.Notes, note)
+		case len(apiclient.Deref(note.Added))+len(apiclient.Deref(note.Removed)) > 0:
+			out.Changed++
+		default:
+			out.Unchanged++
+		}
+	}
+	return out
+}
+
+// printTagged gives each note with what happened to the tags asked and, with --dry-run, the lines that change, then the
+// counts; with summary, only the notes that failed, then the counts.
+func printTagged(tagged []apiclient.TagnotesTagged, dryRun, summary bool) {
+	for _, note := range tagged {
+		if summary && note.Error == nil {
+			continue
+		}
 		name := apiclient.Deref(note.Path)
 		if name == "" {
 			name = note.Note
 		}
 		fmt.Println(name)
 		if note.Error != nil {
-			failed++
 			fmt.Printf("  error: %s\n", *note.Error)
 			continue
 		}
 		added, removed := apiclient.Deref(note.Added), apiclient.Deref(note.Removed)
-		if len(added)+len(removed) > 0 {
-			changed++
-		} else {
-			unchanged++
-		}
 		for _, line := range []struct {
 			label string
 			tags  []string
@@ -124,9 +150,10 @@ func printTagged(tagged []apiclient.TagnotesTagged, dryRun bool) {
 			fmt.Printf("    %s\n", line)
 		}
 	}
-	summary := fmt.Sprintf("%d changed, %d unchanged, %d failed", changed, unchanged, failed)
+	total := summarize(tagged)
+	line := fmt.Sprintf("%d changed, %d unchanged, %d failed", total.Changed, total.Unchanged, total.Failed)
 	if dryRun {
-		summary += " (dry run, nothing written)"
+		line += " (dry run, nothing written)"
 	}
-	fmt.Println(summary)
+	fmt.Println(line)
 }

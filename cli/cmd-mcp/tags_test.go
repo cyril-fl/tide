@@ -53,9 +53,10 @@ func TestTagsHistoryLinks(t *testing.T) {
 		Value string `json:"value"`
 	}
 	// dry_run previews the notes rewritten and writes nothing: the real call then renames the tag.
-	var preview struct {
-		Value string `json:"value"`
-		Notes []struct {
+	var preview, summary struct {
+		Value   string `json:"value"`
+		Changed *int   `json:"changed"`
+		Notes   []struct {
 			Path string   `json:"path"`
 			Diff []string `json:"diff"`
 		} `json:"notes"`
@@ -63,6 +64,10 @@ func TestTagsHistoryLinks(t *testing.T) {
 	call(t, agent, "rename_tag", map[string]any{"tag": "go", "to": "golang", "dry_run": true}, &preview)
 	if preview.Value != "golang" || len(preview.Notes) == 0 || len(preview.Notes[0].Diff) == 0 {
 		t.Errorf("rename_tag dry_run = %+v", preview)
+	}
+	call(t, agent, "rename_tag", map[string]any{"tag": "go", "to": "golang", "dry_run": true, "summary": true}, &summary)
+	if summary.Changed == nil || *summary.Changed != len(preview.Notes) || len(summary.Notes) != 0 {
+		t.Errorf("rename_tag summary = %+v, want %d notes counted, none listed", summary, len(preview.Notes))
 	}
 	var still tags
 	call(t, agent, "tags", map[string]any{"tag": "go", "limit": 1}, &still)
@@ -85,11 +90,19 @@ func TestTagsHistoryLinks(t *testing.T) {
 		t.Errorf("replace_notes dry_run = %+v, want the notes holding golang", replaced)
 	}
 	// dry_run counts the notes and writes nothing: the real call then deletes the tag.
-	var deleted, dry apiclient.DeletetagResult
-	call(t, agent, "delete_tag", map[string]any{"tag": "golang", "dry_run": true, "keep_empty": true}, &dry)
+	var deleted, dry, kept, brief deletedTag
+	var bare note
+	call(t, agent, "create_item", map[string]any{"content": "#golang"}, &bare)
+	call(t, agent, "delete_tag", map[string]any{"tag": "golang", "dry_run": true, "keep_empty": true}, &kept)
 	call(t, agent, "tags", map[string]any{"tag": "golang", "limit": 1}, &still)
-	if len(dry.Tags) != 1 || dry.Changed == 0 || len(dry.Trashed) != 0 || still.Total == 0 {
-		t.Errorf("delete_tag dry_run = %+v, tag left with %d notes", dry, still.Total)
+	if len(kept.Tags) != 1 || kept.Changed == 0 || kept.Trashed != 0 || len(kept.Notes) != 0 || still.Total == 0 {
+		t.Errorf("delete_tag dry_run keep_empty = %+v, tag left with %d notes", kept, still.Total)
+	}
+	// bare holds nothing but the tag: trashed, listed unless summary.
+	call(t, agent, "delete_tag", map[string]any{"tag": "golang", "dry_run": true}, &dry)
+	call(t, agent, "delete_tag", map[string]any{"tag": "golang", "dry_run": true, "summary": true}, &brief)
+	if dry.Trashed != 1 || len(dry.Notes) != 1 || dry.Notes[0].Id != bare.ID || brief.Trashed != 1 || len(brief.Notes) != 0 || brief.Changed != dry.Changed {
+		t.Errorf("delete_tag dry_run = %+v, summary = %+v", dry, brief)
 	}
 	call(t, agent, "delete_tag", map[string]any{"tag": "golang"}, &deleted)
 	if renamed.Value != "golang" || len(deleted.Tags) != 1 || deleted.Changed != dry.Changed {

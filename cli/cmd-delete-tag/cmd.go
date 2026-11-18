@@ -9,10 +9,11 @@ import (
 )
 
 // Delete deletes tags, not the notes carrying them, in one DELETE /api/tags; an unknown one is skipped. --keep-empty
-// keeps out of the trash a note left empty, --dry-run prints the notes it would trash and writes nothing.
+// keeps out of the trash a note left empty, --dry-run prints the notes it would trash and writes nothing, --summary
+// only the counts.
 func Delete(cobra *cobra.Command, args []string) error {
-	var dryRun, keepEmpty bool
-	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"dry-run": &dryRun, "keep-empty": &keepEmpty}); err != nil {
+	var dryRun, keepEmpty, summary bool
+	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"dry-run": &dryRun, "keep-empty": &keepEmpty, "summary": &summary}); err != nil {
 		return err
 	}
 	client, err := apiclient.Read().Client()
@@ -29,6 +30,9 @@ func Delete(cobra *cobra.Command, args []string) error {
 
 	result := response.JSON200
 	for _, note := range result.Trashed {
+		if summary {
+			break
+		}
 		fmt.Println(note.Path)
 	}
 	if dryRun {

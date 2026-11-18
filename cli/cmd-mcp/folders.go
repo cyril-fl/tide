@@ -80,7 +80,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "list_folder",
 		Annotations: reads(),
-		Description: "List the notes and folders in a folder, folders first then by title, with the total and has_more; or the trash.",
+		Description: "List a folder's notes and folders, folders first then by title, with the total and has_more; or the trash.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args listFolderArgs) (*mcp.CallToolResult, folderPage, error) {
 		if args.Trash {
 			if args.Folder != "" {

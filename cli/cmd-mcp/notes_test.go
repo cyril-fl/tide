@@ -107,6 +107,12 @@ func TestNotes(t *testing.T) {
 	if read.Content != "# Plan\nshipped\n\n#done #old" {
 		t.Errorf("read_notes after tag_notes = %q", read.Content)
 	}
+	// #236: summary keeps the counts and only the failed notes.
+	var brief tagResult
+	call(t, agent, "tag_notes", map[string]any{"notes": []string{"/Projects/Plan", "/Nowhere"}, "add": []string{"old"}, "dry_run": true, "summary": true}, &brief)
+	if brief.Unchanged != 1 || brief.Failed != 1 || len(brief.Notes) != 1 || brief.Notes[0].Note != "/Nowhere" || brief.Notes[0].Error == "" {
+		t.Errorf("tag_notes summary = %+v", brief)
+	}
 	// tag_notes on what a search finds: dry_run lists the notes and changes nothing, then the call tags them.
 	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "add": []string{"review"}, "dry_run": true}, &tagRes)
 	retagged = tagRes.Notes

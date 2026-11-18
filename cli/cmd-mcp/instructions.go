@@ -18,7 +18,7 @@ func Instructions(readOnly bool) string {
 		"- Subagents do not receive these instructions: put the lines they need in their prompt."
 	if !readOnly {
 		text += "\n- Never rewrite a whole note to change a part: tag_notes for tags, edit_note with old, section or title for a passage or the title.\n" +
-			"- Tag in few calls: decide a batch's tags first, then one tag_notes for the whole batch, its ops a group of notes each, or on the search filters (dry_run first); " +
+			"- Tag in few calls: decide a batch's tags first, then one tag_notes for the whole batch, its ops a group of notes each, or on the search filters (dry_run first, summary for counts only); " +
 			"it answers counts and each note's diff, no need to read back.\n" +
 			"- A #tag in code, a link or an address is not read: tag_notes refuses to write one there. A #hashtag in a snippet tags the notes it starts.\n" +
 			"- Across notes: replace_notes replaces a text everywhere, rename_tag with merge folds a tag into another (dry_run first).\n" +

@@ -68,8 +68,9 @@ tide move /Projects/Ideas --parent /Archives
 tide search recipe --json | jq -r '.[].id'
 tide search --tag idea --any-tag cooking --not draft   # tags, --folder, --untagged, --empty-sections, --max-length, --updated-before
 tide search --duplicates                               # notes sharing a title, grouped (--same-path: sharing a path), --json
-tide tag notes --folder /Archives --add old --remove todo --dry-run   # notes by path or the filters of search
-tide remove tag inbox --dry-run --keep-empty   # the notes it changes; --keep-empty trashes none
+tide tag notes --folder /Archives --add old --remove todo --dry-run   # notes by path or the filters of search; --summary: counts and failures only
+tide edit tag draft wip --merge --dry-run --summary   # how many notes the merge rewrites, without their diff
+tide remove tag inbox --dry-run --keep-empty   # the notes it changes; --keep-empty trashes none, --summary lists none
 
 tide finder               # browse, open, edit in the terminal
 tide graph                # walk between notes that share tags

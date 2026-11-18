@@ -16,13 +16,13 @@ import (
 var errRequired = errors.New("required")
 
 // Edit renames the tag through PATCH /api/tags/{value}, in the text of its notes too; --merge folds it into a tag
-// already there, --dry-run prints the notes it would rewrite and their diff.
+// already there, --dry-run prints the notes it would rewrite and their diff, --summary only their count.
 func Edit(cobra *cobra.Command, args []string) error {
-	var merge, dryRun bool
-	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"merge": &merge, "dry-run": &dryRun}); err != nil {
+	var merge, dryRun, summary bool
+	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"merge": &merge, "dry-run": &dryRun, "summary": &summary}); err != nil {
 		return err
 	}
-	_, err := rename(cobra.Context(), args[0], args[1], merge, dryRun)
+	_, err := rename(cobra.Context(), args[0], args[1], merge, dryRun, summary)
 	return err
 }
 
@@ -32,10 +32,10 @@ func Interactive(ctx context.Context, value string) (string, error) {
 	if err := huhform.New(huh.NewInput().Title("Tag").Value(&to).Validate(notBlank)).Run(); err != nil {
 		return value, err
 	}
-	return rename(ctx, value, to, false, false)
+	return rename(ctx, value, to, false, false, false)
 }
 
-func rename(ctx context.Context, from string, to string, merge, dryRun bool) (string, error) {
+func rename(ctx context.Context, from string, to string, merge, dryRun, summary bool) (string, error) {
 	client, err := apiclient.Read().Client()
 	if err != nil {
 		return from, err
@@ -51,6 +51,9 @@ func rename(ctx context.Context, from string, to string, merge, dryRun bool) (st
 	if dryRun {
 		notes := apiclient.Deref(response.JSON200.Notes)
 		for _, note := range notes {
+			if summary {
+				break
+			}
 			fmt.Println(note.Path)
 			for _, line := range note.Diff {
 				fmt.Printf("    %s\n", line)

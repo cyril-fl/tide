@@ -31,7 +31,7 @@ func addSnippetTools(server *mcp.Server, client *apiclient.ClientWithResponses, 
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "save_snippet",
 		Annotations: writes(true, true),
-		Description: "Create or replace a snippet by its name, or delete it, the others kept; answers that snippet.",
+		Description: "Create, replace or delete a snippet by its name, the others kept; answers it.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args snippetArgs) (*mcp.CallToolResult, apiclient.DomainSnippet, error) {
 		answer := apiclient.DomainSnippet{Name: args.Name, Content: args.Content}
 		_, err := editMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {

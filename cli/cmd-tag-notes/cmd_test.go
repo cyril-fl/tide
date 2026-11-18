@@ -3,6 +3,7 @@ package cmdtagnotes
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
@@ -60,6 +61,16 @@ func TestTag(t *testing.T) {
 	var tagged []apiclient.TagnotesTagged
 	if err != nil || json.Unmarshal([]byte(printed), &tagged) != nil || len(tagged) != 2 || len(apiclient.Deref(tagged[0].Diff)) == 0 || content("Tarte") != "# Tarte\n#Cuisine" {
 		t.Errorf("dry run: printed %q, err = %v, content %q", printed, err, content("Tarte"))
+	}
+	// --summary prints the notes that failed and the counts, in text or JSON.
+	printed, err = run(map[string][]string{"add": {"done"}, "dry-run": {"true"}, "summary": {"true"}}, "/Plan", "/Nowhere")
+	if err != nil || !strings.HasPrefix(printed, "/Nowhere\n  error: ") || !strings.HasSuffix(printed, "\n0 changed, 1 unchanged, 1 failed (dry run, nothing written)\n") {
+		t.Errorf("summary: printed %q, err = %v", printed, err)
+	}
+	printed, err = run(map[string][]string{"tag": {"cuisine"}, "add": {"recette"}, "dry-run": {"true"}, "summary": {"true"}, "json": {"true"}})
+	var brief counts
+	if err != nil || json.Unmarshal([]byte(printed), &brief) != nil || brief.Changed != 2 || brief.Failed != 0 || len(brief.Notes) != 0 {
+		t.Errorf("summary json: printed %q, err = %v", printed, err)
 	}
 	printed, err = run(map[string][]string{"text": {"soupe"}, "add": {"recette"}})
 	if err != nil || printed != "/Soupe\n  added: recette\n1 changed, 0 unchanged, 0 failed\n" || content("Soupe") != "# Soupe\n#Cuisine #recette" {

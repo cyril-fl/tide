@@ -15,13 +15,22 @@ type deleteTagArgs struct {
 	Tag       string `json:"tag"`
 	DryRun    bool   `json:"dry_run,omitempty"`
 	KeepEmpty bool   `json:"keep_empty,omitempty"`
+	Summary   bool   `json:"summary,omitempty" jsonschema:"counts only"`
+}
+
+// deletedTag counts the notes changed and trashed, then lists those trashed unless summary.
+type deletedTag struct {
+	Tags    []apiclient.DomainTag        `json:"tags"`
+	Changed int                          `json:"changed"`
+	Trashed int                          `json:"trashed"`
+	Notes   []apiclient.DeletetagTrashed `json:"notes,omitempty"`
 }
 
 type tagsArgs struct {
 	Tag      string `json:"tag,omitempty" jsonschema:"the account's tags when empty"`
-	Prefix   string `json:"prefix,omitempty" jsonschema:"only the tags starting with it, any case"`
-	MinNotes int    `json:"min_notes,omitempty" jsonschema:"only the tags of that many notes at least"`
-	Limit    *int   `json:"limit,omitempty" jsonschema:"notes of the tag, 50 when left out, 0 for all"`
+	Prefix   string `json:"prefix,omitempty" jsonschema:"tags starting with it, any case"`
+	MinNotes int    `json:"min_notes,omitempty" jsonschema:"tags of that many notes at least"`
+	Limit    *int   `json:"limit,omitempty" jsonschema:"50 when left out, 0 for all"`
 	Offset   int    `json:"offset,omitempty"`
 	Dates    bool   `json:"dates,omitempty" jsonschema:"add created_at and updated_at"`
 }
@@ -45,16 +54,19 @@ type carrier struct {
 }
 
 type renameTagArgs struct {
-	Tag    string `json:"tag"`
-	To     string `json:"to"`
-	Merge  bool   `json:"merge,omitempty" jsonschema:"fold it into to when to exists"`
-	DryRun bool   `json:"dry_run,omitempty" jsonschema:"write nothing, answer each note's diff"`
+	Tag     string `json:"tag"`
+	To      string `json:"to"`
+	Merge   bool   `json:"merge,omitempty" jsonschema:"fold it into to when to exists"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema:"write nothing, answer the diffs"`
+	Summary bool   `json:"summary,omitempty" jsonschema:"count only"`
 }
 
-// renamedTag is the tag renamed; with dry_run, the notes it would rewrite, nothing being written.
+// renamedTag is the tag renamed; with dry_run, the count of the notes it would rewrite and, unless summary, those
+// notes, nothing being written.
 type renamedTag struct {
 	apiclient.DomainTag
-	Notes []apiclient.EdittagChanged `json:"notes,omitempty"`
+	Changed *int                       `json:"changed,omitempty"`
+	Notes   []apiclient.EdittagChanged `json:"notes,omitempty"`
 }
 
 type tagNotesArgs struct {
@@ -70,10 +82,11 @@ type tagNotesArgs struct {
 	Untagged      bool     `json:"untagged,omitempty"`
 	UpdatedBefore string   `json:"updated_before,omitempty"`
 	EmptySections bool     `json:"empty_sections,omitempty"`
-	DryRun        bool     `json:"dry_run,omitempty" jsonschema:"write nothing, answer each note's diff"`
+	DryRun        bool     `json:"dry_run,omitempty" jsonschema:"write nothing, answer the diffs"`
+	Summary       bool     `json:"summary,omitempty" jsonschema:"counts and failed notes only"`
 	Add           []string `json:"add,omitempty" jsonschema:"without the #"`
 	Remove        []string `json:"remove,omitempty" jsonschema:"without the #"`
-	Ops           []tagOp  `json:"ops,omitempty" jsonschema:"more add/remove on other notes in the same call, counted apart"`
+	Ops           []tagOp  `json:"ops,omitempty" jsonschema:"more add/remove on other notes, counted apart"`
 }
 
 type tagOp struct {
@@ -136,7 +149,7 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tag_notes",
 		Annotations: writes(false, true),
-		Description: "Add or remove tags on the notes given, found by the filters of search_notes or grouped in ops, only their #tags rewritten; answers counts and each note's diff.",
+		Description: "Add or remove tags on notes given, found by search_notes filters or grouped in ops, only their #tags rewritten; answers counts and each note's diff.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, tagResult, error) {
 		adds := args.Add
 		for _, op := range args.Ops {
@@ -171,7 +184,11 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 				out[i].Note = "" // the id says which note
 			}
 		}
-		return nil, tagCounts(out, len(args.Ops)), err
+		result := tagCounts(out, len(args.Ops))
+		if args.Summary {
+			result.Notes = slices.DeleteFunc(result.Notes, func(n tagged) bool { return n.Error == "" })
+		}
+		return nil, result, err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -209,6 +226,13 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 		Description: "Rename a tag in the text of every note carrying it; a name taken refuses unless merge.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, renamedTag, error) {
 		renamed, err := decode[renamedTag](client.PatchApiTagsValue(ctx, args.Tag, apiclient.EdittagBody{Value: args.To, Merge: &args.Merge, DryRun: &args.DryRun}))
+		if args.DryRun {
+			changed := len(renamed.Notes)
+			renamed.Changed = &changed
+		}
+		if args.Summary {
+			renamed.Notes = nil
+		}
 		return nil, renamed, err
 	})
 
@@ -216,12 +240,16 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 		Name:        "delete_tag",
 		Annotations: writes(true, true),
 		Description: "Remove a tag from its notes' text, trashing those left empty unless keep_empty.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args deleteTagArgs) (*mcp.CallToolResult, apiclient.DeletetagResult, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args deleteTagArgs) (*mcp.CallToolResult, deletedTag, error) {
 		// Many notes take longer than Timeout, like tag_notes.
 		ctx, cancel := apiclient.Long(ctx)
 		defer cancel()
 		params := &apiclient.DeleteApiTagsValueParams{DryRun: &args.DryRun, KeepEmpty: &args.KeepEmpty}
 		deleted, err := decode[apiclient.DeletetagResult](client.DeleteApiTagsValue(ctx, args.Tag, params))
-		return nil, deleted, err
+		out := deletedTag{Tags: deleted.Tags, Changed: deleted.Changed, Trashed: len(deleted.Trashed), Notes: deleted.Trashed}
+		if args.Summary {
+			out.Notes = nil
+		}
+		return nil, out, err
 	})
 }

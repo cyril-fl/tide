@@ -229,7 +229,7 @@ commands:
   edit-tag:
     use: "tag <value> <new value>"
     short: "Edit an existing tag"
-    long: "Rename a tag in the text of every note carrying it. A name already taken is refused unless --merge folds the tag into it. --dry-run lists the notes it would rewrite and the lines that change, and writes nothing."
+    long: "Rename a tag in the text of every note carrying it. A name already taken is refused unless --merge folds the tag into it. --dry-run lists the notes it would rewrite and the lines that change, and writes nothing; --summary prints only their count."
     example: "{name} edit tag todo next\n{name} edit tag draft wip --merge --dry-run"
     args:
       - name: "merge"
@@ -241,6 +241,11 @@ commands:
         shorthand: ""
         value: ""
         usage: "Show the notes and the lines that would change, write nothing"
+        type: "bool"
+      - name: "summary"
+        shorthand: ""
+        value: ""
+        usage: "Print only the count, not each note"
         type: "bool"
   delete:
     use: "remove"
@@ -258,7 +263,7 @@ commands:
   delete-tag:
     use: "tag <value>..."
     short: "Delete an existing tag"
-    long: "Delete tags and erase them from the text of every note carrying them; a note holding nothing else goes to the trash, unless --keep-empty. --dry-run counts the notes it would change, lists those it would trash, and writes nothing."
+    long: "Delete tags and erase them from the text of every note carrying them; a note holding nothing else goes to the trash, unless --keep-empty. --dry-run counts the notes it would change, lists those it would trash, and writes nothing; --summary prints only the counts."
     example: "{name} remove tag draft old\n{name} remove tag inbox --dry-run --keep-empty"
     args:
       - name: "dry-run"
@@ -270,6 +275,11 @@ commands:
         shorthand: ""
         value: ""
         usage: "Leave a note holding nothing but the tag empty instead of trashing it"
+        type: "bool"
+      - name: "summary"
+        shorthand: ""
+        value: ""
+        usage: "Print only the counts, not the notes trashed"
         type: "bool"
   delete-token:
     use: "token <uuid>"
@@ -395,7 +405,7 @@ commands:
   tag-notes:
     use: "notes [<uuid|path>...]"
     short: "Add or remove tags on notes, named or found by the filters of search"
-    long: "Add and remove tags on the notes named, or on every note the filters of {name} search find (--text, --tag, --any-tag, --no-tag, --folder, --not, --max-length, --untagged, --empty-sections, --updated-before), only their #tags rewritten. Each note says what was added, already there, removed or absent. --dry-run shows that and the lines of text that change, and writes nothing."
+    long: "Add and remove tags on the notes named, or on every note the filters of {name} search find (--text, --tag, --any-tag, --no-tag, --folder, --not, --max-length, --untagged, --empty-sections, --updated-before), only their #tags rewritten. Each note says what was added, already there, removed or absent. --dry-run shows that and the lines of text that change, and writes nothing. --summary prints only the counts and the notes that failed, with their error; with --json, {changed, unchanged, failed, notes} the failed ones only."
     example: "{name} tag notes /Projects/Plan /Inbox/Idea --add done --remove todo\n{name} tag notes --folder /Archives --updated-before 2026-01-31 --add obsolete --dry-run\n{name} tag notes --untagged --max-length 100 --add stub --json"
     args:
       - name: "add"
@@ -417,6 +427,11 @@ commands:
         shorthand: ""
         value: ""
         usage: "Show the notes and the lines that would change, write nothing"
+        type: "bool"
+      - name: "summary"
+        shorthand: ""
+        value: ""
+        usage: "Print only the counts and the notes that failed"
         type: "bool"
       - name: "json"
         shorthand: ""

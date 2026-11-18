@@ -24,6 +24,7 @@ import (
 	"github.com/cyril-fl/tide/core/services/process/deleteuser"
 	"github.com/cyril-fl/tide/core/services/process/editfolder"
 	"github.com/cyril-fl/tide/core/services/process/editnote"
+	"github.com/cyril-fl/tide/core/services/process/editnotetext"
 	"github.com/cyril-fl/tide/core/services/process/editpassword"
 	"github.com/cyril-fl/tide/core/services/process/edittag"
 	"github.com/cyril-fl/tide/core/services/process/edituser"
@@ -67,6 +68,7 @@ var statuses = []struct {
 		deletetag.ErrNoValue,
 		editfolder.ErrNoValue, editfolder.ErrNoTitle,
 		editnote.ErrNoValue, editnote.ErrNoContent,
+		editnotetext.ErrNoValue, editnotetext.ErrNoMatch,
 		edituser.ErrInvalidLocale, edituser.ErrInvalidTheme, edituser.ErrInvalidColorMode, edituser.ErrInvalidView, edituser.ErrInvalidPlan, edituser.ErrInvalidAfterMerge, edituser.ErrInvalidRetention, edituser.ErrInvalidNeighbors, edituser.ErrInvalidAvatar, edituser.ErrInvalidSnippet, edituser.ErrInvalidSavedSearch, edituser.ErrInvalidSidebar,
 		adduser.ErrNoName, adduser.ErrShortPassword, editpassword.ErrWrongPassword,
 		createapitoken.ErrNoName, createapitoken.ErrLongName, createapitoken.ErrInvalidLifetime,
@@ -94,7 +96,7 @@ var statuses = []struct {
 		createfile.ErrFileType,
 	}},
 	{http.StatusConflict, []error{
-		domain.ErrFolderExists, edittag.ErrAlreadyExists, adduser.ErrNameTaken, deleteuser.ErrSelf, deleteuser.ErrLastAdmin, moveitems.ErrCycle, restoreitems.ErrParentInTrash, patchnote.ErrLocked, patchnote.ErrStale, edituser.ErrStale, mergefork.ErrOriginGone, unmergefork.ErrNoMerge, resolveitem.ErrAmbiguous,
+		domain.ErrFolderExists, edittag.ErrAlreadyExists, adduser.ErrNameTaken, deleteuser.ErrSelf, deleteuser.ErrLastAdmin, moveitems.ErrCycle, restoreitems.ErrParentInTrash, patchnote.ErrLocked, patchnote.ErrStale, edituser.ErrStale, mergefork.ErrOriginGone, unmergefork.ErrNoMerge, resolveitem.ErrAmbiguous, editnotetext.ErrMany,
 	}},
 }
 

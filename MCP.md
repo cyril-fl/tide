@@ -127,7 +127,7 @@ un jeton d'API ou une connexion OAuth en lecture seule (section 4).
 
 ## 3. Ce qu'il peut faire
 
-À la connexion, l'agent reçoit les trente et un outils avec leur description et leur schéma, puis travaille
+À la connexion, l'agent reçoit les trente-quatre outils avec leur description et leur schéma, puis travaille
 en langage naturel : « range mes notes de réunion de novembre dans /Travail/Réunions » devient un
 `search_notes`, un `create_folder`, puis une suite de `move_item`.
 
@@ -153,6 +153,8 @@ l'agent principal de leur passer ce qu'il leur faut.
 | `tags` | Les notes portant un tag, avec leur chemin : les 50 premières et le total, ou `limit` et `offset`, `dates` ajoutant leurs dates ; sans tag, les tags du compte, les plus utilisés d'abord, `prefix` (début du nom, sans casse) et `min_notes` (au moins N notes) n'en gardant qu'une partie |
 | `create_note` | Une note à partir de markdown : le premier titre devient le titre, les `#hashtags` des tags |
 | `edit_note` | Remplace **tout** le contenu d'une note (son premier titre devient le titre) et la rend sans son contenu ; refuse une note verrouillée |
+| `rename_note` | Change le titre d'une note sans envoyer son contenu : son premier titre prend le nouveau, ou un titre est ajouté en tête, comme le renommage de l'app ; les `[[liens]]` vers elle suivent. Le texte d'avant va dans l'historique comme pour `edit_note` ; refuse une note verrouillée |
+| `replace_in_note` | Corrige une partie d'une seule note sans la réécrire : `old` devient `new`, `old` trouvé exactement une fois (plusieurs refusent avec le nombre, sauf avec `all` ; aucune refuse), ou le corps d'une section, désignée par son titre (`section`), devient `new`, le titre gardé, jusqu'au titre suivant de même niveau ou plus haut. Le reste du texte ne bouge pas ; le titre et les tags suivent le nouveau texte, le texte d'avant va dans l'historique comme pour `edit_note` ; refuse une note verrouillée. Répond la note sans son contenu et `replaced`, le nombre de remplacements |
 | `tag_notes` | Ajoute ou retire des tags sur des notes sans envoyer leur contenu : seuls leurs `#tags` changent, chaque note changée garde son texte dans l'historique ; les tags manquants s'écrivent à la fin de la note, sur sa dernière ligne de tags ou une nouvelle. Un `#tag` se lit partout sauf dans du code (un bloc ```` ``` ```` fermé, des lignes indentées de 4 espaces ou d'une tabulation après une ligne vide, `` `en ligne` ``), un lien ou une adresse. Une note verrouillée, ou un tag qui ne serait pas lu là où il s'écrit, laisse la note telle quelle, avec l'erreur. Répond les compteurs `changed`, `unchanged`, `failed` et, par note, `id`, `title` et le diff des tags demandés (`added`, `already_present`, `removed`, `not_present`), `note` et `error` pour une note en échec ; pas de relecture à faire. À la place de `notes`, `text`, `max_length`, `untagged` et `updated_before` taguent toutes les notes que `search_notes` trouverait, sans les lire ; `dry_run` n'écrit rien (ni note ni version) et répond comme l'appel réel, avec en plus, par note, `diff` : les lignes du texte qui changent (`- ancienne`, `+ nouvelle`) |
 | `create_folder` | Un dossier, à la racine ou dans un autre |
 | `rename_folder` | Le titre d'un dossier |
@@ -162,7 +164,7 @@ l'agent principal de leur passer ce qu'il leur faut.
 | `list_trash` | Ce qui est à la corbeille, avec l'uuid que `restore_item` attend |
 | `restore_item` | Ressort de la corbeille, avec ce qui y est parti en même temps |
 | `rename_tag` | Renomme un tag sur toutes ses notes, dans leur texte aussi ; vers un tag qui existe déjà, refuse, sauf avec `merge` qui les fusionne ; `dry_run` n'écrit rien et ajoute au tag les `notes` qu'il réécrirait (`id`, `title`, `path`, `diff`) |
-| `replace_notes` | Remplace un texte brut dans plusieurs notes d'un coup (`folder` pour limiter, `dry_run` pour compter avant) ; les notes verrouillées sont laissées, chaque note changée garde son texte dans l'historique |
+| `replace_notes` | Le « remplacer partout » de l'app (plan Ultra) : remplace un texte brut, casse comprise, pas une regex, à chacune de ses occurrences dans toutes les notes du compte hors corbeille (`folder` pour se limiter à un dossier et ses sous-dossiers), en une transaction ; les cibles cachées (l'id d'un lien de note `](note:…)`, l'adresse d'un fichier) ne sont pas touchées. Les notes verrouillées sont laissées et comptées (`locked`), chaque note changée garde toujours son texte d'avant dans l'historique. Répond `notes` et `occurrences` ; `dry_run` compte seulement, à faire d'abord. Pour une seule note, et un texte qui doit n'y être qu'une fois, `replace_in_note` |
 | `delete_tag` | Retire un tag de toutes ses notes ; une note qui ne contenait que lui part à la corbeille |
 | `note_history` | Les versions antérieures d'une note (sans `version`), ou le texte de l'une d'elles |
 | `note_links` | Les liens d'une note, ses rétroliens et les notes qui partagent ses tags ; sans note, les liens cassés de tout le compte |
@@ -178,7 +180,7 @@ l'agent principal de leur passer ce qu'il leur faut.
 | `delete_search` | Retire une recherche enregistrée par son id ou son nom, ses notes restent. Plan Pro |
 
 **Un outil par domaine, pas un par processus.** Chaque outil annoncé coûte du contexte à l'agent à
-chaque requête : les trente et un font environ 17 Ko de nom, description et schéma d'entrée (de 450 octets
+chaque requête : les trente et un d'alors (#208) faisaient environ 17 Ko de nom, description et schéma d'entrée (de 450 octets
 pour `read_file` à 1,6 Ko pour `save_search`, ~5 000 tokens en tout, presque toujours lus depuis le cache) ;
 leurs schémas de sortie (11 Ko), les clients ne les donnent pas au modèle. Regrouper les tags, les snippets
 et les recherches enregistrées en un outil de lecture et un d'écriture chacun n'en retirerait qu'environ
@@ -205,7 +207,8 @@ chiffrement) s'applique pareil des trois côtés.
   texte remplacé va dans l'historique de la note comme pour une modification dans l'app (à la première
   modification d'une session d'écriture, puis au moins une fois par heure), d'où `note_history` et
   l'app le ressortent. Les `#tags` du contenu restent, ceux de `tags` s'y ajoutent. Pour seulement
-  taguer, `tag_notes` évite de recopier la note (et d'en perdre un bout, le titre compris).
+  taguer, `tag_notes` évite de recopier la note (et d'en perdre un bout, le titre compris) ; pour corriger
+  un passage ou le titre, `replace_in_note` et `rename_note`.
 - **Une suppression passe par la corbeille**, d'où `restore_item` la ressort. Mais la corbeille se
   vide d'elle-même passé le délai de rétention du compte (`purgeitems`, lancé par le serveur), sauf si ce compte garde sa corbeille indéfiniment : ce n'est pas un
   filet garanti. Le vidage définitif, lui, n'est pas donné à
@@ -238,10 +241,10 @@ Chaque outil porte des annotations MCP, pour que le client demande confirmation 
 
 - `readOnlyHint` : les lectures (`search_notes`, `recent_notes`, `duplicate_notes`, `read_note`, `read_notes`, `list_folder`, `tags`,
   `list_trash`, `note_history`, `note_links`, `read_file`, `export_notes`, `snippets`, `saved_searches`), qui ne changent rien.
-- `destructiveHint` : ce qui supprime ou écrase (`edit_note`, `replace_notes`, `delete_note`,
+- `destructiveHint` : ce qui supprime ou écrase (`edit_note`, `replace_in_note`, `replace_notes`, `delete_note`,
   `delete_folder`, `delete_tag`, `save_snippet`, `delete_snippet`, `save_search`, `delete_search`). Les autres écritures l'ont à `false` : elles ajoutent, déplacent ou renomment.
 - `idempotentHint` : un second appel identique ne change rien de plus (`edit_note`, les suppressions,
-  `move_item`, les renommages, `tag_notes`, `restore_item`, `save_snippet`) ; pas `create_note`, `create_folder`, `replace_notes`,
+  `move_item`, les renommages, `tag_notes`, `restore_item`, `save_snippet`) ; pas `create_note`, `create_folder`, `replace_in_note` (un `new` qui contient `old` le remplacerait encore), `replace_notes`,
   `attach_file`, `import_notes` ni `save_search` (qui crée une nouvelle recherche à chaque appel sans `search`).
 - `openWorldHint` à `false` partout : les outils ne touchent qu'aux notes du compte.
 

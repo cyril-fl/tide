@@ -362,6 +362,30 @@ type EditnoteBody struct {
 	UpdatedAt *string `json:"updated_at,omitempty"`
 }
 
+// EditnotetextInput defines model for editnotetext.Input.
+type EditnotetextInput struct {
+	// All replace every occurrence of old instead of refusing more than one
+	All *bool `json:"all,omitempty"`
+
+	// New what replaces old or the body of section, empty to delete it
+	New *string `json:"new,omitempty"`
+
+	// Old an exact text, with its case, to find once (or every time with all)
+	Old *string `json:"old,omitempty"`
+
+	// Section Section is the words of a heading: what follows it, down to the next heading of its level or higher, becomes New.
+	Section *string `json:"section,omitempty"`
+
+	// Title the new title: the first heading takes it, or one is added on top
+	Title *string `json:"title,omitempty"`
+}
+
+// EditnotetextResult defines model for editnotetext.Result.
+type EditnotetextResult struct {
+	Note     ReaditemResult `json:"note"`
+	Replaced int            `json:"replaced"`
+}
+
 // EditpasswordInput defines model for editpassword.Input.
 type EditpasswordInput struct {
 	Current string `json:"current"`
@@ -979,6 +1003,9 @@ type PostApiNotesIdMergeJSONRequestBody = ForknoteMergeBody
 // PostApiNotesIdRebaseJSONRequestBody defines body for PostApiNotesIdRebase for application/json ContentType.
 type PostApiNotesIdRebaseJSONRequestBody = ForknoteRebaseBody
 
+// PatchApiNotesIdTextJSONRequestBody defines body for PatchApiNotesIdText for application/json ContentType.
+type PatchApiNotesIdTextJSONRequestBody = EditnotetextInput
+
 // PostApiNotesIdVersionsJSONRequestBody defines body for PostApiNotesIdVersions for application/json ContentType.
 type PostApiNotesIdVersionsJSONRequestBody = ReadversionsBody
 
@@ -1477,6 +1504,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/notes/{id}/rebase (the `PostApiNotesIdRebase` operationId).
 	PostApiNotesIdRebase(ctx context.Context, id string, body PostApiNotesIdRebaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PatchApiNotesIdTextWithBody Rename a note, or replace a text or a section of it
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/notes/{id}/text (the `PatchApiNotesIdText` operationId).
+	PatchApiNotesIdTextWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PatchApiNotesIdText Rename a note, or replace a text or a section of it
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/notes/{id}/text (the `PatchApiNotesIdText` operationId).
+	PatchApiNotesIdText(ctx context.Context, id string, body PatchApiNotesIdTextJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiNotesIdUnmerge Undo the last merge of a fork
 	//
@@ -2729,6 +2770,40 @@ func (c *Client) PostApiNotesIdRebaseWithBody(ctx context.Context, id string, co
 // Corresponds with POST /api/notes/{id}/rebase (the `PostApiNotesIdRebase` operationId).
 func (c *Client) PostApiNotesIdRebase(ctx context.Context, id string, body PostApiNotesIdRebaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiNotesIdRebaseRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PatchApiNotesIdTextWithBody Rename a note, or replace a text or a section of it
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/notes/{id}/text (the `PatchApiNotesIdText` operationId).
+func (c *Client) PatchApiNotesIdTextWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiNotesIdTextRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PatchApiNotesIdText Rename a note, or replace a text or a section of it
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/notes/{id}/text (the `PatchApiNotesIdText` operationId).
+func (c *Client) PatchApiNotesIdText(ctx context.Context, id string, body PatchApiNotesIdTextJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiNotesIdTextRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5168,6 +5243,53 @@ func NewPostApiNotesIdRebaseRequestWithBody(server string, id string, contentTyp
 	return req, nil
 }
 
+// NewPatchApiNotesIdTextRequest calls the generic PatchApiNotesIdText builder with application/json body
+func NewPatchApiNotesIdTextRequest(server string, id string, body PatchApiNotesIdTextJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPatchApiNotesIdTextRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPatchApiNotesIdTextRequestWithBody constructs an http.Request for the PatchApiNotesIdText method, with any body, and a specified content type
+func NewPatchApiNotesIdTextRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/notes/%s/text", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPostApiNotesIdUnmergeRequest constructs an http.Request for the PostApiNotesIdUnmerge method
 func NewPostApiNotesIdUnmergeRequest(server string, id string) (*http.Request, error) {
 	var err error
@@ -6822,6 +6944,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/notes/{id}/rebase (the `PostApiNotesIdRebase` operationId).
 	PostApiNotesIdRebaseWithResponse(ctx context.Context, id string, body PostApiNotesIdRebaseJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiNotesIdRebaseResponse, error)
+
+	// PatchApiNotesIdTextWithBodyWithResponse Rename a note, or replace a text or a section of it
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/notes/{id}/text (the `PatchApiNotesIdText` operationId).
+	PatchApiNotesIdTextWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiNotesIdTextResponse, error)
+
+	// PatchApiNotesIdTextWithResponse Rename a note, or replace a text or a section of it
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/notes/{id}/text (the `PatchApiNotesIdText` operationId).
+	PatchApiNotesIdTextWithResponse(ctx context.Context, id string, body PatchApiNotesIdTextJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiNotesIdTextResponse, error)
 
 	// PostApiNotesIdUnmergeWithResponse Undo the last merge of a fork
 	//
@@ -9797,6 +9933,82 @@ func (r PostApiNotesIdRebaseResponse) ContentType() string {
 	return ""
 }
 
+type PatchApiNotesIdTextResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *EditnotetextResult
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *RespondFailure
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *RespondFailure
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PatchApiNotesIdTextResponse) GetJSON200() *EditnotetextResult {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PatchApiNotesIdTextResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PatchApiNotesIdTextResponse) GetJSON404() *RespondFailure {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r PatchApiNotesIdTextResponse) GetJSON409() *RespondFailure {
+	return r.JSON409
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r PatchApiNotesIdTextResponse) GetJSON413() *RespondFailure {
+	return r.JSON413
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PatchApiNotesIdTextResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PatchApiNotesIdTextResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PatchApiNotesIdTextResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PatchApiNotesIdTextResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PatchApiNotesIdTextResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type PostApiNotesIdUnmergeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -12295,6 +12507,32 @@ func (c *ClientWithResponses) PostApiNotesIdRebaseWithResponse(ctx context.Conte
 	return ParsePostApiNotesIdRebaseResponse(rsp)
 }
 
+// PatchApiNotesIdTextWithBodyWithResponse Rename a note, or replace a text or a section of it
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/notes/{id}/text (the `PatchApiNotesIdText` operationId).
+func (c *ClientWithResponses) PatchApiNotesIdTextWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiNotesIdTextResponse, error) {
+	rsp, err := c.PatchApiNotesIdTextWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiNotesIdTextResponse(rsp)
+}
+
+// PatchApiNotesIdTextWithResponse Rename a note, or replace a text or a section of it
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/notes/{id}/text (the `PatchApiNotesIdText` operationId).
+func (c *ClientWithResponses) PatchApiNotesIdTextWithResponse(ctx context.Context, id string, body PatchApiNotesIdTextJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiNotesIdTextResponse, error) {
+	rsp, err := c.PatchApiNotesIdText(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiNotesIdTextResponse(rsp)
+}
+
 // PostApiNotesIdUnmergeWithResponse Undo the last merge of a fork
 //
 // Returns a wrapper object for the known response body format(s).
@@ -14758,6 +14996,67 @@ func ParsePostApiNotesIdRebaseResponse(rsp *http.Response) (*PostApiNotesIdRebas
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ReaditemResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePatchApiNotesIdTextResponse parses an HTTP response from a PatchApiNotesIdTextWithResponse call
+func ParsePatchApiNotesIdTextResponse(rsp *http.Response) (*PatchApiNotesIdTextResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PatchApiNotesIdTextResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EditnotetextResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

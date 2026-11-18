@@ -15,6 +15,7 @@ import (
 	apideletetrash "github.com/cyril-fl/tide/core/api/delete-trash"
 	apieditfolder "github.com/cyril-fl/tide/core/api/edit-folder"
 	apieditnote "github.com/cyril-fl/tide/core/api/edit-note"
+	apieditnotetext "github.com/cyril-fl/tide/core/api/edit-note-text"
 	apiedittag "github.com/cyril-fl/tide/core/api/edit-tag"
 	apiexport "github.com/cyril-fl/tide/core/api/export"
 	apiforknote "github.com/cyril-fl/tide/core/api/fork-note"
@@ -92,6 +93,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("PATCH /api/notes/tags", apitagnotes.Handler(db))
 	mux.Handle("GET /api/notes/{id}", apireadnote.Handler(db))
 	mux.Handle("PATCH /api/notes/{id}", apieditnote.Handler(db))
+	mux.Handle("PATCH /api/notes/{id}/text", apieditnotetext.Handler(db))
 	mux.Handle("DELETE /api/notes/{id}", apideletenote.Handler(db))
 	mux.Handle("GET /api/notes/{id}/neighbors", apireadgraph.Neighbors(db))
 	mux.Handle("GET /api/notes/{id}/graph", apireadgraph.Graph(db))

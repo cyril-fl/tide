@@ -417,6 +417,46 @@ func TestTagsHistoryLinks(t *testing.T) {
 	}
 }
 
+// TestEditText renames a note and corrects a part of it without sending it whole (#224).
+func TestEditText(t *testing.T) {
+	agent := connect(t)
+	fails := func(name string, args map[string]any, want string) {
+		t.Helper()
+		result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: args})
+		if err != nil || !result.IsError || !strings.Contains(result.Content[0].(*mcp.TextContent).Text, want) {
+			t.Errorf("%s %v = %+v, %v; want an error with %q", name, args, result, err, want)
+		}
+	}
+
+	var created, renamed note
+	call(t, agent, "create_note", map[string]any{"content": "# Pierre blanche de nettoyage maisonIngrédients\n\none two two"}, &created)
+	call(t, agent, "rename_note", map[string]any{"note": created.ID, "title": "Pierre blanche"}, &renamed)
+	if renamed.Title != "Pierre blanche" || renamed.Path != "/Pierre blanche" || renamed.Content != "" {
+		t.Errorf("rename_note = %+v", renamed)
+	}
+
+	var replaced partEdit
+	call(t, agent, "replace_in_note", map[string]any{"note": "/Pierre blanche", "old": "one", "new": "un"}, &replaced)
+	if replaced.Replaced != 1 || replaced.ID != created.ID {
+		t.Errorf("replace_in_note = %+v", replaced)
+	}
+	fails("replace_in_note", map[string]any{"note": created.ID, "old": "two", "new": "deux"}, "2 times")
+	fails("replace_in_note", map[string]any{"note": created.ID, "old": "three"}, "not found")
+	call(t, agent, "replace_in_note", map[string]any{"note": created.ID, "old": "two", "new": "deux", "all": true}, &replaced)
+	var read note
+	call(t, agent, "read_note", map[string]any{"note": created.ID}, &read)
+	if replaced.Replaced != 2 || read.Content != "# Pierre blanche\n\nun deux deux" {
+		t.Errorf("replace_in_note all = %+v, read = %q", replaced, read.Content)
+	}
+
+	// The text before the first change of the session is in the history.
+	var versions history
+	call(t, agent, "note_history", map[string]any{"note": created.ID}, &versions)
+	if len(versions.Versions) != 1 {
+		t.Errorf("note_history = %+v, want the text before the rename", versions)
+	}
+}
+
 // TestFiles attaches an image, reads it back, then exports and imports notes.
 func TestFiles(t *testing.T) {
 	agent := connect(t)

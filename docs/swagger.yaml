@@ -466,6 +466,38 @@ components:
             never edited: a 409 if the note changed since.'
           type: string
       type: object
+    editnotetext.Input:
+      properties:
+        all:
+          description: replace every occurrence of old instead of refusing more than
+            one
+          type: boolean
+        new:
+          description: what replaces old or the body of section, empty to delete it
+          type: string
+        old:
+          description: an exact text, with its case, to find once (or every time with
+            all)
+          type: string
+        section:
+          description: 'Section is the words of a heading: what follows it, down to
+            the next heading of its level or higher, becomes New.'
+          type: string
+        title:
+          description: 'the new title: the first heading takes it, or one is added
+            on top'
+          type: string
+      type: object
+    editnotetext.Result:
+      properties:
+        note:
+          $ref: '#/components/schemas/readitem.Result'
+        replaced:
+          type: integer
+      required:
+      - note
+      - replaced
+      type: object
     editpassword.Input:
       properties:
         current:
@@ -2973,6 +3005,64 @@ paths:
                 $ref: '#/components/schemas/respond.Failure'
           description: Internal Server Error
       summary: Rebase a fork on its original
+      tags:
+      - notes
+  /api/notes/{id}/text:
+    patch:
+      parameters:
+      - description: uuid
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/editnotetext.Input'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/editnotetext.Result'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Conflict
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Request Entity Too Large
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Rename a note, or replace a text or a section of it
       tags:
       - notes
   /api/notes/{id}/unmerge:

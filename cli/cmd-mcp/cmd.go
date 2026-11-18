@@ -214,6 +214,25 @@ type editArgs struct {
 	Tags    []string `json:"tags,omitempty" jsonschema:"tags to add to the content, without the #"`
 }
 
+type renameNoteArgs struct {
+	Note  string `json:"note" jsonschema:"the note to rename: its uuid, or its path from the root (/Folder/Note)"`
+	Title string `json:"title" jsonschema:"its new title, on one line"`
+}
+
+type replaceInNoteArgs struct {
+	Note    string `json:"note" jsonschema:"the note to change: its uuid, or its path from the root (/Folder/Note)"`
+	Old     string `json:"old,omitempty" jsonschema:"the exact text to replace, with its case, as read_note gives it: found more than once refuses, unless all"`
+	New     string `json:"new,omitempty" jsonschema:"the text that takes the place of old or of the section's body, empty to delete it"`
+	All     bool   `json:"all,omitempty" jsonschema:"replace every occurrence of old instead of refusing more than one"`
+	Section string `json:"section,omitempty" jsonschema:"instead of old, the words of a heading: what follows it, down to the next heading of its level or higher, becomes new, the heading kept"`
+}
+
+// partEdit is a note changed in part: the agent knows what it sent, so the content is left out.
+type partEdit struct {
+	note
+	Replaced int `json:"replaced"`
+}
+
 type createFolderArgs struct {
 	Title  string `json:"title" jsonschema:"the new folder's title"`
 	Folder string `json:"folder,omitempty" jsonschema:"the folder to create it in: its uuid, or its path from the root (/Folder); the root itself when empty"`
@@ -492,6 +511,7 @@ func Instructions(readOnly bool) string {
 		"- Subagents do not receive these instructions: put the lines they need in their prompt."
 	if !readOnly {
 		text += "\n- Tag with tag_notes, given the notes or the filters of search_notes (dry_run first), never by rewriting a note with edit_note, which replaces all of it.\n" +
+			"- Correct a passage of a note with replace_in_note and its title with rename_note, not by rewriting it with edit_note.\n" +
 			"- Tag in few calls: decide the tags of a whole batch first, then one tag_notes per change, all its notes at once (every note getting Obsolete in one call), not one call per note: it answers counts and each note's diff, no need to read the notes back. tags with a tag lists the notes already carrying it.\n" +
 			"- Fold a tag into another with rename_tag and merge; replace a text in every note with replace_notes (dry_run first).\n" +
 			"- Rewrites keep the old text in note_history, deletions go to the trash."
@@ -635,6 +655,33 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		}
 		edited, err := readNote(decode[apiclient.ReaditemResult](client.PatchApiNotesId(ctx, id, input)))
 		edited.Content = "" // the agent has just sent it
+		return nil, edited, err
+	})
+
+	addTool(server, readOnly, &mcp.Tool{
+		Name:        "rename_note",
+		Annotations: writes(false, true),
+		Description: "Change the title of a note without sending its content: its first heading takes the new title, or a heading is added on top, as the app renames a note; the [[links]] to it follow. The earlier text goes to note_history like an edit_note's. A locked note refuses.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameNoteArgs) (*mcp.CallToolResult, note, error) {
+		edited, err := editText(ctx, client, args.Note, apiclient.EditnotetextInput{Title: &args.Title})
+		return nil, edited.note, err
+	})
+
+	addTool(server, readOnly, &mcp.Tool{
+		Name:        "replace_in_note",
+		Annotations: writes(true, false),
+		Description: "Correct a part of one note without rewriting it: old becomes new, old found exactly once (more refuses with the count, unless all; none refuses), or the body of a section, given by its heading, becomes new. The rest of the text stays as it is; the title and the tags follow the new text, the earlier text goes to note_history like an edit_note's. A locked note refuses. Answers the note without its content and replaced, the occurrences changed. To change a text in many notes, replace_notes.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args replaceInNoteArgs) (*mcp.CallToolResult, partEdit, error) {
+		input := apiclient.EditnotetextInput{All: &args.All}
+		if args.Section != "" {
+			input.Section = &args.Section
+		} else {
+			input.Old = &args.Old
+		}
+		if args.New != "" {
+			input.New = &args.New
+		}
+		edited, err := editText(ctx, client, args.Note, input)
 		return nil, edited, err
 	})
 
@@ -805,7 +852,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "replace_notes",
 		Annotations: writes(true, false),
-		Description: "Replace a plain text in many notes at once, in one transaction, without rewriting them: locked notes are left and counted, and each note changed keeps its earlier text in note_history. With dry_run, only counts what it would change.",
+		Description: "Replace a plain text (with its case, not a regex) at every occurrence in every note of the account out of the trash, or of folder and its subfolders, in one transaction, without rewriting them: the hidden targets (a note link's ](note:<id>), a file's address) are left as they are, locked notes are left and counted, and each note changed keeps its earlier text in note_history. Answers the notes and occurrences changed; with dry_run, only counts them. Needs the Ultra plan. For one note, and a text that must be there once, replace_in_note.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args replaceArgs) (*mcp.CallToolResult, apiclient.ReplacenotesResult, error) {
 		body := apiclient.ReplacenotesInput{Find: args.Find, Replace: args.Replace, DryRun: &args.DryRun}
 		if args.Folder != "" {
@@ -1496,6 +1543,21 @@ func resolveFolder(ctx context.Context, client *apiclient.ClientWithResponses, r
 		return "", nil
 	}
 	return apiclient.Resolve(ctx, client, apiclient.FOLDER, ref)
+}
+
+// editText changes a part of the text of a note, answered without its content.
+func editText(ctx context.Context, client *apiclient.ClientWithResponses, ref string, input apiclient.EditnotetextInput) (partEdit, error) {
+	id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, ref)
+	if err != nil {
+		return partEdit{}, err
+	}
+	result, err := decode[apiclient.EditnotetextResult](client.PatchApiNotesIdText(ctx, id, input))
+	if err != nil {
+		return partEdit{}, err
+	}
+	edited, err := readNote(result.Note, nil)
+	edited.Content = ""
+	return partEdit{note: edited, Replaced: result.Replaced}, err
 }
 
 // readNote turns the note the API answers into what the agent reads.

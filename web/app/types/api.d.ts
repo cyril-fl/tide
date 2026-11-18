@@ -2604,6 +2604,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notes/{id}/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename a note, or replace a text or a section of it */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description uuid */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description body */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["editnotetext.Input"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["editnotetext.Result"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Request Entity Too Large */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/notes/{id}/unmerge": {
         parameters: {
             query?: never;
@@ -4734,6 +4823,22 @@ export interface components {
             tags?: string[];
             /** @description UpdatedAt is updated_at as read, or created_at for a note never edited: a 409 if the note changed since. */
             updated_at?: string;
+        };
+        "editnotetext.Input": {
+            /** @description replace every occurrence of old instead of refusing more than one */
+            all?: boolean;
+            /** @description what replaces old or the body of section, empty to delete it */
+            new?: string;
+            /** @description an exact text, with its case, to find once (or every time with all) */
+            old?: string;
+            /** @description Section is the words of a heading: what follows it, down to the next heading of its level or higher, becomes New. */
+            section?: string;
+            /** @description the new title: the first heading takes it, or one is added on top */
+            title?: string;
+        };
+        "editnotetext.Result": {
+            note: components["schemas"]["readitem.Result"];
+            replaced: number;
         };
         "editpassword.Input": {
             current: string;

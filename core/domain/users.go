@@ -23,6 +23,7 @@ type User struct {
 	Theme        string `bun:",notnull,default:'notes'" json:"theme"`       // the colors of the web app, one of Themes
 	ColorMode    string `bun:",notnull,default:'system'" json:"color_mode"` // light or dark, one of ColorModes
 	View         string `bun:",notnull,default:'list'" json:"view"`         // how the web app lists items, one of Views
+	Sort         string `bun:",notnull,default:'title'" json:"sort"`        // the order of a folder's items, one of Sorts
 	Plan         string `bun:",notnull,default:'base'" json:"plan"`         // the features of the web app, one of Plans
 	Admin        bool   `bun:",notnull,default:false" json:"admin"`         // may create, invite and delete accounts; the first account of the base gets it
 	// Days before the trash is purged, 0 to never purge. An insert of 0 gets the default: only an update sets it.
@@ -109,7 +110,9 @@ var (
 	Themes     = []string{"notes", "dracula", "catppuccin", "nord", "gruvbox", "everforest", "tokyo", "vue"}
 	ColorModes = []string{"system", "light", "dark"}
 	Views      = []string{"list", "grid"}
-	Plans      = []string{"base", "pro", "ultra"}
+	// Sorts: by title, creation or last edit, "-" first for the reverse order.
+	Sorts = []string{"title", "-title", "created", "-created", "updated", "-updated"}
+	Plans = []string{"base", "pro", "ultra"}
 	// AfterMerges: the app asks at each merge whether to trash the fork, or trashes it, or keeps it without asking.
 	AfterMerges = []string{"ask", "delete", "keep"}
 )

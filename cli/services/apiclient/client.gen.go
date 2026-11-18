@@ -337,6 +337,9 @@ type DomainUser struct {
 	SidebarSections []DomainSidebarSection `json:"sidebar_sections"`
 	Snippets        []DomainSnippet        `json:"snippets"`
 
+	// Sort the order of a folder's items, one of Sorts
+	Sort string `json:"sort"`
+
 	// Theme the colors of the web app, one of Themes
 	Theme string `json:"theme"`
 
@@ -447,9 +450,12 @@ type EdituserInput struct {
 	SidebarSections *[]DomainSidebarSection `json:"sidebar_sections,omitempty"`
 
 	// Snippets the whole list, it replaces the saved one
-	Snippets           *[]DomainSnippet `json:"snippets,omitempty"`
-	Theme              *string          `json:"theme,omitempty"`
-	TrashRetentionDays *int             `json:"trash_retention_days,omitempty"`
+	Snippets *[]DomainSnippet `json:"snippets,omitempty"`
+
+	// Sort one of domain.Sorts
+	Sort               *string `json:"sort,omitempty"`
+	Theme              *string `json:"theme,omitempty"`
+	TrashRetentionDays *int    `json:"trash_retention_days,omitempty"`
 
 	// UpdatedAt UpdatedAt is the updated_at of the account as read: a 409 if its settings changed since, nothing written.
 	UpdatedAt *string `json:"updated_at,omitempty"`
@@ -875,10 +881,13 @@ type GetApiItemsParams struct {
 	// Kind folder or note, both when left out
 	Kind *string `form:"kind,omitempty" json:"kind,omitempty"`
 
+	// Sort title, created or updated, - first to reverse; title when left out
+	Sort *string `form:"sort,omitempty" json:"sort,omitempty"`
+
 	// Limit children in the page, all when left out or 0
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// Offset children skipped before the page, folders first then by title
+	// Offset children skipped before the page: folders first, then notes, the pinned ones first in each, then by sort
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
@@ -4157,6 +4166,18 @@ func NewGetApiItemsRequest(server string, params *GetApiItemsParams) (*http.Requ
 		if params.Kind != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "kind", *params.Kind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Sort != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

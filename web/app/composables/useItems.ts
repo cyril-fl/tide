@@ -360,11 +360,14 @@ export function usePages<T>(
   return { items: data, status, error, load };
 }
 
-/** Items a folder holds by pages, the root without an id. */
+/** Items a folder holds by pages, the root without an id, in the order of useSort. */
 export function useFolderPages(parentId?: string) {
   const api = useApi();
-  return usePages(`items:${parentId ?? 'root'}:pages`, (query, onResponse) =>
-    api<Item[]>('/api/items', { query: { parent: parentId, ...query }, onResponse }),
+  const sort = useSort();
+  return usePages(
+    () => `items:${parentId ?? 'root'}:${sort.value}:pages`,
+    (query, onResponse) =>
+      api<Item[]>('/api/items', { query: { parent: parentId, sort: sort.value, ...query }, onResponse }),
   );
 }
 

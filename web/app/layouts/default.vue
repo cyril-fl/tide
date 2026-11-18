@@ -31,10 +31,12 @@ watch(
   { immediate: true }, // me may be loaded already, by the settings page's middleware
 );
 
-// Theme, mode and view follow the account; a change of mode or view from anywhere (sidebar, view toggle, settings) is saved to it.
+// Theme, mode, view and sort follow the account; a change of mode, view or sort from anywhere (sidebar, folder header,
+// settings) is saved to it.
 const appConfig = useAppConfig();
 const colorMode = useColorMode();
 const view = useView();
+const sort = useSort();
 watch(
   me,
   (user) => {
@@ -44,12 +46,13 @@ watch(
     Object.assign(appConfig.ui.colors, colors);
     colorMode.preference = user.color_mode;
     view.value = user.view as 'list' | 'grid';
+    sort.value = user.sort;
   },
   { immediate: true },
 );
-watch([() => colorMode.preference, view], async ([mode, next]) => {
-  if (!me.value || (mode === me.value.color_mode && next === me.value.view)) return;
-  me.value = await api<User>('/api/me', { method: 'PATCH', body: { color_mode: mode, view: next } });
+watch([() => colorMode.preference, view, sort], async ([mode, next, order]) => {
+  if (!me.value || (mode === me.value.color_mode && next === me.value.view && order === me.value.sort)) return;
+  me.value = await api<User>('/api/me', { method: 'PATCH', body: { color_mode: mode, view: next, sort: order } });
 });
 
 // Option (Alt) + a letter: not a single key a stray hit fires; Cmd+N, Cmd+Shift+N and Cmd+T are the browser's.

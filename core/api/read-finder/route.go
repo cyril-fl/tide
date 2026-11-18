@@ -11,15 +11,16 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// Handler lists the direct children of a folder, of the root without parent: GET /api/items?parent=&kind=&limit=&offset=.
+// Handler lists the direct children of a folder, of the root without parent: GET /api/items?parent=&kind=&sort=&limit=&offset=.
 // X-Total-Count counts them all, whatever the page.
 // @Summary  List the direct children of a folder, or of the root
 // @Tags     items
 // @Produce  json
 // @Param    parent query string  false "folder uuid, the root when left out"
 // @Param    kind   query string  false "folder or note, both when left out"
+// @Param    sort   query string  false "title, created or updated, - first to reverse; title when left out"
 // @Param    limit  query integer false "children in the page, all when left out or 0"
-// @Param    offset query integer false "children skipped before the page, folders first then by title"
+// @Param    offset query integer false "children skipped before the page: folders first, then notes, the pinned ones first in each, then by sort"
 // @Success  200 {array} domain.Item
 // @Header   200 {integer} X-Total-Count "every child, not only the page"
 // @Failure  400 {object} respond.Failure
@@ -39,7 +40,8 @@ func Handler(db bun.IDB) http.HandlerFunc {
 			return
 		}
 
-		process := listitems.Process(r.Context(), db, parent, domain.Kind(r.URL.Query().Get("kind"))).Page(limit, offset)
+		process := listitems.Process(r.Context(), db, parent, domain.Kind(r.URL.Query().Get("kind"))).
+			Sort(r.URL.Query().Get("sort")).Page(limit, offset)
 		process.Run()
 		if process.HasErr() {
 			respond.Error(w, process.GetErr())

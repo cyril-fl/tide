@@ -129,7 +129,13 @@
     "notFound": "This folder cannot be found",
     "notFoundDescription": "It does not exist or it is in the trash.",
     "listView": "List view",
-    "gridView": "Grid view"
+    "gridView": "Grid view",
+    "sort": "Sort by",
+    "sortTitle": "Name",
+    "sortCreated": "Date created",
+    "sortUpdated": "Date modified",
+    "ascending": "Ascending",
+    "descending": "Descending"
   },
   "path": {
     "breadcrumb": "Breadcrumb",

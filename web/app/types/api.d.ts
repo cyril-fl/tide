@@ -1040,9 +1040,11 @@ export interface paths {
                     parent?: string;
                     /** @description folder or note, both when left out */
                     kind?: string;
+                    /** @description title, created or updated, - first to reverse; title when left out */
+                    sort?: string;
                     /** @description children in the page, all when left out or 0 */
                     limit?: number;
-                    /** @description children skipped before the page, folders first then by title */
+                    /** @description children skipped before the page: folders first, then notes, the pinned ones first in each, then by sort */
                     offset?: number;
                 };
                 header?: never;
@@ -4817,6 +4819,8 @@ export interface components {
             /** @description The order of the sidebar lists and which ones show, [] for the app's default. */
             sidebar_sections: components["schemas"]["domain.SidebarSection"][];
             snippets: components["schemas"]["domain.Snippet"][];
+            /** @description the order of a folder's items, one of Sorts */
+            sort: string;
             /** @description the colors of the web app, one of Themes */
             theme: string;
             /** @description Days before the trash is purged, 0 to never purge. An insert of 0 gets the default: only an update sets it. */
@@ -4895,6 +4899,8 @@ export interface components {
             sidebar_sections?: components["schemas"]["domain.SidebarSection"][];
             /** @description the whole list, it replaces the saved one */
             snippets?: components["schemas"]["domain.Snippet"][];
+            /** @description one of domain.Sorts */
+            sort?: string;
             theme?: string;
             trash_retention_days?: number;
             /** @description UpdatedAt is the updated_at of the account as read: a 409 if its settings changed since, nothing written. */

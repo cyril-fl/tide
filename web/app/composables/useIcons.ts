@@ -49,6 +49,9 @@ export function useIcons() {
     // Views and settings
     list: 'i-reicon-list3',
     grid: 'i-reicon-grid',
+    sort: 'i-reicon-sort',
+    ascending: 'i-reicon-sort-asc',
+    descending: 'i-reicon-sort-desc',
     lightMode: 'i-reicon-sun',
     darkMode: 'i-reicon-moon',
     systemMode: 'i-reicon-laptop4',

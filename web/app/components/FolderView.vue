@@ -73,6 +73,7 @@ watchEffect(() => load(visible.value.start, visible.value.start + visible.value.
     :class="{ 'ring-2 ring-inset ring-primary/40': isOver }"
   >
     <PageHeader :title="title">
+      <SortMenu />
       <ViewToggle />
       <UTooltip :text="$t('common.newFolder')">
         <UButton

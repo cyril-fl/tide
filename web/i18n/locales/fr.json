@@ -129,7 +129,13 @@
     "notFound": "Ce dossier est introuvable",
     "notFoundDescription": "Il n'existe pas ou il est dans la corbeille.",
     "listView": "Vue liste",
-    "gridView": "Vue mosaïque"
+    "gridView": "Vue mosaïque",
+    "sort": "Trier par",
+    "sortTitle": "Nom",
+    "sortCreated": "Date de création",
+    "sortUpdated": "Date de modification",
+    "ascending": "Croissant",
+    "descending": "Décroissant"
   },
   "path": {
     "breadcrumb": "Fil d'Ariane",

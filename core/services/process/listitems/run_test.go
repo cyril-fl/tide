@@ -139,9 +139,10 @@ func TestListItems(t *testing.T) {
 	// The order is cached: reversed by hand, the next page follows it, until a write changes items_version.
 	reverse := func() {
 		account, _ := orders.Load(ctx, tx, func() (*cachedOrders, error) { return nil, errors.New("not cached") })
-		ids := slices.Clone(account.ids[orderKey{id, ""}])
-		slices.Reverse(ids)
-		account.ids[orderKey{id, ""}] = ids
+		order := account.ids[orderKey{id, ""}]
+		order.ids = slices.Clone(order.ids)
+		slices.Reverse(order.ids)
+		account.ids[orderKey{id, ""}] = order
 	}
 	first := func() (string, int) {
 		page := Process(ctx, tx, id, "").Page(1, 0)
@@ -191,5 +192,87 @@ func TestListItems(t *testing.T) {
 	invalid.Run()
 	if !errors.Is(invalid.GetErr(), ErrInvalidID) {
 		t.Errorf("err = %v, want %v", invalid.GetErr(), ErrInvalidID)
+	}
+}
+
+func TestSort(t *testing.T) {
+	ctx := context.Background()
+	env := postgrey.NewEnvironment()
+	env.ReadEnv()
+	db := env.Connect()
+	defer db.Close()
+
+	schema := createschema.Process(ctx, db)
+	schema.Run()
+	if schema.HasErr() {
+		t.Fatalf("create schema: %v", schema.GetErr())
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx, tx = testaccount.New(t, ctx, tx)
+
+	parent := createfolder.Process(ctx, tx, createfolder.Input{Title: "Parent"})
+	parent.Run()
+	if parent.HasErr() {
+		t.Fatalf("parent: %v", parent.GetErr())
+	}
+	id := parent.GetResult().ID
+	folder := createfolder.Process(ctx, tx, createfolder.Input{Title: "Z folder", ParentID: id})
+	folder.Run()
+	if folder.HasErr() {
+		t.Fatalf("folder: %v", folder.GetErr())
+	}
+	// Created C, then A, then B; C edited last, A never; B pinned.
+	for _, seed := range []struct{ title, created, updated string }{{"C", "-3 days", "-1 hour"}, {"A", "-2 days", ""}, {"B", "-1 day", "-2 hours"}} {
+		note := createnote.Process(ctx, tx, createnote.Input{Content: "# " + seed.title, ParentID: id})
+		note.Run()
+		if note.HasErr() {
+			t.Fatalf("%s: %v", seed.title, note.GetErr())
+		}
+		query := tx.NewRaw("UPDATE items SET created_at = now() + ?::interval, updated_at = now() + NULLIF(?, '')::interval WHERE id = ?",
+			seed.created, seed.updated, note.GetResult().ID)
+		if _, err := query.Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if seed.title == "B" {
+			if _, err := tx.NewRaw("UPDATE metadata_notes SET pinned = true WHERE item_id = ?", note.GetResult().ID).Exec(ctx); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	// Folders first, then B pinned, then the others by the sort; a page keeps the same order.
+	for _, test := range []struct {
+		sort string
+		want []string
+	}{
+		{"", []string{"Z folder", "B", "A", "C"}},
+		{"-title", []string{"Z folder", "B", "C", "A"}},
+		{"created", []string{"Z folder", "B", "C", "A"}},
+		{"-created", []string{"Z folder", "B", "A", "C"}},
+		{"updated", []string{"Z folder", "B", "A", "C"}},
+		{"-updated", []string{"Z folder", "B", "C", "A"}},
+	} {
+		for _, page := range []struct{ limit, offset int }{{0, 0}, {2, 2}} {
+			process := Process(ctx, tx, id, "").Sort(test.sort).Page(page.limit, page.offset)
+			process.Run()
+			var got []string
+			for _, item := range process.GetResult() {
+				got = append(got, string(item.Title))
+			}
+			if want := test.want[page.offset:]; process.HasErr() || !slices.Equal(got, want) {
+				t.Errorf("sort %q, page %v = %v, %v; want %v", test.sort, page, got, process.GetErr(), want)
+			}
+		}
+	}
+
+	unknown := Process(ctx, tx, id, "").Sort("size")
+	unknown.Run()
+	if !errors.Is(unknown.GetErr(), ErrInvalidSort) {
+		t.Errorf("err = %v, want %v", unknown.GetErr(), ErrInvalidSort)
 	}
 }

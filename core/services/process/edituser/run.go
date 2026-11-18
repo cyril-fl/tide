@@ -38,6 +38,7 @@ var (
 	ErrInvalidTheme       = errors.New("unknown theme")
 	ErrInvalidColorMode   = errors.New("unknown color mode")
 	ErrInvalidView        = errors.New("unknown view")
+	ErrInvalidSort        = errors.New("unknown sort")
 	ErrInvalidPlan        = errors.New("unknown plan")
 	ErrInvalidAfterMerge  = errors.New("unknown choice after a merge")
 	ErrInvalidRetention   = fmt.Errorf("the trash retention is between 0 and %d days", MaxRetentionDays)
@@ -56,6 +57,7 @@ type Input struct {
 	Theme              *string                  `json:"theme,omitempty" binding:"optional"`
 	ColorMode          *string                  `json:"color_mode,omitempty" binding:"optional"`
 	View               *string                  `json:"view,omitempty" binding:"optional"`
+	Sort               *string                  `json:"sort,omitempty" binding:"optional"` // one of domain.Sorts
 	Plan               *string                  `json:"plan,omitempty" binding:"optional"`
 	TrashRetentionDays *int                     `json:"trash_retention_days,omitempty" binding:"optional"`
 	NeighborsLimit     *int                     `json:"neighbors_limit,omitempty" binding:"optional"` // one of domain.NeighborsLimits
@@ -116,6 +118,8 @@ func (p *run) checkInput() {
 		p.SetErr(fmt.Errorf("%w: %q", ErrInvalidColorMode, *p.input.ColorMode))
 	case !valid(p.input.View, domain.Views):
 		p.SetErr(fmt.Errorf("%w: %q", ErrInvalidView, *p.input.View))
+	case !valid(p.input.Sort, domain.Sorts):
+		p.SetErr(fmt.Errorf("%w: %q", ErrInvalidSort, *p.input.Sort))
 	case !valid(p.input.Plan, domain.Plans):
 		p.SetErr(fmt.Errorf("%w: %q", ErrInvalidPlan, *p.input.Plan))
 	case !valid(p.input.AfterMerge, domain.AfterMerges):
@@ -199,6 +203,9 @@ func (p *run) updateUser() {
 		}
 		if p.input.View != nil {
 			query.Set("view = ?", *p.input.View)
+		}
+		if p.input.Sort != nil {
+			query.Set("sort = ?", *p.input.Sort)
 		}
 		if p.input.Plan != nil {
 			query.Set("plan = ?", *p.input.Plan)

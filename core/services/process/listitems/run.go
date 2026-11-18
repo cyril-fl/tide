@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -20,6 +21,7 @@ var (
 	ErrInvalidID   = errors.New("not a uuid")
 	ErrInvalidKind = errors.New("invalid kind")
 	ErrInvalidPage = errors.New("invalid limit or offset")
+	ErrInvalidSort = errors.New("unknown sort")
 )
 
 type run struct {
@@ -32,11 +34,13 @@ type run struct {
 	kind     domain.Kind
 	limit    int // 0: every child
 	offset   int
+	sort     string // one of domain.Sorts, "" for title
 }
 
 type cache struct {
 	parentID string
 	order    []string // every child id, sorted
+	folders  int      // the folders at the head of order
 	result   []domain.Item
 	total    int
 }
@@ -57,11 +61,19 @@ func (p *run) Page(limit, offset int) *run {
 	return p
 }
 
+// Sort orders the children by one of domain.Sorts, folders first then the pinned notes and favorite folders.
+func (p *run) Sort(sort string) *run {
+	p.sort = sort
+	return p
+}
+
 func (p *run) Run() {
 	p.checkKind()
 	p.checkPage()
+	p.checkSort()
 	p.makeParentID()
 	p.loadOrder()
+	p.loadPinned()
 	p.loadItems()
 }
 
@@ -89,20 +101,61 @@ func (p *run) checkPage() {
 	}
 }
 
+func (p *run) checkSort() {
+	if p.sort != "" && !slices.Contains(domain.Sorts, p.sort) {
+		p.SetErr(fmt.Errorf("%w: %s", ErrInvalidSort, p.sort))
+	}
+}
+
 func (p *run) makeParentID() {
 	p.cache.parentID = strings.TrimSpace(p.parentID)
 }
 
-// loadOrder sorts the children folders first, then notes, by title (sealed: ordered here); soft_delete hides the
-// trashed ones. The titles come from the cached paths (none decrypted), and the order itself is cached while
-// users.items_version stays the same: sorting 48,000 notes takes 140 ms, redone on every page otherwise.
+// loadOrder sorts the children folders first, then notes; soft_delete hides the trashed ones.
 func (p *run) loadOrder() {
 	if p.HasErr() {
 		return
 	}
+	if by := strings.TrimPrefix(p.sort, "-"); by == "created" || by == "updated" {
+		p.loadDateOrder(by)
+		return
+	}
+	p.loadTitleOrder()
+}
+
+// loadDateOrder sorts by date in SQL: an edit moves updated_at without bumping users.items_version, nothing cached.
+func (p *run) loadDateOrder(by string) {
+	column := "created_at"
+	if by == "updated" {
+		column = "coalesce(updated_at, created_at)" // a note never edited has none
+	}
+	direction := "ASC"
+	if strings.HasPrefix(p.sort, "-") {
+		direction = "DESC"
+	}
+	var children []domain.Item
+	query := p.db.NewSelect().Model(&children).Column("id", "kind").
+		OrderExpr("kind = ? DESC, "+column+" "+direction+", id", domain.FOLDER)
+	if err := p.children(query).Scan(p.ctx); err != nil {
+		p.SetErr(toDomainErr(err))
+		return
+	}
+	p.cache.order = make([]string, len(children))
+	for i, item := range children {
+		p.cache.order[i] = item.ID
+		if item.Kind == domain.FOLDER {
+			p.cache.folders++
+		}
+	}
+}
+
+// loadTitleOrder sorts by title (sealed: ordered here). The titles come from the cached paths (none decrypted), and
+// the order itself is cached while users.items_version stays the same: sorting 48,000 notes takes 140 ms, redone on
+// every page otherwise. "-title" reads it backwards in loadPinned.
+func (p *run) loadTitleOrder() {
 
 	account, err := orders.Load(p.ctx, p.db, func() (*cachedOrders, error) {
-		return &cachedOrders{ids: map[orderKey][]string{}}, nil
+		return &cachedOrders{ids: map[orderKey]cachedOrder{}}, nil
 	})
 	if err != nil {
 		p.SetErr(err)
@@ -113,7 +166,7 @@ func (p *run) loadOrder() {
 	order, ok := account.ids[key]
 	account.mu.Unlock()
 	if ok {
-		p.cache.order = order
+		p.cache.order, p.cache.folders = order.ids, order.folders
 		return
 	}
 
@@ -143,10 +196,31 @@ func (p *run) loadOrder() {
 	p.cache.order = make([]string, len(children))
 	for i, item := range children {
 		p.cache.order[i] = item.ID
+		if item.Kind == domain.FOLDER {
+			p.cache.folders++
+		}
 	}
 	account.mu.Lock()
-	account.ids[key] = p.cache.order
+	account.ids[key] = cachedOrder{p.cache.order, p.cache.folders}
 	account.mu.Unlock()
+}
+
+// loadPinned puts the pinned notes and favorite folders first among their kind, read at every call: pinning does
+// not bump users.items_version. "-title" reverses each kind here, the cached order shared and left as it is.
+func (p *run) loadPinned() {
+	if p.HasErr() {
+		return
+	}
+
+	var ids []string
+	query := p.db.NewSelect().Model((*domain.Item)(nil)).Column("id").
+		Where("EXISTS (SELECT 1 FROM metadata_notes AS mn WHERE mn.item_id = i.id AND mn.pinned) OR " +
+			"EXISTS (SELECT 1 FROM metadata_folders AS mf WHERE mf.item_id = i.id AND mf.pinned)")
+	if err := p.children(query).Scan(p.ctx, &ids); err != nil {
+		p.SetErr(err)
+		return
+	}
+	p.cache.order = arrange(p.cache.order, p.cache.folders, p.sort == "-title", ids)
 }
 
 // loadItems reads only the page of the order: a folder may hold 48,000 notes. readonly marks the locked notes,
@@ -211,7 +285,12 @@ var orders domain.Versioned[*cachedOrders]
 
 type cachedOrders struct {
 	mu  sync.Mutex
-	ids map[orderKey][]string // shared, do not modify
+	ids map[orderKey]cachedOrder
+}
+
+type cachedOrder struct {
+	ids     []string // shared, do not modify
+	folders int
 }
 
 type orderKey struct {
@@ -220,6 +299,29 @@ type orderKey struct {
 }
 
 // Helpers
+
+// arrange gives the order in a new slice: in each kind, reversed if asked, the pinned ids first.
+func arrange(order []string, folders int, reverse bool, pinned []string) []string {
+	first := make(map[string]bool, len(pinned))
+	for _, id := range pinned {
+		first[id] = true
+	}
+	result := make([]string, 0, len(order))
+	for _, kind := range [][]string{order[:folders], order[folders:]} {
+		if reverse {
+			kind = slices.Clone(kind)
+			slices.Reverse(kind)
+		}
+		for _, wanted := range []bool{true, false} {
+			for _, id := range kind {
+				if first[id] == wanted {
+					result = append(result, id)
+				}
+			}
+		}
+	}
+	return result
+}
 
 // toDomainErr turns a parent id that is not a uuid into ErrInvalidID.
 func toDomainErr(err error) error {

@@ -419,6 +419,9 @@ components:
             $ref: '#/components/schemas/domain.Snippet'
           type: array
           uniqueItems: false
+        sort:
+          description: the order of a folder's items, one of Sorts
+          type: string
         theme:
           description: the colors of the web app, one of Themes
           type: string
@@ -448,6 +451,7 @@ components:
       - saved_searches
       - sidebar_sections
       - snippets
+      - sort
       - theme
       - trash_retention_days
       - updated_at
@@ -610,6 +614,9 @@ components:
             $ref: '#/components/schemas/domain.Snippet'
           type: array
           uniqueItems: false
+        sort:
+          description: one of domain.Sorts
+          type: string
         theme:
           type: string
         trash_retention_days:
@@ -2087,12 +2094,19 @@ paths:
         name: kind
         schema:
           type: string
+      - description: title, created or updated, - first to reverse; title when left
+          out
+        in: query
+        name: sort
+        schema:
+          type: string
       - description: children in the page, all when left out or 0
         in: query
         name: limit
         schema:
           type: integer
-      - description: children skipped before the page, folders first then by title
+      - description: 'children skipped before the page: folders first, then notes,
+          the pinned ones first in each, then by sort'
         in: query
         name: offset
         schema:

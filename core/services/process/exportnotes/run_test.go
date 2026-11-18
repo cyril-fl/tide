@@ -57,6 +57,10 @@ func TestExportNotes(t *testing.T) {
 	sub := folder("Sous/dossier", root)
 	note("# Courses\n\ndu pain", root)
 	milk := note("# courses\n\ndu lait", root)
+	// One transaction gives both the same created_at: the second is made younger, as two requests would.
+	if _, err := tx.NewUpdate().Table("items").Set("created_at = created_at + interval '1 second'").Where("id = ?", milk).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
 	note("voir [[Courses]]", sub)
 
 	export := Process(ctx, tx, root)

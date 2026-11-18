@@ -141,7 +141,7 @@ func (p *run) loadTree() {
 		FROM tree
 		JOIN items AS i ON i.id = tree.id
 		LEFT JOIN metadata_notes AS mn ON mn.item_id = i.id
-		ORDER BY i.kind, i.created_at`,
+		ORDER BY i.kind, i.created_at, i.id`,
 		domain.UserID(p.ctx), start).
 		Scan(p.ctx, &items)
 	if err != nil {

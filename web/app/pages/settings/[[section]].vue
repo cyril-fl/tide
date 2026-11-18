@@ -394,53 +394,58 @@ async function deleteData() {
               @update:model-value="changePlan(String($event))"
             />
           </div>
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b border-default">
-                <th class="px-4 py-2 text-left text-xs font-normal text-muted">{{ $t('settings.feature') }}</th>
-                <th
-                  v-for="{ id: column } in plans"
-                  :key="column"
-                  class="w-24 px-2 py-2 font-medium"
-                  :class="{ 'bg-primary/10 text-primary': me && plan === column }"
-                >
-                  <span class="inline-flex items-center gap-1"
-                    ><UIcon v-if="column !== 'base'" :name="icons.pro" />{{ $t(`settings.plans.${column}`) }}</span
+          <!-- Scrolls sideways only on a screen narrower than its plan names (iPhone SE). -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-default">
+                  <th class="px-3 py-2 text-left text-xs font-normal text-muted sm:px-4">
+                    {{ $t('settings.feature') }}
+                  </th>
+                  <th
+                    v-for="{ id: column } in plans"
+                    :key="column"
+                    class="w-24 px-1 py-2 text-xs font-medium sm:px-2 sm:text-sm"
+                    :class="{ 'bg-primary/10 text-primary': me && plan === column }"
                   >
-                  <span v-if="me && plan === column" class="sr-only">{{ $t('settings.currentPlan') }}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody v-for="{ group, features: listed } in comparedFeatures" :key="group">
-              <tr class="border-b border-default bg-elevated/50">
-                <th :colspan="plans.length + 1" class="px-4 py-1.5 text-left text-xs font-medium text-muted">
-                  {{ $t(`settings.featureGroups.${group}`) }}
-                </th>
-              </tr>
-              <tr v-for="feature in listed" :key="feature" class="border-b border-default last:border-b-0">
-                <td class="px-4 py-2 text-xs">{{ $t(`features.${feature}`) }}</td>
-                <td
-                  v-for="column in plans"
-                  :key="column.id"
-                  class="px-2 text-center"
-                  :class="{ 'bg-primary/10': me && plan === column.id }"
-                >
-                  <UIcon
-                    v-if="column.features.includes(feature)"
-                    :name="icons.current"
-                    :aria-label="$t('settings.included')"
-                    class="size-4 text-primary"
-                  />
-                  <UIcon
-                    v-else
-                    :name="icons.divider"
-                    :aria-label="$t('settings.notIncluded')"
-                    class="size-4 text-dimmed"
-                  />
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                    <span class="inline-flex items-center gap-1"
+                      ><UIcon v-if="column !== 'base'" :name="icons.pro" />{{ $t(`settings.plans.${column}`) }}</span
+                    >
+                    <span v-if="me && plan === column" class="sr-only">{{ $t('settings.currentPlan') }}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody v-for="{ group, features: listed } in comparedFeatures" :key="group">
+                <tr class="border-b border-default bg-elevated/50">
+                  <th :colspan="plans.length + 1" class="px-3 py-1.5 sm:px-4 text-left text-xs font-medium text-muted">
+                    {{ $t(`settings.featureGroups.${group}`) }}
+                  </th>
+                </tr>
+                <tr v-for="feature in listed" :key="feature" class="border-b border-default last:border-b-0">
+                  <td class="px-3 py-2 text-xs sm:px-4">{{ $t(`features.${feature}`) }}</td>
+                  <td
+                    v-for="column in plans"
+                    :key="column.id"
+                    class="px-2 text-center"
+                    :class="{ 'bg-primary/10': me && plan === column.id }"
+                  >
+                    <UIcon
+                      v-if="column.features.includes(feature)"
+                      :name="icons.current"
+                      :aria-label="$t('settings.included')"
+                      class="size-4 text-primary"
+                    />
+                    <UIcon
+                      v-else
+                      :name="icons.divider"
+                      :aria-label="$t('settings.notIncluded')"
+                      class="size-4 text-dimmed"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 

@@ -64,14 +64,14 @@ func (p *run) GetResult() []Match {
 	return p.cache.result
 }
 
-// GetTotal counts the matches as searchnotes.Matches does: exact without a text criterion.
+// GetTotal counts the matches as searchnotes.Matches does: exact without a text criterion, or with a text left out.
 func (p *run) GetTotal() int {
 	return p.cache.total
 }
 
 // Methods
 
-// queryCandidates runs every SQL-filterable criterion (tags, dates, folders), and the grams of the text criterion if
+// queryCandidates runs every SQL-filterable criterion (tags, dates, folders, as searchnotes.Scope), and the grams of the text criterion if
 // any, for the ids of the live notes: titles and paths come from the tree, no note is opened.
 func (p *run) queryCandidates() {
 	query := `
@@ -81,16 +81,17 @@ func (p *run) queryCandidates() {
 		WHERE i.user_id = ? AND i.kind = ? AND i.deleted_at IS NULL`
 	args := []any{domain.UserID(p.ctx), domain.NOTE}
 
-	if len(p.search.TagIDs) > 0 {
-		if p.search.TagMode == "all" {
-			query += ` AND i.id IN (
-				SELECT note_id FROM notes_on_tags WHERE tag_id IN (?) GROUP BY note_id HAVING COUNT(DISTINCT tag_id) = ?)`
-			args = append(args, bun.In(p.search.TagIDs), len(p.search.TagIDs))
-		} else {
-			query += ` AND i.id IN (SELECT note_id FROM notes_on_tags WHERE tag_id IN (?))`
-			args = append(args, bun.In(p.search.TagIDs))
-		}
+	scope := searchnotes.Scope{TagsAny: p.search.AnyTagIDs, TagsNone: p.search.NoTagIDs, Folders: p.search.FolderIDs, ExcludeFolders: p.search.FolderMode == "exclude"}
+	if p.search.TagMode == "all" {
+		scope.TagsAll = p.search.TagIDs
+	} else if len(p.search.TagIDs) > 0 { // a group of its own: edituser refuses it beside AnyTagIDs, an older search may not
+		where, whereArgs := searchnotes.Scope{TagsAny: p.search.TagIDs}.Where(p.ctx)
+		query += where
+		args = append(args, whereArgs...)
 	}
+	where, whereArgs := scope.Where(p.ctx)
+	query += where
+	args = append(args, whereArgs...)
 	if p.search.CreatedFrom != nil {
 		query += ` AND i.created_at >= ?`
 		args = append(args, *p.search.CreatedFrom)
@@ -107,19 +108,6 @@ func (p *run) queryCandidates() {
 		query += ` AND i.updated_at <= ?`
 		args = append(args, *p.search.EditedTo)
 	}
-	if len(p.search.FolderIDs) > 0 {
-		tree := `(WITH RECURSIVE tree AS (
-			SELECT id FROM items WHERE id IN (?) AND user_id = ?
-			UNION ALL SELECT child.id FROM items AS child JOIN tree ON child.parent_id = tree.id
-		) SELECT id FROM tree)`
-		if p.search.FolderMode == "exclude" {
-			query += ` AND i.id NOT IN ` + tree
-		} else {
-			query += ` AND i.id IN ` + tree
-		}
-		args = append(args, bun.In(p.search.FolderIDs), domain.UserID(p.ctx))
-	}
-
 	if text := strings.TrimSpace(p.search.Text); text != "" {
 		grams, gramArgs, _, err := searchnotes.Candidates(p.ctx, p.db, text)
 		if err != nil {
@@ -142,13 +130,14 @@ func (p *run) queryCandidates() {
 	p.cache.ids = domain.Live(p.cache.tree, ids, func(id string) string { return id }, nil)
 }
 
-// filterText opens the page and checks the text itself; without a text criterion the SQL criteria already did the filtering.
+// filterText opens the page and checks the text and the text left out themselves; without them the SQL criteria
+// already did the filtering.
 func (p *run) filterText() {
 	if p.HasErr() {
 		return
 	}
 
-	matches, total, err := searchnotes.Matches(p.ctx, p.db, p.cache.tree, p.cache.ids, strings.TrimSpace(p.search.Text), 0, p.limit, p.offset)
+	matches, total, err := searchnotes.Matches(p.ctx, p.db, p.cache.tree, p.cache.ids, strings.TrimSpace(p.search.Text), strings.TrimSpace(p.search.NotText), 0, p.limit, p.offset)
 	p.SetErr(err)
 	p.cache.total = total
 	for _, match := range matches {

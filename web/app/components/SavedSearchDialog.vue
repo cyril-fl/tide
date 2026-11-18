@@ -11,10 +11,6 @@ const { data: tags } = useTags();
 const destinations = useDestinations();
 const folderOptions = computed(() => destinations.value.filter((d) => d.value !== ROOT));
 const tagOptions = computed(() => tags.value.map((tag) => ({ label: `#${tag.value}`, value: tag.id })));
-const tagModeOptions = [
-  { label: t('search.saved.tagModeAny'), value: 'any' },
-  { label: t('search.saved.tagModeAll'), value: 'all' },
-];
 const folderModeOptions = [
   { label: t('search.saved.folderModeInclude'), value: 'include' },
   { label: t('search.saved.folderModeExclude'), value: 'exclude' },
@@ -29,8 +25,12 @@ function fromDay(day: string, end: boolean) {
 }
 
 const name = ref(props.value?.name ?? '');
-const tagIds = ref(props.value?.tag_ids ?? []);
-const tagMode = ref(props.value?.tag_mode ?? 'any');
+// tag_ids are every tag in "all" mode, one of them in "any" (an older search): shown as the list they mean, saved as
+// tag_ids in "all" mode and any_tag_ids, which the API refuses beside tag_ids in "any" mode.
+const anyMode = props.value?.tag_mode !== 'all';
+const tagIds = ref(anyMode ? [] : (props.value?.tag_ids ?? []));
+const anyTagIds = ref([...(anyMode ? (props.value?.tag_ids ?? []) : []), ...(props.value?.any_tag_ids ?? [])]);
+const noTagIds = ref(props.value?.no_tag_ids ?? []);
 const folderIds = ref(props.value?.folder_ids ?? []);
 const folderMode = ref(props.value?.folder_mode ?? 'include');
 const createdFrom = ref(toDay(props.value?.created_from));
@@ -38,14 +38,18 @@ const createdTo = ref(toDay(props.value?.created_to));
 const editedFrom = ref(toDay(props.value?.edited_from));
 const editedTo = ref(toDay(props.value?.edited_to));
 const text = ref(props.value?.text ?? '');
+const notText = ref(props.value?.not_text ?? '');
 
 // Only the criteria in use are shown: those the search has, then those added from the menu.
-type Criterion = 'text' | 'tags' | 'folders' | 'created' | 'edited';
+type Criterion = 'text' | 'notText' | 'tags' | 'anyTags' | 'noTags' | 'folders' | 'created' | 'edited';
 const shown = ref<Criterion[]>(
   (
     [
       ['text', text.value],
+      ['notText', notText.value],
       ['tags', tagIds.value.length],
+      ['anyTags', anyTagIds.value.length],
+      ['noTags', noTagIds.value.length],
       ['folders', folderIds.value.length],
       ['created', createdFrom.value || createdTo.value],
       ['edited', editedFrom.value || editedTo.value],
@@ -56,7 +60,10 @@ const shown = ref<Criterion[]>(
 );
 const labels: Record<Criterion, string> = {
   text: t('search.saved.text'),
-  tags: t('common.tags'),
+  notText: t('search.saved.notText'),
+  tags: t('search.saved.tagsAll'),
+  anyTags: t('search.saved.tagsAny'),
+  noTags: t('search.saved.tagsNone'),
   folders: t('search.saved.folders'),
   created: t('search.saved.created'),
   edited: t('search.saved.edited'),
@@ -67,10 +74,15 @@ const addMenu = computed(() =>
     .map((criterion) => ({ label: labels[criterion], onSelect: () => shown.value.push(criterion) })),
 );
 
+const tagLists = { tags: tagIds, anyTags: anyTagIds, noTags: noTagIds };
+
 function remove(criterion: Criterion) {
   shown.value = shown.value.filter((c) => c !== criterion);
   if (criterion === 'text') text.value = '';
+  if (criterion === 'notText') notText.value = '';
   if (criterion === 'tags') tagIds.value = [];
+  if (criterion === 'anyTags') anyTagIds.value = [];
+  if (criterion === 'noTags') noTagIds.value = [];
   if (criterion === 'folders') folderIds.value = [];
   if (criterion === 'created') createdFrom.value = createdTo.value = '';
   if (criterion === 'edited') editedFrom.value = editedTo.value = '';
@@ -80,7 +92,9 @@ const criteria = computed<SavedSearch>(() => ({
   id: props.value?.id ?? '',
   name: name.value.trim(),
   tag_ids: tagIds.value,
-  tag_mode: tagMode.value,
+  tag_mode: 'all',
+  any_tag_ids: anyTagIds.value,
+  no_tag_ids: noTagIds.value,
   folder_ids: folderIds.value,
   folder_mode: folderMode.value,
   created_from: fromDay(createdFrom.value, false),
@@ -88,6 +102,7 @@ const criteria = computed<SavedSearch>(() => ({
   edited_from: fromDay(editedFrom.value, false),
   edited_to: fromDay(editedTo.value, true),
   text: text.value.trim(),
+  not_text: notText.value.trim(),
 }));
 
 // How many notes the criteria match as they are now, before saving them. The name is left out: typing it runs nothing.
@@ -142,19 +157,7 @@ function submit() {
             <div class="flex w-28 shrink-0 flex-col items-start">
               <p class="text-sm">{{ labels[criterion] }}</p>
               <USelectMenu
-                v-if="criterion === 'tags'"
-                v-model="tagMode"
-                :items="tagModeOptions"
-                value-key="value"
-                :search-input="false"
-                size="xs"
-                variant="ghost"
-                class="-ms-2 text-muted"
-                :ui="{ content: 'w-max' }"
-                :aria-label="$t('search.saved.tagMode')"
-              />
-              <USelectMenu
-                v-else-if="criterion === 'folders'"
+                v-if="criterion === 'folders'"
                 v-model="folderMode"
                 :items="folderModeOptions"
                 value-key="value"
@@ -174,16 +177,23 @@ function submit() {
                 :placeholder="$t('search.saved.textPlaceholder')"
                 :aria-label="labels.text"
               />
+              <UInput
+                v-else-if="criterion === 'notText'"
+                v-model="notText"
+                class="w-full"
+                :placeholder="$t('search.saved.notTextPlaceholder')"
+                :aria-label="labels.notText"
+              />
               <UInputMenu
-                v-else-if="criterion === 'tags'"
-                v-model="tagIds"
+                v-else-if="criterion === 'tags' || criterion === 'anyTags' || criterion === 'noTags'"
+                v-model="tagLists[criterion].value"
                 multiple
                 open-on-click
                 :items="tagOptions"
                 value-key="value"
                 class="w-full"
                 :placeholder="$t('search.saved.pickTags')"
-                :aria-label="labels.tags"
+                :aria-label="labels[criterion]"
                 :ui="{ tagsItem: 'max-w-full' }"
               />
               <UInputMenu

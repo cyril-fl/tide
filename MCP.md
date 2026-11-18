@@ -133,7 +133,8 @@ en langage naturel : « range mes notes de réunion de novembre dans /Travail/R�
 
 Le serveur lui donne aussi des consignes, que Claude Code met dans son prompt système : la façon économe de
 traiter beaucoup de notes, celle du banc d'essai #198. Appeler `tags` une fois et garder la liste, trouver
-les candidates sur le serveur avant de lire (`search_notes` avec `untagged`, `max_length`, `updated_before`),
+les candidates sur le serveur avant de lire (`search_notes` avec `tags_all`, `tags_any`, `tags_none`, `folder`,
+`not_text`, `untagged`, `max_length`, `updated_before`),
 lire par lots en aperçu (`read_notes` avec `max_chars`), découper un gros dossier en pages de `list_folder`,
 une par sous-agent, taguer avec `tag_notes` (jamais en réécrivant la note par `edit_note`), un appel par tag
 posé sur toutes les notes d'un lot plutôt qu'un appel par note (au passage 3 de #198, 198 appels note par note
@@ -144,7 +145,7 @@ l'agent principal de leur passer ce qu'il leur faut.
 
 | Outil | Ce qu'il fait |
 |---|---|
-| `search_notes` | Les notes dont le titre ou le contenu contient un texte, avec la ligne trouvée, et leur total : les 50 premières, ou `limit` (0 pour toutes) et `offset`. `max_length` (au plus N caractères, ligne de titre comprise : les notes vides ou réduites au titre) `untagged` (sans tag) et `updated_before` (modifiées avant un jour ou un instant, les plus anciennes d'abord sans texte) ne gardent que les candidates, avec ou sans texte. Un motif d'inachèvement (`[Table could not be rendered]`, un `/` seul) se cherche comme texte |
+| `search_notes` | Les notes dont le titre ou le contenu contient un texte, avec la ligne trouvée, et leur total : les 50 premières, ou `limit` (0 pour toutes) et `offset`. Les filtres, avec ou sans texte, valent tous ensemble : `tags_all` (tous ces tags), `tags_any` (au moins un), `tags_none` (aucun), par nom (`Idée ET (Cuisine OU Boisson)` = `tags_all [Idée]` + `tags_any [Cuisine, Boisson]`), `folder` (un dossier et ses sous-dossiers, par chemin ou uuid), `not_text` (le titre et le contenu ne contiennent pas ce texte, casse ignorée : les recettes sans « Étapes »), `max_length` (au plus N caractères, ligne de titre comprise : les notes vides ou réduites au titre), `untagged` (sans tag) et `updated_before` (modifiées avant un jour ou un instant, les plus anciennes d'abord sans texte). Un motif d'inachèvement (`[Table could not be rendered]`, un `/` seul) se cherche comme texte |
 | `recent_notes` | Les notes modifiées le plus récemment, la plus récente d'abord |
 | `duplicate_notes` | Les notes qui portent le même titre, en groupes `{key, notes: [{id, path, updated_at, length}]}` ; `same_path` ne garde que celles du même dossier, dont le chemin est ambigu (à désigner par leur uuid). Les contenus quasi identiques sous des titres différents ne sont pas cherchés |
 | `read_note` | Le contenu d'une note, son chemin, ses tags (`[]` sans tag) et ses dates (`created_at`, `updated_at`) ; `max_chars` n'en rend que le début, coupé comme dans `read_notes` (à la fin d'une ligne ou d'un mot), avec `length` (la taille entière, en caractères) et `truncated` |
@@ -176,7 +177,7 @@ l'agent principal de leur passer ce qu'il leur faut.
 | `save_snippet` | Crée un snippet, ou remplace celui du même nom, les autres gardés ; ne répond que le snippet enregistré |
 | `delete_snippet` | Retire un snippet par son nom, les autres gardés |
 | `saved_searches` | Les recherches enregistrées (dossiers intelligents) du compte, tags par nom et dossiers par chemin ; avec `search` (id, ou nom s'il est unique), les notes qu'elle trouve avec leur chemin : les 50 premières et le total, ou `limit` et `offset`. Plan Pro |
-| `save_search` | Crée une recherche enregistrée (tags par nom, `tag_mode` `any` ou `all`, dossiers par chemin ou uuid, `folder_mode` `include` ou `exclude`, dates de création et de modification, texte), ou remplace celle que `search` désigne, les autres gardées. Plan Pro |
+| `save_search` | Crée une recherche enregistrée (tags par nom en `tags_all`, `tags_any` et `tags_none` comme `search_notes`, dossiers par chemin ou uuid, `folder_mode` `include` ou `exclude`, dates de création et de modification, texte, `not_text`), ou remplace celle que `search` désigne, les autres gardées. Plan Pro |
 | `delete_search` | Retire une recherche enregistrée par son id ou son nom, ses notes restent. Plan Pro |
 
 **Un outil par domaine, pas un par processus.** Chaque outil annoncé coûte du contexte à l'agent à
@@ -227,9 +228,9 @@ chiffrement) s'applique pareil des trois côtés.
   effacée, l'outil relit et refait son changement une fois, puis répond l'erreur. L'app, elle, réécrit
   encore ses listes sans ce contrôle : une page de l'app restée ouverte peut effacer le changement d'un agent.
 - **Les recherches enregistrées sont du plan Pro** : hors Pro, les trois outils répondent
-  `saved searches (smart folders) need the Pro plan, which this account does not have`. Une recherche
-  n'a qu'un `tag_mode` pour tous ses tags : « Recette ET (Végétarien OU Vegan) » ne se dit pas, il faut
-  deux recherches. `save_search` remplace une recherche en entier : un critère non redonné est retiré.
+  `saved searches (smart folders) need the Pro plan, which this account does not have`. « Recette ET
+  (Végétarien OU Vegan) » s'enregistre en `tags_all [Recette]` + `tags_any [Végétarien, Vegan]` ; une
+  recherche plus ancienne en `tag_mode` `any` se lit en `tags_any`. `save_search` remplace une recherche en entier : un critère non redonné est retiré.
   Une date seule (`2026-01-31`) vaut le début du jour en `*_from`, sa fin en `*_to`, en UTC comme l'app.
 - **Ce qui n'est pas exposé** : le graphe complet (`note_links` en donne le voisinage note par note),
   les plans, la gestion des comptes, la création d'un tag seul, le vidage de la corbeille.

@@ -44,7 +44,7 @@ var (
 	ErrInvalidNeighbors   = errors.New("unknown limit of neighbors")
 	ErrInvalidAvatar      = errors.New("the avatar is not an image of the account")
 	ErrInvalidSnippet     = fmt.Errorf("a snippet needs a name, at most %d of them of %d bytes each", MaxSnippets, MaxSnippetSize)
-	ErrInvalidSavedSearch = fmt.Errorf("a saved search needs a name and a known tag/folder mode, at most %d of them", MaxSavedSearches)
+	ErrInvalidSavedSearch = fmt.Errorf("a saved search needs a name and a known tag/folder mode, at most %d of them with %d ids per list, and any_tag_ids only beside tag_ids in all mode", MaxSavedSearches, MaxSavedSearchIDs)
 	ErrInvalidSidebar     = errors.New("the sidebar sections are known lists, each at most once")
 	ErrNoSavedSearches    = errors.New("the plan of this account does not include savedSearches")
 	ErrStale              = errors.New("account settings changed elsewhere since they were read")
@@ -278,8 +278,8 @@ func validSnippets(snippets *[]domain.Snippet) bool {
 	return true
 }
 
-// validSavedSearches accepts saved searches left out, or a short list of named ones with a known tag/folder mode
-// and a short enough list of tag/folder ids.
+// validSavedSearches accepts saved searches left out, or a short list of named ones with a known tag/folder mode,
+// short enough lists of tag/folder ids, and AnyTagIDs only beside TagIDs in "all" mode.
 func validSavedSearches(searches *[]domain.SavedSearch) bool {
 	if searches == nil {
 		return true
@@ -295,7 +295,19 @@ func validSavedSearches(searches *[]domain.SavedSearch) bool {
 			return false
 		case search.FolderMode != "" && !slices.Contains(domain.FolderModes, search.FolderMode):
 			return false
-		case len(search.TagIDs) > MaxSavedSearchIDs || len(search.FolderIDs) > MaxSavedSearchIDs:
+		case !ValidSavedSearchIDs(search):
+			return false
+		case search.TagMode != "all" && len(search.TagIDs) > 0 && len(search.AnyTagIDs) > 0: // two "one of" lists: TagIDs in "all" mode
+			return false
+		}
+	}
+	return true
+}
+
+// ValidSavedSearchIDs is true when each list of tag or folder ids of search is short enough.
+func ValidSavedSearchIDs(search domain.SavedSearch) bool {
+	for _, ids := range [][]string{search.TagIDs, search.AnyTagIDs, search.NoTagIDs, search.FolderIDs} {
+		if len(ids) > MaxSavedSearchIDs {
 			return false
 		}
 	}

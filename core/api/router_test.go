@@ -651,6 +651,11 @@ func TestTagsAndGraph(t *testing.T) {
 	c.do("GET", "/api/search?updated_before=yesterday", "", http.StatusBadRequest, nil)
 	c.do("GET", "/api/search?updated_before=2000-01-31", "", http.StatusOK, nil)
 	c.do("GET", "/api/search?updated_before=2000-01-31T10:00:00Z", "", http.StatusOK, nil)
+	c.do("GET", "/api/search?tags_none=cuisine", "", http.StatusBadRequest, nil) // tag ids, not names
+	c.do("GET", "/api/search?folder=/Work", "", http.StatusBadRequest, nil)
+	if got := c.raw("/api/search?q=needle-" + first + "&not_text=needle&tags_any=00000000-0000-0000-0000-000000000001&tags_any=00000000-0000-0000-0000-000000000002"); strings.TrimSpace(got) != "[]" {
+		t.Errorf("search not_text = %s, want []", got)
+	}
 	if got := c.raw("/api/search?limit=1&offset=1&q=needle-" + first); strings.TrimSpace(got) != "[]" {
 		t.Errorf("past the end = %q, want []", got)
 	}

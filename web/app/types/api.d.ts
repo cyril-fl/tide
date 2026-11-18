@@ -3582,7 +3582,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    /** @description text to find, may be left out with max_length, untagged or updated_before */
+                    /** @description text to find, may be left out with another filter */
                     q?: string;
                     /** @description only the notes whose content (title line included) has at most that many characters */
                     max_length?: number;
@@ -3590,6 +3590,16 @@ export interface paths {
                     untagged?: boolean;
                     /** @description only the notes last changed before this day (2026-01-31) or RFC 3339 instant, the oldest first without q */
                     updated_before?: string;
+                    /** @description only the notes carrying every one of these tag ids */
+                    tags_all?: string[];
+                    /** @description only the notes carrying at least one of these tag ids: Idée AND (Cuisine OR Boisson) is tags_all Idée and tags_any Cuisine, Boisson */
+                    tags_any?: string[];
+                    /** @description only the notes carrying none of these tag ids */
+                    tags_none?: string[];
+                    /** @description only the notes of this folder uuid, in its subfolders too */
+                    folder?: string;
+                    /** @description only the notes whose title and content do not hold this text, whatever its case */
+                    not_text?: string;
                     /** @description matches in the page, all when left out or 0 */
                     limit?: number;
                     /** @description matches skipped before the page */
@@ -4747,6 +4757,8 @@ export interface components {
             id: string;
         };
         "domain.SavedSearch": {
+            /** @description the notes also carry one of them, beside tag_ids in "all" mode only: a AND (b OR c) is tag_ids [a] and any_tag_ids [b, c] */
+            any_tag_ids?: string[];
             created_from?: string;
             created_to?: string;
             edited_from?: string;
@@ -4756,6 +4768,10 @@ export interface components {
             folder_mode?: string;
             id: string;
             name: string;
+            /** @description the notes carry none of them */
+            no_tag_ids?: string[];
+            /** @description the title and content do not hold it, whatever its case */
+            not_text?: string;
             tag_ids?: string[];
             /** @description "any" (default) or "all", one of TagModes */
             tag_mode?: string;

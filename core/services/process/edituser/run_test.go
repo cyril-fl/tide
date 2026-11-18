@@ -43,6 +43,8 @@ func TestInvalidInput(t *testing.T) {
 		{Input{SavedSearches: &[]domain.SavedSearch{{Name: "no id"}}}, ErrInvalidSavedSearch},
 		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", TagMode: "both"}}}, ErrInvalidSavedSearch},
 		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", FolderMode: "maybe"}}}, ErrInvalidSavedSearch},
+		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", TagIDs: []string{"t1"}, AnyTagIDs: []string{"t2"}}}}, ErrInvalidSavedSearch},
+		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", NoTagIDs: make([]string, MaxSavedSearchIDs+1)}}}, ErrInvalidSavedSearch},
 		{Input{SidebarSections: &[]domain.SidebarSection{{ID: "graph"}}}, ErrInvalidSidebar},
 		{Input{SidebarSections: &[]domain.SidebarSection{{ID: "recent"}, {ID: "recent"}}}, ErrInvalidSidebar},
 	}

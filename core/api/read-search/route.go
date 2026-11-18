@@ -68,7 +68,7 @@ func Preview(db bun.IDB) http.HandlerFunc {
 		if !respond.Decode(w, r, &search) {
 			return
 		}
-		if len(search.TagIDs) > edituser.MaxSavedSearchIDs || len(search.FolderIDs) > edituser.MaxSavedSearchIDs {
+		if !edituser.ValidSavedSearchIDs(search) {
 			respond.Error(w, edituser.ErrInvalidSavedSearch)
 			return
 		}

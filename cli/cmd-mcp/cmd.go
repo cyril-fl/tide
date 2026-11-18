@@ -156,12 +156,17 @@ func limitOf(asked *int) int {
 }
 
 type searchArgs struct {
-	Text          string `json:"text,omitempty" jsonschema:"the text to find in the title or the content of the notes; may be left out with max_length, untagged or updated_before"`
-	MaxLength     *int   `json:"max_length,omitempty" jsonschema:"only the notes whose content, title line included, has at most that many characters (unicode characters, not bytes): the empty or title-only ones"`
-	Untagged      bool   `json:"untagged,omitempty" jsonschema:"only the notes with no tag"`
-	UpdatedBefore string `json:"updated_before,omitempty" jsonschema:"only the notes last changed before this day (2026-01-31) or RFC 3339 instant: the stale ones, the oldest first when there is no text"`
-	Limit         *int   `json:"limit,omitempty" jsonschema:"how many notes at most, 50 when left out, 0 for all of them"`
-	Offset        int    `json:"offset,omitempty" jsonschema:"how many matches to skip: the next page starts at offset + limit"`
+	Text          string   `json:"text,omitempty" jsonschema:"the text to find in the title or the content of the notes; may be left out with another filter"`
+	NotText       string   `json:"not_text,omitempty" jsonschema:"only the notes whose title and content do not hold this text, whatever its case: the recipes without Étapes"`
+	TagsAll       []string `json:"tags_all,omitempty" jsonschema:"only the notes carrying every one of these tags, without the #"`
+	TagsAny       []string `json:"tags_any,omitempty" jsonschema:"only the notes carrying at least one of these tags: Idée AND (Cuisine OR Boisson) is tags_all [Idée] and tags_any [Cuisine, Boisson]"`
+	TagsNone      []string `json:"tags_none,omitempty" jsonschema:"only the notes carrying none of these tags"`
+	Folder        string   `json:"folder,omitempty" jsonschema:"only the notes of this folder and its subfolders: its uuid, or its path from the root (/Folder)"`
+	MaxLength     *int     `json:"max_length,omitempty" jsonschema:"only the notes whose content, title line included, has at most that many characters (unicode characters, not bytes): the empty or title-only ones"`
+	Untagged      bool     `json:"untagged,omitempty" jsonschema:"only the notes with no tag"`
+	UpdatedBefore string   `json:"updated_before,omitempty" jsonschema:"only the notes last changed before this day (2026-01-31) or RFC 3339 instant: the stale ones, the oldest first when there is no text"`
+	Limit         *int     `json:"limit,omitempty" jsonschema:"how many notes at most, 50 when left out, 0 for all of them"`
+	Offset        int      `json:"offset,omitempty" jsonschema:"how many matches to skip: the next page starts at offset + limit"`
 }
 
 // searchPage is a page of matches and their total: those read, and the notes after them that may match.
@@ -441,8 +446,9 @@ type savedSearchesArgs struct {
 type saveSearchArgs struct {
 	Search      string   `json:"search,omitempty" jsonschema:"the saved search to replace: its id, or its name; a new one when empty"`
 	Name        string   `json:"name" jsonschema:"the name the app shows"`
-	Tags        []string `json:"tags,omitempty" jsonschema:"tags the notes carry, without the #"`
-	TagMode     string   `json:"tag_mode,omitempty" jsonschema:"any (default): one of the tags is enough; all: every tag"`
+	TagsAll     []string `json:"tags_all,omitempty" jsonschema:"tags the notes all carry, without the #"`
+	TagsAny     []string `json:"tags_any,omitempty" jsonschema:"tags the notes carry at least one of: Idée AND (Cuisine OR Boisson) is tags_all [Idée] and tags_any [Cuisine, Boisson]"`
+	TagsNone    []string `json:"tags_none,omitempty" jsonschema:"tags the notes carry none of"`
 	Folders     []string `json:"folders,omitempty" jsonschema:"folders, with their subfolders: their uuid, or their path from the root (/Folder)"`
 	FolderMode  string   `json:"folder_mode,omitempty" jsonschema:"include (default): only the notes of the folders; exclude: every note but theirs"`
 	CreatedFrom string   `json:"created_from,omitempty" jsonschema:"notes created on or after this day (2026-01-31) or instant (RFC 3339)"`
@@ -450,6 +456,7 @@ type saveSearchArgs struct {
 	EditedFrom  string   `json:"edited_from,omitempty" jsonschema:"notes changed on or after this day (2026-01-31) or instant (RFC 3339)"`
 	EditedTo    string   `json:"edited_to,omitempty" jsonschema:"notes changed on or before this day (2026-01-31, the whole day) or instant (RFC 3339)"`
 	Text        string   `json:"text,omitempty" jsonschema:"a text the title or the content holds"`
+	NotText     string   `json:"not_text,omitempty" jsonschema:"a text neither the title nor the content holds, whatever its case"`
 }
 
 type searchNameArgs struct {
@@ -460,8 +467,9 @@ type searchNameArgs struct {
 type savedSearch struct {
 	ID          string   `json:"id"`
 	Name        string   `json:"name"`
-	Tags        []string `json:"tags,omitempty"`
-	TagMode     string   `json:"tag_mode,omitempty"`
+	TagsAll     []string `json:"tags_all,omitempty"`
+	TagsAny     []string `json:"tags_any,omitempty"`
+	TagsNone    []string `json:"tags_none,omitempty"`
 	Folders     []string `json:"folders,omitempty"`
 	FolderMode  string   `json:"folder_mode,omitempty"`
 	CreatedFrom string   `json:"created_from,omitempty"`
@@ -469,6 +477,7 @@ type savedSearch struct {
 	EditedFrom  string   `json:"edited_from,omitempty"`
 	EditedTo    string   `json:"edited_to,omitempty"`
 	Text        string   `json:"text,omitempty"`
+	NotText     string   `json:"not_text,omitempty"`
 }
 
 // searches is the account's saved searches, or one run with a page of its notes and their total.
@@ -504,7 +513,7 @@ func Instructions(readOnly bool) string {
 	text := "The account's markdown notes, in folders; name a note or folder by its uuid or its path from the root (/Folder/Note).\n" +
 		"Work through many notes reading as little as possible:\n" +
 		"- Call tags once for the account's tags (prefix or min_notes to narrow it) and keep the list.\n" +
-		"- Find the candidates on the server instead of reading: search_notes with untagged, max_length (empty or title-only notes), updated_before (stale notes) or a text.\n" +
+		"- Find the candidates on the server instead of reading: search_notes with a text, tags_all, tags_any, tags_none, folder, not_text (the notes lacking a text), untagged, max_length (empty or title-only notes) or updated_before (stale notes), all at once.\n" +
 		"- Read up to 50 notes per call with read_notes and max_chars first; in full only those that need it.\n" +
 		"- Lists give 50 items and the total: split a big folder into list_folder pages (limit, offset), one per subagent if you have them.\n" +
 		"- duplicate_notes lists the notes sharing a title: a path several notes share is ambiguous, use their ids.\n" +
@@ -525,12 +534,26 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "search_notes",
 		Annotations: reads(),
-		Description: "Find the notes whose title or content contains a text, with the line where it was found, and their total: the first 50, title matches first, or limit and offset. max_length, untagged and updated_before keep only the short, untagged or stale notes, with or without a text, so that sorting the account reads only those.",
+		Description: "Find the notes whose title or content contains a text, with the line where it was found, and their total: the first 50, title matches first, or limit and offset. The filters, with or without a text, all hold at once: tags_all, tags_any and tags_none by tag name (Idée AND (Cuisine OR Boisson) is tags_all [Idée] and tags_any [Cuisine, Boisson]), folder with its subfolders, not_text a text the notes lack, max_length, untagged and updated_before the short, untagged or stale notes, so that sorting the account reads only those.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, searchPage, error) {
 		limit := limitOf(args.Limit)
 		params := &apiclient.GetApiSearchParams{Q: &args.Text, MaxLength: args.MaxLength, Untagged: &args.Untagged, Limit: &limit, Offset: &args.Offset}
 		if args.UpdatedBefore != "" {
 			params.UpdatedBefore = &args.UpdatedBefore
+		}
+		if args.NotText != "" {
+			params.NotText = &args.NotText
+		}
+		if args.Folder != "" {
+			folder, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, args.Folder)
+			if err != nil {
+				return nil, searchPage{}, fmt.Errorf("folder %s: %w", args.Folder, err)
+			}
+			params.Folder = &folder
+		}
+		var err error
+		if params.TagsAll, params.TagsAny, params.TagsNone, err = tagIDs(ctx, client, args.TagsAll, args.TagsAny, args.TagsNone); err != nil {
+			return nil, searchPage{}, err
 		}
 		matches, total, err := paged[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, params))
 		return nil, searchPage{Matches: append([]apiclient.SearchnotesMatch{}, matches...), Total: total}, err
@@ -1107,7 +1130,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "save_search",
 		Annotations: writes(true, false),
-		Description: "Create a saved search (a smart folder of the app), or replace one given its id or name, the others kept: its notes match every criterion given, though one tag_mode holds for all its tags (a AND (b OR c) cannot be said). Answers it as saved_searches lists it. Pro plan only.",
+		Description: "Create a saved search (a smart folder of the app), or replace one given its id or name, the others kept: its notes match every criterion given: the same tags_all, tags_any, tags_none and not_text as search_notes, with folders (include or exclude), dates and a text. Answers it as saved_searches lists it. Pro plan only.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args saveSearchArgs) (*mcp.CallToolResult, savedSearch, error) {
 		if _, err := readSearches(ctx, client); err != nil {
 			return nil, savedSearch{}, err
@@ -1202,25 +1225,17 @@ func findSearch(list []apiclient.DomainSavedSearch, ref string) (int, error) {
 	return found, nil
 }
 
-// searchOf turns the criteria an agent gives into those the API stores: tags into their id, folders into their uuid,
-// a day into its first or last instant in UTC, as the app's dialog does.
+// searchOf turns the criteria an agent gives into those the API stores: tags into their id, tags_all into tag_ids in
+// "all" mode, folders into their uuid, a day into its first or last instant in UTC, as the app's dialog does.
 func searchOf(ctx context.Context, client *apiclient.ClientWithResponses, args saveSearchArgs) (apiclient.DomainSavedSearch, error) {
-	search := apiclient.DomainSavedSearch{Name: strings.TrimSpace(args.Name), TagMode: &args.TagMode, FolderMode: &args.FolderMode, Text: &args.Text}
-	if len(args.Tags) > 0 {
-		all, err := decode[[]apiclient.DomainTag](client.GetApiTags(ctx))
-		if err != nil {
-			return search, err
-		}
-		ids := make([]string, 0, len(args.Tags))
-		for _, name := range args.Tags {
-			name = strings.TrimPrefix(name, "#")
-			i := slices.IndexFunc(all, func(tag apiclient.DomainTag) bool { return strings.EqualFold(tag.Value, name) })
-			if i < 0 {
-				return search, fmt.Errorf("%w: %q", errNoTag, name)
-			}
-			ids = append(ids, all[i].Id)
-		}
-		search.TagIds = &ids
+	search := apiclient.DomainSavedSearch{Name: strings.TrimSpace(args.Name), FolderMode: &args.FolderMode, Text: &args.Text, NotText: &args.NotText}
+	var err error
+	if search.TagIds, search.AnyTagIds, search.NoTagIds, err = tagIDs(ctx, client, args.TagsAll, args.TagsAny, args.TagsNone); err != nil {
+		return search, err
+	}
+	if search.TagIds != nil {
+		all := "all"
+		search.TagMode = &all
 	}
 	if len(args.Folders) > 0 {
 		ids := make([]string, 0, len(args.Folders))
@@ -1245,6 +1260,35 @@ func searchOf(ctx context.Context, client *apiclient.ClientWithResponses, args s
 		*date.to = instant
 	}
 	return search, nil
+}
+
+// tagIDs gives the ids of the tags named by each of the three lists, nil for an empty one: a name unknown to the
+// account is an error.
+func tagIDs(ctx context.Context, client *apiclient.ClientWithResponses, lists ...[]string) (*[]string, *[]string, *[]string, error) {
+	out := make([]*[]string, 3)
+	if len(slices.Concat(lists...)) == 0 {
+		return nil, nil, nil, nil
+	}
+	all, err := decode[[]apiclient.DomainTag](client.GetApiTags(ctx))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	for l, names := range lists {
+		if len(names) == 0 {
+			continue
+		}
+		ids := make([]string, 0, len(names))
+		for _, name := range names {
+			name = strings.TrimPrefix(name, "#")
+			i := slices.IndexFunc(all, func(tag apiclient.DomainTag) bool { return strings.EqualFold(tag.Value, name) })
+			if i < 0 {
+				return nil, nil, nil, fmt.Errorf("%w: %q", errNoTag, name)
+			}
+			ids = append(ids, all[i].Id)
+		}
+		out[l] = &ids
+	}
+	return out[0], out[1], out[2], nil
 }
 
 // instantOf reads a day (its first instant, or its last when end) or an RFC 3339 instant; nil when empty.
@@ -1297,11 +1341,18 @@ func (n names) of(ids *[]string) []string {
 
 // view turns a saved search the API stores into what the agent reads.
 func (n names) view(search apiclient.DomainSavedSearch) savedSearch {
+	// tag_ids are all of them in "all" mode, one of them in "any" (an older search): the API refuses any_tag_ids beside
+	// the latter.
+	tagsAll, tagsAny := n.of(search.TagIds), []string{}
+	if apiclient.Deref(search.TagMode) != "all" {
+		tagsAll, tagsAny = []string{}, tagsAll
+	}
 	return savedSearch{
 		ID:          search.Id,
 		Name:        search.Name,
-		Tags:        n.of(search.TagIds),
-		TagMode:     apiclient.Deref(search.TagMode),
+		TagsAll:     tagsAll,
+		TagsAny:     append(tagsAny, n.of(search.AnyTagIds)...),
+		TagsNone:    n.of(search.NoTagIds),
 		Folders:     n.of(search.FolderIds),
 		FolderMode:  apiclient.Deref(search.FolderMode),
 		CreatedFrom: apiclient.Deref(search.CreatedFrom),
@@ -1309,6 +1360,7 @@ func (n names) view(search apiclient.DomainSavedSearch) savedSearch {
 		EditedFrom:  apiclient.Deref(search.EditedFrom),
 		EditedTo:    apiclient.Deref(search.EditedTo),
 		Text:        apiclient.Deref(search.Text),
+		NotText:     apiclient.Deref(search.NotText),
 	}
 }
 

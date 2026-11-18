@@ -257,6 +257,8 @@ type DomainNoteVersion struct {
 
 // DomainSavedSearch defines model for domain.SavedSearch.
 type DomainSavedSearch struct {
+	// AnyTagIds the notes also carry one of them, beside tag_ids in "all" mode only: a AND (b OR c) is tag_ids [a] and any_tag_ids [b, c]
+	AnyTagIds   *[]string `json:"any_tag_ids,omitempty"`
 	CreatedFrom *string   `json:"created_from,omitempty"`
 	CreatedTo   *string   `json:"created_to,omitempty"`
 	EditedFrom  *string   `json:"edited_from,omitempty"`
@@ -264,10 +266,16 @@ type DomainSavedSearch struct {
 	FolderIds   *[]string `json:"folder_ids,omitempty"`
 
 	// FolderMode "include" or "exclude", one of FolderModes
-	FolderMode *string   `json:"folder_mode,omitempty"`
-	Id         string    `json:"id"`
-	Name       string    `json:"name"`
-	TagIds     *[]string `json:"tag_ids,omitempty"`
+	FolderMode *string `json:"folder_mode,omitempty"`
+	Id         string  `json:"id"`
+	Name       string  `json:"name"`
+
+	// NoTagIds the notes carry none of them
+	NoTagIds *[]string `json:"no_tag_ids,omitempty"`
+
+	// NotText the title and content do not hold it, whatever its case
+	NotText *string   `json:"not_text,omitempty"`
+	TagIds  *[]string `json:"tag_ids,omitempty"`
 
 	// TagMode "any" (default) or "all", one of TagModes
 	TagMode *string `json:"tag_mode,omitempty"`
@@ -897,7 +905,7 @@ type GetApiResolveParams struct {
 
 // GetApiSearchParams defines parameters for GetApiSearch.
 type GetApiSearchParams struct {
-	// Q text to find, may be left out with max_length, untagged or updated_before
+	// Q text to find, may be left out with another filter
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
 
 	// MaxLength only the notes whose content (title line included) has at most that many characters
@@ -908,6 +916,21 @@ type GetApiSearchParams struct {
 
 	// UpdatedBefore only the notes last changed before this day (2026-01-31) or RFC 3339 instant, the oldest first without q
 	UpdatedBefore *string `form:"updated_before,omitempty" json:"updated_before,omitempty"`
+
+	// TagsAll only the notes carrying every one of these tag ids
+	TagsAll *[]string `form:"tags_all,omitempty" json:"tags_all,omitempty"`
+
+	// TagsAny only the notes carrying at least one of these tag ids: Idée AND (Cuisine OR Boisson) is tags_all Idée and tags_any Cuisine, Boisson
+	TagsAny *[]string `form:"tags_any,omitempty" json:"tags_any,omitempty"`
+
+	// TagsNone only the notes carrying none of these tag ids
+	TagsNone *[]string `form:"tags_none,omitempty" json:"tags_none,omitempty"`
+
+	// Folder only the notes of this folder uuid, in its subfolders too
+	Folder *string `form:"folder,omitempty" json:"folder,omitempty"`
+
+	// NotText only the notes whose title and content do not hold this text, whatever its case
+	NotText *string `form:"not_text,omitempty" json:"not_text,omitempty"`
 
 	// Limit matches in the page, all when left out or 0
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -5736,6 +5759,66 @@ func NewGetApiSearchRequest(server string, params *GetApiSearchParams) (*http.Re
 		if params.UpdatedBefore != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "updated_before", *params.UpdatedBefore, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TagsAll != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "tags_all", *params.TagsAll, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TagsAny != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "tags_any", *params.TagsAny, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TagsNone != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "tags_none", *params.TagsNone, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Folder != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "folder", *params.Folder, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.NotText != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "not_text", *params.NotText, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

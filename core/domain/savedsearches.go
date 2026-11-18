@@ -12,8 +12,10 @@ type SavedSearch struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 
-	TagIDs  []string `json:"tag_ids,omitempty" binding:"optional"`
-	TagMode string   `json:"tag_mode,omitempty" binding:"optional"` // "any" (default) or "all", one of TagModes
+	TagIDs    []string `json:"tag_ids,omitempty" binding:"optional"`
+	TagMode   string   `json:"tag_mode,omitempty" binding:"optional"`    // "any" (default) or "all", one of TagModes
+	AnyTagIDs []string `json:"any_tag_ids,omitempty" binding:"optional"` // the notes also carry one of them, beside tag_ids in "all" mode only: a AND (b OR c) is tag_ids [a] and any_tag_ids [b, c]
+	NoTagIDs  []string `json:"no_tag_ids,omitempty" binding:"optional"`  // the notes carry none of them
 
 	FolderIDs  []string `json:"folder_ids,omitempty" binding:"optional"`
 	FolderMode string   `json:"folder_mode,omitempty" binding:"optional"` // "include" or "exclude", one of FolderModes
@@ -23,7 +25,8 @@ type SavedSearch struct {
 	EditedFrom  *time.Time `json:"edited_from,omitempty" binding:"optional"`
 	EditedTo    *time.Time `json:"edited_to,omitempty" binding:"optional"`
 
-	Text string `json:"text,omitempty" binding:"optional"`
+	Text    string `json:"text,omitempty" binding:"optional"`
+	NotText string `json:"not_text,omitempty" binding:"optional"` // the title and content do not hold it, whatever its case
 }
 
 // TagModes and FolderModes are the choices of SavedSearch, the first one its default.

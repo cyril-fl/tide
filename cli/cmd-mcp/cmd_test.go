@@ -555,9 +555,27 @@ func TestSavedSearches(t *testing.T) {
 	call(t, agent, "create_note", map[string]any{"content": "# Soup\n#cuisine"}, nil)
 	call(t, agent, "create_note", map[string]any{"content": "# Rome\n#italie"}, nil)
 
+	// search_notes filters by tag names, folder path and a text left out, all at once.
+	for want, args := range map[string]map[string]any{
+		"/Soup":       {"tags_all": []string{"cuisine"}, "tags_none": []string{"#Italie"}},
+		"/Work/Pasta": {"tags_any": []string{"cuisine", "italie"}, "folder": "/Work"},
+		"/Rome":       {"tags_any": []string{"italie"}, "not_text": "PASTA"},
+	} {
+		var page searchPage
+		call(t, agent, "search_notes", args, &page)
+		if len(page.Matches) != 1 || page.Matches[0].Path != want || page.Total != 1 {
+			t.Errorf("search_notes %v = %+v, want %s", args, page, want)
+		}
+	}
+	for _, args := range []map[string]any{{"tags_none": []string{"nope"}}, {"folder": "/Nowhere"}} {
+		if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "search_notes", Arguments: args}); err != nil || !result.IsError {
+			t.Errorf("search_notes %v = %+v, %v; want an error", args, result, err)
+		}
+	}
+
 	var saved savedSearch
-	call(t, agent, "save_search", map[string]any{"name": "Italian", "tags": []string{"cuisine", "#Italie"}, "tag_mode": "all"}, &saved)
-	if saved.ID == "" || !slices.Equal(saved.Tags, []string{"cuisine", "italie"}) || saved.TagMode != "all" {
+	call(t, agent, "save_search", map[string]any{"name": "Italian", "tags_all": []string{"cuisine", "#Italie"}}, &saved)
+	if saved.ID == "" || !slices.Equal(saved.TagsAll, []string{"cuisine", "italie"}) || len(saved.TagsAny) != 0 {
 		t.Errorf("save_search = %+v", saved)
 	}
 	var run searches
@@ -576,12 +594,26 @@ func TestSavedSearches(t *testing.T) {
 	}
 
 	// Replacing keeps the id and drops the criteria left out; a page still counts every note.
-	call(t, agent, "save_search", map[string]any{"search": "Elsewhere", "name": "Cooking", "tags": []string{"cuisine"}}, nil)
+	call(t, agent, "save_search", map[string]any{"search": "Elsewhere", "name": "Cooking", "tags_any": []string{"cuisine"}}, nil)
 	var replaced searches // a fresh one: decoding into run would keep the fields the answer leaves out
 	call(t, agent, "saved_searches", map[string]any{"search": saved.ID, "limit": 1}, &replaced)
-	if replaced.Total != 2 || len(replaced.Notes) != 1 || replaced.Search.Name != "Cooking" || len(replaced.Search.Folders) != 0 || replaced.Search.TagMode != "" {
+	if replaced.Total != 2 || len(replaced.Notes) != 1 || replaced.Search.Name != "Cooking" || len(replaced.Search.Folders) != 0 || len(replaced.Search.TagsAll) != 0 {
 		t.Errorf("saved_searches Cooking = %+v, %+v", replaced, replaced.Search)
 	}
+
+	// cuisine AND (italie OR …), without the tag none nor the text left out, stored and replayed.
+	var precise savedSearch
+	call(t, agent, "save_search", map[string]any{"name": "Precise", "tags_all": []string{"cuisine"}, "tags_any": []string{"italie"}, "tags_none": []string{"cuisine"}, "not_text": "x"}, &precise)
+	if !slices.Equal(precise.TagsAll, []string{"cuisine"}) || !slices.Equal(precise.TagsAny, []string{"italie"}) || !slices.Equal(precise.TagsNone, []string{"cuisine"}) || precise.NotText != "x" {
+		t.Errorf("save_search Precise = %+v", precise)
+	}
+	call(t, agent, "save_search", map[string]any{"search": "Precise", "name": "Precise", "tags_all": []string{"cuisine"}, "tags_any": []string{"italie"}, "not_text": "soup"}, nil)
+	var replayed searches
+	call(t, agent, "saved_searches", map[string]any{"search": "Precise"}, &replayed)
+	if replayed.Total != 1 || len(replayed.Notes) != 1 || replayed.Notes[0].Path != "/Work/Pasta" {
+		t.Errorf("saved_searches Precise = %+v", replayed)
+	}
+	call(t, agent, "delete_search", map[string]any{"search": "Precise"}, nil)
 
 	var left []savedSearch
 	call(t, agent, "delete_search", map[string]any{"search": "Italian"}, &left)
@@ -593,7 +625,7 @@ func TestSavedSearches(t *testing.T) {
 
 	// An unknown tag, folder, search or a date that is none are errors.
 	for name, args := range map[string]map[string]any{
-		"save_search":    {"name": "x", "tags": []string{"nope"}},
+		"save_search":    {"name": "x", "tags_any": []string{"nope"}},
 		"saved_searches": {"search": "Italian"},
 		"delete_search":  {"search": "Italian"},
 	} {

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -44,9 +45,59 @@ type run struct {
 
 // Filter keeps the notes of a search, with or without a text: what an agent sorting the account reads first.
 type Filter struct {
+	Scope
 	MaxLength     int       // content (title line included) of at most that many characters; 0: any length
 	Untagged      bool      // notes with no tag
 	UpdatedBefore time.Time // notes last changed (or created, never changed) before it, the oldest first without a text; zero: any date
+	NotText       string    // notes whose title and content do not hold it, whatever its case; empty: none left out
+}
+
+// Scope keeps the notes by their tags and folders, every list left empty keeping them all: Idée AND (Cuisine OR
+// Boisson) is TagsAll [Idée] and TagsAny [Cuisine, Boisson].
+type Scope struct {
+	TagsAll        []string // tag ids the notes all carry
+	TagsAny        []string // tag ids the notes carry at least one of
+	TagsNone       []string // tag ids the notes carry none of
+	Folders        []string // folder ids holding the notes, in their subfolders too
+	ExcludeFolders bool     // the notes out of Folders instead
+}
+
+// Where gives the conditions on i (items) keeping the notes of the scope, to add to a WHERE, and their arguments.
+func (s Scope) Where(ctx context.Context) (string, []any) {
+	var query string
+	var args []any
+	if len(s.TagsAll) > 0 {
+		query += ` AND i.id IN (
+			SELECT note_id FROM notes_on_tags WHERE tag_id IN (?) GROUP BY note_id HAVING COUNT(DISTINCT tag_id) = ?)`
+		args = append(args, bun.In(s.TagsAll), len(slices.Compact(slices.Sorted(slices.Values(s.TagsAll)))))
+	}
+	if len(s.TagsAny) > 0 {
+		query += ` AND i.id IN (SELECT note_id FROM notes_on_tags WHERE tag_id IN (?))`
+		args = append(args, bun.In(s.TagsAny))
+	}
+	if len(s.TagsNone) > 0 {
+		query += ` AND i.id NOT IN (SELECT note_id FROM notes_on_tags WHERE tag_id IN (?))`
+		args = append(args, bun.In(s.TagsNone))
+	}
+	if len(s.Folders) > 0 {
+		tree := `(WITH RECURSIVE tree AS (
+			SELECT id FROM items WHERE id IN (?) AND user_id = ?
+			UNION ALL SELECT child.id FROM items AS child JOIN tree ON child.parent_id = tree.id
+		) SELECT id FROM tree)`
+		if s.ExcludeFolders {
+			query += ` AND i.id NOT IN ` + tree
+		} else {
+			query += ` AND i.id IN ` + tree
+		}
+		args = append(args, bun.In(s.Folders), domain.UserID(ctx))
+	}
+	return query, args
+}
+
+// empty is true when the filter keeps every note.
+func (f Filter) empty() bool {
+	return f.MaxLength == 0 && !f.Untagged && f.UpdatedBefore.IsZero() && f.NotText == "" &&
+		len(f.TagsAll)+len(f.TagsAny)+len(f.TagsNone)+len(f.Folders) == 0
 }
 
 type cache struct {
@@ -107,7 +158,7 @@ func (p *run) GetTotal() int {
 
 func (p *run) makeText() {
 	p.cache.text = strings.TrimSpace(p.text)
-	if p.cache.text == "" && p.filter == (Filter{}) {
+	if p.cache.text == "" && p.filter.empty() {
 		p.SetErr(ErrNoValue)
 	}
 }
@@ -140,6 +191,9 @@ func (p *run) loadCandidates() {
 		query += " AND coalesce(i.updated_at, i.created_at) < ?"
 		args = append(args, p.filter.UpdatedBefore)
 	}
+	scope, scopeArgs := p.filter.Where(p.ctx)
+	query += scope
+	args = append(args, scopeArgs...)
 	var rows []candidate
 	p.SetErr(p.db.NewRaw(`
 		SELECT i.id, coalesce(i.updated_at, i.created_at) AS updated_at, coalesce(mn.headings @> ?::smallint[], false) AS in_heading
@@ -200,7 +254,7 @@ func (p *run) loadMatches() {
 	}
 
 	var err error
-	p.cache.result, p.cache.total, err = Matches(p.ctx, p.db, p.cache.tree, p.cache.ids, p.cache.text, p.filter.MaxLength, p.limit, p.offset)
+	p.cache.result, p.cache.total, err = Matches(p.ctx, p.db, p.cache.tree, p.cache.ids, p.cache.text, p.filter.NotText, p.filter.MaxLength, p.limit, p.offset)
 	p.SetErr(err)
 }
 
@@ -214,17 +268,21 @@ const (
 )
 
 // Matches opens the notes of ids, in their order, and keeps those holding text in their title or content whatever
-// its case, and whose content has at most maxLength characters when it is not 0: limit of them from offset, every one
-// when limit is 0. No text nor maxLength: every note, none opened for its content.
+// its case, not holding notText in them when it is not empty, and whose content has at most maxLength characters when
+// it is not 0: limit of them from offset, every one when limit is 0. No text, notText nor maxLength: every note, none
+// opened for its content.
 // The index gives a few notes that do not hold the text, so they are opened until the page is full, not all of them:
-// the total counts the matches met and the notes left unopened (none with maxLength: all are opened, so the total is exact), and a page costs the ones before it.
+// the total counts the matches met and the notes left unopened (none with maxLength or notText: all are opened, so the
+// total is exact), and a page costs the ones before it.
 // TODO: the last pages of a search with tens of thousands of matches open them all (1 s at 50,000 notes), as every
 // page did; a cursor instead of an offset if they are ever read.
-func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, text string, maxLength, limit, offset int) ([]Match, int, error) {
-	lower := strings.ToLower(text)
+func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, text, notText string, maxLength, limit, offset int) ([]Match, int, error) {
+	lower, notLower := strings.ToLower(text), strings.ToLower(notText)
+	// Every note is opened when its content filters it: the unopened ones cannot be assumed to pass.
+	exact := maxLength > 0 || notText != ""
 	inTitle := func(id string) bool { return strings.Contains(strings.ToLower(tree.Titles[id]), lower) }
 	columns := "mn.item_id AS id, mn.readonly"
-	if text != "" || maxLength > 0 {
+	if text != "" || exact {
 		columns += ", mn.content"
 	}
 	if limit <= 0 {
@@ -234,13 +292,12 @@ func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, te
 
 	// The notes before the page whose title holds the text are counted unopened, unless their length is checked.
 	at := 0
-	for maxLength <= 0 && at < offset && at < len(ids) && inTitle(ids[at]) {
+	for !exact && at < offset && at < len(ids) && inTitle(ids[at]) {
 		at++
 	}
 	found := at
 	var matches []Match
-	// With maxLength the total is exact, so every note is opened: the unopened ones cannot be assumed to pass the filter.
-	full := func() bool { return maxLength <= 0 && limit > 0 && found >= offset+limit }
+	full := func() bool { return !exact && limit > 0 && found >= offset+limit }
 	for size := batch; at < len(ids) && !full(); size = min(size*4, maxBatch) {
 		opened := ids[at:min(at+size, len(ids))]
 		var rows []row
@@ -267,6 +324,10 @@ func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, te
 				continue // trashed since, or one the index gave without the text
 			}
 			if maxLength > 0 && utf8.RuneCountInString(string(r.Content)) > maxLength {
+				continue
+			}
+			// The content starts with the title line, the title in the tree is checked too should it not.
+			if notText != "" && (strings.Contains(strings.ToLower(string(r.Content)), notLower) || strings.Contains(strings.ToLower(tree.Titles[id]), notLower)) {
 				continue
 			}
 			if found >= offset && (limit <= 0 || found < offset+limit) {

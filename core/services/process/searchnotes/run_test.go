@@ -12,6 +12,7 @@ import (
 
 	"github.com/cyril-fl/tide/core/domain"
 	"github.com/cyril-fl/tide/core/services/postgrey"
+	"github.com/cyril-fl/tide/core/services/process/createfolder"
 	"github.com/cyril-fl/tide/core/services/process/createnote"
 	"github.com/cyril-fl/tide/core/services/process/createschema"
 	"github.com/cyril-fl/tide/core/services/process/deleteitems"
@@ -110,7 +111,7 @@ func TestSearchNotes(t *testing.T) {
 		t.Fatal(err)
 	}
 	candidates := []string{ids["Percent"], ids["Z "+word], ids["A in content"]}
-	filled, total, err := Matches(ctx, tx, tree, candidates, "inside", 0, 1, 0)
+	filled, total, err := Matches(ctx, tx, tree, candidates, "inside", "", 0, 1, 0)
 	if err != nil || len(filled) != 1 || filled[0].ID != ids["A in content"] || total != 1 {
 		t.Errorf("matches = %+v of %d, %v; want A in content of 1", filled, total, err)
 	}
@@ -325,5 +326,101 @@ func TestSearchFilter(t *testing.T) {
 		if page.HasErr() || page.GetTotal() != 1 {
 			t.Errorf("offset %d: total = %d, %v; want 1", offset, page.GetTotal(), page.GetErr())
 		}
+	}
+}
+
+func TestSearchScope(t *testing.T) {
+	ctx := context.Background()
+	env := postgrey.NewEnvironment()
+	env.ReadEnv()
+	db := env.Connect()
+	defer db.Close()
+
+	schema := createschema.Process(ctx, db)
+	schema.Run()
+	if schema.HasErr() {
+		t.Fatalf("create schema: %v", schema.GetErr())
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx, tx = testaccount.New(t, ctx, tx)
+
+	folder := createfolder.Process(ctx, tx, createfolder.Input{Title: "Cuisine"})
+	folder.Run()
+	if folder.HasErr() {
+		t.Fatalf("folder: %v", folder.GetErr())
+	}
+	sub := createfolder.Process(ctx, tx, createfolder.Input{Title: "Sub", ParentID: folder.GetResult().ID})
+	sub.Run()
+	if sub.HasErr() {
+		t.Fatalf("subfolder: %v", sub.GetErr())
+	}
+	// The tags are written into the content as #tags.
+	for _, note := range []struct {
+		content, parent string
+		tags            []string
+	}{
+		{"# Soup\n\nÉtapes: boil", folder.GetResult().ID, []string{"recette", "cuisine"}},
+		{"# Cake\n\nflour", sub.GetResult().ID, []string{"recette", "idee"}},
+		{"# Bare", sub.GetResult().ID, nil},
+		{"# Tea", "", []string{"idee", "boisson"}},
+		{"# Plan", "", []string{"idee"}},
+		{"# Loose", "", nil},
+	} {
+		process := createnote.Process(ctx, tx, createnote.Input{Content: note.content, ParentID: note.parent, Tags: note.tags})
+		process.Run()
+		if process.HasErr() {
+			t.Fatalf("note %q: %v", note.content, process.GetErr())
+		}
+	}
+	var tags []domain.Tag
+	if err := tx.NewSelect().Model(&tags).Where("user_id = ?", domain.UserID(ctx)).Scan(ctx); err != nil {
+		t.Fatal(err)
+	}
+	id := map[string]string{}
+	for _, tag := range tags {
+		id[string(tag.Value)] = tag.ID
+	}
+
+	// "Recette without Étapes", "without Recette nor Idée", "Idée AND (Cuisine OR Boisson)"; untagged and max_length
+	// scoped to a folder and its subfolders.
+	for name, test := range map[string]struct {
+		text   string
+		filter Filter
+		want   string
+	}{
+		"all":                {"", Filter{Scope: Scope{TagsAll: []string{id["recette"], id["idee"]}}}, "Cake"},
+		"all twice the same": {"", Filter{Scope: Scope{TagsAll: []string{id["idee"], id["idee"]}}}, "Cake,Plan,Tea"},
+		"any":                {"", Filter{Scope: Scope{TagsAny: []string{id["cuisine"], id["boisson"]}}}, "Soup,Tea"},
+		"all and any":        {"", Filter{Scope: Scope{TagsAll: []string{id["idee"]}, TagsAny: []string{id["cuisine"], id["boisson"]}}}, "Tea"},
+		"none":               {"", Filter{Scope: Scope{TagsNone: []string{id["recette"], id["idee"]}}}, "Bare,Loose"},
+		"folder":             {"", Filter{Scope: Scope{Folders: []string{folder.GetResult().ID}}}, "Bare,Cake,Soup"},
+		"folder and none":    {"", Filter{Scope: Scope{Folders: []string{folder.GetResult().ID}, TagsNone: []string{id["recette"]}}}, "Bare"},
+		"untagged in folder": {"", Filter{Scope: Scope{Folders: []string{folder.GetResult().ID}}, Untagged: true}, "Bare"},
+		"short in subfolder": {"", Filter{Scope: Scope{Folders: []string{sub.GetResult().ID}}, MaxLength: 10}, "Bare"},
+		"not text":           {"", Filter{Scope: Scope{TagsAll: []string{id["recette"]}}, NotText: "étapes"}, "Cake"},
+		"not text anywhere":  {"", Filter{NotText: "A"}, "Loose"},
+		"text and not text":  {"o", Filter{NotText: "soup"}, "Cake,Loose,Tea"},
+	} {
+		search := Process(ctx, tx, test.text).Filter(test.filter)
+		search.Run()
+		var titles []string
+		for _, match := range search.GetResult() {
+			titles = append(titles, match.Title)
+		}
+		slices.Sort(titles)
+		if search.HasErr() || strings.Join(titles, ",") != test.want || search.GetTotal() != len(titles) {
+			t.Errorf("%s: titles = %v of %d, %v; want %s", name, titles, search.GetTotal(), search.GetErr(), test.want)
+		}
+	}
+
+	// A text left out opens every note: the total of a page is exact.
+	page := Process(ctx, tx, "").Filter(Filter{NotText: "étapes"}).Page(1, 0)
+	page.Run()
+	if page.HasErr() || len(page.GetResult()) != 1 || page.GetTotal() != 5 {
+		t.Errorf("page = %+v of %d, %v; want 1 of 5", page.GetResult(), page.GetTotal(), page.GetErr())
 	}
 }

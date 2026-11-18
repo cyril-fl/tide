@@ -130,6 +130,28 @@ func TestRunSavedSearch(t *testing.T) {
 		t.Errorf("snippet is empty, want the matching line")
 	}
 
+	// a AND (b OR …), none of b, a text left out (title or content, whatever its case), each with its exact total.
+	for name, test := range map[string]struct {
+		search domain.SavedSearch
+		want   string
+	}{
+		"all and any":     {domain.SavedSearch{TagIDs: []string{tagA}, TagMode: "all", AnyTagIDs: []string{tagB}}, "Outside, both tags"},
+		"any alone":       {domain.SavedSearch{AnyTagIDs: []string{tagB}}, "Outside, both tags"},
+		"none":            {domain.SavedSearch{NoTagIDs: []string{tagB}}, "In folder, tag a,Outside, no tag"},
+		"not text":        {domain.SavedSearch{NotText: "NEEDLE"}, "Outside, both tags,Outside, no tag"},
+		"not in title":    {domain.SavedSearch{NotText: "both"}, "In folder, tag a,Outside, no tag"},
+		"text and not":    {domain.SavedSearch{Text: "outside", NotText: "unrelated"}, "Outside, both tags"},
+		"folder and none": {domain.SavedSearch{FolderIDs: []string{folderID}, FolderMode: "exclude", NoTagIDs: []string{tagB}}, "Outside, no tag"},
+	} {
+		run := Process(ctx, tx, test.search).Page(1, 0)
+		run.Run()
+		got := Process(ctx, tx, test.search)
+		got.Run()
+		if got.HasErr() || strings.Join(titles(got.GetResult()), ",") != test.want || run.GetTotal() != len(got.GetResult()) {
+			t.Errorf("%s = %v, total of a page %d, %v; want %s", name, titles(got.GetResult()), run.GetTotal(), got.GetErr(), test.want)
+		}
+	}
+
 	// No criterion at all: every live note of the account.
 	all3 := Process(ctx, tx, domain.SavedSearch{})
 	all3.Run()

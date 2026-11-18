@@ -254,6 +254,24 @@ func TestNotes(t *testing.T) {
 		t.Errorf("tag_notes by text = %+v, then %q", retagged, read.Content)
 	}
 	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "remove": []string{"review"}}, nil)
+	// The filters of search_notes pick the notes too: tags_none and folder, dry_run first, then the call; "old" keeps Plan out.
+	call(t, agent, "tag_notes", map[string]any{"tags_none": []string{"old"}, "folder": "/Projects", "add": []string{"x"}, "dry_run": true}, &tagRes)
+	if len(tagRes.Notes) != 0 {
+		t.Errorf("tag_notes tags_none old = %+v, want none", tagRes.Notes)
+	}
+	var side item
+	call(t, agent, "create_note", map[string]any{"content": "# Side", "folder": "/Projects"}, &side)
+	call(t, agent, "tag_notes", map[string]any{"tags_none": []string{"old"}, "folder": "/Projects", "add": []string{"x"}, "dry_run": true}, &tagRes)
+	call(t, agent, "read_note", map[string]any{"note": side.ID}, &read)
+	if len(tagRes.Notes) != 1 || tagRes.Notes[0].ID != side.ID || read.Content != "# Side" {
+		t.Errorf("tag_notes tags_none dry_run = %+v, then %q", tagRes.Notes, read.Content)
+	}
+	call(t, agent, "tag_notes", map[string]any{"tags_none": []string{"old"}, "folder": "/Projects", "add": []string{"x"}}, &tagRes)
+	call(t, agent, "read_note", map[string]any{"note": side.ID}, &read)
+	if len(tagRes.Notes) != 1 || !strings.HasPrefix(read.Content, "# Side") || !strings.Contains(read.Content, "#x") {
+		t.Errorf("tag_notes tags_none = %+v, then %q", tagRes.Notes, read.Content)
+	}
+	call(t, agent, "delete_note", map[string]any{"note": side.ID}, nil)
 	// updated_before alone picks the notes too: none changed before 2000.
 	call(t, agent, "tag_notes", map[string]any{"updated_before": "2000-01-01", "add": []string{"stale"}, "dry_run": true}, &tagRes)
 	retagged = tagRes.Notes
@@ -305,7 +323,7 @@ func TestNotes(t *testing.T) {
 	var trash []map[string]any
 	call(t, agent, "list_trash", map[string]any{}, &trash)
 	call(t, agent, "restore_item", map[string]any{"item": inbox.ID}, &restored)
-	if len(trash) != 2 || len(restored) != 2 { // The folder and the Bare note deleted earlier.
+	if len(trash) != 3 || len(restored) != 2 { // The folder, and the Bare and Side notes deleted earlier.
 		t.Errorf("list_trash = %v, restore_item = %+v", trash, restored)
 	}
 	call(t, agent, "delete_note", map[string]any{"note": "/Inbox/Plan"}, &removed)

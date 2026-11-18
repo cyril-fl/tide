@@ -169,6 +169,28 @@ type searchArgs struct {
 	Offset        int      `json:"offset,omitempty" jsonschema:"how many matches to skip: the next page starts at offset + limit"`
 }
 
+// searchParams turns the filters of search_notes into the API's query, the tags and the folder by their ids: the one
+// path search_notes and tag_notes share.
+func searchParams(ctx context.Context, client *apiclient.ClientWithResponses, args searchArgs, limit int) (*apiclient.GetApiSearchParams, error) {
+	params := &apiclient.GetApiSearchParams{Q: &args.Text, MaxLength: args.MaxLength, Untagged: &args.Untagged, Limit: &limit, Offset: &args.Offset}
+	if args.UpdatedBefore != "" {
+		params.UpdatedBefore = &args.UpdatedBefore
+	}
+	if args.NotText != "" {
+		params.NotText = &args.NotText
+	}
+	if args.Folder != "" {
+		folder, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, args.Folder)
+		if err != nil {
+			return nil, fmt.Errorf("folder %s: %w", args.Folder, err)
+		}
+		params.Folder = &folder
+	}
+	var err error
+	params.TagsAll, params.TagsAny, params.TagsNone, err = tagIDs(ctx, client, args.TagsAll, args.TagsAny, args.TagsNone)
+	return params, err
+}
+
 // searchPage is a page of matches and their total: those read, and the notes after them that may match.
 type searchPage struct {
 	Matches []apiclient.SearchnotesMatch `json:"matches"`
@@ -302,11 +324,16 @@ type renamedTag struct {
 }
 
 type tagNotesArgs struct {
-	Notes         []string `json:"notes,omitempty" jsonschema:"the notes: their uuid, or their path from the root (/Folder/Note); or leave out for the notes text, max_length, untagged and updated_before find"`
+	Notes         []string `json:"notes,omitempty" jsonschema:"the notes: their uuid, or their path from the root (/Folder/Note); or leave out for the notes the search filters find"`
 	Text          string   `json:"text,omitempty" jsonschema:"instead of notes, every note whose title or content contains this text, as search_notes finds it"`
 	MaxLength     *int     `json:"max_length,omitempty" jsonschema:"instead of notes, every note whose content, title line included, has at most that many characters"`
 	Untagged      bool     `json:"untagged,omitempty" jsonschema:"instead of notes, every note with no tag"`
 	UpdatedBefore string   `json:"updated_before,omitempty" jsonschema:"instead of notes, every note last changed before this day (2026-01-31) or RFC 3339 instant"`
+	NotText       string   `json:"not_text,omitempty" jsonschema:"instead of notes, every note whose title and content do not hold this text, whatever its case"`
+	TagsAll       []string `json:"tags_all,omitempty" jsonschema:"instead of notes, every note carrying every one of these tags, without the #"`
+	TagsAny       []string `json:"tags_any,omitempty" jsonschema:"instead of notes, every note carrying at least one of these tags"`
+	TagsNone      []string `json:"tags_none,omitempty" jsonschema:"instead of notes, every note carrying none of these tags"`
+	Folder        string   `json:"folder,omitempty" jsonschema:"instead of notes, every note of this folder and its subfolders: its uuid, or its path from the root (/Folder)"`
 	DryRun        bool     `json:"dry_run,omitempty" jsonschema:"change nothing: answer with each note it would change, what happens to the tags asked and the lines of its text that change (- old, + new); do it first"`
 	Add           []string `json:"add,omitempty" jsonschema:"tags to add, without the #"`
 	Remove        []string `json:"remove,omitempty" jsonschema:"tags to remove, without the #"`
@@ -536,23 +563,8 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		Annotations: reads(),
 		Description: "Find the notes whose title or content contains a text, with the line where it was found, and their total: the first 50, title matches first, or limit and offset. The filters, with or without a text, all hold at once: tags_all, tags_any and tags_none by tag name (Idée AND (Cuisine OR Boisson) is tags_all [Idée] and tags_any [Cuisine, Boisson]), folder with its subfolders, not_text a text the notes lack, max_length, untagged and updated_before the short, untagged or stale notes, so that sorting the account reads only those.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, searchPage, error) {
-		limit := limitOf(args.Limit)
-		params := &apiclient.GetApiSearchParams{Q: &args.Text, MaxLength: args.MaxLength, Untagged: &args.Untagged, Limit: &limit, Offset: &args.Offset}
-		if args.UpdatedBefore != "" {
-			params.UpdatedBefore = &args.UpdatedBefore
-		}
-		if args.NotText != "" {
-			params.NotText = &args.NotText
-		}
-		if args.Folder != "" {
-			folder, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, args.Folder)
-			if err != nil {
-				return nil, searchPage{}, fmt.Errorf("folder %s: %w", args.Folder, err)
-			}
-			params.Folder = &folder
-		}
-		var err error
-		if params.TagsAll, params.TagsAny, params.TagsNone, err = tagIDs(ctx, client, args.TagsAll, args.TagsAny, args.TagsNone); err != nil {
+		params, err := searchParams(ctx, client, args, limitOf(args.Limit))
+		if err != nil {
 			return nil, searchPage{}, err
 		}
 		matches, total, err := paged[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, params))
@@ -711,21 +723,22 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tag_notes",
 		Annotations: writes(false, true),
-		Description: "Add or remove tags on notes without sending their content: only their #tags change, the rest of the text stays as it is, and each note changed keeps its earlier text in note_history. Missing tags are written at the end of the note, on its last line of tags or a new one. A #tag is read anywhere but in code (a closed ``` block, lines indented 4 spaces or a tab after a blank line, `inline`), a link or an address. A locked note, or a tag that would not be read where it is written, leaves the note as it was, with the error. Instead of naming the notes, text, max_length, untagged and updated_before tag every note search_notes would find, without reading them. With dry_run, nothing is written: the answer lists each note it would change, what happens to the tags asked and the lines of its text that change (- old, + new), as the real call would, so do it first on a bulk change.",
+		Description: "Add or remove tags on notes without sending their content: only their #tags change, the rest of the text stays as it is, and each note changed keeps its earlier text in note_history. Missing tags are written at the end of the note, on its last line of tags or a new one. A #tag is read anywhere but in code (a closed ``` block, lines indented 4 spaces or a tab after a blank line, `inline`), a link or an address. A locked note, or a tag that would not be read where it is written, leaves the note as it was, with the error. Instead of naming the notes, the filters of search_notes (text, not_text, tags_all, tags_any, tags_none, folder, max_length, untagged, updated_before) tag every note it would find, without reading them. With dry_run, nothing is written: the answer lists each note it would change, what happens to the tags asked and the lines of its text that change (- old, + new), as the real call would, so do it first on a bulk change.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, tagResult, error) {
 		for _, tag := range args.Add {
 			if !hashtag.Valid(tag) {
 				return nil, tagResult{}, fmt.Errorf("%w: %q", hashtag.ErrInvalid, tag)
 			}
 		}
-		if searched := args.Text != "" || args.MaxLength != nil || args.Untagged || args.UpdatedBefore != ""; searched {
+		if searched := args.Text != "" || args.NotText != "" || len(args.TagsAll)+len(args.TagsAny)+len(args.TagsNone) > 0 || args.Folder != "" ||
+			args.MaxLength != nil || args.Untagged || args.UpdatedBefore != ""; searched {
 			if len(args.Notes) > 0 {
-				return nil, tagResult{}, errors.New("give either notes or text, max_length, untagged and updated_before, not both")
+				return nil, tagResult{}, errors.New("give either notes or the search filters, not both")
 			}
-			all := 0
-			params := &apiclient.GetApiSearchParams{Q: &args.Text, MaxLength: args.MaxLength, Untagged: &args.Untagged, Limit: &all}
-			if args.UpdatedBefore != "" {
-				params.UpdatedBefore = &args.UpdatedBefore
+			params, err := searchParams(ctx, client, searchArgs{Text: args.Text, NotText: args.NotText, TagsAll: args.TagsAll, TagsAny: args.TagsAny,
+				TagsNone: args.TagsNone, Folder: args.Folder, MaxLength: args.MaxLength, Untagged: args.Untagged, UpdatedBefore: args.UpdatedBefore}, 0)
+			if err != nil {
+				return nil, tagResult{}, err
 			}
 			matches, _, err := paged[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, params))
 			if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"charm.land/huh/v2"
 
@@ -11,6 +12,7 @@ import (
 	plumdebug "github.com/cyril-fl/plum/utils/debug"
 	cmdedittag "github.com/cyril-fl/tide/cli/cmd-edit-tag"
 	"github.com/cyril-fl/tide/cli/services/apiclient"
+	"github.com/cyril-fl/tide/core/services/hashtag"
 	"github.com/cyril-fl/tide/core/services/screen"
 	"github.com/cyril-fl/tide/core/services/style"
 	"github.com/spf13/cobra"
@@ -18,12 +20,14 @@ import (
 
 // Read shows one tag and its notes, or lists tags with --list, one value per line, or as YAML/JSON with --yaml/--json.
 func Read(cobra *cobra.Command, args []string) error {
-	var asList, asYAML, asJSON bool
-	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"list": &asList, "yaml": &asYAML, "json": &asJSON}); err != nil {
+	var asList, similar, asYAML, asJSON bool
+	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"list": &asList, "similar": &similar, "yaml": &asYAML, "json": &asJSON}); err != nil {
 		return err
 	}
 
 	switch {
+	case similar:
+		return listSimilar(cobra, asYAML, asJSON)
 	case asList:
 		return listTags(cobra, asYAML, asJSON)
 	case len(args) == 1:
@@ -91,6 +95,37 @@ func listTags(cobra *cobra.Command, asYAML bool, asJSON bool) error {
 		return apiclient.Fail(response.HTTPResponse, response.Body)
 	}
 	printTags(*response.JSON200, asYAML, asJSON)
+	return nil
+}
+
+// listSimilar prints the groups of close tags, one per line as "value (notes)" pairs, or as YAML/JSON.
+func listSimilar(cobra *cobra.Command, asYAML bool, asJSON bool) error {
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	response, err := client.GetApiGraphWithResponse(cobra.Context())
+	if err != nil {
+		return err
+	}
+	if response.JSON200 == nil {
+		return apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	groups := hashtag.Similar(*response.JSON200, func(c apiclient.CounttagsTagCount) string { return c.Value })
+	switch {
+	case asJSON:
+		plumdebug.Json(groups)
+	case asYAML:
+		plumdebug.Yaml(groups)
+	default:
+		for _, group := range groups {
+			pairs := make([]string, len(group))
+			for i, tag := range group {
+				pairs[i] = fmt.Sprintf("%s (%d)", tag.Value, tag.Notes)
+			}
+			fmt.Println(strings.Join(pairs, ", "))
+		}
+	}
 	return nil
 }
 

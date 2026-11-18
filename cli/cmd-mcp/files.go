@@ -30,12 +30,12 @@ func fileURL(id string) string {
 }
 
 type fileArgs struct {
-	File string `json:"file,omitempty" jsonschema:"a file's uuid, as /api/files/<uuid> cites it; the list when empty"`
+	File string `json:"file,omitempty" jsonschema:"a file's uuid (/api/files/<uuid>); the list when empty"`
 }
 
 type attachArgs struct {
 	Name string `json:"name" jsonschema:"with its extension"`
-	Data string `json:"data" jsonschema:"the bytes in base64: an image, a PDF, a zip, an audio or a video"`
+	Data string `json:"data" jsonschema:"the bytes in base64: image, PDF, zip, audio or video"`
 }
 
 // attached is the stored file and the markdown a note cites it with.

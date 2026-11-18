@@ -58,6 +58,7 @@ func init() {
 	cmdReadToken.MarkFlagsMutuallyExclusive("yaml", "json")
 	plumcliutilsargs.Makeflags(cmdReadTag, cmd.ReadTag.Flags)
 	cmdReadTag.MarkFlagsMutuallyExclusive("yaml", "json")
+	cmdReadTag.MarkFlagsMutuallyExclusive("list", "similar")
 	plumcliutilsargs.Makeflags(cmdReadFloder, cmd.ReadFolder.Flags)
 
 	cmdRead.AddCommand(cmdReadNote, cmdReadFloder, cmdReadTag, cmdReadToken)

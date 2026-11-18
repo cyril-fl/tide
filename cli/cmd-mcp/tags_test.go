@@ -30,6 +30,16 @@ func TestTagsHistoryLinks(t *testing.T) {
 		t.Errorf("tags prefix #go = %+v, want go and golf", all)
 	}
 
+	// similar groups the tags a typo or a plural apart, with their counts; golf and go stay apart.
+	call(t, agent, "create_item", map[string]any{"content": "# Typos\n#Accesoires #Accessoires #PommeDeTerres #PommeDeTerre"}, nil)
+	var similar, none tags
+	call(t, agent, "tags", map[string]any{"similar": true}, &similar)
+	call(t, agent, "tags", map[string]any{"similar": true, "prefix": "rust"}, &none)
+	if similar.Similar == nil || len(*similar.Similar) != 2 || len((*similar.Similar)[0]) != 2 || (*similar.Similar)[0][0].Notes != 1 || similar.Tags != nil ||
+		none.Similar == nil || len(*none.Similar) != 0 {
+		t.Errorf("tags similar = %+v, with prefix rust = %+v", similar, none)
+	}
+
 	var linked, broken links
 	call(t, agent, "note_links", map[string]any{"note": "/Target"}, &linked)
 	call(t, agent, "note_links", map[string]any{}, &broken)

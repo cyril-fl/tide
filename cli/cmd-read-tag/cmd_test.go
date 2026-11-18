@@ -83,3 +83,23 @@ func TestLoadTag(t *testing.T) {
 		t.Errorf("unknown tag: err = %v, want %v", err, readtag.ErrNotFound)
 	}
 }
+
+// --similar prints each group of close tags on a line with the note counts; a tag alone is left out.
+func TestListSimilar(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	note := createnote.Process(ctx, tx, createnote.Input{Content: "# Ideas", Tags: []string{"Emploi", "Emploie", "go"}})
+	note.Run()
+	if note.HasErr() {
+		t.Fatal(note.GetErr())
+	}
+	command := &cobra.Command{}
+	command.SetContext(ctx)
+	got, err := apitest.Stdout(t, func() error { return listSimilar(command, false, false) })
+	if err != nil || got != "Emploi (1), Emploie (1)\n" {
+		t.Errorf("printed %q, err = %v", got, err)
+	}
+	got, err = apitest.Stdout(t, func() error { return listSimilar(command, false, true) })
+	if err != nil || !strings.Contains(got, `"value": "Emploie"`) {
+		t.Errorf("JSON %q, err = %v", got, err)
+	}
+}

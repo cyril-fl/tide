@@ -69,7 +69,7 @@ type moveArgs struct {
 
 type deleteArgs struct {
 	Item      string `json:"item"`
-	Recursive bool   `json:"recursive,omitempty" jsonschema:"the item is a folder: trash it with its content"`
+	Recursive bool   `json:"recursive,omitempty" jsonschema:"for a folder: trash its content too"`
 }
 
 type trashedArgs struct {
@@ -80,7 +80,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "list_folder",
 		Annotations: reads(),
-		Description: "List a folder's notes and folders, folders first then by title, with the total and has_more; or the trash.",
+		Description: "List a folder's notes and folders, folders first then by title, with total and has_more; or the trash.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args listFolderArgs) (*mcp.CallToolResult, folderPage, error) {
 		if args.Trash {
 			if args.Folder != "" {

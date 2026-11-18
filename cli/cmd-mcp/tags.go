@@ -33,14 +33,16 @@ type tagsArgs struct {
 	Limit    *int   `json:"limit,omitempty" jsonschema:"50 when left out, 0 for all"`
 	Offset   int    `json:"offset,omitempty"`
 	Dates    bool   `json:"dates,omitempty" jsonschema:"add created_at and updated_at"`
+	Similar  bool   `json:"similar,omitempty" jsonschema:"groups of close tags: typo, case, accent, plural"`
 }
 
 // tags is the account's tags with their count, or one tag with a page of the notes carrying it and their total.
 type tags struct {
-	Tags  []apiclient.CounttagsTagCount `json:"tags,omitempty"`
-	Tag   string                        `json:"tag,omitempty"`
-	Notes []carrier                     `json:"notes,omitempty"`
-	Total int                           `json:"total,omitempty"`
+	Tags    []apiclient.CounttagsTagCount    `json:"tags,omitempty"`
+	Similar *[][]apiclient.CounttagsTagCount `json:"similar,omitempty"` // a pointer: no group is [], not left out
+	Tag     string                           `json:"tag,omitempty"`
+	Notes   []carrier                        `json:"notes,omitempty"`
+	Total   int                              `json:"total,omitempty"`
 }
 
 // carrier is a note carrying a tag, its dates left out unless asked.
@@ -149,7 +151,7 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tag_notes",
 		Annotations: writes(false, true),
-		Description: "Add or remove tags on notes given, found by search_notes filters or grouped in ops, only their #tags rewritten; answers counts and each note's diff.",
+		Description: "Add or remove tags on notes given, found by search_notes filters or in ops, rewriting only their #tags; answers counts and diffs.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, tagResult, error) {
 		adds := args.Add
 		for _, op := range args.Ops {
@@ -202,6 +204,10 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 			counts = slices.DeleteFunc(counts, func(count apiclient.CounttagsTagCount) bool {
 				return count.Notes < args.MinNotes || !strings.HasPrefix(strings.ToLower(count.Value), prefix)
 			})
+			if args.Similar {
+				similar := hashtag.Similar(counts, func(c apiclient.CounttagsTagCount) string { return c.Value })
+				return nil, tags{Similar: &similar}, err
+			}
 			return nil, tags{Tags: counts}, err
 		}
 		limit, offset := limitOf(args.Limit), max(args.Offset, 0)

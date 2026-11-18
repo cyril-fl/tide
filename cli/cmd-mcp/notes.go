@@ -213,7 +213,7 @@ func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "replace_notes",
 		Annotations: writes(true, false),
-		Description: "Replace a text everywhere in every note, or a folder's, in one transaction; Ultra plan.",
+		Description: "Replace a text in every note, or a folder's, in one transaction; Ultra plan.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args replaceArgs) (*mcp.CallToolResult, apiclient.ReplacenotesResult, error) {
 		body := apiclient.ReplacenotesInput{Find: args.Find, Replace: args.Replace, DryRun: &args.DryRun}
 		if args.Folder != "" {

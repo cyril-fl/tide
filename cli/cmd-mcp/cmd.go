@@ -511,14 +511,25 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "read_note",
 		Annotations: reads(),
-		Description: "Read a note: its content, its path and its tags. max_chars gives only the start of the content, with its length and truncated.",
+		Description: "Read a note: its content, its path and its tags. max_chars gives only the start of the content, cut at the end of a line or a word, with its length and truncated.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args noteArgs) (*mcp.CallToolResult, note, error) {
+		if args.MaxChars > 0 {
+			// The server cuts at a word or a line, as for read_notes (#222).
+			found, err := decode[[]apiclient.ReadnotesNote](client.PostApiNotesRead(ctx, apiclient.ReadnotesBody{Notes: []string{args.Note}, MaxChars: &args.MaxChars}))
+			if err != nil || len(found) != 1 {
+				return nil, note{}, err
+			}
+			f := found[0]
+			read, _ := readNote(apiclient.ReaditemResult{Item: f.Item, Path: f.Path, Content: f.Content, Readonly: f.Readonly, Tags: f.Tags}, nil)
+			read.Length, read.Truncated = &f.Length, &f.Truncated
+			return nil, read, nil
+		}
 		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
 		if err != nil {
 			return nil, note{}, err
 		}
 		read, err := readNote(decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, id)))
-		return nil, preview(read, args.MaxChars), err
+		return nil, read, err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -1468,22 +1479,6 @@ func resolveFolder(ctx context.Context, client *apiclient.ClientWithResponses, r
 		return "", nil
 	}
 	return apiclient.Resolve(ctx, client, apiclient.FOLDER, ref)
-}
-
-// preview cuts the content to its first maxChars characters and says how long it was, the note left whole when
-// maxChars is not positive.
-func preview(read note, maxChars int) note {
-	if maxChars <= 0 {
-		return read
-	}
-	content := []rune(read.Content)
-	length := len(content)
-	truncated := length > maxChars
-	read.Length, read.Truncated = &length, &truncated
-	if truncated {
-		read.Content = string(content[:maxChars])
-	}
-	return read
 }
 
 // readNote turns the note the API answers into what the agent reads.

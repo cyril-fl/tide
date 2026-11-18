@@ -154,17 +154,25 @@ test('a folder sorts by name or date, the pinned note first', async ({ page }) =
   await box.api.patch(`/api/notes/${pinned.id}`, { data: { pinned: true } });
   await box.api.patch(`/api/notes/${older.id}`, { data: { content: '# Ancienne\n\nretouchée' } });
   await page.goto(`/folders/${box.folder.id}`);
-  const titles = page.getByRole('main').getByRole('listitem');
+  // Not by role: the open menu hides the page from the roles.
+  const titles = page.locator('main li');
 
   try {
     await expect(titles).toHaveText([/Zénith/, /Ancienne/, /Brouillon/]);
+    // A choice goes ascending, then descending, then back to the name; the menu stays open between clicks.
     await page.getByRole('button', { name: 'Trier par' }).click();
-    await page.getByRole('menuitemcheckbox', { name: 'Décroissant' }).click();
-    await expect(titles).toHaveText([/Zénith/, /Brouillon/, /Ancienne/]);
-    await page.getByRole('button', { name: 'Trier par' }).click();
-    await page.getByRole('menuitemcheckbox', { name: 'Date de modification' }).click();
-    await expect(titles).toHaveText([/Zénith/, /Ancienne/, /Brouillon/]); // the latest edit first
+    const modified = page.getByRole('menuitem', { name: 'Date de modification' });
+    await modified.click();
+    await expect(titles).toHaveText([/Zénith/, /Brouillon/, /Ancienne/]); // the oldest edit first
+    await modified.click();
+    await expect(titles).toHaveText([/Zénith/, /Ancienne/, /Brouillon/]);
     await expect.poll(async () => (await (await box.api.get('/api/me')).json()).sort).toBe('-updated');
+    await modified.click();
+    await expect.poll(async () => (await (await box.api.get('/api/me')).json()).sort).toBe('title');
+    await page.getByRole('menuitem', { name: 'Nom' }).click();
+    await expect(titles).toHaveText([/Zénith/, /Brouillon/, /Ancienne/]);
+    await page.getByRole('menuitem', { name: 'Réinitialiser le tri' }).click();
+    await expect(titles).toHaveText([/Zénith/, /Ancienne/, /Brouillon/]);
   } finally {
     await box.api.patch('/api/me', { data: { sort: 'title' } });
   }

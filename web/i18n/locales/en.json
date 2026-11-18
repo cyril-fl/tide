@@ -134,8 +134,7 @@
     "sortTitle": "Name",
     "sortCreated": "Date created",
     "sortUpdated": "Date modified",
-    "ascending": "Ascending",
-    "descending": "Descending"
+    "sortReset": "Reset the sort"
   },
   "path": {
     "breadcrumb": "Breadcrumb",

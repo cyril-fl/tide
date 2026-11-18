@@ -134,8 +134,7 @@
     "sortTitle": "Nom",
     "sortCreated": "Date de création",
     "sortUpdated": "Date de modification",
-    "ascending": "Croissant",
-    "descending": "Décroissant"
+    "sortReset": "Réinitialiser le tri"
   },
   "path": {
     "breadcrumb": "Fil d'Ariane",

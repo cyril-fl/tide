@@ -81,3 +81,31 @@ func TagIDs(ctx context.Context, client *ClientWithResponses, lists ...[]string)
 	}
 	return out[0], out[1], out[2], nil
 }
+
+// ErrNotesOrFilters is notes named and search filters given at once.
+var ErrNotesOrFilters = errors.New("give either notes or the search filters, not both")
+
+// Targets is the notes named, or the ids of every note the filter finds: what tide tag notes and tag_notes change.
+func Targets(ctx context.Context, client *ClientWithResponses, notes []string, filter SearchFilter) ([]string, error) {
+	if !filter.Filtered() {
+		return notes, nil
+	}
+	if len(notes) > 0 {
+		return nil, ErrNotesOrFilters
+	}
+	params, err := SearchParams(ctx, client, filter, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	response, err := client.GetApiSearchWithResponse(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	if response.JSON200 == nil {
+		return nil, Fail(response.HTTPResponse, response.Body)
+	}
+	for _, match := range *response.JSON200 {
+		notes = append(notes, match.Id)
+	}
+	return notes, nil
+}

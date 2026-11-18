@@ -25,7 +25,7 @@ var (
 // (0: all), through GET /api/search; ↳ opens one, ^E edits it, --json prints them for scripts.
 func Search(cobra *cobra.Command, args []string) error {
 	ctx := cobra.Context()
-	filter, err := filterOf(cobra, strings.Join(args, " "))
+	filter, err := FilterOf(cobra, strings.Join(args, " "))
 	if err != nil {
 		return err
 	}
@@ -66,8 +66,8 @@ func Search(cobra *cobra.Command, args []string) error {
 	})
 }
 
-// filterOf reads the text and the filter flags, --max-length 0 being no filter as for the API.
-func filterOf(cobra *cobra.Command, text string) (apiclient.SearchFilter, error) {
+// FilterOf reads the text and the filter flags of tide search, which tide tag notes shares, --max-length 0 being no filter as for the API.
+func FilterOf(cobra *cobra.Command, text string) (apiclient.SearchFilter, error) {
 	flags := cobra.Flags()
 	filter := apiclient.SearchFilter{Text: text}
 	errs := make([]error, 8)

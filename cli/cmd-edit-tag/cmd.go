@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"charm.land/huh/v2"
+	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/cyril-fl/tide/core/services/huhform"
 	"github.com/spf13/cobra"
@@ -14,9 +15,14 @@ import (
 
 var errRequired = errors.New("required")
 
-// Edit renames the tag through PATCH /api/tags/{value}, in the text of its notes too.
+// Edit renames the tag through PATCH /api/tags/{value}, in the text of its notes too; --merge folds it into a tag
+// already there, --dry-run prints the notes it would rewrite and their diff.
 func Edit(cobra *cobra.Command, args []string) error {
-	_, err := rename(cobra.Context(), args[0], args[1])
+	var merge, dryRun bool
+	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"merge": &merge, "dry-run": &dryRun}); err != nil {
+		return err
+	}
+	_, err := rename(cobra.Context(), args[0], args[1], merge, dryRun)
 	return err
 }
 
@@ -26,15 +32,15 @@ func Interactive(ctx context.Context, value string) (string, error) {
 	if err := huhform.New(huh.NewInput().Title("Tag").Value(&to).Validate(notBlank)).Run(); err != nil {
 		return value, err
 	}
-	return rename(ctx, value, to)
+	return rename(ctx, value, to, false, false)
 }
 
-func rename(ctx context.Context, from string, to string) (string, error) {
+func rename(ctx context.Context, from string, to string, merge, dryRun bool) (string, error) {
 	client, err := apiclient.Read().Client()
 	if err != nil {
 		return from, err
 	}
-	response, err := client.PatchApiTagsValueWithResponse(ctx, from, apiclient.EdittagBody{Value: to})
+	response, err := client.PatchApiTagsValueWithResponse(ctx, from, apiclient.EdittagBody{Value: to, Merge: &merge, DryRun: &dryRun})
 	if err != nil {
 		return from, err
 	}
@@ -42,6 +48,17 @@ func rename(ctx context.Context, from string, to string) (string, error) {
 		return from, apiclient.Fail(response.HTTPResponse, response.Body)
 	}
 
+	if dryRun {
+		notes := apiclient.Deref(response.JSON200.Notes)
+		for _, note := range notes {
+			fmt.Println(note.Path)
+			for _, line := range note.Diff {
+				fmt.Printf("    %s\n", line)
+			}
+		}
+		fmt.Printf("Would rename %q to %q in %d note(s) (dry run, nothing written)\n", from, response.JSON200.Value, len(notes))
+		return from, nil
+	}
 	fmt.Printf("Successfully renamed %q to %q\n", from, response.JSON200.Value)
 	return response.JSON200.Value, nil
 }

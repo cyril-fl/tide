@@ -77,6 +77,8 @@ type commands struct {
 	Trash             plumcliconfig.Cmdparams `yaml:"trash"`
 	Restore           plumcliconfig.Cmdparams `yaml:"restore"`
 	Search            plumcliconfig.Cmdparams `yaml:"search"`
+	Tag               plumcliconfig.Cmdparams `yaml:"tag"`
+	TagNotes          plumcliconfig.Cmdparams `yaml:"tag-notes"`
 	Recent            plumcliconfig.Cmdparams `yaml:"recent"`
 	Export            plumcliconfig.Cmdparams `yaml:"export"`
 	Import            plumcliconfig.Cmdparams `yaml:"import"`

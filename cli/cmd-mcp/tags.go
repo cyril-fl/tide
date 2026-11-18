@@ -2,7 +2,6 @@ package cmdmcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -11,8 +10,6 @@ import (
 	"github.com/cyril-fl/tide/core/services/hashtag"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
-
-var errNotesOrFilters = errors.New("give either notes or the search filters, not both")
 
 type tagArgs struct {
 	Tag string `json:"tag"`
@@ -125,22 +122,11 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 		}
 		search := apiclient.SearchFilter{Text: args.Text, NotText: args.NotText, TagsAll: args.TagsAll, TagsAny: args.TagsAny,
 			TagsNone: args.TagsNone, Folder: args.Folder, MaxLength: args.MaxLength, Untagged: args.Untagged, UpdatedBefore: args.UpdatedBefore}
-		if search.Filtered() {
-			if len(args.Notes) > 0 {
-				return nil, tagResult{}, errNotesOrFilters
-			}
-			params, err := apiclient.SearchParams(ctx, client, search, 0, 0)
-			if err != nil {
-				return nil, tagResult{}, err
-			}
-			matches, _, err := paged[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, params))
-			if err != nil {
-				return nil, tagResult{}, err
-			}
-			for _, match := range matches {
-				args.Notes = append(args.Notes, match.Id)
-			}
+		notes, err := apiclient.Targets(ctx, client, args.Notes, search)
+		if err != nil {
+			return nil, tagResult{}, err
 		}
+		args.Notes = notes
 		if len(args.Notes) == 0 {
 			return nil, tagCounts([]tagged{}), nil
 		}

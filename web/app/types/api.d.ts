@@ -2884,6 +2884,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notes/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the notes with the same title or the same path */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description only the notes of the same folder, which a path cannot tell apart */
+                    same_path?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["listduplicates.Group"][];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes/read": {
         parameters: {
             query?: never;
@@ -4768,6 +4816,16 @@ export interface components {
             note_path: string;
             note_title: string;
             target: string;
+        };
+        "listduplicates.Group": {
+            key: string;
+            notes: components["schemas"]["listduplicates.Note"][];
+        };
+        "listduplicates.Note": {
+            id: string;
+            length: number;
+            path: string;
+            updated_at: string;
         };
         "listfolders.Folder": {
             id: string;

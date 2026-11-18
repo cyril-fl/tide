@@ -661,6 +661,35 @@ components:
       - note_title
       - target
       type: object
+    listduplicates.Group:
+      properties:
+        key:
+          type: string
+        notes:
+          items:
+            $ref: '#/components/schemas/listduplicates.Note'
+          type: array
+          uniqueItems: false
+      required:
+      - key
+      - notes
+      type: object
+    listduplicates.Note:
+      properties:
+        id:
+          type: string
+        length:
+          type: integer
+        path:
+          type: string
+        updated_at:
+          type: string
+      required:
+      - id
+      - length
+      - path
+      - updated_at
+      type: object
     listfolders.Folder:
       properties:
         id:
@@ -3124,6 +3153,32 @@ paths:
       summary: Read a version of a note
       tags:
       - notes
+  /api/notes/duplicates:
+    get:
+      parameters:
+      - description: only the notes of the same folder, which a path cannot tell apart
+        in: query
+        name: same_path
+        schema:
+          type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/listduplicates.Group'
+                type: array
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: List the notes with the same title or the same path
+      tags:
+      - search
   /api/notes/read:
     post:
       requestBody:

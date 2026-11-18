@@ -185,6 +185,14 @@ type listFolderArgs struct {
 	Preview int    `json:"preview,omitempty" jsonschema:"also the first that many characters of each note's content, to sort a folder without read_notes"`
 }
 
+type duplicatesArgs struct {
+	SamePath bool `json:"same_path,omitempty" jsonschema:"only the notes of the same folder with the same title, which a path cannot tell apart; any folder when left out"`
+}
+
+type duplicatesPage struct {
+	Groups []apiclient.ListduplicatesGroup `json:"groups"`
+}
+
 type noteArgs struct {
 	Note     string `json:"note" jsonschema:"the note: its uuid, or its path from the root (/Folder/Note)"`
 	MaxChars int    `json:"max_chars,omitempty" jsonschema:"only the first that many characters of the content, with its whole length and truncated: a preview before reading it in full"`
@@ -480,6 +488,7 @@ func Instructions(readOnly bool) string {
 		"- Find the candidates on the server instead of reading: search_notes with untagged, max_length (empty or title-only notes), updated_before (stale notes) or a text.\n" +
 		"- Read up to 50 notes per call with read_notes and max_chars first; in full only those that need it.\n" +
 		"- Lists give 50 items and the total: split a big folder into list_folder pages (limit, offset), one per subagent if you have them.\n" +
+		"- duplicate_notes lists the notes sharing a title: a path several notes share is ambiguous, use their ids.\n" +
 		"- Subagents do not receive these instructions: put the lines they need in their prompt."
 	if !readOnly {
 		text += "\n- Tag with tag_notes, given the notes or the filters of search_notes (dry_run first), never by rewriting a note with edit_note, which replaces all of it.\n" +
@@ -514,6 +523,15 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []apiclient.ListrecentRecent, error) {
 		recent, err := decode[[]apiclient.ListrecentRecent](client.GetApiRecent(ctx))
 		return nil, recent, err
+	})
+
+	addTool(server, readOnly, &mcp.Tool{
+		Name:        "duplicate_notes",
+		Annotations: reads(),
+		Description: "List the notes sharing a title, so that no edit lands on the wrong one and duplicates can be merged: groups of {key, notes: [{id, path, updated_at, length}]}, the title as key (any case, in any folder). same_path keeps only the notes of the same folder, whose path is ambiguous: a path names none of them, use their ids. Notes with a near-identical content under different titles are not found.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args duplicatesArgs) (*mcp.CallToolResult, duplicatesPage, error) {
+		groups, err := decode[[]apiclient.ListduplicatesGroup](client.GetApiNotesDuplicates(ctx, &apiclient.GetApiNotesDuplicatesParams{SamePath: &args.SamePath}))
+		return nil, duplicatesPage{Groups: append([]apiclient.ListduplicatesGroup{}, groups...)}, err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{

@@ -96,7 +96,7 @@ func TestAddTools(t *testing.T) {
 			}
 		}
 	}
-	for _, want := range []string{"search_notes", "recent_notes", "read_note", "read_notes", "list_folder", "create_note", "edit_note", "create_folder", "rename_folder", "move_item", "delete_note", "delete_folder", "list_trash", "restore_item", "tags", "tag_notes", "rename_tag", "replace_notes", "delete_tag", "note_history", "note_links", "read_file", "attach_file", "export_notes", "import_notes", "snippets", "save_snippet", "delete_snippet", "saved_searches", "save_search", "delete_search"} {
+	for _, want := range []string{"search_notes", "recent_notes", "duplicate_notes", "read_note", "read_notes", "list_folder", "create_note", "edit_note", "create_folder", "rename_folder", "move_item", "delete_note", "delete_folder", "list_trash", "restore_item", "tags", "tag_notes", "rename_tag", "replace_notes", "delete_tag", "note_history", "note_links", "read_file", "attach_file", "export_notes", "import_notes", "snippets", "save_snippet", "delete_snippet", "saved_searches", "save_search", "delete_search"} {
 		if !slices.Contains(names, want) {
 			t.Errorf("tools = %v, missing %q", names, want)
 		}

@@ -15,17 +15,17 @@ func TestNotes(t *testing.T) {
 	agent := connect(t)
 
 	var folder, inbox item
-	call(t, agent, "create_folder", map[string]any{"title": "Work"}, &folder)
-	call(t, agent, "create_folder", map[string]any{"title": "Inbox"}, &inbox)
+	call(t, agent, "create_item", map[string]any{"title": "Work"}, &folder)
+	call(t, agent, "create_item", map[string]any{"title": "Inbox"}, &inbox)
 	call(t, agent, "rename_folder", map[string]any{"folder": "/Work", "title": "Projects"}, &folder)
 	if folder.Title != "Projects" {
 		t.Errorf("rename_folder = %+v", folder)
 	}
 
 	var created note
-	call(t, agent, "create_note", map[string]any{"content": "# Plan\nship it #go", "folder": "/Projects", "tags": []string{"mcp"}}, &created)
+	call(t, agent, "create_item", map[string]any{"content": "# Plan\nship it #go", "folder": "/Projects", "tags": []string{"mcp"}}, &created)
 	if created.Path != "/Projects/Plan" || !slices.Equal(slices.Sorted(slices.Values(created.Tags)), []string{"go", "mcp"}) {
-		t.Errorf("create_note = %+v", created)
+		t.Errorf("create_item = %+v", created)
 	}
 
 	// The #tags of the content stay, the tags given are added; the answer leaves the content out.
@@ -34,18 +34,18 @@ func TestNotes(t *testing.T) {
 	if edited.Content != "" || edited.Path != "/Projects/Plan" || !slices.Equal(slices.Sorted(slices.Values(edited.Tags)), []string{"done", "go"}) {
 		t.Errorf("edit_note = %+v", edited)
 	}
-	var read note
-	call(t, agent, "read_note", map[string]any{"note": created.ID}, &read)
+	var read batchNote
+	read = readOne(t, agent, created.ID)
 	if read.Content != "# Plan\nshipped #go\n\n#done" || read.CreatedAt == "" {
-		t.Errorf("read_note = %+v", read)
+		t.Errorf("read_notes = %+v", read)
 	}
 
 	// A note without tags says so with [], and several notes are read in one call, in the order asked.
 	var bare note
-	call(t, agent, "create_note", map[string]any{"content": "# Bare"}, &bare)
-	result := call(t, agent, "read_note", map[string]any{"note": bare.ID}, nil)
+	call(t, agent, "create_item", map[string]any{"content": "# Bare"}, &bare)
+	result := call(t, agent, "read_notes", map[string]any{"notes": []string{bare.ID}}, nil)
 	if data, _ := json.Marshal(result.StructuredContent); !strings.Contains(string(data), `"tags":[]`) {
-		t.Errorf("read_note without tags = %s, want tags []", data)
+		t.Errorf("read_notes without tags = %s, want tags []", data)
 	}
 	var batched batch
 	call(t, agent, "read_notes", map[string]any{"notes": []string{"/Bare", created.ID}}, &batched)
@@ -89,7 +89,7 @@ func TestNotes(t *testing.T) {
 	if len(after.Matches) != 0 || after.Total != 1 {
 		t.Errorf("search_notes offset 1 = %+v, want no match of 1", after)
 	}
-	call(t, agent, "delete_note", map[string]any{"note": bare.ID}, nil)
+	call(t, agent, "delete_item", map[string]any{"item": bare.ID}, nil)
 
 	// tag_notes changes only the #tags, the rest of the text kept byte for byte, an unknown note reported.
 	var tagRes tagResult
@@ -101,9 +101,9 @@ func TestNotes(t *testing.T) {
 		retagged[1].Error == "" || retagged[1].Note != "/Nowhere" {
 		t.Errorf("tag_notes = %+v", tagRes)
 	}
-	call(t, agent, "read_note", map[string]any{"note": created.ID}, &read)
+	read = readOne(t, agent, created.ID)
 	if read.Content != "# Plan\nshipped\n\n#done #old" {
-		t.Errorf("read_note after tag_notes = %q", read.Content)
+		t.Errorf("read_notes after tag_notes = %q", read.Content)
 	}
 	// tag_notes on what a search finds: dry_run lists the notes and changes nothing, then the call tags them.
 	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "add": []string{"review"}, "dry_run": true}, &tagRes)
@@ -113,7 +113,7 @@ func TestNotes(t *testing.T) {
 	}
 	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "add": []string{"review"}}, &tagRes)
 	retagged = tagRes.Notes
-	call(t, agent, "read_note", map[string]any{"note": created.ID}, &read)
+	read = readOne(t, agent, created.ID)
 	if len(retagged) != 1 || retagged[0].Error != "" || read.Content != "# Plan\nshipped\n\n#done #old #review" {
 		t.Errorf("tag_notes by text = %+v, then %q", retagged, read.Content)
 	}
@@ -124,18 +124,18 @@ func TestNotes(t *testing.T) {
 		t.Errorf("tag_notes tags_none old = %+v, want none", tagRes.Notes)
 	}
 	var side item
-	call(t, agent, "create_note", map[string]any{"content": "# Side", "folder": "/Projects"}, &side)
+	call(t, agent, "create_item", map[string]any{"content": "# Side", "folder": "/Projects"}, &side)
 	call(t, agent, "tag_notes", map[string]any{"tags_none": []string{"old"}, "folder": "/Projects", "add": []string{"x"}, "dry_run": true}, &tagRes)
-	call(t, agent, "read_note", map[string]any{"note": side.ID}, &read)
+	read = readOne(t, agent, side.ID)
 	if len(tagRes.Notes) != 1 || tagRes.Notes[0].ID != side.ID || read.Content != "# Side" {
 		t.Errorf("tag_notes tags_none dry_run = %+v, then %q", tagRes.Notes, read.Content)
 	}
 	call(t, agent, "tag_notes", map[string]any{"tags_none": []string{"old"}, "folder": "/Projects", "add": []string{"x"}}, &tagRes)
-	call(t, agent, "read_note", map[string]any{"note": side.ID}, &read)
+	read = readOne(t, agent, side.ID)
 	if len(tagRes.Notes) != 1 || !strings.HasPrefix(read.Content, "# Side") || !strings.Contains(read.Content, "#x") {
 		t.Errorf("tag_notes tags_none = %+v, then %q", tagRes.Notes, read.Content)
 	}
-	call(t, agent, "delete_note", map[string]any{"note": side.ID}, nil)
+	call(t, agent, "delete_item", map[string]any{"item": side.ID}, nil)
 	// updated_before alone picks the notes too: none changed before 2000.
 	call(t, agent, "tag_notes", map[string]any{"updated_before": "2000-01-01", "add": []string{"stale"}, "dry_run": true}, &tagRes)
 	retagged = tagRes.Notes
@@ -145,10 +145,10 @@ func TestNotes(t *testing.T) {
 
 	var matches searchPage
 	call(t, agent, "search_notes", map[string]any{"text": "shipped"}, &matches)
-	var recent []map[string]any
-	call(t, agent, "recent_notes", map[string]any{}, &recent)
-	if len(matches.Matches) != 1 || len(recent) != 1 {
-		t.Errorf("search_notes = %v, recent_notes = %v", matches, recent)
+	var recent searchPage
+	call(t, agent, "search_notes", map[string]any{"list": "recent"}, &recent)
+	if len(matches.Matches) != 1 || len(recent.Recent) != 1 {
+		t.Errorf("search_notes = %v, list recent = %v", matches, recent)
 	}
 
 	var moved []item
@@ -172,7 +172,8 @@ func TestNotes(t *testing.T) {
 	if len(listed.Items) != 1 || listed.Total != 2 || !listed.HasMore {
 		t.Errorf("list_folder of the root, limit 1 = %+v", listed)
 	}
-	// A page past the end is empty, the total still counts them all.
+	// A page past the end is empty (it leaves items out), the total still counts them all.
+	listed = folderPage{}
 	call(t, agent, "list_folder", map[string]any{"limit": 1, "offset": 5}, &listed)
 	if listed.Total != 2 || len(listed.Items) != 0 {
 		t.Errorf("list_folder of the root, offset 5 = %+v", listed)
@@ -180,35 +181,40 @@ func TestNotes(t *testing.T) {
 
 	// A folder goes to the trash with its content, and comes back with it.
 	var removed, restored []item
-	call(t, agent, "delete_folder", map[string]any{"folder": "/Inbox"}, &removed)
+	call(t, agent, "delete_item", map[string]any{"item": "/Inbox", "recursive": true}, &removed)
 	if len(removed) != 2 {
-		t.Errorf("delete_folder = %+v", removed)
+		t.Errorf("delete_item recursive = %+v", removed)
 	}
-	var trash []map[string]any
-	call(t, agent, "list_trash", map[string]any{}, &trash)
+	var trash folderPage
+	call(t, agent, "list_folder", map[string]any{"trash": true}, &trash)
 	call(t, agent, "restore_item", map[string]any{"item": inbox.ID}, &restored)
-	if len(trash) != 3 || len(restored) != 2 { // The folder, and the Bare and Side notes deleted earlier.
-		t.Errorf("list_trash = %v, restore_item = %+v", trash, restored)
+	if len(trash.Trash) != 3 || trash.Total != 3 || len(restored) != 2 { // The folder, and the Bare and Side notes deleted earlier.
+		t.Errorf("list_folder trash = %+v, restore_item = %+v", trash, restored)
 	}
-	call(t, agent, "delete_note", map[string]any{"note": "/Inbox/Plan"}, &removed)
+	call(t, agent, "delete_item", map[string]any{"item": "/Inbox/Plan"}, &removed)
 	if len(removed) != 1 || removed[0].ID != created.ID {
-		t.Errorf("delete_note = %+v", removed)
+		t.Errorf("delete_item = %+v", removed)
 	}
 
-	// A folder's path given to delete_note is refused, not its subtree trashed.
-	result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "delete_note", Arguments: map[string]any{"note": "/Projects"}})
-	if err != nil || !result.IsError {
-		t.Errorf("delete_note of a folder = %+v, %v", result, err)
+	// A folder's path without recursive is refused, not its subtree trashed; a note's with it too.
+	call(t, agent, "create_item", map[string]any{"content": "# Kept", "folder": "/Projects"}, &created)
+	for args, want := range map[string]string{"/Projects": "give recursive", "/Projects/Kept": "leave out recursive"} {
+		result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "delete_item", Arguments: map[string]any{"item": args, "recursive": args == "/Projects/Kept"}})
+		if err != nil || !result.IsError || !strings.Contains(result.Content[0].(*mcp.TextContent).Text, want) {
+			t.Errorf("delete_item %s = %+v, %v; want %q", args, result, err, want)
+		}
+	}
+	// A list of the trash takes no folder.
+	if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "list_folder", Arguments: map[string]any{"trash": true, "folder": "/Projects"}}); err != nil || !result.IsError {
+		t.Errorf("list_folder trash with a folder = %+v, %v; want an error", result, err)
 	}
 
 	// A path of the other kind names the tool to use, not just "no item".
-	call(t, agent, "create_note", map[string]any{"content": "# Kept", "folder": "/Projects"}, &created)
 	for name, args := range map[string]map[string]any{
-		"read_note":   {"note": "/Projects"},
 		"read_notes":  {"notes": []string{"/Projects"}},
 		"list_folder": {"folder": "/Projects/Kept"},
 	} {
-		want := map[string]string{"read_note": "use list_folder", "read_notes": "use list_folder", "list_folder": "use read_note"}[name]
+		want := map[string]string{"read_notes": "use list_folder", "list_folder": "use read_notes"}[name]
 		result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: args})
 		if err != nil || !result.IsError || !strings.Contains(result.Content[0].(*mcp.TextContent).Text, want) {
 			t.Errorf("%s of the other kind = %+v, %v, want %q", name, result, err, want)
@@ -227,26 +233,40 @@ func TestEditText(t *testing.T) {
 		}
 	}
 
-	var created, renamed note
-	call(t, agent, "create_note", map[string]any{"content": "# Pierre blanche de nettoyage maisonIngrédients\n\none two two"}, &created)
-	call(t, agent, "rename_note", map[string]any{"note": created.ID, "title": "Pierre blanche"}, &renamed)
+	var created note
+	var renamed partEdit
+	call(t, agent, "create_item", map[string]any{"content": "# Pierre blanche de nettoyage maisonIngrédients\n\none two two"}, &created)
+	call(t, agent, "edit_note", map[string]any{"note": created.ID, "title": "Pierre blanche"}, &renamed)
 	if renamed.Title != "Pierre blanche" || renamed.Path != "/Pierre blanche" || renamed.Content != "" {
-		t.Errorf("rename_note = %+v", renamed)
+		t.Errorf("edit_note title = %+v", renamed)
 	}
 
 	var replaced partEdit
-	call(t, agent, "replace_in_note", map[string]any{"note": "/Pierre blanche", "old": "one", "new": "un"}, &replaced)
+	call(t, agent, "edit_note", map[string]any{"note": "/Pierre blanche", "old": "one", "new": "un"}, &replaced)
 	if replaced.Replaced != 1 || replaced.ID != created.ID {
-		t.Errorf("replace_in_note = %+v", replaced)
+		t.Errorf("edit_note old = %+v", replaced)
 	}
-	fails("replace_in_note", map[string]any{"note": created.ID, "old": "two", "new": "deux"}, "2 times")
-	fails("replace_in_note", map[string]any{"note": created.ID, "old": "three"}, "not found")
-	call(t, agent, "replace_in_note", map[string]any{"note": created.ID, "old": "two", "new": "deux", "all": true}, &replaced)
-	var read note
-	call(t, agent, "read_note", map[string]any{"note": created.ID}, &read)
+	fails("edit_note", map[string]any{"note": created.ID, "old": "two", "new": "deux"}, "2 times")
+	fails("edit_note", map[string]any{"note": created.ID, "old": "three"}, "not found")
+	call(t, agent, "edit_note", map[string]any{"note": created.ID, "old": "two", "new": "deux", "all": true}, &replaced)
+	read := readOne(t, agent, created.ID)
 	if replaced.Replaced != 2 || read.Content != "# Pierre blanche\n\nun deux deux" {
-		t.Errorf("replace_in_note all = %+v, read = %q", replaced, read.Content)
+		t.Errorf("edit_note old all = %+v, read = %q", replaced, read.Content)
 	}
+	// A section's body becomes new, the heading kept.
+	call(t, agent, "edit_note", map[string]any{"note": created.ID, "content": "# Pierre blanche\n\n## Steps\nold\n## End"}, nil)
+	call(t, agent, "edit_note", map[string]any{"note": created.ID, "section": "Steps", "new": "new"}, &replaced)
+	if read = readOne(t, agent, created.ID); replaced.Replaced != 1 || !strings.Contains(read.Content, "## Steps\n\nnew") || strings.Contains(read.Content, "old") || !strings.Contains(read.Content, "## End") {
+		t.Errorf("edit_note section = %+v, read = %q", replaced, read.Content)
+	}
+	// One mode at a time, tags only beside content.
+	fails("edit_note", map[string]any{"note": created.ID}, "give one of")
+	fails("edit_note", map[string]any{"note": created.ID, "content": "# X", "old": "x"}, "give one of")
+	fails("edit_note", map[string]any{"note": created.ID, "title": "X", "old": "x"}, "give one of")
+	fails("edit_note", map[string]any{"note": created.ID, "old": "un", "tags": []string{"x"}}, "tag_notes")
+	// create_item makes a note or a folder, not both nor neither.
+	fails("create_item", map[string]any{"content": "# X", "title": "X"}, "give either")
+	fails("create_item", map[string]any{"folder": "/"}, "give either")
 
 	// The text before the first change of the session is in the history.
 	var versions history

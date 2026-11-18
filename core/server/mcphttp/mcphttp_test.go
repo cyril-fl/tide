@@ -103,11 +103,12 @@ func TestHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { agent.Close() })
-	var created, read note
-	call(t, agent, "create_note", map[string]any{"content": "# From the phone"}, &created)
-	call(t, agent, "read_note", map[string]any{"note": "/From the phone"}, &read)
-	if read.ID != created.ID || read.Title != "From the phone" {
-		t.Errorf("read_note = %+v, want %+v", read, created)
+	var created note
+	var read struct{ Notes []note }
+	call(t, agent, "create_item", map[string]any{"content": "# From the phone"}, &created)
+	call(t, agent, "read_notes", map[string]any{"notes": []string{"/From the phone"}}, &read)
+	if len(read.Notes) != 1 || read.Notes[0].ID != created.ID || read.Notes[0].Title != "From the phone" {
+		t.Errorf("read_notes = %+v, want %+v", read, created)
 	}
 }
 
@@ -143,7 +144,7 @@ func TestHandlerReadOnly(t *testing.T) {
 		}
 		names[tool.Name] = true
 	}
-	if !names["read_note"] || !names["search_notes"] || names["create_note"] {
-		t.Errorf("read-only tools = %v, want read_note and search_notes, not create_note", names)
+	if !names["read_notes"] || !names["search_notes"] || names["create_item"] {
+		t.Errorf("read-only tools = %v, want read_notes and search_notes, not create_item", names)
 	}
 }

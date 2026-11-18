@@ -15,10 +15,10 @@ import (
 // then refuses all of it once the account leaves the Pro plan.
 func TestSavedSearches(t *testing.T) {
 	agent := connect(t)
-	call(t, agent, "create_folder", map[string]any{"title": "Work"}, nil)
-	call(t, agent, "create_note", map[string]any{"content": "# Pasta\n#cuisine #italie", "folder": "/Work"}, nil)
-	call(t, agent, "create_note", map[string]any{"content": "# Soup\n#cuisine"}, nil)
-	call(t, agent, "create_note", map[string]any{"content": "# Rome\n#italie"}, nil)
+	call(t, agent, "create_item", map[string]any{"title": "Work"}, nil)
+	call(t, agent, "create_item", map[string]any{"content": "# Pasta\n#cuisine #italie", "folder": "/Work"}, nil)
+	call(t, agent, "create_item", map[string]any{"content": "# Soup\n#cuisine"}, nil)
+	call(t, agent, "create_item", map[string]any{"content": "# Rome\n#italie"}, nil)
 
 	// search_notes filters by tag names, folder path and a text left out, all at once.
 	for want, args := range map[string]map[string]any{
@@ -78,29 +78,31 @@ func TestSavedSearches(t *testing.T) {
 	if replayed.Total != 1 || len(replayed.Notes) != 1 || replayed.Notes[0].Path != "/Work/Pasta" {
 		t.Errorf("saved_searches Precise = %+v", replayed)
 	}
-	call(t, agent, "delete_search", map[string]any{"search": "Precise"}, nil)
+	call(t, agent, "save_search", map[string]any{"search": "Precise", "delete": true}, nil)
 
-	var left []savedSearch
-	call(t, agent, "delete_search", map[string]any{"search": "Italian"}, &left)
+	var removed savedSearch
+	call(t, agent, "save_search", map[string]any{"search": "Italian", "delete": true}, &removed)
 	var listed searches
 	call(t, agent, "saved_searches", map[string]any{}, &listed)
-	if len(left) != 1 || len(listed.Searches) != 1 || listed.Searches[0].ID != saved.ID {
-		t.Errorf("delete_search = %+v, saved_searches = %+v", left, listed)
+	if removed.Name != "Italian" || len(listed.Searches) != 1 || listed.Searches[0].ID != saved.ID {
+		t.Errorf("save_search delete = %+v, saved_searches = %+v", removed, listed)
 	}
 
-	// An unknown tag, folder, search or a date that is none are errors.
-	for name, args := range map[string]map[string]any{
-		"save_search":    {"name": "x", "tags_any": []string{"nope"}},
-		"saved_searches": {"search": "Italian"},
-		"delete_search":  {"search": "Italian"},
-	} {
-		if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: args}); err != nil || !result.IsError {
-			t.Errorf("%s %v = %+v, %v; want an error", name, args, result, err)
-		}
+	// An unknown tag, folder, search or a date that is none are errors, and so is delete without a search.
+	type attempt struct {
+		name string
+		args map[string]any
 	}
-	for _, args := range []map[string]any{{"name": "x", "folders": []string{"/Nowhere"}}, {"name": "x", "edited_from": "yesterday"}} {
-		if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "save_search", Arguments: args}); err != nil || !result.IsError {
-			t.Errorf("save_search %v = %+v, %v; want an error", args, result, err)
+	for _, try := range []attempt{
+		{"save_search", map[string]any{"name": "x", "tags_any": []string{"nope"}}},
+		{"saved_searches", map[string]any{"search": "Italian"}},
+		{"save_search", map[string]any{"search": "Italian", "delete": true}},
+		{"save_search", map[string]any{"delete": true}},
+		{"save_search", map[string]any{"name": "x", "folders": []string{"/Nowhere"}}},
+		{"save_search", map[string]any{"name": "x", "edited_from": "yesterday"}},
+	} {
+		if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: try.name, Arguments: try.args}); err != nil || !result.IsError {
+			t.Errorf("%s %v = %+v, %v; want an error", try.name, try.args, result, err)
 		}
 	}
 
@@ -113,10 +115,10 @@ func TestSavedSearches(t *testing.T) {
 	if _, err := decode[apiclient.DomainUser](client.PatchApiMe(context.Background(), apiclient.EdituserInput{Plan: &base})); err != nil {
 		t.Fatal(err)
 	}
-	for name, args := range map[string]map[string]any{"saved_searches": {}, "save_search": {"name": "x"}, "delete_search": {"search": "Cooking"}} {
-		result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: args})
+	for _, try := range []attempt{{"saved_searches", map[string]any{}}, {"save_search", map[string]any{"name": "x"}}, {"save_search", map[string]any{"search": "Cooking", "delete": true}}} {
+		result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: try.name, Arguments: try.args})
 		if err != nil || !result.IsError || !strings.Contains(result.Content[0].(*mcp.TextContent).Text, "Pro plan") {
-			t.Errorf("%s outside Pro = %+v, %v; want the Pro plan error", name, result, err)
+			t.Errorf("%s %v outside Pro = %+v, %v; want the Pro plan error", try.name, try.args, result, err)
 		}
 	}
 }

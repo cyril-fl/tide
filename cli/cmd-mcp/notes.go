@@ -2,6 +2,7 @@ package cmdmcp
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 
@@ -10,14 +11,19 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+var (
+	errEditMode = errors.New("give one of content, title, old or section")
+	errEditTags = errors.New("tags go with content: tag_notes adds or removes them alone")
+)
+
 // note is what the read and the writes answer, the content left out when the agent did not ask for it.
 type note struct {
 	ID        string   `json:"id"`
 	Title     string   `json:"title"`
 	Path      string   `json:"path"`
 	Content   string   `json:"content,omitempty"`
-	Length    *int     `json:"length,omitempty"`    // the whole content's characters, given by read_notes and with max_chars
-	Truncated *bool    `json:"truncated,omitempty"` // a pointer: false is said too, by read_notes and with max_chars
+	Length    *int     `json:"length,omitempty"`    // the whole content's characters, given by read_notes
+	Truncated *bool    `json:"truncated,omitempty"` // a pointer: false is said too, by read_notes
 	Tags      []string `json:"tags"`                // [] rather than left out: the agent sees the note has none
 	Readonly  bool     `json:"readonly,omitempty"`
 	CreatedAt string   `json:"created_at"`
@@ -91,56 +97,38 @@ func factor(read []note) batch {
 }
 
 type notesArgs struct {
-	Notes    []string `json:"notes" jsonschema:"the notes: their uuid, or their path from the root (/Folder/Note); 50 at most"`
-	MaxChars int      `json:"max_chars,omitempty" jsonschema:"only the first that many characters of each content, with its whole length and truncated: a preview to sort notes before reading in full only those that need it"`
-}
-
-type noteArgs struct {
-	Note     string `json:"note" jsonschema:"the note: its uuid, or its path from the root (/Folder/Note)"`
-	MaxChars int    `json:"max_chars,omitempty" jsonschema:"only the first that many characters of the content, with its whole length and truncated: a preview before reading it in full"`
-}
-
-type createArgs struct {
-	Content string   `json:"content" jsonschema:"the markdown content; its first heading becomes the title and its #hashtags become tags"`
-	Folder  string   `json:"folder,omitempty" jsonschema:"the folder to create the note in: its uuid, or its path from the root (/Folder); the root itself when empty"`
-	Tags    []string `json:"tags,omitempty" jsonschema:"tags to add to the content, without the #"`
+	Notes    []string `json:"notes" jsonschema:"50 at most"`
+	MaxChars int      `json:"max_chars,omitempty" jsonschema:"only the start of each content, cut at a line or word end"`
 }
 
 type editArgs struct {
-	Note    string   `json:"note" jsonschema:"the note to rewrite: its uuid, or its path from the root (/Folder/Note)"`
-	Content string   `json:"content" jsonschema:"the new markdown content; it replaces the whole note"`
-	Tags    []string `json:"tags,omitempty" jsonschema:"tags to add to the content, without the #"`
+	Note    string   `json:"note"`
+	Content string   `json:"content,omitempty" jsonschema:"the new markdown, replacing all of it"`
+	Tags    []string `json:"tags,omitempty" jsonschema:"tags added to content"`
+	Title   string   `json:"title,omitempty" jsonschema:"its new title"`
+	Old     string   `json:"old,omitempty" jsonschema:"an exact text, found once unless all"`
+	New     string   `json:"new,omitempty" jsonschema:"what replaces old or the section's body, empty to delete it"`
+	All     bool     `json:"all,omitempty" jsonschema:"replace every occurrence of old"`
+	Section string   `json:"section,omitempty" jsonschema:"a heading whose body becomes new"`
 }
 
-type renameNoteArgs struct {
-	Note  string `json:"note" jsonschema:"the note to rename: its uuid, or its path from the root (/Folder/Note)"`
-	Title string `json:"title" jsonschema:"its new title, on one line"`
-}
-
-type replaceInNoteArgs struct {
-	Note    string `json:"note" jsonschema:"the note to change: its uuid, or its path from the root (/Folder/Note)"`
-	Old     string `json:"old,omitempty" jsonschema:"the exact text to replace, with its case, as read_note gives it: found more than once refuses, unless all"`
-	New     string `json:"new,omitempty" jsonschema:"the text that takes the place of old or of the section's body, empty to delete it"`
-	All     bool   `json:"all,omitempty" jsonschema:"replace every occurrence of old instead of refusing more than one"`
-	Section string `json:"section,omitempty" jsonschema:"instead of old, the words of a heading: what follows it, down to the next heading of its level or higher, becomes new, the heading kept"`
-}
-
-// partEdit is a note changed in part: the agent knows what it sent, so the content is left out.
+// partEdit is a note changed, answered without its content: the agent knows what it sent. Replaced counts the
+// occurrences of old or the section changed.
 type partEdit struct {
 	note
-	Replaced int `json:"replaced"`
+	Replaced int `json:"replaced,omitempty"`
 }
 
 type replaceArgs struct {
-	Find    string `json:"find" jsonschema:"the exact text to find, with its case: plain text, not a regex"`
-	Replace string `json:"replace" jsonschema:"the text that takes its place, empty to delete it"`
-	Folder  string `json:"folder,omitempty" jsonschema:"only the notes of this folder and its subfolders, as a path or an uuid; empty for every note"`
-	DryRun  bool   `json:"dry_run,omitempty" jsonschema:"only count the notes and occurrences, change nothing: do it first"`
+	Find    string `json:"find" jsonschema:"plain text, case kept"`
+	Replace string `json:"replace" jsonschema:"empty to delete it"`
+	Folder  string `json:"folder,omitempty" jsonschema:"with its subfolders; every note when empty"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema:"only count"`
 }
 
 type historyArgs struct {
-	Note    string `json:"note" jsonschema:"the note: its uuid, or its path from the root (/Folder/Note)"`
-	Version string `json:"version,omitempty" jsonschema:"the uuid of a version to read, as the list gives it; the list of versions when empty"`
+	Note    string `json:"note"`
+	Version string `json:"version,omitempty" jsonschema:"a version's uuid; the list when empty"`
 }
 
 // history is the list of versions, their texts left out, or the one version asked with its text.
@@ -150,10 +138,10 @@ type history struct {
 }
 
 type linksArgs struct {
-	Note string `json:"note,omitempty" jsonschema:"the note: its uuid, or its path from the root (/Folder/Note); the broken links of every note when empty"`
+	Note string `json:"note,omitempty" jsonschema:"every broken link when empty"`
 }
 
-// links joins a note to the others, the note itself left out (read_note reads it), or lists the broken links of every note.
+// links joins a note to the others, the note itself left out (read_notes reads it), or lists the broken links of every note.
 type links struct {
 	Links     []apiclient.ReadneighborsLinked   `json:"links,omitempty"`
 	Backlinks []apiclient.ReadneighborsLinked   `json:"backlinks,omitempty"`
@@ -163,33 +151,9 @@ type links struct {
 
 func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnly bool) {
 	addTool(server, readOnly, &mcp.Tool{
-		Name:        "read_note",
-		Annotations: reads(),
-		Description: "Read a note: its content, its path and its tags. max_chars gives only the start of the content, cut at the end of a line or a word, with its length and truncated.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args noteArgs) (*mcp.CallToolResult, note, error) {
-		if args.MaxChars > 0 {
-			// The server cuts at a word or a line, as for read_notes (#222).
-			found, err := decode[[]apiclient.ReadnotesNote](client.PostApiNotesRead(ctx, apiclient.ReadnotesBody{Notes: []string{args.Note}, MaxChars: &args.MaxChars}))
-			if err != nil || len(found) != 1 {
-				return nil, note{}, err
-			}
-			f := found[0]
-			read, _ := readNote(apiclient.ReaditemResult{Item: f.Item, Path: f.Path, Content: f.Content, Readonly: f.Readonly, Tags: f.Tags}, nil)
-			read.Length, read.Truncated = &f.Length, &f.Truncated
-			return nil, read, nil
-		}
-		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
-		if err != nil {
-			return nil, note{}, err
-		}
-		read, err := readNote(decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, id)))
-		return nil, read, err
-	})
-
-	addTool(server, readOnly, &mcp.Tool{
 		Name:        "read_notes",
 		Annotations: reads(),
-		Description: "Read several notes at once, up to 50, each as read_note gives it plus its length and truncated (true or false), in the order asked: one missing fails the call. Answers {common, notes}: what every note shares (folder, created_at, updated_at) is said once in common and left out of the notes, whose path is then common.folder plus name (name left out when it is the title). To sort many notes, read them first with max_chars (the start of each, cut at the end of a line or a word; its tags stay whole in their own field, those written at the end of the text may be cut out of the content), then in full only those that need it.",
+		Description: "Read notes in the order asked, with their tags and length, what they all share said once in common.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args notesArgs) (*mcp.CallToolResult, batch, error) {
 		// One request for the batch, the preview cut on the server: the agent may be far over Tailscale (#210).
 		found, err := decode[[]apiclient.ReadnotesNote](client.PostApiNotesRead(ctx, apiclient.ReadnotesBody{Notes: args.Notes, MaxChars: &args.MaxChars}))
@@ -206,86 +170,50 @@ func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
-		Name:        "create_note",
-		Annotations: writes(false, false),
-		Description: "Create a note from markdown content.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args createArgs) (*mcp.CallToolResult, note, error) {
-		parentID, err := resolveFolder(ctx, client, args.Folder)
-		if err != nil {
-			return nil, note{}, err
-		}
-		created, err := decode[apiclient.DomainItem](client.PostApiNotes(ctx, apiclient.CreatenoteInput{Content: args.Content, ParentId: &parentID, Tags: &args.Tags}))
-		if err != nil {
-			return nil, note{}, err
-		}
-		// Read back: the API answers the item alone, without the path nor the tags it parsed.
-		read, err := readNote(decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, created.Id)))
-		return nil, read, err
-	})
-
-	addTool(server, readOnly, &mcp.Tool{
 		Name:        "edit_note",
-		Annotations: writes(true, true),
-		Description: "Replace the content of a note, answered without it. Read it first: nothing is kept of the old content, and its first heading becomes the title. To only add or remove tags, use tag_notes. A locked note refuses.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args editArgs) (*mcp.CallToolResult, note, error) {
+		Annotations: writes(true, false),
+		Description: "Change a note's whole content, a passage (old, or a section) or its title, answered without its content.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args editArgs) (*mcp.CallToolResult, partEdit, error) {
+		if args.Content == "" {
+			if args.Title+args.Old+args.Section == "" {
+				return nil, partEdit{}, errEditMode
+			}
+			if len(args.Tags) > 0 {
+				return nil, partEdit{}, errEditTags
+			}
+			// The server refuses more than one of title, old and section.
+			given := func(value string) *string {
+				if value == "" {
+					return nil
+				}
+				return &value
+			}
+			input := apiclient.EditnotetextInput{Title: given(args.Title), Old: given(args.Old), Section: given(args.Section), New: given(args.New), All: &args.All}
+			edited, err := editText(ctx, client, args.Note, input)
+			return nil, edited, err
+		}
+		if args.Title+args.Old+args.Section != "" {
+			return nil, partEdit{}, errEditMode
+		}
 		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
 		if err != nil {
-			return nil, note{}, err
+			return nil, partEdit{}, err
 		}
 		input := apiclient.EditnoteBody{Content: &args.Content}
-		// PATCH makes the tags exactly those given, the content's #tags kept with them: tags add, as in create_note.
+		// PATCH makes the tags exactly those given, the content's #tags kept with them: tags add, as in create_item.
 		if len(args.Tags) > 0 {
 			tags := append(hashtag.Parse(args.Content), args.Tags...)
 			input.Tags = &tags
 		}
 		edited, err := readNote(decode[apiclient.ReaditemResult](client.PatchApiNotesId(ctx, id, input)))
 		edited.Content = "" // the agent has just sent it
-		return nil, edited, err
-	})
-
-	addTool(server, readOnly, &mcp.Tool{
-		Name:        "rename_note",
-		Annotations: writes(false, true),
-		Description: "Change the title of a note without sending its content: its first heading takes the new title, or a heading is added on top, as the app renames a note; the [[links]] to it follow. The earlier text goes to note_history like an edit_note's. A locked note refuses.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameNoteArgs) (*mcp.CallToolResult, note, error) {
-		edited, err := editText(ctx, client, args.Note, apiclient.EditnotetextInput{Title: &args.Title})
-		return nil, edited.note, err
-	})
-
-	addTool(server, readOnly, &mcp.Tool{
-		Name:        "replace_in_note",
-		Annotations: writes(true, false),
-		Description: "Correct a part of one note without rewriting it: old becomes new, old found exactly once (more refuses with the count, unless all; none refuses), or the body of a section, given by its heading, becomes new. The rest of the text stays as it is; the title and the tags follow the new text, the earlier text goes to note_history like an edit_note's. A locked note refuses. Answers the note without its content and replaced, the occurrences changed. To change a text in many notes, replace_notes.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args replaceInNoteArgs) (*mcp.CallToolResult, partEdit, error) {
-		input := apiclient.EditnotetextInput{All: &args.All}
-		if args.Section != "" {
-			input.Section = &args.Section
-		} else {
-			input.Old = &args.Old
-		}
-		if args.New != "" {
-			input.New = &args.New
-		}
-		edited, err := editText(ctx, client, args.Note, input)
-		return nil, edited, err
-	})
-
-	addTool(server, readOnly, &mcp.Tool{
-		Name:        "delete_note",
-		Annotations: writes(true, true),
-		Description: "Move a note to the trash, where restore_item can take it back.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args noteArgs) (*mcp.CallToolResult, []item, error) {
-		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
-		if err != nil {
-			return nil, nil, err
-		}
-		return made(decode[[]apiclient.DomainItem](client.DeleteApiNotesId(ctx, id)))
+		return nil, partEdit{note: edited}, err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "replace_notes",
 		Annotations: writes(true, false),
-		Description: "Replace a plain text (with its case, not a regex) at every occurrence in every note of the account out of the trash, or of folder and its subfolders, in one transaction, without rewriting them: the hidden targets (a note link's ](note:<id>), a file's address) are left as they are, locked notes are left and counted, and each note changed keeps its earlier text in note_history. Answers the notes and occurrences changed; with dry_run, only counts them. Needs the Ultra plan. For one note, and a text that must be there once, replace_in_note.",
+		Description: "Replace a text at every occurrence in every note, or a folder's, in one transaction; Ultra plan.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args replaceArgs) (*mcp.CallToolResult, apiclient.ReplacenotesResult, error) {
 		body := apiclient.ReplacenotesInput{Find: args.Find, Replace: args.Replace, DryRun: &args.DryRun}
 		if args.Folder != "" {
@@ -302,7 +230,7 @@ func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "note_history",
 		Annotations: reads(),
-		Description: "List the earlier texts of a note, newest first, or read one: what edit_note replaced.",
+		Description: "List a note's earlier texts, newest first, or read one.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args historyArgs) (*mcp.CallToolResult, history, error) {
 		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
 		if err != nil {
@@ -322,7 +250,7 @@ func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "note_links",
 		Annotations: reads(),
-		Description: "List the notes a note links to, those linking to it, and those sharing its tags. Without a note, the broken links of every note.",
+		Description: "List the notes a note links to, those linking to it and those sharing its tags; without a note, the broken links.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args linksArgs) (*mcp.CallToolResult, links, error) {
 		if args.Note == "" {
 			broken, err := decode[[]apiclient.ListbrokenlinksLink](client.GetApiLinksBroken(ctx))

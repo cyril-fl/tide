@@ -2,9 +2,17 @@ package cmdmcp
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+var (
+	errCreateMode = errors.New("give either content (a note) or title (a folder)")
+	errTrashAlone = errors.New("trash takes no folder")
 )
 
 // item is a note or a folder as an agent needs it, with its dates to judge whether it is still current (list_folder
@@ -21,52 +29,65 @@ type item struct {
 	Preview string    `json:"preview,omitempty"`
 }
 
-// folderPage is a page of the items of a folder, how many it holds in all, and whether more follow this page.
+// folderPage is a page of the items of a folder, how many it holds in all, and whether more follow this page; or
+// what the trash holds.
 type folderPage struct {
-	Items   []item `json:"items"`
-	Total   int    `json:"total"`
-	HasMore bool   `json:"has_more"`
+	Items   []item                       `json:"items,omitempty"`
+	Trash   []apiclient.ListtrashTrashed `json:"trash,omitempty"`
+	Total   int                          `json:"total"`
+	HasMore bool                         `json:"has_more"`
 }
 
 type listFolderArgs struct {
-	Folder  string `json:"folder,omitempty" jsonschema:"the folder: its uuid, or its path from the root (/Folder); the root itself when empty"`
-	Limit   *int   `json:"limit,omitempty" jsonschema:"how many items at most, 50 when left out, 0 for all of them"`
-	Offset  int    `json:"offset,omitempty" jsonschema:"how many items to skip, folders first then by title: the next page starts at offset + limit"`
-	Dates   bool   `json:"dates,omitempty" jsonschema:"also the created_at and updated_at of each item, to judge whether it is still current"`
-	Tags    bool   `json:"tags,omitempty" jsonschema:"also the tags of each note"`
-	Length  bool   `json:"length,omitempty" jsonschema:"also the content length of each note, in characters"`
-	Preview int    `json:"preview,omitempty" jsonschema:"also the first that many characters of each note's content, to sort a folder without read_notes"`
+	Folder  string `json:"folder,omitempty" jsonschema:"the root when empty"`
+	Limit   *int   `json:"limit,omitempty" jsonschema:"50 when left out, 0 for all"`
+	Offset  int    `json:"offset,omitempty"`
+	Dates   bool   `json:"dates,omitempty" jsonschema:"add created_at and updated_at"`
+	Tags    bool   `json:"tags,omitempty" jsonschema:"add each note's tags"`
+	Length  bool   `json:"length,omitempty" jsonschema:"add each note's length in characters"`
+	Preview int    `json:"preview,omitempty" jsonschema:"add each note's first N characters"`
+	Trash   bool   `json:"trash,omitempty" jsonschema:"the trash instead, last removed first"`
 }
 
-type folderArgs struct {
-	Folder string `json:"folder,omitempty" jsonschema:"the folder: its uuid, or its path from the root (/Folder); the root itself when empty"`
-}
-
-type createFolderArgs struct {
-	Title  string `json:"title" jsonschema:"the new folder's title"`
-	Folder string `json:"folder,omitempty" jsonschema:"the folder to create it in: its uuid, or its path from the root (/Folder); the root itself when empty"`
+type createArgs struct {
+	Content string   `json:"content,omitempty" jsonschema:"a note's markdown: its first heading is the title, its #hashtags tags"`
+	Title   string   `json:"title,omitempty" jsonschema:"a folder's title, instead of content"`
+	Folder  string   `json:"folder,omitempty" jsonschema:"where; the root when empty"`
+	Tags    []string `json:"tags,omitempty" jsonschema:"tags added to content"`
 }
 
 type renameFolderArgs struct {
-	Folder string `json:"folder" jsonschema:"the folder to rename: its uuid, or its path from the root (/Folder)"`
-	Title  string `json:"title" jsonschema:"its new title"`
+	Folder string `json:"folder"`
+	Title  string `json:"title"`
 }
 
 type moveArgs struct {
-	Item   string `json:"item" jsonschema:"the note or folder to move: its uuid, or its path from the root (/Folder/Note)"`
-	Folder string `json:"folder,omitempty" jsonschema:"the folder to move it into: its uuid, or its path from the root (/Folder); the root itself when empty"`
+	Item   string `json:"item" jsonschema:"a note or folder"`
+	Folder string `json:"folder,omitempty" jsonschema:"the root when empty"`
+}
+
+type deleteArgs struct {
+	Item      string `json:"item"`
+	Recursive bool   `json:"recursive,omitempty" jsonschema:"the item is a folder: trash it with its content"`
 }
 
 type trashedArgs struct {
-	Item string `json:"item" jsonschema:"the uuid of the trashed note or folder, as list_trash gives it"`
+	Item string `json:"item" jsonschema:"its uuid, as list_folder trash gives it"`
 }
 
 func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnly bool) {
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "list_folder",
 		Annotations: reads(),
-		Description: "List the notes and folders directly inside a folder, folders first then by title: the first 50, the total and has_more (true when items follow, from offset + limit), unless limit says otherwise. dates adds when each was created and changed; on each note, tags adds its tags, length its content length in characters and preview=N the first N characters of its content, to sort a folder without read_notes.",
+		Description: "List the notes and folders in a folder, folders first then by title, with the total and has_more; or the trash.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args listFolderArgs) (*mcp.CallToolResult, folderPage, error) {
+		if args.Trash {
+			if args.Folder != "" {
+				return nil, folderPage{}, errTrashAlone
+			}
+			trash, err := decode[[]apiclient.ListtrashTrashed](client.GetApiTrash(ctx))
+			return nil, folderPage{Trash: trash, Total: len(trash)}, err
+		}
 		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
 			return nil, folderPage{}, err
@@ -85,17 +106,36 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 		return nil, folderPage{Items: items, Total: total, HasMore: offset+len(items) < total}, err
 	})
 
+	// Out is any: a note is answered with its path and tags, a folder as an item.
 	addTool(server, readOnly, &mcp.Tool{
-		Name:        "create_folder",
+		Name:        "create_item",
 		Annotations: writes(false, false),
-		Description: "Create a folder.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args createFolderArgs) (*mcp.CallToolResult, item, error) {
+		Description: "Create a note from markdown content, or a folder from a title.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args createArgs) (*mcp.CallToolResult, any, error) {
+		if (args.Content == "") == (args.Title == "") {
+			return nil, nil, errCreateMode
+		}
 		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
-			return nil, item{}, err
+			return nil, nil, err
 		}
-		created, err := decode[apiclient.DomainItem](client.PostApiFolders(ctx, apiclient.CreatefolderInput{Title: args.Title, ParentId: &parentID}))
-		return nil, one(created), err
+		if args.Title != "" {
+			created, err := decode[apiclient.DomainItem](client.PostApiFolders(ctx, apiclient.CreatefolderInput{Title: args.Title, ParentId: &parentID}))
+			if err != nil {
+				return nil, nil, err
+			}
+			return nil, one(created), nil
+		}
+		created, err := decode[apiclient.DomainItem](client.PostApiNotes(ctx, apiclient.CreatenoteInput{Content: args.Content, ParentId: &parentID, Tags: &args.Tags}))
+		if err != nil {
+			return nil, nil, err
+		}
+		// Read back: the API answers the item alone, without the path nor the tags it parsed.
+		read, err := readNote(decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, created.Id)))
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, read, nil
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -114,7 +154,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "move_item",
 		Annotations: writes(false, true),
-		Description: "Move a note or a folder into another folder. A folder takes its content with it.",
+		Description: "Move a note or a folder, with its content, into another folder.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args moveArgs) (*mcp.CallToolResult, []item, error) {
 		id, err := apiclient.Resolve(ctx, client, "", args.Item)
 		if err != nil {
@@ -127,31 +167,36 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 		return made(decode[[]apiclient.DomainItem](client.PostApiMove(ctx, apiclient.MoveitemsInput{Ids: []string{id}, ParentId: &parentID})))
 	})
 
+	// A folder needs recursive: a folder's path given for a note must not send a whole subtree to the trash.
 	addTool(server, readOnly, &mcp.Tool{
-		Name:        "delete_folder",
+		Name:        "delete_item",
 		Annotations: writes(true, true),
-		Description: "Move a folder and everything inside it to the trash, where restore_item can take it back.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args folderArgs) (*mcp.CallToolResult, []item, error) {
-		id, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, args.Folder)
+		Description: "Move a note, or with recursive a folder and its content, to the trash.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args deleteArgs) (*mcp.CallToolResult, []item, error) {
+		if !args.Recursive {
+			id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Item)
+			if err != nil {
+				if strings.HasSuffix(err.Error(), "is a folder, not a note") {
+					return nil, nil, fmt.Errorf("%w: give recursive to trash it with its content", err)
+				}
+				return nil, nil, err
+			}
+			return made(decode[[]apiclient.DomainItem](client.DeleteApiNotesId(ctx, id)))
+		}
+		id, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, args.Item)
 		if err != nil {
+			if strings.HasSuffix(err.Error(), "is a note, not a folder") {
+				return nil, nil, fmt.Errorf("%w: leave out recursive", err)
+			}
 			return nil, nil, err
 		}
 		return made(decode[[]apiclient.DomainItem](client.DeleteApiFoldersId(ctx, id)))
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
-		Name:        "list_trash",
-		Annotations: reads(),
-		Description: "List what is in the trash, last removed first, with the uuid restore_item takes.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []apiclient.ListtrashTrashed, error) {
-		trash, err := decode[[]apiclient.ListtrashTrashed](client.GetApiTrash(ctx))
-		return nil, trash, err
-	})
-
-	addTool(server, readOnly, &mcp.Tool{
 		Name:        "restore_item",
 		Annotations: writes(false, true),
-		Description: "Take a note or a folder out of the trash, with everything removed at the same time as it.",
+		Description: "Take a note or a folder out of the trash, with what was removed with it.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args trashedArgs) (*mcp.CallToolResult, []item, error) {
 		// No resolve: a trashed item has no path to look up.
 		return made(decode[[]apiclient.DomainItem](client.PostApiRestore(ctx, apiclient.RestoreBody{Ids: []string{args.Item}})))

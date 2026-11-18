@@ -72,7 +72,7 @@ l'API comme le reste de la CLI, au serveur et pour le compte de la **session CLI
 l'URL et le jeton écrits par `tide login <url>` dans `~/.config/tide/session.json`, en `0600`.
 
 L'agent n'est donc jamais « connecté » à quoi que ce soit, et ne voit ni mot de passe ni jeton : il
-appelle `create_note`, et le serveur agit déjà pour le compte. La seule chose à faire est un
+appelle `create_item`, et le serveur agit déjà pour le compte. La seule chose à faire est un
 `tide login`, **une fois**, sur la machine et sous l'utilisateur Unix qui lancera l'agent :
 
 ```sh
@@ -127,72 +127,83 @@ un jeton d'API ou une connexion OAuth en lecture seule (section 4).
 
 ## 3. Ce qu'il peut faire
 
-À la connexion, l'agent reçoit les trente-quatre outils avec leur description et leur schéma, puis travaille
+À la connexion, l'agent reçoit les vingt-quatre outils avec leur description et leur schéma, puis travaille
 en langage naturel : « range mes notes de réunion de novembre dans /Travail/Réunions » devient un
-`search_notes`, un `create_folder`, puis une suite de `move_item`.
+`search_notes`, un `create_item`, puis une suite de `move_item`.
 
-Le serveur lui donne aussi des consignes, que Claude Code met dans son prompt système : la façon économe de
-traiter beaucoup de notes, celle du banc d'essai #198. Appeler `tags` une fois et garder la liste, trouver
-les candidates sur le serveur avant de lire (`search_notes` avec `tags_all`, `tags_any`, `tags_none`, `folder`,
-`not_text`, `untagged`, `max_length`, `updated_before`),
-lire par lots en aperçu (`read_notes` avec `max_chars`), découper un gros dossier en pages de `list_folder`,
-une par sous-agent, taguer avec `tag_notes` (jamais en réécrivant la note par `edit_note`), un appel par tag
-posé sur toutes les notes d'un lot plutôt qu'un appel par note (au passage 3 de #198, 198 appels note par note
-faisaient l'essentiel du coût), fusionner deux
-tags avec `rename_tag` et `merge`. Avec un jeton en lecture seule, les consignes d'écriture sont retirées.
-Les sous-agents de Claude Code ne les reçoivent pas (vérifié le 2026-11-17) : les consignes demandent à
-l'agent principal de leur passer ce qu'il leur faut.
+Le serveur lui donne aussi des consignes, que Claude Code met dans son prompt système (`cli/cmd-mcp/instructions.go`) :
+la façon économe de traiter beaucoup de notes, celle du banc d'essai #198, et les recettes qui ne tiennent pas dans
+une description d'une phrase (#225). Une note se désigne par son uuid ou son chemin, un chemin partagé par plusieurs
+notes par leurs uuid (`search_notes` avec `list=duplicates` les trouve), un tag sans `#`. Appeler `tags` une fois et
+garder la liste ; `tags` avec `prefix` vérifie qu'un tag existe, avec `tag` liste ses notes. Trouver les candidates
+sur le serveur avant de lire (`search_notes` avec `tags_all`, `tags_any`, `tags_none`, `folder`, `not_text`,
+`untagged`, `max_length`, `updated_before`, tous ensemble), lire par lots en aperçu (`read_notes` avec `max_chars`),
+trier un dossier sans le lire (`list_folder` avec `tags`, `length`, `preview`), le découper en pages, une par
+sous-agent ; `note_links` sans note donne les liens cassés. Côté écriture : ne jamais réécrire une note pour en
+changer une partie (`tag_notes` pour les tags, `edit_note` avec `old`, `section` ou `title` pour un passage ou le
+titre), un appel `tag_notes` par tag posé sur toutes les notes d'un lot plutôt qu'un appel par note (au passage 3 de
+#198, 198 appels note par note faisaient l'essentiel du coût), `dry_run` d'abord ; un `#tag` dans du code, un lien
+ou une adresse n'est pas lu, et un `#hashtag` d'une snippet devient un tag des notes qu'elle commence ;
+`replace_notes` remplace un texte partout, `rename_tag` avec `merge` fusionne deux tags ; une note verrouillée refuse
+toute écriture, les réécritures gardent l'ancien texte dans `note_history`, les suppressions vont à la corbeille.
+Avec un jeton en lecture seule, les consignes d'écriture sont retirées. Les sous-agents de Claude Code ne les
+reçoivent pas (vérifié le 2026-11-17) : les consignes demandent à l'agent principal de leur passer ce qu'il leur faut.
 
 | Outil | Ce qu'il fait |
 |---|---|
-| `search_notes` | Les notes dont le titre ou le contenu contient un texte, avec la ligne trouvée, et leur total : les 50 premières, ou `limit` (0 pour toutes) et `offset`. Les filtres, avec ou sans texte, valent tous ensemble : `tags_all` (tous ces tags), `tags_any` (au moins un), `tags_none` (aucun), par nom (`Idée ET (Cuisine OU Boisson)` = `tags_all [Idée]` + `tags_any [Cuisine, Boisson]`), `folder` (un dossier et ses sous-dossiers, par chemin ou uuid), `not_text` (le titre et le contenu ne contiennent pas ce texte, casse ignorée : les recettes sans « Étapes »), `max_length` (au plus N caractères, ligne de titre comprise : les notes vides ou réduites au titre), `untagged` (sans tag) et `updated_before` (modifiées avant un jour ou un instant, les plus anciennes d'abord sans texte). Un motif d'inachèvement (`[Table could not be rendered]`, un `/` seul) se cherche comme texte |
-| `recent_notes` | Les notes modifiées le plus récemment, la plus récente d'abord |
-| `duplicate_notes` | Les notes qui portent le même titre, en groupes `{key, notes: [{id, path, updated_at, length}]}` ; `same_path` ne garde que celles du même dossier, dont le chemin est ambigu (à désigner par leur uuid). Les contenus quasi identiques sous des titres différents ne sont pas cherchés |
-| `read_note` | Le contenu d'une note, son chemin, ses tags (`[]` sans tag) et ses dates (`created_at`, `updated_at`) ; `max_chars` n'en rend que le début, coupé comme dans `read_notes` (à la fin d'une ligne ou d'un mot), avec `length` (la taille entière, en caractères) et `truncated` |
-| `read_notes` | Plusieurs notes d'un coup, 50 au plus, chacune comme `read_note`, avec toujours `length` et `truncated` (vrai ou faux) ; `max_chars` coupe à la fin d'une ligne ou d'un mot, jamais dans un mot, une URL ou une balise, et les `tags` restent entiers dans leur champ, même ceux écrits en fin de texte que la coupe retire du contenu ; ce que toutes les notes ont en commun (`folder`, `created_at`, `updated_at`) est dit une fois dans `common` et retiré des notes (leur chemin est alors `common.folder` + `name`, `name` omis quand c'est le titre) ; une seule introuvable fait échouer l'appel. Pour trier beaucoup de notes, les lire d'abord en aperçu (`max_chars`), puis en entier seulement celles qui le demandent |
-| `list_folder` | Les notes et dossiers directement dans un dossier : les 50 premiers, le total et `has_more` (vrai quand d'autres suivent, à partir de `offset` + `limit`), ou `limit` (0 pour tous) et `offset` ; `dates` ajoute leurs dates (`created_at`, `updated_at`) ; sur chaque note, `tags` ajoute ses tags (`[]` sans tag), `length` la taille de son contenu en caractères et `preview=N` ses N premiers caractères, pour trier un dossier sans `read_notes` |
-| `tags` | Les notes portant un tag, avec leur chemin : les 50 premières et le total, ou `limit` et `offset`, `dates` ajoutant leurs dates ; sans tag, les tags du compte, les plus utilisés d'abord, `prefix` (début du nom, sans casse) et `min_notes` (au moins N notes) n'en gardant qu'une partie |
-| `create_note` | Une note à partir de markdown : le premier titre devient le titre, les `#hashtags` des tags |
-| `edit_note` | Remplace **tout** le contenu d'une note (son premier titre devient le titre) et la rend sans son contenu ; refuse une note verrouillée |
-| `rename_note` | Change le titre d'une note sans envoyer son contenu : son premier titre prend le nouveau, ou un titre est ajouté en tête, comme le renommage de l'app ; les `[[liens]]` vers elle suivent. Le texte d'avant va dans l'historique comme pour `edit_note` ; refuse une note verrouillée |
-| `replace_in_note` | Corrige une partie d'une seule note sans la réécrire : `old` devient `new`, `old` trouvé exactement une fois (plusieurs refusent avec le nombre, sauf avec `all` ; aucune refuse), ou le corps d'une section, désignée par son titre (`section`), devient `new`, le titre gardé, jusqu'au titre suivant de même niveau ou plus haut. Le reste du texte ne bouge pas ; le titre et les tags suivent le nouveau texte, le texte d'avant va dans l'historique comme pour `edit_note` ; refuse une note verrouillée. Répond la note sans son contenu et `replaced`, le nombre de remplacements |
-| `tag_notes` | Ajoute ou retire des tags sur des notes sans envoyer leur contenu : seuls leurs `#tags` changent, chaque note changée garde son texte dans l'historique ; les tags manquants s'écrivent à la fin de la note, sur sa dernière ligne de tags ou une nouvelle. Un `#tag` se lit partout sauf dans du code (un bloc ```` ``` ```` fermé, des lignes indentées de 4 espaces ou d'une tabulation après une ligne vide, `` `en ligne` ``), un lien ou une adresse. Une note verrouillée, ou un tag qui ne serait pas lu là où il s'écrit, laisse la note telle quelle, avec l'erreur. Répond les compteurs `changed`, `unchanged`, `failed` et, par note, `id`, `title` et le diff des tags demandés (`added`, `already_present`, `removed`, `not_present`), `note` et `error` pour une note en échec ; pas de relecture à faire. À la place de `notes`, les filtres de `search_notes` (`text`, `not_text`, `tags_all`, `tags_any`, `tags_none`, `folder`, `max_length`, `untagged`, `updated_before`) taguent toutes les notes que `search_notes` trouverait, sans les lire ; `dry_run` n'écrit rien (ni note ni version) et répond comme l'appel réel, avec en plus, par note, `diff` : les lignes du texte qui changent (`- ancienne`, `+ nouvelle`) |
-| `create_folder` | Un dossier, à la racine ou dans un autre |
+| `search_notes` | Les notes dont le titre ou le contenu contient `text`, avec la ligne trouvée, et leur total : les 50 premières, ou `limit` (0 pour toutes) et `offset`. Les filtres, avec ou sans texte, valent tous ensemble : `tags_all` (tous ces tags), `tags_any` (au moins un), `tags_none` (aucun), par nom (`Idée ET (Cuisine OU Boisson)` = `tags_all [Idée]` + `tags_any [Cuisine, Boisson]`), `folder` (un dossier et ses sous-dossiers), `not_text` (le titre et le contenu ne contiennent pas ce texte, casse ignorée), `max_length` (au plus N caractères, ligne de titre comprise), `untagged` (sans tag) et `updated_before` (modifiées avant un jour ou un instant, les plus anciennes d'abord sans texte). À la place d'une recherche, `list` : `recent` (les 20 notes modifiées en dernier, dans `recent`), `duplicates` (les notes qui portent le même titre, en `groups` `{key, notes: [{id, path, updated_at, length}]}`) ou `same_path` (même titre dans le même dossier, dont le chemin est ambigu) ; `list` refuse un texte ou un filtre à côté |
+| `read_notes` | Une ou plusieurs notes, 50 au plus, dans l'ordre demandé : contenu, chemin, tags (`[]` sans tag), dates, `length` et `truncated` ; `max_chars` n'en rend que le début, coupé à la fin d'une ligne ou d'un mot (les `tags` restent entiers dans leur champ) ; ce que toutes ont en commun (`folder`, `created_at`, `updated_at`) est dit une fois dans `common` (leur chemin est alors `common.folder` + `name`, `name` omis quand c'est le titre) ; une seule introuvable fait échouer l'appel |
+| `list_folder` | Les notes et dossiers directement dans un dossier : les 50 premiers, le total et `has_more`, ou `limit` et `offset` ; `dates` ajoute leurs dates ; sur chaque note, `tags`, `length` et `preview=N` ; avec `trash`, la corbeille à la place (dans `trash`), la dernière suppression d'abord, avec l'uuid que `restore_item` attend |
+| `create_item` | Une note à partir de markdown (`content` : le premier titre devient le titre, les `#hashtags` des tags, `tags` s'y ajoute), ou un dossier à partir de `title` ; `folder` dit où, la racine sinon |
+| `edit_note` | Change une note, rendue sans son contenu, d'une seule façon : `content` remplace **tout** le contenu (`tags` s'y ajoute) ; `old` devient `new`, trouvé exactement une fois (plusieurs refusent avec le nombre, sauf `all` ; aucune refuse) ; `section` (les mots d'un titre) voit son corps remplacé par `new`, jusqu'au titre suivant de même niveau ou plus haut ; `title` change le titre comme le renommage de l'app (les `[[liens]]` suivent). Le titre et les tags suivent le nouveau texte, l'ancien va dans l'historique ; refuse une note verrouillée. `replaced` compte les remplacements |
 | `rename_folder` | Le titre d'un dossier |
 | `move_item` | Déplace une note ou un dossier ; un dossier emmène son contenu |
-| `delete_note` | Met une note à la corbeille |
-| `delete_folder` | Met un dossier **et tout son contenu** à la corbeille |
-| `list_trash` | Ce qui est à la corbeille, avec l'uuid que `restore_item` attend |
+| `delete_item` | Met une note à la corbeille ; un dossier **et tout son contenu** seulement avec `recursive` |
 | `restore_item` | Ressort de la corbeille, avec ce qui y est parti en même temps |
-| `rename_tag` | Renomme un tag sur toutes ses notes, dans leur texte aussi ; vers un tag qui existe déjà, refuse, sauf avec `merge` qui les fusionne ; `dry_run` n'écrit rien et ajoute au tag les `notes` qu'il réécrirait (`id`, `title`, `path`, `diff`) |
-| `replace_notes` | Le « remplacer partout » de l'app (plan Ultra) : remplace un texte brut, casse comprise, pas une regex, à chacune de ses occurrences dans toutes les notes du compte hors corbeille (`folder` pour se limiter à un dossier et ses sous-dossiers), en une transaction ; les cibles cachées (l'id d'un lien de note `](note:…)`, l'adresse d'un fichier) ne sont pas touchées. Les notes verrouillées sont laissées et comptées (`locked`), chaque note changée garde toujours son texte d'avant dans l'historique. Répond `notes` et `occurrences` ; `dry_run` compte seulement, à faire d'abord. Pour une seule note, et un texte qui doit n'y être qu'une fois, `replace_in_note` |
+| `tags` | Les notes portant un tag, avec leur chemin : les 50 premières et le total, ou `limit` et `offset`, `dates` ajoutant leurs dates ; sans tag, les tags du compte, les plus utilisés d'abord, `prefix` (début du nom, sans casse) et `min_notes` (au moins N notes) n'en gardant qu'une partie |
+| `tag_notes` | Ajoute ou retire des tags (`add`, `remove`) sur des notes sans envoyer leur contenu : seuls leurs `#tags` changent, chaque note changée garde son texte dans l'historique ; les tags manquants s'écrivent à la fin de la note, sur sa dernière ligne de tags ou une nouvelle. Un `#tag` se lit partout sauf dans du code (un bloc ```` ``` ```` fermé, des lignes indentées de 4 espaces ou d'une tabulation après une ligne vide, `` `en ligne` ``), un lien ou une adresse. Une note verrouillée, ou un tag qui ne serait pas lu là où il s'écrit, laisse la note telle quelle, avec l'erreur. Répond les compteurs `changed`, `unchanged`, `failed` et, par note, `id`, `title` et le diff des tags demandés (`added`, `already_present`, `removed`, `not_present`), `note` et `error` pour une note en échec. À la place de `notes`, les filtres de `search_notes` taguent toutes les notes qu'il trouverait ; `dry_run` n'écrit rien et ajoute, par note, `diff` : les lignes du texte qui changent (`- ancienne`, `+ nouvelle`) |
+| `rename_tag` | Renomme un tag sur toutes ses notes, dans leur texte aussi ; vers un tag qui existe déjà, refuse, sauf avec `merge` qui les fusionne ; `dry_run` n'écrit rien et ajoute les `notes` qu'il réécrirait (`id`, `title`, `path`, `diff`) |
 | `delete_tag` | Retire un tag de toutes ses notes ; une note qui ne contenait que lui part à la corbeille |
+| `replace_notes` | Le « remplacer partout » de l'app (plan Ultra) : remplace un texte brut, casse comprise, pas une regex, dans toutes les notes du compte hors corbeille (`folder` pour un dossier et ses sous-dossiers), en une transaction ; les cibles cachées (l'id d'un lien de note `](note:…)`, l'adresse d'un fichier) ne sont pas touchées, les notes verrouillées sont laissées et comptées (`locked`). Répond `notes` et `occurrences` ; `dry_run` compte seulement |
 | `note_history` | Les versions antérieures d'une note (sans `version`), ou le texte de l'une d'elles |
 | `note_links` | Les liens d'une note, ses rétroliens et les notes qui partagent ses tags ; sans note, les liens cassés de tout le compte |
 | `read_file` | Une image (que l'agent voit) ou une pièce jointe citée par une note ; sans fichier, la liste des fichiers |
-| `attach_file` | Stocke un fichier envoyé en base64 et rend le markdown qui le cite, à poser avec `create_note` ou `edit_note` |
-| `export_notes` | Un dossier, des éléments ou tout le compte en fichiers markdown, `[[liens]]` réécrits, chaque note avec son id et sa dernière modification : les 50 premiers fichiers et le total, ou `limit` et `offset` |
+| `attach_file` | Stocke un fichier envoyé en base64 et rend le markdown qui le cite |
+| `export_notes` | Un dossier, des éléments ou tout le compte en fichiers markdown, `[[liens]]` réécrits, chaque note avec son id et sa dernière modification : les 50 premiers fichiers et le total, ou `limit` et `offset`. Le chemin d'un export ne se relit pas toujours (un titre en double y devient « Titre (2) », un « / » un « - ») : l'id, si |
 | `import_notes` | Des fichiers markdown en notes, leurs répertoires en dossiers, tout ou rien ; les `[[liens]]` et les liens `[texte](chemin.md)` vers une note de l'import deviennent des liens de notes (pas ceux des notes importées avant la v1.2.0 : les réimporter ou les corriger) |
 | `snippets` | Les snippets du compte, nom et contenu |
-| `save_snippet` | Crée un snippet, ou remplace celui du même nom, les autres gardés ; ne répond que le snippet enregistré |
-| `delete_snippet` | Retire un snippet par son nom, les autres gardés |
+| `save_snippet` | Crée un snippet, ou remplace celui du même nom, ou le retire avec `delete`, les autres gardés ; répond ce snippet (avec son contenu quand il est retiré) |
 | `saved_searches` | Les recherches enregistrées (dossiers intelligents) du compte, tags par nom et dossiers par chemin ; avec `search` (id, ou nom s'il est unique), les notes qu'elle trouve avec leur chemin : les 50 premières et le total, ou `limit` et `offset`. Plan Pro |
-| `save_search` | Crée une recherche enregistrée (tags par nom en `tags_all`, `tags_any` et `tags_none` comme `search_notes`, dossiers par chemin ou uuid, `folder_mode` `include` ou `exclude`, dates de création et de modification, texte, `not_text`), ou remplace celle que `search` désigne, les autres gardées. Plan Pro |
-| `delete_search` | Retire une recherche enregistrée par son id ou son nom, ses notes restent. Plan Pro |
+| `save_search` | Crée une recherche enregistrée (tags par nom en `tags_all`, `tags_any` et `tags_none` comme `search_notes`, dossiers par chemin ou uuid, `folder_mode` `include` ou `exclude`, dates de création et de modification, texte, `not_text`), ou remplace celle que `search` désigne, ou la retire avec `delete` (ses notes restent), les autres gardées ; répond cette recherche. Plan Pro |
 
-**Un outil par domaine, pas un par processus.** Chaque outil annoncé coûte du contexte à l'agent à
-chaque requête : les trente et un d'alors (#208) faisaient environ 17 Ko de nom, description et schéma d'entrée (de 450 octets
-pour `read_file` à 1,6 Ko pour `save_search`, ~5 000 tokens en tout, presque toujours lus depuis le cache) ;
-leurs schémas de sortie (11 Ko), les clients ne les donnent pas au modèle. Regrouper les tags, les snippets
-et les recherches enregistrées en un outil de lecture et un d'écriture chacun n'en retirerait qu'environ
-2 % (#208, mesuré le 2026-11-17) : le coût d'un passage est dans ce que les outils lisent et rendent, pas
-dans leur liste. Lister et
-lire passent donc par le même outil, un argument vide donnant la liste (`tags`, `note_history`,
-`note_links`, `read_file`) : `list_tags` et `read_tag` sont devenus `tags`, et les treize processus
-ajoutés ensuite tiennent en huit outils. La création d'un tag seul n'est pas exposée,
-un tag sans note ne sert à rien à un agent.
-`delete_note` et `delete_folder` restent séparés exprès : un chemin de dossier donné à `delete_note`
-est refusé, au lieu d'envoyer tout un sous-arbre à la corbeille.
+**Moins d'outils, des descriptions d'une phrase.** Chaque outil annoncé coûte du contexte à l'agent à chaque
+requête. Le test `TestToolListSize` (`cli/cmd-mcp/cmd_test.go`) le mesure : la somme, en JSON, du nom, de la
+description et du schéma d'entrée de chaque outil, ce que le client donne au modèle (pas les schémas de sortie). Il
+échoue au-delà de 24 outils ou 13 000 octets, pour qu'un ajout se décide en connaissance de cause :
+`go test -v -run Size ./cli/cmd-mcp/` affiche les chiffres. Mesuré ainsi le 2026-11-18 (#225) : trente-quatre outils
+faisaient 25 585 octets, plus 1 714 de consignes ; les vingt-quatre d'aujourd'hui font 12 424 octets, plus 1 866 de
+consignes (−48 % en tout). Les trente et un de #208 faisaient environ 17 Ko, mesurés autrement. Les outils
+qui se recouvraient sont fusionnés : `read_note` dans `read_notes` ; `recent_notes` et `duplicate_notes` dans
+`search_notes` (`list`) ; `rename_note` et `replace_in_note` dans `edit_note` ; `create_note` et `create_folder` en
+`create_item` ; `delete_note` et `delete_folder` en `delete_item` ; `list_trash` dans `list_folder` (`trash`) ;
+`delete_snippet` dans `save_snippet` et `delete_search` dans `save_search` (`delete`). Les recettes vont dans les
+consignes, une fois.
+
+Restent séparés exprès :
+
+- **Une lecture et une écriture** (`snippets` et `save_snippet`, `saved_searches` et `save_search`, `list_folder` et
+  `restore_item`) : un outil qui écrit perd `readOnlyHint`, le client demanderait confirmation pour lire, et un jeton
+  en lecture seule ne le recevrait plus du tout.
+- **`delete_tag` et `rename_tag`** : renommer n'est pas destructif et a un `dry_run`, supprimer met à la corbeille les
+  notes qui ne contenaient que le tag et n'en a pas.
+- **`rename_folder`** : un uuid ne dit pas s'il désigne une note ou un dossier, et le titre d'une note passe par son
+  texte (`edit_note` avec `title`).
+- **`delete_item` demande `recursive` pour un dossier** : un chemin de dossier donné pour une note est refusé, au lieu
+  d'envoyer tout un sous-arbre à la corbeille.
+
+Lister et lire passent par le même outil, un argument vide donnant la liste (`tags`, `note_history`,
+`note_links`, `read_file`, `saved_searches`). La création d'un tag seul n'est pas exposée, un tag sans note ne sert
+à rien à un agent.
 
 Ils passent par l'API, comme la CLI et l'app : une règle (titre, tags, liens, corbeille, historique,
 chiffrement) s'applique pareil des trois côtés.
@@ -202,19 +213,18 @@ chiffrement) s'applique pareil des trois côtés.
 - **Une note ou un dossier se désigne par son uuid ou par son chemin** depuis la racine
   (`/Dossier/Note`). Seul `restore_item` exige l'uuid : un élément à la corbeille n'a plus de chemin à
   résoudre. Un chemin qui désigne deux éléments est refusé (`several items at this path, use a uuid`),
-  avec l'uuid, le type et la date de dernière modification de chacun. Le chemin d'un export ne se relit
-  pas toujours (un titre en double y devient « Titre (2) », un « / » un « - ») : l'id qu'il donne, si.
-- **`edit_note` écrase.** Rien n'est conservé de l'ancien contenu, l'agent doit lire la note avant. Le
+  avec l'uuid, le type et la date de dernière modification de chacun.
+- **`edit_note` avec `content` écrase.** Rien n'est conservé de l'ancien contenu, l'agent doit lire la note avant. Le
   texte remplacé va dans l'historique de la note comme pour une modification dans l'app (à la première
   modification d'une session d'écriture, puis au moins une fois par heure), d'où `note_history` et
   l'app le ressortent. Les `#tags` du contenu restent, ceux de `tags` s'y ajoutent. Pour seulement
   taguer, `tag_notes` évite de recopier la note (et d'en perdre un bout, le titre compris) ; pour corriger
-  un passage ou le titre, `replace_in_note` et `rename_note`.
+  un passage ou le titre, `edit_note` avec `old`, `section` ou `title`.
 - **Une suppression passe par la corbeille**, d'où `restore_item` la ressort. Mais la corbeille se
   vide d'elle-même passé le délai de rétention du compte (`purgeitems`, lancé par le serveur), sauf si ce compte garde sa corbeille indéfiniment : ce n'est pas un
   filet garanti. Le vidage définitif, lui, n'est pas donné à
   l'agent : il reste à la CLI et à l'app.
-- **Un agent réorganise vite.** `delete_folder` envoie tout un sous-arbre à la corbeille en un appel,
+- **Un agent réorganise vite.** `delete_item` avec `recursive` envoie tout un sous-arbre à la corbeille en un appel,
   et `move_item` ne demande aucune confirmation. Un client MCP qui demande validation avant chaque
   appel d'outil est la bonne façon de travailler au début. `make backup` avant une grosse
   réorganisation reste la règle.
@@ -223,11 +233,11 @@ chiffrement) s'applique pareil des trois côtés.
   comprise. `export_notes` ne télécharge pas les images citées : il n'en donne que le chemin.
 - **`delete_tag` et `rename_tag` réécrivent le texte des notes**, corbeille comprise, comme la CLI et
   l'app : chaque note changée garde son texte d'avant dans l'historique.
-- **`save_snippet` et `delete_snippet` relisent la liste puis la réécrivent en entier**, `save_search` et
-  `delete_search` aussi, avec le `updated_at` du compte lu : une écriture arrivée entre-temps n'est pas
-  effacée, l'outil relit et refait son changement une fois, puis répond l'erreur. L'app, elle, réécrit
-  encore ses listes sans ce contrôle : une page de l'app restée ouverte peut effacer le changement d'un agent.
-- **Les recherches enregistrées sont du plan Pro** : hors Pro, les trois outils répondent
+- **`save_snippet` et `save_search` relisent la liste puis la réécrivent en entier**, avec le `updated_at` du compte
+  lu : une écriture arrivée entre-temps n'est pas effacée, l'outil relit et refait son changement une fois, puis
+  répond l'erreur. L'app, elle, réécrit encore ses listes sans ce contrôle : une page de l'app restée ouverte peut
+  effacer le changement d'un agent.
+- **Les recherches enregistrées sont du plan Pro** : hors Pro, les deux outils répondent
   `saved searches (smart folders) need the Pro plan, which this account does not have`. « Recette ET
   (Végétarien OU Vegan) » s'enregistre en `tags_all [Recette]` + `tags_any [Végétarien, Vegan]` ; une
   recherche plus ancienne en `tag_mode` `any` se lit en `tags_any`. `save_search` remplace une recherche en entier : un critère non redonné est retiré.
@@ -238,15 +248,18 @@ chiffrement) s'applique pareil des trois côtés.
 ### Ce que le client demande avant d'agir
 
 Chaque outil porte des annotations MCP, pour que le client demande confirmation au bon moment
-(« autoriser une fois / toujours / refuser ») : c'est lui qui la propose, pas le serveur.
+(« autoriser une fois / toujours / refuser ») : c'est lui qui la propose, pas le serveur. Un outil fusionné prend
+l'annotation de sa part la plus risquée : `edit_note` est destructif et non idempotent pour tous ses modes, renommer
+compris.
 
-- `readOnlyHint` : les lectures (`search_notes`, `recent_notes`, `duplicate_notes`, `read_note`, `read_notes`, `list_folder`, `tags`,
-  `list_trash`, `note_history`, `note_links`, `read_file`, `export_notes`, `snippets`, `saved_searches`), qui ne changent rien.
-- `destructiveHint` : ce qui supprime ou écrase (`edit_note`, `replace_in_note`, `replace_notes`, `delete_note`,
-  `delete_folder`, `delete_tag`, `save_snippet`, `delete_snippet`, `save_search`, `delete_search`). Les autres écritures l'ont à `false` : elles ajoutent, déplacent ou renomment.
-- `idempotentHint` : un second appel identique ne change rien de plus (`edit_note`, les suppressions,
-  `move_item`, les renommages, `tag_notes`, `restore_item`, `save_snippet`) ; pas `create_note`, `create_folder`, `replace_in_note` (un `new` qui contient `old` le remplacerait encore), `replace_notes`,
-  `attach_file`, `import_notes` ni `save_search` (qui crée une nouvelle recherche à chaque appel sans `search`).
+- `readOnlyHint` : les lectures (`search_notes`, `read_notes`, `list_folder`, `tags`, `note_history`, `note_links`,
+  `read_file`, `export_notes`, `snippets`, `saved_searches`), qui ne changent rien.
+- `destructiveHint` : ce qui supprime ou écrase (`edit_note`, `replace_notes`, `delete_item`, `delete_tag`,
+  `save_snippet`, `save_search`). Les autres écritures l'ont à `false` : elles ajoutent, déplacent ou renomment.
+- `idempotentHint` : un second appel identique ne change rien de plus (`delete_item`, `delete_tag`, `move_item`,
+  `rename_folder`, `rename_tag`, `tag_notes`, `restore_item`, `save_snippet`) ; pas `create_item`, `edit_note` (un
+  `new` qui contient `old` le remplacerait encore), `replace_notes`, `attach_file`, `import_notes` ni `save_search`
+  (qui crée une nouvelle recherche à chaque appel sans `search`).
 - `openWorldHint` à `false` partout : les outils ne touchent qu'aux notes du compte.
 
 ## 4. Depuis le téléphone ou ChatGPT : le MCP en HTTP
@@ -384,10 +397,11 @@ Rien : le tunnel ou `--mcp-addr`.
 
 ## Vérifier que ça marche
 
-Le test `cli/cmd-mcp/cmd_test.go` branche un client MCP en mémoire sur le serveur MCP, lui-même
-client d'une vraie API sur la base de test. Il vérifie que les trente et un outils sont annoncés avec un
-schéma, une description et leurs annotations — ce que le SDK ne sait pas déduire seul d'une structure d'arguments mal
-formée — puis les appelle un à un.
+Les tests de `cli/cmd-mcp/` (un fichier par domaine, comme le code) branchent un client MCP en mémoire sur le
+serveur MCP, lui-même client d'une vraie API sur la base de test. `cmd_test.go` vérifie que les vingt-quatre outils
+sont annoncés avec un schéma, une description et leurs annotations — ce que le SDK ne sait pas déduire seul d'une
+structure d'arguments mal formée —, que les consignes ne nomment que des outils et arguments annoncés, et le poids de
+la liste ; les autres les appellent un à un.
 
 `core/server/mcphttp/mcphttp_test.go` sert les outils en HTTP et vérifie le 401 sans jeton, avec une session, un jeton
 inconnu, expiré ou révoqué, puis un aller-retour avec un jeton valide, et les seuls outils de lecture
@@ -401,14 +415,14 @@ make test ARGS="./cli/cmd-mcp/ ./core/server/mcphttp/ ./core/server/oauth/"
 Côté client, `claude mcp list` dit si le serveur répond (Codex : `codex mcp list`).
 
 Sans client, on peut lui parler à la main, dans l'environnement que le client lui donnera : la commande
-ci-dessous lui envoie l'ouverture du dialogue puis un `recent_notes`, en lecture seule. Deux lignes de
+ci-dessous lui envoie l'ouverture du dialogue puis un `search_notes` des notes récentes, en lecture seule. Deux lignes de
 JSON en retour : il marche. Rien, ou une erreur : c'est la session ou le serveur.
 
 ```sh
 { printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}' \
   '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
-  '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"recent_notes","arguments":{}}}'
+  '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"search_notes","arguments":{"list":"recent"}}}'
   sleep 3; } | tide mcp
 ```
 

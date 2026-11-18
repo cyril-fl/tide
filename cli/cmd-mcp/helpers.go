@@ -71,7 +71,7 @@ func kindHint(err error) error {
 	case strings.HasSuffix(err.Error(), "is a folder, not a note"):
 		return fmt.Errorf("%w: use list_folder", err)
 	case strings.HasSuffix(err.Error(), "is a note, not a folder"):
-		return fmt.Errorf("%w: use read_note", err)
+		return fmt.Errorf("%w: use read_notes", err)
 	}
 	return err
 }

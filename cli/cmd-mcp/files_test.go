@@ -48,10 +48,10 @@ func TestFiles(t *testing.T) {
 		t.Errorf("export_notes = %+v", out)
 	}
 	// The path is not enough to read a note back: its id is.
-	var day note
-	call(t, agent, "read_note", map[string]any{"note": out.Files[0].ID}, &day)
+	var day batchNote
+	day = readOne(t, agent, out.Files[0].ID)
 	if day.Path != "/Trip/Day" || out.Files[0].UpdatedAt == "" {
-		t.Errorf("export_notes id = %+v, read_note = %+v", out.Files[0], day)
+		t.Errorf("export_notes id = %+v, read_notes = %+v", out.Files[0], day)
 	}
 	call(t, agent, "export_notes", map[string]any{"folder": "/Trip", "offset": 1}, &out)
 	if out.Total != 2 || len(out.Files) != 1 || out.Files[0].File != file.ID {

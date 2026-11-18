@@ -11,12 +11,9 @@ import (
 )
 
 type snippetArgs struct {
-	Name    string `json:"name" jsonschema:"the snippet's name; one of that name already is replaced"`
-	Content string `json:"content" jsonschema:"the markdown the snippet inserts; its #hashtags become tags of the note it starts"`
-}
-
-type snippetNameArgs struct {
-	Name string `json:"name" jsonschema:"the name of the snippet to remove"`
+	Name    string `json:"name" jsonschema:"one of that name is replaced"`
+	Content string `json:"content,omitempty" jsonschema:"the markdown it inserts"`
+	Delete  bool   `json:"delete,omitempty" jsonschema:"remove the snippet of that name instead"`
 }
 
 var errNoSnippet = errors.New("no snippet of that name")
@@ -25,7 +22,7 @@ func addSnippetTools(server *mcp.Server, client *apiclient.ClientWithResponses, 
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "snippets",
 		Annotations: reads(),
-		Description: "List the account's snippets, the pieces of markdown the app inserts while typing or starts a new note from: their name and content.",
+		Description: "List the snippets, the markdown the app inserts while typing or starts a note from.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []apiclient.DomainSnippet, error) {
 		snippets, err := readSnippets(ctx, client)
 		return nil, snippets, err
@@ -34,37 +31,26 @@ func addSnippetTools(server *mcp.Server, client *apiclient.ClientWithResponses, 
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "save_snippet",
 		Annotations: writes(true, true),
-		Description: "Create a snippet, or replace the one of the same name, the others kept. Answers only the snippet saved.",
+		Description: "Create or replace a snippet by its name, or delete it, the others kept; answers that snippet.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args snippetArgs) (*mcp.CallToolResult, apiclient.DomainSnippet, error) {
-		saved := apiclient.DomainSnippet{Name: args.Name, Content: args.Content}
+		answer := apiclient.DomainSnippet{Name: args.Name, Content: args.Content}
 		_, err := editMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {
 			snippets := slices.Clone(me.Snippets)
-			if i := slices.IndexFunc(snippets, func(s apiclient.DomainSnippet) bool { return s.Name == args.Name }); i >= 0 {
-				snippets[i] = saved
-			} else {
-				snippets = append(snippets, saved)
+			i := slices.IndexFunc(snippets, func(s apiclient.DomainSnippet) bool { return s.Name == args.Name })
+			switch {
+			case args.Delete && i < 0:
+				return apiclient.EdituserInput{}, fmt.Errorf("%w: %q", errNoSnippet, args.Name)
+			case args.Delete:
+				answer = snippets[i]
+				snippets = slices.Delete(snippets, i, i+1)
+			case i >= 0:
+				snippets[i] = answer
+			default:
+				snippets = append(snippets, answer)
 			}
 			return apiclient.EdituserInput{Snippets: &snippets}, nil
 		})
-		return nil, saved, err
-	})
-
-	addTool(server, readOnly, &mcp.Tool{
-		Name:        "delete_snippet",
-		Annotations: writes(true, true),
-		Description: "Remove a snippet by its name, the others kept. Answers the account's snippets.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args snippetNameArgs) (*mcp.CallToolResult, []apiclient.DomainSnippet, error) {
-		me, err := editMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {
-			kept := slices.DeleteFunc(slices.Clone(me.Snippets), func(s apiclient.DomainSnippet) bool { return s.Name == args.Name })
-			if len(kept) == len(me.Snippets) {
-				return apiclient.EdituserInput{}, fmt.Errorf("%w: %q", errNoSnippet, args.Name)
-			}
-			return apiclient.EdituserInput{Snippets: &kept}, nil
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-		return nil, append([]apiclient.DomainSnippet{}, me.Snippets...), nil
+		return nil, answer, err
 	})
 }
 

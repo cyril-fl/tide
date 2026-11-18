@@ -56,6 +56,17 @@ func call(t *testing.T, agent *mcp.ClientSession, name string, args map[string]a
 	return result
 }
 
+// readOne reads one note through read_notes, failing the test unless it answers that note alone.
+func readOne(t *testing.T, agent *mcp.ClientSession, ref string) batchNote {
+	t.Helper()
+	var read batch
+	call(t, agent, "read_notes", map[string]any{"notes": []string{ref}}, &read)
+	if len(read.Notes) != 1 {
+		t.Fatalf("read_notes %s = %+v", ref, read)
+	}
+	return read.Notes[0]
+}
+
 func TestPage(t *testing.T) {
 	items := []int{0, 1, 2, 3, 4}
 	tests := map[string]struct {

@@ -30,12 +30,12 @@ func fileURL(id string) string {
 }
 
 type fileArgs struct {
-	File string `json:"file,omitempty" jsonschema:"the uuid of a file, as a note cites it (/api/files/<uuid>) or the list gives it; the list of files when empty"`
+	File string `json:"file,omitempty" jsonschema:"a file's uuid, as /api/files/<uuid> cites it; the list when empty"`
 }
 
 type attachArgs struct {
-	Name string `json:"name" jsonschema:"the file name, with its extension"`
-	Data string `json:"data" jsonschema:"the bytes of the file in base64: an image (PNG, JPEG, GIF, WebP), a PDF, a zip, an audio or a video file"`
+	Name string `json:"name" jsonschema:"with its extension"`
+	Data string `json:"data" jsonschema:"the bytes in base64: an image, a PDF, a zip, an audio or a video"`
 }
 
 // attached is the stored file and the markdown a note cites it with.
@@ -45,10 +45,10 @@ type attached struct {
 }
 
 type exportArgs struct {
-	Folder string   `json:"folder,omitempty" jsonschema:"the folder to export: its uuid, or its path from the root (/Folder); everything when empty"`
-	Items  []string `json:"items,omitempty" jsonschema:"notes or folders to export instead of a folder: their uuid, or their path from the root"`
-	Limit  *int     `json:"limit,omitempty" jsonschema:"how many files at most, 50 when left out, 0 for all of them"`
-	Offset int      `json:"offset,omitempty" jsonschema:"how many files to skip: the next page starts at offset + limit"`
+	Folder string   `json:"folder,omitempty" jsonschema:"everything when empty"`
+	Items  []string `json:"items,omitempty" jsonschema:"notes or folders, instead of folder"`
+	Limit  *int     `json:"limit,omitempty" jsonschema:"50 when left out, 0 for all"`
+	Offset int      `json:"offset,omitempty"`
 }
 
 // exported is a note as a markdown file with its id and last change, or a file it cites, whose bytes read_file gives.
@@ -67,13 +67,13 @@ type export struct {
 }
 
 type importArgs struct {
-	Files  []importFile `json:"files" jsonschema:"the markdown files; their directories become folders"`
-	Folder string       `json:"folder,omitempty" jsonschema:"the folder to import into: its uuid, or its path from the root (/Folder); the root itself when empty"`
+	Files  []importFile `json:"files" jsonschema:"their directories become folders"`
+	Folder string       `json:"folder,omitempty" jsonschema:"the root when empty"`
 }
 
 type importFile struct {
-	Path    string `json:"path" jsonschema:"the file path, relative (Folder/Note.md)"`
-	Content string `json:"content" jsonschema:"the markdown content"`
+	Path    string `json:"path" jsonschema:"relative: Folder/Note.md"`
+	Content string `json:"content"`
 }
 
 func addFileTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnly bool) {
@@ -81,7 +81,7 @@ func addFileTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "read_file",
 		Annotations: reads(),
-		Description: "Read an image or attachment a note cites. Without a file, list the account's files, largest first.",
+		Description: "Read an image or attachment a note cites; without a file, list the files, largest first.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args fileArgs) (*mcp.CallToolResult, any, error) {
 		if args.File == "" {
 			files, err := decode[[]apiclient.DomainFile](client.GetApiFiles(ctx))
@@ -103,7 +103,7 @@ func addFileTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "attach_file",
 		Annotations: writes(false, false),
-		Description: "Store an image or attachment and answer the markdown citing it, to put in a note with create_note or edit_note.",
+		Description: "Store an image or attachment and answer the markdown a note cites it with.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args attachArgs) (*mcp.CallToolResult, attached, error) {
 		data, err := base64.StdEncoding.DecodeString(args.Data)
 		if err != nil {
@@ -122,7 +122,7 @@ func addFileTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "export_notes",
 		Annotations: reads(),
-		Description: "Export notes as markdown files with their id and last change, [[links]] written back, their folders as directories: the first 50 files and the total, unless limit says otherwise. A path may not lead back to its note (a duplicate title becomes 'Title (2)', a / a -): read a note by its id.",
+		Description: "Export notes as markdown files with their id and last change, folders as directories, with the total.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args exportArgs) (*mcp.CallToolResult, export, error) {
 		folderID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
@@ -164,7 +164,7 @@ func addFileTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "import_notes",
 		Annotations: writes(false, false),
-		Description: "Import markdown files as notes, their directories as folders, all or nothing: a folder name already taken refuses.",
+		Description: "Import markdown files as notes, all or nothing; a folder name already taken refuses.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args importArgs) (*mcp.CallToolResult, apiclient.ImportnotesResult, error) {
 		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {

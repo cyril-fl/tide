@@ -13,10 +13,10 @@ func TestTagsHistoryLinks(t *testing.T) {
 	agent := connect(t)
 
 	var target, source note
-	call(t, agent, "create_note", map[string]any{"content": "# Target\n#go"}, &target)
-	call(t, agent, "create_note", map[string]any{"content": "# Source\nsee [[Target]] and [[Nowhere]] #go"}, &source)
+	call(t, agent, "create_item", map[string]any{"content": "# Target\n#go"}, &target)
+	call(t, agent, "create_item", map[string]any{"content": "# Source\nsee [[Target]] and [[Nowhere]] #go"}, &source)
 
-	call(t, agent, "create_note", map[string]any{"content": "# Other\n#golf #rust"}, nil)
+	call(t, agent, "create_item", map[string]any{"content": "# Other\n#golf #rust"}, nil)
 	var counted, tagged, dated tags
 	call(t, agent, "tags", map[string]any{"prefix": "GO", "min_notes": 2}, &counted)
 	call(t, agent, "tags", map[string]any{"tag": "go", "limit": 1}, &tagged)
@@ -71,7 +71,7 @@ func TestTagsHistoryLinks(t *testing.T) {
 	}
 	call(t, agent, "rename_tag", map[string]any{"tag": "go", "to": "golang"}, &renamed)
 	// A name taken refuses, unless merged.
-	call(t, agent, "create_note", map[string]any{"content": "# Merged\n#gl"}, nil)
+	call(t, agent, "create_item", map[string]any{"content": "# Merged\n#gl"}, nil)
 	if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "rename_tag", Arguments: map[string]any{"tag": "gl", "to": "golang"}}); err != nil || !result.IsError {
 		t.Errorf("rename_tag onto a taken name = %+v, %v; want an error", result, err)
 	}

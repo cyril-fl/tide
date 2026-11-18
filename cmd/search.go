@@ -11,7 +11,6 @@ var cmdSearch = &cobra.Command{
 	Short:   cmd.Search.Short,
 	Long:    cmd.Search.Long,
 	Example: cmd.Search.Example,
-	Args:    cobra.MinimumNArgs(1),
 	RunE:    cmdsearch.Search,
 }
 

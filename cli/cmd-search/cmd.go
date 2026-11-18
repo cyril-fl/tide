@@ -2,6 +2,7 @@ package cmdsearch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -14,11 +15,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Search lists the notes containing the text in their title or content, --limit of them (0: all), through
-// GET /api/search; ↳ opens one, ^E edits it, --json prints them for scripts.
+var errNoFilter = errors.New("give a text or a filter")
+
+// Search lists the notes containing the text in their title or content and matching the filters, --limit of them
+// (0: all), through GET /api/search; ↳ opens one, ^E edits it, --json prints them for scripts.
 func Search(cobra *cobra.Command, args []string) error {
 	ctx := cobra.Context()
-	text := strings.Join(args, " ")
+	filter, err := filterOf(cobra, strings.Join(args, " "))
+	if err != nil {
+		return err
+	}
+	if !filter.Filtered() {
+		return errNoFilter
+	}
 	var asJSON bool
 	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"json": &asJSON}); err != nil {
 		return err
@@ -32,13 +41,13 @@ func Search(cobra *cobra.Command, args []string) error {
 	}
 
 	if asJSON {
-		matches, _, err := fetch(ctx, text, limit)
+		matches, _, err := fetch(ctx, filter, limit)
 		if err == nil {
 			screen.PrintJSON(matches)
 		}
 		return err
 	}
-	load := func(navigator.Target) (navigator.Page, error) { return searchPage(ctx, text, limit) }
+	load := func(navigator.Target) (navigator.Page, error) { return searchPage(ctx, filter, limit) }
 	return navigator.Run(load, navigator.Target{}, navigator.Options{EnterOpens: true}, func(action navigator.Action, note navigator.Target) error {
 		if action == navigator.ActionEdit {
 			return cmdeditnote.Interactive(ctx, note.Key)
@@ -47,13 +56,35 @@ func Search(cobra *cobra.Command, args []string) error {
 	})
 }
 
+// filterOf reads the text and the filter flags, --max-length 0 being no filter as for the API.
+func filterOf(cobra *cobra.Command, text string) (apiclient.SearchFilter, error) {
+	flags := cobra.Flags()
+	filter := apiclient.SearchFilter{Text: text}
+	errs := make([]error, 8)
+	filter.TagsAll, errs[0] = flags.GetStringSlice("tag")
+	filter.TagsAny, errs[1] = flags.GetStringSlice("any-tag")
+	filter.TagsNone, errs[2] = flags.GetStringSlice("no-tag")
+	filter.Folder, errs[3] = flags.GetString("folder")
+	filter.NotText, errs[4] = flags.GetString("not")
+	filter.Untagged, errs[5] = flags.GetBool("untagged")
+	filter.UpdatedBefore, errs[6] = flags.GetString("updated-before")
+	if maxLength, err := flags.GetInt("max-length"); err != nil || maxLength > 0 {
+		filter.MaxLength, errs[7] = &maxLength, err
+	}
+	return filter, errors.Join(errs...)
+}
+
 // fetch gives the first page of matches and their total (X-Total-Count).
-func fetch(ctx context.Context, text string, limit int) ([]apiclient.SearchnotesMatch, int, error) {
+func fetch(ctx context.Context, filter apiclient.SearchFilter, limit int) ([]apiclient.SearchnotesMatch, int, error) {
 	client, err := apiclient.Read().Client()
 	if err != nil {
 		return nil, 0, err
 	}
-	response, err := client.GetApiSearchWithResponse(ctx, &apiclient.GetApiSearchParams{Q: &text, Limit: &limit})
+	params, err := apiclient.SearchParams(ctx, client, filter, limit, 0)
+	if err != nil {
+		return nil, 0, err
+	}
+	response, err := client.GetApiSearchWithResponse(ctx, params)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -69,8 +100,8 @@ func fetch(ctx context.Context, text string, limit int) ([]apiclient.Searchnotes
 }
 
 // searchPage is reloaded after an edit: the note may not match anymore.
-func searchPage(ctx context.Context, text string, limit int) (navigator.Page, error) {
-	matches, total, err := fetch(ctx, text, limit)
+func searchPage(ctx context.Context, filter apiclient.SearchFilter, limit int) (navigator.Page, error) {
+	matches, total, err := fetch(ctx, filter, limit)
 	if err != nil {
 		return navigator.Page{}, err
 	}
@@ -82,7 +113,7 @@ func searchPage(ctx context.Context, text string, limit int) (navigator.Page, er
 	if total > len(matches) {
 		info = fmt.Sprintf("%d of about %d notes (--limit)", len(matches), total)
 	}
-	page := navigator.Page{Title: "Search", Path: fmt.Sprintf("%q", text), Info: info, Empty: "No note matches"}
+	page := navigator.Page{Title: "Search", Path: fmt.Sprintf("%q", filter.Text), Info: info, Empty: "No note matches"}
 	for _, match := range matches {
 		title := match.Title
 		if title == "" {

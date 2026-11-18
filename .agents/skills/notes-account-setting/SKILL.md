@@ -22,10 +22,10 @@ bun maps `int` to `bigint`: cast in SQL where Postgres wants an `int` (`make_int
 
 ## 2. Existing bases: added columns only
 
-`createschema` adds a column of the model missing from an existing table (`ADD COLUMN IF NOT EXISTS`, with its type, NOT NULL and default) every time the API or the CLI starts, the server included: a new column with a default needs nothing by hand. Still by hand, after `make backup`, with `make pgsql QUERY="..."` (dev) on every base, the server's too:
+`createschema` adds a column of the model missing from an existing table (`ADD COLUMN IF NOT EXISTS`, with its type, NOT NULL and default) every time the API or the CLI starts, the server included: a new column with a default needs nothing by hand. The rest goes into a one-time migration of `core/services/process/createschema/migrations.go` (a `migrationVx_y_z` appended to `migrations`, run once per base at its next start, the server's too; `make backup` first on dev):
 
 - a NOT NULL column without a default on a table with rows (fill it first),
-- a renamed or retyped column, a dropped NOT NULL, the `UPDATE`s that change the meaning of a column: one `BEGIN; … COMMIT;`, kept in the commit message.
+- a renamed or retyped column, a dropped NOT NULL, the `UPDATE`s that change the meaning of a column: its queries in one migration, the schema's transaction wrapping them.
 
 A column left in the base but gone from the model is harmless: queries read the model's columns (`Returning("?Columns")`, never `*`).
 

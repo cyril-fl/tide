@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -175,6 +176,23 @@ func TestNotes(t *testing.T) {
 	if len(moved) != 1 || listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].ID != created.ID || listed.Items[0].CreatedAt != "" {
 		t.Errorf("move_item = %+v, list_folder = %+v", moved, listed)
 	}
+	// A locked note says so in the lists (#234), unlocked again for what follows.
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		t.Fatal(err)
+	}
+	lock := func(on bool) {
+		if _, err := decode[apiclient.ReaditemResult](client.PatchApiNotesId(context.Background(), created.ID, apiclient.EditnoteBody{Readonly: &on})); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lock(true)
+	call(t, agent, "list_folder", map[string]any{"folder": "/Inbox"}, &listed)
+	call(t, agent, "search_notes", map[string]any{"text": "shipped"}, &matches)
+	if !listed.Items[0].Readonly || len(matches.Matches) != 1 || !apiclient.Deref(matches.Matches[0].Readonly) {
+		t.Errorf("locked: list_folder = %+v, search_notes = %+v", listed, matches)
+	}
+	lock(false)
 	// The dates only when asked.
 	call(t, agent, "list_folder", map[string]any{"folder": "/Inbox", "dates": true}, &listed)
 	if len(listed.Items) != 1 || listed.Items[0].CreatedAt == "" {

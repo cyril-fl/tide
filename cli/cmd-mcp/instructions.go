@@ -22,7 +22,7 @@ func Instructions(readOnly bool) string {
 			"it answers counts and each note's diff, no need to read back.\n" +
 			"- A #tag in code, a link or an address is not read: tag_notes refuses to write one there. A #hashtag in a snippet tags the notes it starts.\n" +
 			"- Across notes: replace_notes replaces a text everywhere, rename_tag with merge folds a tag into another (dry_run first).\n" +
-			"- A locked note refuses every write. Rewrites keep the earlier text in note_history; deletions go to the trash (list_folder trash, restore_item)."
+			"- A locked note (readonly in answers) refuses every write. Rewrites keep the earlier text in note_history; deletions go to the trash (list_folder trash, restore_item)."
 	}
 	return text
 }

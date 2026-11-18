@@ -21,6 +21,7 @@ type item struct {
 	ID        string `json:"id"`
 	Kind      string `json:"kind"`
 	Title     string `json:"title"`
+	Readonly  bool   `json:"readonly,omitempty"` // a locked note
 	CreatedAt string `json:"created_at,omitempty"`
 	UpdatedAt string `json:"updated_at,omitempty"`
 	// What list_folder adds to a note when asked: tags (a pointer, so [] says "none"), length and preview.
@@ -205,7 +206,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 
 // one turns an item the API answers into what the agent reads.
 func one(found apiclient.DomainItem) item {
-	return item{ID: found.Id, Kind: string(found.Kind), Title: found.Title, CreatedAt: found.CreatedAt, UpdatedAt: editedAt(found.UpdatedAt, found.CreatedAt)}
+	return item{ID: found.Id, Kind: string(found.Kind), Title: found.Title, Readonly: apiclient.Deref(found.Readonly), CreatedAt: found.CreatedAt, UpdatedAt: editedAt(found.UpdatedAt, found.CreatedAt)}
 }
 
 // describe adds the tags, length and preview asked to the notes of a page, by read_notes batches (the cut is made on the

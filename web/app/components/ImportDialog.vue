@@ -3,9 +3,9 @@ import type { ImportResult } from '~/types/items';
 
 const emit = defineEmits<{ close: [] }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { icons } = useIcons();
-const api = useApi();
+const upload = useUpload();
 const toast = useToast();
 const destinations = useDestinations();
 
@@ -69,27 +69,59 @@ function body() {
   return { body: form };
 }
 
+// The bytes sent, then the server's work once they are all there (no byte to count: an indeterminate bar).
+const sent = ref({ loaded: 0, total: 0 });
+const sending = computed(() => sent.value.loaded < sent.value.total || !sent.value.total);
+const progress = computed(() =>
+  sending.value
+    ? t('settings.importSending', {
+        loaded: fileSize(sent.value.loaded, locale.value),
+        total: fileSize(sent.value.total, locale.value),
+      })
+    : t('settings.importWorking'),
+);
+let stop: AbortController | undefined;
+
 async function submit() {
   importing.value = true;
+  sent.value = { loaded: 0, total: 0 };
+  stop = new AbortController();
   try {
-    const result = await api<ImportResult>('/api/import', {
-      method: 'POST',
+    const result = await upload<ImportResult>('/api/import', {
       query: parent.value === ROOT ? {} : { parent: parent.value },
       ...body(),
+      onProgress: (loaded, total) => (sent.value = { loaded, total }),
+      signal: stop.signal,
       conflict: t('settings.importConflict'),
       tooLarge: t('settings.importTooLarge'),
     });
     toast.add({ title: t('settings.imported', { notes: result.notes, folders: result.folders }), color: 'success' });
     await refreshNuxtData();
     emit('close');
+  } catch (error) {
+    // The import is one transaction on the server: stopped, it leaves nothing behind.
+    if (error instanceof UploadStopped)
+      toast.add({
+        title: t(error.stalled ? 'settings.importStalled' : 'settings.importCanceled', {
+          seconds: UPLOAD_STALL / 1000,
+        }),
+        color: error.stalled ? 'error' : 'neutral',
+      });
   } finally {
     importing.value = false;
+    stop = undefined;
   }
+}
+
+// Cancel, the Escape key or a click outside stop the upload too, not only the dialog.
+function close() {
+  stop?.abort();
+  emit('close');
 }
 </script>
 
 <template>
-  <UModal :title="$t('settings.import')" :close="false" @update:open="emit('close')">
+  <UModal :title="$t('settings.import')" :close="false" @update:open="close">
     <template #body>
       <form id="import" class="flex flex-col gap-4" @submit.prevent="submit" @drop="addDropped">
         <UFormField :label="$t('settings.importInto')">
@@ -121,11 +153,20 @@ async function submit() {
         <input ref="folderInput" type="file" webkitdirectory class="hidden" @change="addFolder" />
         <p v-if="mixed" class="text-sm text-error">{{ $t('settings.importZipAlone') }}</p>
         <p v-if="duplicate" class="text-sm text-error">{{ $t('settings.importDuplicate', { name: duplicate }) }}</p>
+        <div v-if="importing" class="flex flex-col gap-1.5" role="status">
+          <UProgress
+            :model-value="sending && sent.total ? sent.loaded : null"
+            :max="sent.total || 100"
+            size="sm"
+            :aria-label="progress"
+          />
+          <p class="text-xs text-muted">{{ progress }}</p>
+        </div>
       </form>
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton :label="$t('common.cancel')" color="neutral" variant="ghost" @click="emit('close')" />
+        <UButton :label="$t('common.cancel')" color="neutral" variant="ghost" @click="close" />
         <UButton
           type="submit"
           form="import"

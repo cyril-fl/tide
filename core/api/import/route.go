@@ -26,6 +26,9 @@ const (
 	maxContent = 400 << 20
 )
 
+// stall is how long the upload may send nothing before it is dropped: a lost phone would hold it open forever.
+var stall = time.Minute
+
 // Handler adds the .md files of a zip as notes, its directories as folders, into a folder (the root without
 // parent), all or nothing: POST /api/import?parent= with the zip as body, or a multipart form of files named
 // by their relative path (dir/note.md), the loose files or the folder picked in the browser.
@@ -49,12 +52,12 @@ func Handler(db bun.IDB, store silo.Store) http.HandlerFunc {
 			return
 		}
 
-		// A big zip from the phone outlasts the server's 30 s: the write deadline also runs from the headers.
+		// A big zip from the phone outlasts the server's 30 s: the write deadline also runs from the headers. The read
+		// deadline moves on with every read instead: a slow upload goes on, one that sends nothing for stall stops.
 		control := http.NewResponseController(w)
-		_ = control.SetReadDeadline(time.Time{})
 		_ = control.SetWriteDeadline(time.Time{})
 
-		r.Body = http.MaxBytesReader(w, r.Body, maxZip)
+		r.Body = http.MaxBytesReader(w, stalling{r.Body, control}, maxZip)
 		dir, clean, err := read(r)
 		if clean != nil {
 			defer clean()
@@ -181,4 +184,15 @@ func writeFile(root, name string, part io.Reader) error {
 		return fmt.Errorf("%w: %w", errBadBody, err)
 	}
 	return nil
+}
+
+// stalling pushes the read deadline of the connection stall further at every read of the body.
+type stalling struct {
+	io.ReadCloser
+	control *http.ResponseController
+}
+
+func (s stalling) Read(p []byte) (int, error) {
+	_ = s.control.SetReadDeadline(time.Now().Add(stall))
+	return s.ReadCloser.Read(p)
 }

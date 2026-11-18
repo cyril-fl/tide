@@ -571,3 +571,32 @@ test('a block formula keeps its lines; the / menu inserts a formula and a diagra
     await box.api.patch('/api/me', { data: { plan: 'base' } });
   }
 });
+
+// On a slow network the import shows what it sent, and Cancel stops the upload itself, leaving nothing behind.
+test('a slow import shows its progress and stops on cancel', async ({ page }) => {
+  await page.goto('/settings');
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: 50,
+    uploadThroughput: 64 * 1024,
+    downloadThroughput: -1,
+  });
+  // 1 MB of a note no zip squeezes: 16 s at that speed.
+  const note = test.info().outputPath(`Lente ${box.prefix}.md`);
+  await writeFile(note, `# Lente\n\n${Array.from({ length: 1 << 20 }, () => Math.random().toString(36)[2]).join('')}`);
+  await importFiles(page, note);
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('status')).toContainText(/Envoi : [\d,]+\s(ko|Mo) sur 1\sMo/);
+  await dialog.getByRole('button', { name: 'Annuler' }).click();
+  await expect(page.getByText("Import annulé : rien n'a été importé.")).toBeVisible();
+  await cdp.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: 0,
+    uploadThroughput: -1,
+    downloadThroughput: -1,
+  });
+  const search = await (await box.api.get('/api/search', { params: { q: `Lente ${box.prefix}` } })).json();
+  expect(search).toHaveLength(0);
+});

@@ -57,3 +57,90 @@ export function useApi() {
     }
   };
 }
+
+type UploadOptions = Pick<ApiOptions, 'conflict' | 'invalid' | 'tooLarge'> & {
+  body: XMLHttpRequestBodyInit;
+  headers?: Record<string, string>;
+  query?: Record<string, string>;
+  /** The bytes sent so far, of total; loaded === total once the server has it all and works on it. */
+  onProgress?: (loaded: number, total: number) => void;
+  signal?: AbortSignal;
+};
+
+/** No byte sent for this long: the connection is taken for lost and the upload stopped. */
+export const UPLOAD_STALL = 30_000;
+
+/** The error of an upload stopped by its signal (the user) or by UPLOAD_STALL, never shown as a toast. */
+export class UploadStopped extends Error {
+  constructor(readonly stalled: boolean) {
+    super(stalled ? 'stalled' : 'aborted');
+  }
+}
+
+/**
+ * Sends a big body to the API with its progress, which fetch cannot give, and the errors of useApi. It stops when no
+ * byte goes out for UPLOAD_STALL (a lost connection), or on signal, throwing UploadStopped: the caller tells why.
+ */
+export function useUpload() {
+  const toast = useToast();
+  const { t } = useI18n();
+  const route = useRoute();
+  const baseURL = useRuntimeConfig().public.apiBase;
+
+  return function upload<T>(path: string, { body, headers, query, onProgress, signal, ...texts }: UploadOptions) {
+    return new Promise<T>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const url = new URL(path, baseURL || window.location.origin);
+      for (const [key, value] of Object.entries(query ?? {})) url.searchParams.set(key, value);
+      xhr.open('POST', url);
+      xhr.withCredentials = true;
+      for (const [key, value] of Object.entries(headers ?? {})) xhr.setRequestHeader(key, value);
+      xhr.responseType = 'json';
+
+      let stalled = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      // Reset at each progress; cleared once all is sent: the server's work has no byte to show.
+      const watch = () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          stalled = true;
+          xhr.abort();
+        }, UPLOAD_STALL);
+      };
+      xhr.upload.onprogress = (event) => {
+        watch();
+        onProgress?.(event.loaded, event.total);
+      };
+      xhr.upload.onload = () => clearTimeout(timer);
+      const stop = () => xhr.abort();
+      signal?.addEventListener('abort', stop);
+      const done = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', stop);
+      };
+
+      xhr.onabort = () => {
+        done();
+        reject(new UploadStopped(stalled));
+      };
+      xhr.onerror = () => {
+        done();
+        toast.add({ title: t('api.down'), color: 'error' });
+        reject(new Error('network'));
+      };
+      xhr.onload = async () => {
+        done();
+        if (xhr.status < 400) return resolve(xhr.response as T);
+        if (xhr.status === 401 && route.path !== '/login') {
+          await navigateTo({ path: '/login', query: { redirect: route.fullPath } });
+        } else {
+          const error = { status: xhr.status, data: xhr.response } as FetchError;
+          toast.add({ title: errorMessage(error, t, texts), color: 'error' });
+        }
+        reject(new Error(String(xhr.status)));
+      };
+      watch();
+      xhr.send(body);
+    });
+  };
+}

@@ -19,8 +19,17 @@ func TestDelete(t *testing.T) {
 
 	command := &cobra.Command{}
 	command.SetContext(ctx)
+	command.Flags().Bool("dry-run", true, "")
+	command.Flags().Bool("keep-empty", false, "")
+	dry, err := apitest.Stdout(t, func() error { return Delete(command, []string{"test-go"}) })
+	if err != nil || dry != "Would delete 1 tag(s): 0 note(s) changed, 0 to the trash (dry run, nothing written)\n" {
+		t.Errorf("dry run printed %q, err = %v", dry, err)
+	}
+	if err := command.Flags().Set("dry-run", "false"); err != nil {
+		t.Fatal(err)
+	}
 	printed, err := apitest.Stdout(t, func() error { return Delete(command, []string{"test-go", "test-nothing", "test-sql"}) })
-	if err != nil || printed != "Successfully deleted 2 tag(s)\n" {
+	if err != nil || printed != "Successfully deleted 2 tag(s): 0 note(s) changed, 0 moved to the trash\n" {
 		t.Errorf("printed %q, err = %v; want 2 tags", printed, err)
 	}
 }

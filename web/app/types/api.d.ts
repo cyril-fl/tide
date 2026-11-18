@@ -4000,7 +4000,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["domain.Tag"][];
+                        "application/json": components["schemas"]["deletetag.Result"];
                     };
                 };
                 /** @description Bad Request */
@@ -4098,7 +4098,12 @@ export interface paths {
         /** Delete a tag and erase it from the text of its notes */
         delete: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description answer what it would do, write nothing */
+                    dry_run?: boolean;
+                    /** @description leave a note holding nothing but the tag empty instead of trashing it */
+                    keep_empty?: boolean;
+                };
                 header?: never;
                 path: {
                     /** @description tag */
@@ -4114,7 +4119,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["domain.Tag"][];
+                        "application/json": components["schemas"]["deletetag.Result"];
                     };
                 };
                 /** @description Not Found */
@@ -4698,7 +4703,21 @@ export interface components {
             ids: string[];
         };
         "deletetag.Body": {
+            /** @description DryRun answers what the deletion would do and writes nothing. */
+            dry_run?: boolean;
+            /** @description KeepEmpty leaves a note holding nothing but the tags empty instead of trashing it. */
+            keep_empty?: boolean;
             values: string[];
+        };
+        "deletetag.Result": {
+            changed: number;
+            tags: components["schemas"]["domain.Tag"][];
+            trashed: components["schemas"]["deletetag.Trashed"][];
+        };
+        "deletetag.Trashed": {
+            id: string;
+            path: string;
+            title: string;
         };
         "domain.APIToken": {
             created_at: string;

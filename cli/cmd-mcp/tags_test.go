@@ -84,9 +84,15 @@ func TestTagsHistoryLinks(t *testing.T) {
 	if replaced.Notes == 0 {
 		t.Errorf("replace_notes dry_run = %+v, want the notes holding golang", replaced)
 	}
-	var deleted []map[string]any
+	// dry_run counts the notes and writes nothing: the real call then deletes the tag.
+	var deleted, dry apiclient.DeletetagResult
+	call(t, agent, "delete_tag", map[string]any{"tag": "golang", "dry_run": true, "keep_empty": true}, &dry)
+	call(t, agent, "tags", map[string]any{"tag": "golang", "limit": 1}, &still)
+	if len(dry.Tags) != 1 || dry.Changed == 0 || len(dry.Trashed) != 0 || still.Total == 0 {
+		t.Errorf("delete_tag dry_run = %+v, tag left with %d notes", dry, still.Total)
+	}
 	call(t, agent, "delete_tag", map[string]any{"tag": "golang"}, &deleted)
-	if renamed.Value != "golang" || len(deleted) != 1 {
-		t.Errorf("rename_tag = %+v, delete_tag = %v", renamed, deleted)
+	if renamed.Value != "golang" || len(deleted.Tags) != 1 || deleted.Changed != dry.Changed {
+		t.Errorf("rename_tag = %+v, delete_tag = %+v", renamed, deleted)
 	}
 }

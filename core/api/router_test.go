@@ -679,6 +679,7 @@ func TestTagsAndGraph(t *testing.T) {
 	}
 	c.do("PATCH", "/api/tags/"+unique("unknown"), `{"value":"x"}`, http.StatusNotFound, nil)
 
+	c.do("DELETE", "/api/tags/"+renamed+"?dry_run=true", "", http.StatusOK, nil)
 	c.do("DELETE", "/api/tags/"+renamed, "", http.StatusOK, nil)
 	c.do("DELETE", "/api/tags/"+renamed, "", http.StatusNotFound, nil)
 
@@ -1426,9 +1427,17 @@ func TestDeleteMany(t *testing.T) {
 
 	tag := unique("tag")
 	c.do("POST", "/api/tags", fmt.Sprintf(`{"values":[%q]}`, tag), http.StatusCreated, nil)
-	var tags []struct{ Value string }
-	c.do("DELETE", "/api/tags", fmt.Sprintf(`{"values":[%q,%q]}`, tag, unique("unknown")), http.StatusOK, &tags)
-	if len(tags) != 1 || tags[0].Value != tag {
+	var tags struct {
+		Tags    []struct{ Value string }
+		Changed int
+		Trashed []struct{ ID string }
+	}
+	c.do("DELETE", "/api/tags", fmt.Sprintf(`{"values":[%q],"dry_run":true}`, tag), http.StatusOK, &tags)
+	if len(tags.Tags) != 1 || tags.Trashed == nil {
+		t.Errorf("dry run = %+v, want %s and trashed: []", tags, tag)
+	}
+	c.do("DELETE", "/api/tags", fmt.Sprintf(`{"values":[%q,%q],"keep_empty":true}`, tag, unique("unknown")), http.StatusOK, &tags)
+	if len(tags.Tags) != 1 || tags.Tags[0].Value != tag {
 		t.Errorf("tags removed = %+v, want %s", tags, tag)
 	}
 	c.do("DELETE", "/api/tags", `{"values":[]}`, http.StatusBadRequest, nil)

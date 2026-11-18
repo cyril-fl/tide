@@ -50,7 +50,7 @@ func addSearchTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "search_notes",
 		Annotations: reads(),
-		Description: "Find the notes matching a text and all the filters given, with the line found and the total; with list, the recent notes or the groups of duplicate titles instead.",
+		Description: "Find the notes matching a text and all the filters given, with the line found and the total; or a list instead (recent notes, duplicates).",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, searchPage, error) {
 		if args.List != "" && args.filter().Filtered() {
 			return nil, searchPage{}, errListAlone

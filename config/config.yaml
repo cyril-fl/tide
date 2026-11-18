@@ -256,8 +256,21 @@ commands:
     long: "Move folders, their subfolders and notes to the trash. They are purged for good after the trash retention of the account, 30 days by default."
     example: "{name} remove folder <uuid|path> [<uuid|path>...]"
   delete-tag:
-    use: "tag"
+    use: "tag <value>..."
     short: "Delete an existing tag"
+    long: "Delete tags and erase them from the text of every note carrying them; a note holding nothing else goes to the trash, unless --keep-empty. --dry-run counts the notes it would change, lists those it would trash, and writes nothing."
+    example: "{name} remove tag draft old\n{name} remove tag inbox --dry-run --keep-empty"
+    args:
+      - name: "dry-run"
+        shorthand: ""
+        value: ""
+        usage: "Show the notes that would change and go to the trash, write nothing"
+        type: "bool"
+      - name: "keep-empty"
+        shorthand: ""
+        value: ""
+        usage: "Leave a note holding nothing but the tag empty instead of trashing it"
+        type: "bool"
   delete-token:
     use: "token <uuid>"
     short: "Revoke an API token of the account"

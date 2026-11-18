@@ -146,6 +146,13 @@ components:
       type: object
     deletetag.Body:
       properties:
+        dry_run:
+          description: DryRun answers what the deletion would do and writes nothing.
+          type: boolean
+        keep_empty:
+          description: KeepEmpty leaves a note holding nothing but the tags empty
+            instead of trashing it.
+          type: boolean
         values:
           items:
             type: string
@@ -153,6 +160,38 @@ components:
           uniqueItems: false
       required:
       - values
+      type: object
+    deletetag.Result:
+      properties:
+        changed:
+          type: integer
+        tags:
+          items:
+            $ref: '#/components/schemas/domain.Tag'
+          type: array
+          uniqueItems: false
+        trashed:
+          items:
+            $ref: '#/components/schemas/deletetag.Trashed'
+          type: array
+          uniqueItems: false
+      required:
+      - changed
+      - tags
+      - trashed
+      type: object
+    deletetag.Trashed:
+      properties:
+        id:
+          type: string
+        path:
+          type: string
+        title:
+          type: string
+      required:
+      - id
+      - path
+      - title
       type: object
     domain.APIToken:
       properties:
@@ -3988,9 +4027,7 @@ paths:
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/domain.Tag'
-                type: array
+                $ref: '#/components/schemas/deletetag.Result'
           description: OK
         "400":
           content:
@@ -4081,14 +4118,23 @@ paths:
         required: true
         schema:
           type: string
+      - description: answer what it would do, write nothing
+        in: query
+        name: dry_run
+        schema:
+          type: boolean
+      - description: leave a note holding nothing but the tag empty instead of trashing
+          it
+        in: query
+        name: keep_empty
+        schema:
+          type: boolean
       responses:
         "200":
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/domain.Tag'
-                type: array
+                $ref: '#/components/schemas/deletetag.Result'
           description: OK
         "404":
           content:

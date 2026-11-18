@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/spf13/cobra"
 
 	cmddeletefolder "github.com/cyril-fl/tide/cli/cmd-delete-folder"
@@ -54,6 +55,7 @@ var cmdDeleteToken = &cobra.Command{
 }
 
 func init() {
+	plumcliutilsargs.Makeflags(cmdDeleteTag, cmd.DeleteTag.Flags)
 	cmdDelete.AddCommand(cmdDeleteNote, cmdDeleteFloder, cmdDeleteTag, cmdDeleteToken)
 	cmdRoot.AddCommand(cmdDelete)
 }

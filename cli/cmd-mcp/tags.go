@@ -11,8 +11,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-type tagArgs struct {
-	Tag string `json:"tag"`
+type deleteTagArgs struct {
+	Tag       string `json:"tag"`
+	DryRun    bool   `json:"dry_run,omitempty"`
+	KeepEmpty bool   `json:"keep_empty,omitempty"`
 }
 
 type tagsArgs struct {
@@ -213,9 +215,13 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "delete_tag",
 		Annotations: writes(true, true),
-		Description: "Remove a tag from the text of every note carrying it; a note holding nothing else goes to the trash.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagArgs) (*mcp.CallToolResult, []apiclient.DomainTag, error) {
-		deleted, err := decode[[]apiclient.DomainTag](client.DeleteApiTagsValue(ctx, args.Tag))
+		Description: "Remove a tag from its notes' text, trashing those left empty unless keep_empty.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args deleteTagArgs) (*mcp.CallToolResult, apiclient.DeletetagResult, error) {
+		// Many notes take longer than Timeout, like tag_notes.
+		ctx, cancel := apiclient.Long(ctx)
+		defer cancel()
+		params := &apiclient.DeleteApiTagsValueParams{DryRun: &args.DryRun, KeepEmpty: &args.KeepEmpty}
+		deleted, err := decode[apiclient.DeletetagResult](client.DeleteApiTagsValue(ctx, args.Tag, params))
 		return nil, deleted, err
 	})
 }

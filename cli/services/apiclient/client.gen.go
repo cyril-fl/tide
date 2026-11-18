@@ -173,7 +173,26 @@ type DeleteitemsBody struct {
 
 // DeletetagBody defines model for deletetag.Body.
 type DeletetagBody struct {
-	Values []string `json:"values"`
+	// DryRun DryRun answers what the deletion would do and writes nothing.
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// KeepEmpty KeepEmpty leaves a note holding nothing but the tags empty instead of trashing it.
+	KeepEmpty *bool    `json:"keep_empty,omitempty"`
+	Values    []string `json:"values"`
+}
+
+// DeletetagResult defines model for deletetag.Result.
+type DeletetagResult struct {
+	Changed int                `json:"changed"`
+	Tags    []DomainTag        `json:"tags"`
+	Trashed []DeletetagTrashed `json:"trashed"`
+}
+
+// DeletetagTrashed defines model for deletetag.Trashed.
+type DeletetagTrashed struct {
+	Id    string `json:"id"`
+	Path  string `json:"path"`
+	Title string `json:"title"`
 }
 
 // DomainAPIToken defines model for domain.APIToken.
@@ -1005,6 +1024,15 @@ type GetApiSearchesIdParams struct {
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// DeleteApiTagsValueParams defines parameters for DeleteApiTagsValue.
+type DeleteApiTagsValueParams struct {
+	// DryRun answer what it would do, write nothing
+	DryRun *bool `form:"dry_run,omitempty" json:"dry_run,omitempty"`
+
+	// KeepEmpty leave a note holding nothing but the tag empty instead of trashing it
+	KeepEmpty *bool `form:"keep_empty,omitempty" json:"keep_empty,omitempty"`
+}
+
 // GetApiTagsValueParams defines parameters for GetApiTagsValue.
 type GetApiTagsValueParams struct {
 	// Limit notes in the page, all when left out or 0
@@ -1743,7 +1771,7 @@ type ClientInterface interface {
 	// DeleteApiTagsValue Delete a tag and erase it from the text of its notes
 	//
 	// Corresponds with DELETE /api/tags/{value} (the `DeleteApiTagsValue` operationId).
-	DeleteApiTagsValue(ctx context.Context, value string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteApiTagsValue(ctx context.Context, value string, params *DeleteApiTagsValueParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiTagsValue Read a tag and the notes carrying it
 	//
@@ -3278,8 +3306,8 @@ func (c *Client) PostApiTags(ctx context.Context, body PostApiTagsJSONRequestBod
 // DeleteApiTagsValue Delete a tag and erase it from the text of its notes
 //
 // Corresponds with DELETE /api/tags/{value} (the `DeleteApiTagsValue` operationId).
-func (c *Client) DeleteApiTagsValue(ctx context.Context, value string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteApiTagsValueRequest(c.Server, value)
+func (c *Client) DeleteApiTagsValue(ctx context.Context, value string, params *DeleteApiTagsValueParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiTagsValueRequest(c.Server, value, params)
 	if err != nil {
 		return nil, err
 	}
@@ -6238,7 +6266,7 @@ func NewPostApiTagsRequestWithBody(server string, contentType string, body io.Re
 }
 
 // NewDeleteApiTagsValueRequest constructs an http.Request for the DeleteApiTagsValue method
-func NewDeleteApiTagsValueRequest(server string, value string) (*http.Request, error) {
+func NewDeleteApiTagsValueRequest(server string, value string, params *DeleteApiTagsValueParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -6261,6 +6289,45 @@ func NewDeleteApiTagsValueRequest(server string, value string) (*http.Request, e
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.DryRun != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dry_run", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.KeepEmpty != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "keep_empty", *params.KeepEmpty, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
@@ -7289,7 +7356,7 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with DELETE /api/tags/{value} (the `DeleteApiTagsValue` operationId).
-	DeleteApiTagsValueWithResponse(ctx context.Context, value string, reqEditors ...RequestEditorFn) (*DeleteApiTagsValueResponse, error)
+	DeleteApiTagsValueWithResponse(ctx context.Context, value string, params *DeleteApiTagsValueParams, reqEditors ...RequestEditorFn) (*DeleteApiTagsValueResponse, error)
 
 	// GetApiTagsValueWithResponse Read a tag and the notes carrying it
 	//
@@ -11050,7 +11117,7 @@ type DeleteApiTagsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *[]DomainTag
+	JSON200 *DeletetagResult
 	// JSON400 the response for an HTTP 400 `application/json` response
 	JSON400 *RespondFailure
 	// JSON413 the response for an HTTP 413 `application/json` response
@@ -11060,7 +11127,7 @@ type DeleteApiTagsResponse struct {
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r DeleteApiTagsResponse) GetJSON200() *[]DomainTag {
+func (r DeleteApiTagsResponse) GetJSON200() *DeletetagResult {
 	return r.JSON200
 }
 
@@ -11222,7 +11289,7 @@ type DeleteApiTagsValueResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *[]DomainTag
+	JSON200 *DeletetagResult
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *RespondFailure
 	// JSON500 the response for an HTTP 500 `application/json` response
@@ -11230,7 +11297,7 @@ type DeleteApiTagsValueResponse struct {
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r DeleteApiTagsValueResponse) GetJSON200() *[]DomainTag {
+func (r DeleteApiTagsValueResponse) GetJSON200() *DeletetagResult {
 	return r.JSON200
 }
 
@@ -13007,8 +13074,8 @@ func (c *ClientWithResponses) PostApiTagsWithResponse(ctx context.Context, body 
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with DELETE /api/tags/{value} (the `DeleteApiTagsValue` operationId).
-func (c *ClientWithResponses) DeleteApiTagsValueWithResponse(ctx context.Context, value string, reqEditors ...RequestEditorFn) (*DeleteApiTagsValueResponse, error) {
-	rsp, err := c.DeleteApiTagsValue(ctx, value, reqEditors...)
+func (c *ClientWithResponses) DeleteApiTagsValueWithResponse(ctx context.Context, value string, params *DeleteApiTagsValueParams, reqEditors ...RequestEditorFn) (*DeleteApiTagsValueResponse, error) {
+	rsp, err := c.DeleteApiTagsValue(ctx, value, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -15965,7 +16032,7 @@ func ParseDeleteApiTagsResponse(rsp *http.Response) (*DeleteApiTagsResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []DomainTag
+		var dest DeletetagResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -16092,7 +16159,7 @@ func ParseDeleteApiTagsValueResponse(rsp *http.Response) (*DeleteApiTagsValueRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []DomainTag
+		var dest DeletetagResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

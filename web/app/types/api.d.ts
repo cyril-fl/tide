@@ -4866,14 +4866,14 @@ export interface components {
             /** @description a fork: the note it merges back into */
             fork_of?: string;
             item: components["schemas"]["domain.Item"];
-            /** @description the whole content's characters, given with max_chars */
-            length?: number;
+            /** @description the whole content's characters */
+            length: number;
             path: string;
             pinned?: boolean;
             /** @description locked: PATCH refuses its content and tags */
             readonly?: boolean;
             tags?: string[];
-            truncated?: boolean;
+            truncated: boolean;
         };
         "readnotetags.Body": {
             ids: string[];

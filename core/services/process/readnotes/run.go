@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"unicode"
 
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/cyril-fl/tide/core/domain"
@@ -17,11 +19,12 @@ const MaxNotes = 50
 
 var ErrInvalid = errors.New("invalid argument")
 
-// Note is a note as readitem gives it, with the whole content's length and truncated when max_chars cut it.
+// Note is a note as readitem gives it, with the whole content's length and whether max_chars cut it. The tags stay in
+// their own field, whole: a cut content may lose the #tags written at its end.
 type Note struct {
 	readitem.Result
-	Length    *int `json:"length,omitempty" binding:"optional"` // the whole content's characters, given with max_chars
-	Truncated bool `json:"truncated,omitempty" binding:"optional"`
+	Length    int  `json:"length"` // the whole content's characters
+	Truncated bool `json:"truncated"`
 }
 
 type run struct {
@@ -40,7 +43,7 @@ type cache struct {
 }
 
 // Process reads notes by uuid or path, in the order of refs; one missing fails it, named in the error. maxChars > 0
-// keeps only the start of each content.
+// keeps only the start of each content, cut at the end of a line or a word (see cut).
 func Process(ctx context.Context, db bun.IDB, refs []string, maxChars int) *run {
 	return &run{
 		ctx:      ctx,
@@ -114,14 +117,29 @@ func (p *run) readNotes() {
 func preview(result readitem.Result, maxChars int) Note {
 	read := Note{Result: result}
 	read.Tags = append([]string{}, read.Tags...)
-	if maxChars <= 0 {
-		return read
-	}
 	content := []rune(read.Content)
-	length := len(content)
-	read.Length, read.Truncated = &length, length > maxChars
-	if read.Truncated {
-		read.Content = string(content[:maxChars])
+	read.Length = len(content)
+	if maxChars > 0 && len(content) > maxChars {
+		read.Truncated, read.Content = true, cut(content, maxChars)
 	}
 	return read
+}
+
+// cut keeps at most n runes: it ends at the last space or line break in the last half of them (100 at least), else (a word as long as that window) at n. It never ends inside a <tag>.
+func cut(content []rune, n int) string {
+	end := n
+	if !unicode.IsSpace(content[n]) { // the cut falls inside a word, go back to a break
+		window := min(max(n/2, 100), n) // a URL is rarely longer
+		for j := n - 1; j >= n-window; j-- {
+			if unicode.IsSpace(content[j]) {
+				end = j
+				break
+			}
+		}
+	}
+	kept := string(content[:end])
+	if open := strings.LastIndex(kept, "<"); open > strings.LastIndex(kept, ">") {
+		kept = kept[:open]
+	}
+	return strings.TrimRightFunc(kept, unicode.IsSpace)
 }

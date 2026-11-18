@@ -923,7 +923,7 @@ components:
         item:
           $ref: '#/components/schemas/domain.Item'
         length:
-          description: the whole content's characters, given with max_chars
+          description: the whole content's characters
           type: integer
         path:
           type: string
@@ -941,7 +941,9 @@ components:
           type: boolean
       required:
       - item
+      - length
       - path
+      - truncated
       type: object
     readnotetags.Body:
       properties:

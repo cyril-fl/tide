@@ -199,8 +199,8 @@ func TestNotes(t *testing.T) {
 	// max_chars gives the start of each content and its whole length; a short one is left whole.
 	call(t, agent, "read_notes", map[string]any{"notes": []string{"/Bare", created.ID}, "max_chars": 7}, &batched)
 	both = batched.Notes
-	if len(both) != 2 || both[0].Truncated || both[0].Content != "# Bare" || both[0].Length == nil || *both[0].Length != 6 ||
-		!both[1].Truncated || both[1].Content != "# Plan\n" || both[1].Length == nil || *both[1].Length != 25 {
+	if len(both) != 2 || both[0].Truncated == nil || *both[0].Truncated || both[0].Content != "# Bare" || both[0].Length == nil || *both[0].Length != 6 ||
+		both[1].Truncated == nil || !*both[1].Truncated || both[1].Content != "# Plan" || both[1].Length == nil || *both[1].Length != 25 {
 		t.Errorf("read_notes max_chars = %+v", both)
 	}
 	// Without a text, the filters alone keep the untagged and the short notes: Bare each time, Plan neither.
@@ -283,7 +283,7 @@ func TestNotes(t *testing.T) {
 	}
 	// The options, and the end marker: the one note of /Inbox, then a page of the root that goes on.
 	call(t, agent, "list_folder", map[string]any{"folder": "/Inbox", "tags": true, "length": true, "preview": 3}, &listed)
-	if it := listed.Items[0]; it.Tags == nil || it.Length == nil || *it.Length < 3 || len([]rune(it.Preview)) != 3 || listed.HasMore {
+	if it := listed.Items[0]; it.Tags == nil || it.Length == nil || *it.Length < 3 || len([]rune(it.Preview)) == 0 || len([]rune(it.Preview)) > 3 || listed.HasMore {
 		t.Errorf("list_folder with tags, length and preview = %+v", listed)
 	}
 	call(t, agent, "list_folder", map[string]any{"limit": 1}, &listed)

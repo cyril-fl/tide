@@ -163,7 +163,7 @@ func TestNotes(t *testing.T) {
 		Truncated bool `json:"truncated"`
 	}
 	c.do("POST", "/api/notes/read", fmt.Sprintf(`{"notes":["/%s",%q],"max_chars":2}`, title, note.ID), http.StatusOK, &batch)
-	if len(batch) != 2 || batch[0].Content != "# " || batch[0].Length != len([]rune(read.Content)) || !batch[0].Truncated || batch[1].Item.ID != note.ID {
+	if len(batch) != 2 || batch[0].Content != "#" || batch[0].Length != len([]rune(read.Content)) || !batch[0].Truncated || batch[1].Item.ID != note.ID {
 		t.Errorf("batch = %+v", batch)
 	}
 	var missing respond.Failure

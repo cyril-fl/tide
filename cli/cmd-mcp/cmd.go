@@ -66,9 +66,9 @@ type note struct {
 	Title     string   `json:"title"`
 	Path      string   `json:"path"`
 	Content   string   `json:"content,omitempty"`
-	Length    *int     `json:"length,omitempty"` // the whole content's characters, given with max_chars
-	Truncated bool     `json:"truncated,omitempty"`
-	Tags      []string `json:"tags"` // [] rather than left out: the agent sees the note has none
+	Length    *int     `json:"length,omitempty"`    // the whole content's characters, given by read_notes and with max_chars
+	Truncated *bool    `json:"truncated,omitempty"` // a pointer: false is said too, by read_notes and with max_chars
+	Tags      []string `json:"tags"`                // [] rather than left out: the agent sees the note has none
 	Readonly  bool     `json:"readonly,omitempty"`
 	CreatedAt string   `json:"created_at"`
 	UpdatedAt string   `json:"updated_at,omitempty"`
@@ -82,7 +82,7 @@ type batchNote struct {
 	Name      string   `json:"name,omitempty"` // the last part of the path, when Common.Folder is given and it is not the title
 	Content   string   `json:"content,omitempty"`
 	Length    *int     `json:"length,omitempty"`
-	Truncated bool     `json:"truncated,omitempty"`
+	Truncated *bool    `json:"truncated,omitempty"`
 	Tags      []string `json:"tags"`
 	Readonly  bool     `json:"readonly,omitempty"`
 	CreatedAt string   `json:"created_at,omitempty"`
@@ -524,7 +524,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "read_notes",
 		Annotations: reads(),
-		Description: "Read several notes at once, up to 50, each as read_note gives it, in the order asked: one missing fails the call. Answers {common, notes}: what every note shares (folder, created_at, updated_at) is said once in common and left out of the notes, whose path is then common.folder plus name (name left out when it is the title). To sort many notes, read them first with max_chars (the start of each, its length and truncated), then in full only those that need it.",
+		Description: "Read several notes at once, up to 50, each as read_note gives it plus its length and truncated (true or false), in the order asked: one missing fails the call. Answers {common, notes}: what every note shares (folder, created_at, updated_at) is said once in common and left out of the notes, whose path is then common.folder plus name (name left out when it is the title). To sort many notes, read them first with max_chars (the start of each, cut at the end of a line or a word; its tags stay whole in their own field, those written at the end of the text may be cut out of the content), then in full only those that need it.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args notesArgs) (*mcp.CallToolResult, batch, error) {
 		// One request for the batch, the preview cut on the server: the agent may be far over Tailscale (#210).
 		found, err := decode[[]apiclient.ReadnotesNote](client.PostApiNotesRead(ctx, apiclient.ReadnotesBody{Notes: args.Notes, MaxChars: &args.MaxChars}))
@@ -534,7 +534,7 @@ func AddTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnl
 		read := make([]note, 0, len(found))
 		for _, f := range found {
 			n, _ := readNote(apiclient.ReaditemResult{Item: f.Item, Path: f.Path, Content: f.Content, Readonly: f.Readonly, Tags: f.Tags}, nil)
-			n.Length, n.Truncated = f.Length, apiclient.Deref(f.Truncated)
+			n.Length, n.Truncated = &f.Length, &f.Truncated
 			read = append(read, n)
 		}
 		return nil, factor(read), nil
@@ -1440,7 +1440,7 @@ func describe(ctx context.Context, client *apiclient.ClientWithResponses, items 
 				it.Tags = &tags
 			}
 			if args.Length {
-				it.Length = r.Length
+				it.Length = &r.Length
 			}
 			if args.Preview > 0 {
 				it.Preview = apiclient.Deref(r.Content)
@@ -1478,8 +1478,9 @@ func preview(read note, maxChars int) note {
 	}
 	content := []rune(read.Content)
 	length := len(content)
-	read.Length, read.Truncated = &length, length > maxChars
-	if read.Truncated {
+	truncated := length > maxChars
+	read.Length, read.Truncated = &length, &truncated
+	if truncated {
 		read.Content = string(content[:maxChars])
 	}
 	return read

@@ -607,15 +607,15 @@ type ReadnotesNote struct {
 	ForkOf *string    `json:"fork_of,omitempty"`
 	Item   DomainItem `json:"item"`
 
-	// Length the whole content's characters, given with max_chars
-	Length *int   `json:"length,omitempty"`
+	// Length the whole content's characters
+	Length int    `json:"length"`
 	Path   string `json:"path"`
 	Pinned *bool  `json:"pinned,omitempty"`
 
 	// Readonly locked: PATCH refuses its content and tags
 	Readonly  *bool     `json:"readonly,omitempty"`
 	Tags      *[]string `json:"tags,omitempty"`
-	Truncated *bool     `json:"truncated,omitempty"`
+	Truncated bool      `json:"truncated"`
 }
 
 // ReadnotetagsBody defines model for readnotetags.Body.

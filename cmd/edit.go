@@ -48,6 +48,7 @@ func init() {
 	plumcliutilsargs.Makeflags(cmdEditNote, cmd.EditNote.Flags)
 	cmdEditNote.MarkFlagsMutuallyExclusive("pin", "unpin")
 	cmdEditNote.MarkFlagsMutuallyExclusive("lock", "unlock")
+	cmdEditNote.MarkFlagsMutuallyExclusive("title", "replace", "section")
 	plumcliutilsargs.Makeflags(cmdEditFloder, cmd.EditFolder.Flags)
 
 	cmdEdit.AddCommand(cmdEditNote, cmdEditFloder, cmdEditTag)

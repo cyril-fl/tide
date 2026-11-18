@@ -62,6 +62,7 @@ A tour of what it does:
 ```sh
 tide add note --content "# Ideas" --parent /Projects     # a missing value opens a form
 cat ideas.md | tide edit note /Projects/Ideas --content -
+tide edit note /Projects/Ideas --replace teh --with the   # or --title, --section <heading> --with
 tide show note /Projects/Ideas                            # by path or by UUID
 tide move /Projects/Ideas --parent /Archives
 tide search recipe --json | jq -r '.[].id'

@@ -2,6 +2,7 @@ package cmdeditnote
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -44,6 +45,23 @@ func run(ctx context.Context, id string, flags *pflag.FlagSet) error {
 		input.Readonly = &readonly
 	}
 	textChanged := flags.Changed("content") || flags.Changed("tag") || flags.Changed("untag") || flags.Changed("tag-from-list")
+	part, err := partInput(flags)
+	if err != nil {
+		return err
+	}
+	if part != nil && textChanged {
+		return errors.New("--title, --replace and --section cannot be given with --content or tag flags")
+	}
+	// A part edit goes after --unlock and before --lock, so a lock given with it does not refuse it.
+	unlockFirst := flags.Changed("unlock")
+	if part != nil && !unlockFirst {
+		if err := editPart(ctx, client, id, *part); err != nil {
+			return err
+		}
+	}
+	if part != nil && input.Pinned == nil && input.Readonly == nil {
+		return nil
+	}
 	if input.Pinned == nil && input.Readonly == nil || textChanged {
 		// The mill applies --tag and --untag over the current note, the API then only saves its result.
 		resolver := millflagseditnote.New(millflagseditnote.Template{Ctx: ctx, Client: client, Flags: flags, ID: id})
@@ -79,6 +97,58 @@ func run(ctx context.Context, id string, flags *pflag.FlagSet) error {
 		fmt.Printf("Successfully locked note %s\n", id)
 	} else if input.Readonly != nil {
 		fmt.Printf("Successfully unlocked note %s\n", id)
+	}
+	if part != nil && unlockFirst {
+		return editPart(ctx, client, id, *part)
+	}
+	return nil
+}
+
+// partInput reads --title, --replace or --section with --with and --all, nil when none is given. The server checks
+// that only one is, the occurrences and the lock.
+func partInput(flags *pflag.FlagSet) (*apiclient.EditnotetextInput, error) {
+	var input apiclient.EditnotetextInput
+	for name, value := range map[string]**string{"title": &input.Title, "replace": &input.Old, "section": &input.Section, "with": &input.New} {
+		if flags.Changed(name) {
+			text, _ := flags.GetString(name)
+			*value = &text
+		}
+	}
+	if flags.Changed("all") {
+		all, _ := flags.GetBool("all")
+		input.All = &all
+	}
+	switch {
+	case input.Title == nil && input.Old == nil && input.Section == nil:
+		if input.New != nil || input.All != nil {
+			return nil, errors.New("--with and --all go with --replace or --section")
+		}
+		return nil, nil
+	case input.Title != nil && input.New != nil:
+		return nil, errors.New("--with goes with --replace or --section, not --title")
+	case input.Title == nil && input.New == nil:
+		return nil, errors.New("--replace and --section need --with (empty to delete)")
+	case input.All != nil && input.Old == nil:
+		return nil, errors.New("--all goes with --replace")
+	}
+	return &input, nil
+}
+
+// editPart changes the title, a text or a section of the note through PATCH /api/notes/{id}/text.
+func editPart(ctx context.Context, client *apiclient.ClientWithResponses, id string, input apiclient.EditnotetextInput) error {
+	response, err := client.PatchApiNotesIdTextWithResponse(ctx, id, input)
+	if err != nil {
+		return err
+	}
+	if response.JSON200 == nil {
+		return apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	if input.Title != nil {
+		fmt.Printf("Successfully renamed note %s to %q\n", id, response.JSON200.Note.Item.Title)
+	} else if input.Section != nil {
+		fmt.Printf("Successfully replaced section %q in note %s\n", *input.Section, id)
+	} else {
+		fmt.Printf("Successfully replaced %d occurrence(s) in note %s\n", response.JSON200.Replaced, id)
 	}
 	return nil
 }

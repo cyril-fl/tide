@@ -457,12 +457,10 @@ test('< > & are saved as typed, not as HTML entities', async ({ page }) => {
   await page.goto(`/notes/new?parent=${box.folder.id}`);
   await page.locator('.ProseMirror').click();
   await page.keyboard.type('a >> b & c < d');
-  await expect
-    .poll(async () => {
-      const items = await (await box.api.get(`/api/items?parent=${box.folder.id}`)).json();
-      return items[0] ? box.content(items[0].id) : '';
-    })
-    .toBe('a >> b & c < d');
+  // The note exists only after the editor's first save, which moves the page to its URL (#231).
+  await expect(page).toHaveURL(/\/notes\/[0-9a-f-]{36}$/);
+  const id = new URL(page.url()).pathname.split('/').pop()!;
+  await expect.poll(() => box.content(id), { timeout: 5000 }).toBe('a >> b & c < d');
 });
 
 // Pro: the palette moves the open note, and its path under the text follows.

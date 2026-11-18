@@ -4,6 +4,7 @@ import {
   ImportDialog,
   MergeDialog,
   PromptDialog,
+  ReplaceDialog,
   SavedSearchDialog,
   SnippetDialog,
 } from '#components';
@@ -14,7 +15,7 @@ import type { MergePart } from '~/utils/merge';
 // of a folder calls useItems, so a folder of 1,000 notes made 12,000 modals on each visit.
 let dialogs: ReturnType<typeof createDialogs> | undefined;
 
-/** Modals that are awaited: a text, a yes, a snippet, a saved search, the import done, the text chosen after a conflict, or a merge confirmed. */
+/** Modals that are awaited: a text, a yes, a snippet, a saved search, the import done, the replace panel closed, the text chosen after a conflict, or a merge confirmed. */
 export function useDialogs() {
   return (dialogs ??= createDialogs());
 }
@@ -28,6 +29,7 @@ function createDialogs() {
   const importDialog = overlay.create(ImportDialog);
   const conflictDialog = overlay.create(ConflictDialog);
   const mergeDialog = overlay.create(MergeDialog);
+  const replaceDialog = overlay.create(ReplaceDialog);
 
   return {
     prompt: (props: {
@@ -46,6 +48,7 @@ function createDialogs() {
     savedSearch: (props: { title: string; value?: SavedSearch }) =>
       savedSearchDialog.open(props).result as Promise<SavedSearch | undefined>,
     importNotes: () => importDialog.open().result as Promise<void>,
+    replaceNotes: (find?: string) => replaceDialog.open({ find }).result as Promise<void>,
     // undefined: the merge of a fork cancelled (the 409 dialog has no cancel).
     resolveConflict: (parts: MergePart[], fork?: boolean) =>
       conflictDialog.open({ parts, fork }).result as Promise<string | undefined>,

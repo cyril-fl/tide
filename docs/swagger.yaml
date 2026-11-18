@@ -1146,16 +1146,59 @@ components:
         folder:
           description: 'a folder id: only its notes, its subfolders included'
           type: string
+        notes:
+          description: 'note ids: only these notes'
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        occurrence:
+          description: 'with Notes: only that occurrence of each, from 1'
+          type: integer
         replace:
           type: string
       required:
       - find
       - replace
       type: object
+    replacenotes.Line:
+      properties:
+        after:
+          type: string
+        before:
+          type: string
+        line:
+          type: integer
+      required:
+      - after
+      - before
+      - line
+      type: object
+    replacenotes.Match:
+      properties:
+        id:
+          type: string
+        occurrences:
+          items:
+            $ref: '#/components/schemas/replacenotes.Line'
+          type: array
+          uniqueItems: false
+        path:
+          type: string
+      required:
+      - id
+      - occurrences
+      - path
+      type: object
     replacenotes.Result:
       properties:
         locked:
           type: integer
+        matches:
+          items:
+            $ref: '#/components/schemas/replacenotes.Match'
+          type: array
+          uniqueItems: false
         notes:
           type: integer
         occurrences:

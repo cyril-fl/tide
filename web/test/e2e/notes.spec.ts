@@ -923,10 +923,11 @@ test('the search bar finds and replaces in the note (#113)', async ({ page }) =>
     .toBe(`# ${box.prefix} search\n\nbaz bar baz\n\n\`\`\`js\nbaz()\n\`\`\``);
 });
 
-// Ultra: the palette replaces a text in every note after confirming the count, the locked note left as it is.
+// Ultra: the palette lists the occurrences by note, replaces one of them, then all after confirming, the locked
+// note left as it is.
 test('the Ultra palette replaces a text in every note (#113)', async ({ page }) => {
   const word = `${box.prefix}word`;
-  const one = await box.note(`${word} and ${word}`);
+  const one = await box.note(`# ${box.prefix}-one\n${word} and ${word}`);
   const two = await box.note(`a ${word}`);
   const locked = await box.note(`${word} locked`);
   await box.api.patch(`/api/notes/${locked.id}`, { data: { readonly: true } });
@@ -936,15 +937,24 @@ test('the Ultra palette replaces a text in every note (#113)', async ({ page }) 
     await expect(page.getByRole('button', { name: /Rechercher/ })).toBeVisible();
     await page.keyboard.press('ControlOrMeta+k');
     await page.getByRole('option', { name: 'Remplacer dans toutes les notes' }).click();
-    await page.getByRole('dialog').getByRole('textbox').fill(word);
-    await page.getByRole('dialog').getByRole('button', { name: 'Valider' }).click();
-    await page.getByRole('dialog').getByRole('textbox').fill('done');
-    await page.getByRole('dialog').getByRole('button', { name: 'Tout remplacer' }).click();
-    await expect(page.getByRole('dialog')).toContainText('3 occurrences dans 2 notes.');
-    await expect(page.getByRole('dialog')).toContainText('Une note verrouillée reste telle quelle.');
-    await page.getByRole('dialog').getByRole('button', { name: 'Tout remplacer' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('textbox', { name: 'Texte à remplacer' }).fill(word);
+    await dialog.getByRole('textbox', { name: 'Remplacer par' }).fill('done');
+    await expect(dialog).toContainText('3 occurrences dans 2 notes.');
+    await expect(dialog).toContainText('Une note verrouillée reste telle quelle.');
+
+    const first = dialog
+      .getByRole('listitem')
+      .filter({ hasText: `${box.prefix}-one` })
+      .first();
+    await first.getByRole('button', { name: 'Remplacer cette occurrence' }).first().click();
+    await expect(dialog).toContainText('2 occurrences dans 2 notes.');
+    expect(await box.content(one.id)).toBe(`# ${box.prefix}-one\ndone and ${word}`);
+
+    await dialog.getByRole('button', { name: 'Tout remplacer' }).click();
+    await page.getByRole('dialog').last().getByRole('button', { name: 'Tout remplacer' }).click();
     await expect(page.getByText('2 notes modifiées', { exact: true })).toBeVisible();
-    expect(await box.content(one.id)).toBe('done and done');
+    expect(await box.content(one.id)).toBe(`# ${box.prefix}-one\ndone and done`);
     expect(await box.content(two.id)).toBe('a done');
     expect(await box.content(locked.id)).toBe(`${word} locked`);
   } finally {

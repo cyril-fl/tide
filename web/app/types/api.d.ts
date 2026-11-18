@@ -5103,10 +5103,25 @@ export interface components {
             find: string;
             /** @description a folder id: only its notes, its subfolders included */
             folder?: string;
+            /** @description note ids: only these notes */
+            notes?: string[];
+            /** @description with Notes: only that occurrence of each, from 1 */
+            occurrence?: number;
             replace: string;
+        };
+        "replacenotes.Line": {
+            after: string;
+            before: string;
+            line: number;
+        };
+        "replacenotes.Match": {
+            id: string;
+            occurrences: components["schemas"]["replacenotes.Line"][];
+            path: string;
         };
         "replacenotes.Result": {
             locked: number;
+            matches?: components["schemas"]["replacenotes.Match"][];
             notes: number;
             occurrences: number;
         };

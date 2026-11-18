@@ -224,6 +224,7 @@ func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 			body.Folder = &id
 		}
 		result, err := decode[apiclient.ReplacenotesResult](client.PostApiReplace(ctx, body))
+		result.Matches = nil // the excerpts are for the app's list: the counts are enough here
 		return nil, result, err
 	})
 

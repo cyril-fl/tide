@@ -9,6 +9,7 @@ export type NoteStats = Schemas['countnotes.Stats'];
 export type TagDetail = Schemas['readtag.Result'];
 export type Match = Schemas['searchnotes.Match'];
 export type ReplaceResult = Schemas['replacenotes.Result'];
+export type ReplaceMatch = Schemas['replacenotes.Match'];
 export type Plan = Schemas['readplans.Plan'];
 export type Trashed = Schemas['listtrash.Trashed'];
 export type Neighbors = Schemas['readneighbors.Result'];

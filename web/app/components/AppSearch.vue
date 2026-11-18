@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CommandPaletteGroup, CommandPaletteItem } from '@nuxt/ui';
-import type { ItemDetail, Match, Recent, ReplaceResult, User } from '~/types/items';
+import type { ItemDetail, Match, Recent, User } from '~/types/items';
 
 const { icons } = useIcons();
 const { shortcuts, key } = useShortcuts();
@@ -10,8 +10,7 @@ const api = useApi();
 const { has } = usePro();
 const route = useRoute();
 const { createFolder, moveItem, renameFolder, renameTag } = useItems();
-const { importNotes, prompt, confirm } = useDialogs();
-const toast = useToast();
+const { importNotes, replaceNotes } = useDialogs();
 
 const open = useState('search-open', () => false);
 // The Option+T shortcut opens the palette on the snippets alone.
@@ -62,38 +61,6 @@ async function changeTheme(theme: string) {
   me.value = await api<User>('/api/me', { method: 'PATCH', body: { theme } });
 }
 
-/** Counts first, then replaces once the exact numbers are confirmed: the API changes every note at once. */
-async function replaceEverywhere() {
-  const find = await prompt({ title: t('search.replace.find'), value: term.value.trim() || undefined, raw: true });
-  if (!find?.trim()) return;
-  // Empty: the text is removed from every note.
-  const replace = await prompt({
-    title: t('search.replace.with', { find }),
-    action: t('search.replace.submit'),
-    raw: true,
-  });
-  if (replace === undefined) return;
-  const replaceNotes = (dryRun: boolean) =>
-    api<ReplaceResult>('/api/replace', { method: 'POST', body: { find, replace, dry_run: dryRun } });
-  const count = await replaceNotes(true);
-  const locked = count.locked ? t('search.replace.locked', { n: count.locked }, count.locked) : '';
-  if (!count.notes) {
-    toast.add({ title: t('search.replace.none', { find }), description: locked || undefined });
-    return;
-  }
-  const confirmed = await confirm({
-    title: t('search.replace.confirm', { find, replace }),
-    description: [t('search.replace.notes', { n: count.notes, occurrences: count.occurrences }, count.notes), locked]
-      .filter(Boolean)
-      .join(' '),
-    action: t('search.replace.submit'),
-  });
-  if (!confirmed) return;
-  const done = await replaceNotes(false);
-  toast.add({ title: t('search.replace.done', { n: done.notes }, done.notes), color: 'success' });
-  await refreshNuxtData();
-}
-
 const proActions = computed<CommandPaletteItem[]>(() => {
   if (!has('paletteActions')) return [];
   const target = here.value;
@@ -120,7 +87,13 @@ const proActions = computed<CommandPaletteItem[]>(() => {
   return [
     ...actions,
     ...(has('replaceEverywhere')
-      ? [{ label: t('search.replace.action'), icon: icons.replace, onSelect: replaceEverywhere }]
+      ? [
+          {
+            label: t('search.replace.action'),
+            icon: icons.replace,
+            onSelect: () => replaceNotes(term.value.trim() || undefined),
+          },
+        ]
       : []),
     { label: t('search.theme'), icon: icons.appearance, children },
   ];

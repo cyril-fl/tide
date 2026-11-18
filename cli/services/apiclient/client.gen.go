@@ -731,15 +731,36 @@ type ReplacenotesInput struct {
 	Find   string `json:"find"`
 
 	// Folder a folder id: only its notes, its subfolders included
-	Folder  *string `json:"folder,omitempty"`
-	Replace string  `json:"replace"`
+	Folder *string `json:"folder,omitempty"`
+
+	// Notes note ids: only these notes
+	Notes *[]string `json:"notes,omitempty"`
+
+	// Occurrence with Notes: only that occurrence of each, from 1
+	Occurrence *int   `json:"occurrence,omitempty"`
+	Replace    string `json:"replace"`
+}
+
+// ReplacenotesLine defines model for replacenotes.Line.
+type ReplacenotesLine struct {
+	After  string `json:"after"`
+	Before string `json:"before"`
+	Line   int    `json:"line"`
+}
+
+// ReplacenotesMatch defines model for replacenotes.Match.
+type ReplacenotesMatch struct {
+	Id          string             `json:"id"`
+	Occurrences []ReplacenotesLine `json:"occurrences"`
+	Path        string             `json:"path"`
 }
 
 // ReplacenotesResult defines model for replacenotes.Result.
 type ReplacenotesResult struct {
-	Locked      int `json:"locked"`
-	Notes       int `json:"notes"`
-	Occurrences int `json:"occurrences"`
+	Locked      int                  `json:"locked"`
+	Matches     *[]ReplacenotesMatch `json:"matches,omitempty"`
+	Notes       int                  `json:"notes"`
+	Occurrences int                  `json:"occurrences"`
 }
 
 // RespondFailure defines model for respond.Failure.

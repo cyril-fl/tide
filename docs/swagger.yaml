@@ -1245,6 +1245,13 @@ components:
       type: object
     searchnotes.Match:
       properties:
+        empty_sections:
+          description: With the empty_sections filter, the heading lines of the sections
+            left empty.
+          items:
+            type: string
+          type: array
+          uniqueItems: false
         id:
           type: string
         path:
@@ -3711,6 +3718,12 @@ paths:
       - description: only the notes with no tag
         in: query
         name: untagged
+        schema:
+          type: boolean
+      - description: only the notes with a heading followed by nothing up to a heading
+          of its level or higher, or the end; each match lists them
+        in: query
+        name: empty_sections
         schema:
           type: boolean
       - description: only the notes last changed before this day (2026-01-31) or RFC

@@ -67,6 +67,7 @@ type tagNotesArgs struct {
 	MaxLength     *int     `json:"max_length,omitempty"`
 	Untagged      bool     `json:"untagged,omitempty"`
 	UpdatedBefore string   `json:"updated_before,omitempty"`
+	EmptySections bool     `json:"empty_sections,omitempty"`
 	DryRun        bool     `json:"dry_run,omitempty" jsonschema:"write nothing, answer each note's diff"`
 	Add           []string `json:"add,omitempty" jsonschema:"without the #"`
 	Remove        []string `json:"remove,omitempty" jsonschema:"without the #"`
@@ -141,7 +142,8 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 			}
 		}
 		search := apiclient.SearchFilter{Text: args.Text, NotText: args.NotText, TagsAll: args.TagsAll, TagsAny: args.TagsAny,
-			TagsNone: args.TagsNone, Folder: args.Folder, MaxLength: args.MaxLength, Untagged: args.Untagged, UpdatedBefore: args.UpdatedBefore}
+			TagsNone: args.TagsNone, Folder: args.Folder, MaxLength: args.MaxLength, Untagged: args.Untagged, UpdatedBefore: args.UpdatedBefore,
+			EmptySections: args.EmptySections}
 		notes, err := apiclient.Targets(ctx, client, args.Notes, search)
 		if err != nil {
 			return nil, tagResult{}, err

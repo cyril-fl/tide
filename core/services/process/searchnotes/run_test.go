@@ -111,7 +111,7 @@ func TestSearchNotes(t *testing.T) {
 		t.Fatal(err)
 	}
 	candidates := []string{ids["Percent"], ids["Z "+word], ids["A in content"]}
-	filled, total, err := Matches(ctx, tx, tree, candidates, "inside", "", 0, 1, 0)
+	filled, total, err := Matches(ctx, tx, tree, candidates, "inside", Filter{}, 1, 0)
 	if err != nil || len(filled) != 1 || filled[0].ID != ids["A in content"] || total != 1 {
 		t.Errorf("matches = %+v of %d, %v; want A in content of 1", filled, total, err)
 	}
@@ -271,6 +271,9 @@ func TestSearchFilter(t *testing.T) {
 		"multibyte in length": {"", Filter{MaxLength: 50 + len(word)}, "Empty,Long,Tagged"},
 		"text and untagged":   {word, Filter{Untagged: true}, "Long"},
 		"text and short":      {word, Filter{MaxLength: 30 + len(word)}, "Tagged"},
+		// A title followed by nothing but #tags is an empty section.
+		"empty sections":          {"", Filter{EmptySections: true}, "Empty,Tagged"},
+		"text and empty sections": {word, Filter{EmptySections: true}, "Tagged"},
 	}
 	for name, test := range tests {
 		search := Process(ctx, tx, test.text).Filter(test.filter)
@@ -283,6 +286,12 @@ func TestSearchFilter(t *testing.T) {
 		if search.HasErr() || strings.Join(titles, ",") != test.want || search.GetTotal() != len(titles) {
 			t.Errorf("%s: titles = %v of %d, %v; want %s", name, titles, search.GetTotal(), search.GetErr(), test.want)
 		}
+	}
+
+	empty := Process(ctx, tx, word).Filter(Filter{EmptySections: true})
+	empty.Run()
+	if result := empty.GetResult(); len(result) != 1 || !slices.Equal(result[0].EmptySections, []string{"# Tagged"}) {
+		t.Errorf("empty sections of Tagged = %v", result)
 	}
 
 	// Stale notes: changed (or created) before the date, the oldest first without a text, ranked as usual with one.

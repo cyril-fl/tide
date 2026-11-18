@@ -24,6 +24,7 @@ type searchArgs struct {
 	MaxLength     *int     `json:"max_length,omitempty" jsonschema:"at most that many characters, title line included"`
 	Untagged      bool     `json:"untagged,omitempty"`
 	UpdatedBefore string   `json:"updated_before,omitempty" jsonschema:"changed before this day or RFC 3339 instant, oldest first"`
+	EmptySections bool     `json:"empty_sections,omitempty" jsonschema:"a heading with nothing before the next of its level or the end, listed"`
 	List          string   `json:"list,omitempty" jsonschema:"instead of a search: recent (the 20 changed last), duplicates (notes sharing a title) or same_path (sharing it in one folder)"`
 	Limit         *int     `json:"limit,omitempty" jsonschema:"50 when left out, 0 for all"`
 	Offset        int      `json:"offset,omitempty"`
@@ -32,7 +33,8 @@ type searchArgs struct {
 // filter is the args without list and paging.
 func (args searchArgs) filter() apiclient.SearchFilter {
 	return apiclient.SearchFilter{Text: args.Text, NotText: args.NotText, TagsAll: args.TagsAll, TagsAny: args.TagsAny,
-		TagsNone: args.TagsNone, Folder: args.Folder, MaxLength: args.MaxLength, Untagged: args.Untagged, UpdatedBefore: args.UpdatedBefore}
+		TagsNone: args.TagsNone, Folder: args.Folder, MaxLength: args.MaxLength, Untagged: args.Untagged, UpdatedBefore: args.UpdatedBefore,
+		EmptySections: args.EmptySections}
 }
 
 // searchPage is a page of matches and their total: those read, and the notes after them that may match. With list,

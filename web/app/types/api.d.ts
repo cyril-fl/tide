@@ -3590,6 +3590,8 @@ export interface paths {
                     max_length?: number;
                     /** @description only the notes with no tag */
                     untagged?: boolean;
+                    /** @description only the notes with a heading followed by nothing up to a heading of its level or higher, or the end; each match lists them */
+                    empty_sections?: boolean;
                     /** @description only the notes last changed before this day (2026-01-31) or RFC 3339 instant, the oldest first without q */
                     updated_before?: string;
                     /** @description only the notes carrying every one of these tag ids */
@@ -5139,6 +5141,8 @@ export interface components {
             title: string;
         };
         "searchnotes.Match": {
+            /** @description With the empty_sections filter, the heading lines of the sections left empty. */
+            empty_sections?: string[];
             id: string;
             path: string;
             readonly?: boolean;

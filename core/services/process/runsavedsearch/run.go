@@ -137,10 +137,10 @@ func (p *run) filterText() {
 		return
 	}
 
-	matches, total, err := searchnotes.Matches(p.ctx, p.db, p.cache.tree, p.cache.ids, strings.TrimSpace(p.search.Text), strings.TrimSpace(p.search.NotText), 0, p.limit, p.offset)
+	matches, total, err := searchnotes.Matches(p.ctx, p.db, p.cache.tree, p.cache.ids, strings.TrimSpace(p.search.Text), searchnotes.Filter{NotText: strings.TrimSpace(p.search.NotText)}, p.limit, p.offset)
 	p.SetErr(err)
 	p.cache.total = total
 	for _, match := range matches {
-		p.cache.result = append(p.cache.result, Match(match))
+		p.cache.result = append(p.cache.result, Match{ID: match.ID, Title: match.Title, Path: match.Path, Snippet: match.Snippet, Readonly: match.Readonly})
 	}
 }

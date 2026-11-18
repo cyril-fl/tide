@@ -67,8 +67,9 @@ func TestNotes(t *testing.T) {
 		both[1].Truncated == nil || !*both[1].Truncated || both[1].Content != "# Plan" || both[1].Length == nil || *both[1].Length != 25 {
 		t.Errorf("read_notes max_chars = %+v", both)
 	}
-	// Without a text, the filters alone keep the untagged and the short notes: Bare each time, Plan neither.
-	for _, args := range []map[string]any{{"untagged": true}, {"max_length": 10}} {
+	// Without a text, the filters alone keep the untagged, the short notes and those with an empty section: Bare each
+	// time, Plan neither.
+	for _, args := range []map[string]any{{"untagged": true}, {"max_length": 10}, {"empty_sections": true}} {
 		var short searchPage
 		call(t, agent, "search_notes", args, &short)
 		if len(short.Matches) != 1 || short.Matches[0].Id != bare.ID || short.Total != 1 {

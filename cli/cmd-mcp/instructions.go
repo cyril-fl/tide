@@ -11,7 +11,7 @@ func Instructions(readOnly bool) string {
 		"- Call tags once and keep the list; tags with prefix checks a tag exists, tags with a tag lists its notes.\n" +
 		"- Find the candidates on the server: the filters of search_notes all hold at once, with or without a text: " +
 		"tags_all, tags_any, tags_none (Idée AND (Cuisine OR Boisson) is tags_all [Idée], tags_any [Cuisine, Boisson]), folder, " +
-		"not_text (the notes lacking a text), untagged, max_length (empty or title-only notes), updated_before (stale notes).\n" +
+		"not_text (the notes lacking a text), untagged, max_length (empty or title-only notes), updated_before (stale notes), empty_sections (headings left empty).\n" +
 		"- Preview first: read_notes takes 50 notes, with max_chars, then in full only those that need it; list_folder with tags, length or preview sorts a folder unread.\n" +
 		"- Lists give 50 items and the total: page a big folder with limit and offset, one page per subagent.\n" +
 		"- note_links without a note lists the broken links.\n" +

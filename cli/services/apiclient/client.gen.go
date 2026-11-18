@@ -784,11 +784,13 @@ type RunsavedsearchMatch struct {
 
 // SearchnotesMatch defines model for searchnotes.Match.
 type SearchnotesMatch struct {
-	Id       string `json:"id"`
-	Path     string `json:"path"`
-	Readonly *bool  `json:"readonly,omitempty"`
-	Snippet  string `json:"snippet"`
-	Title    string `json:"title"`
+	// EmptySections With the empty_sections filter, the heading lines of the sections left empty.
+	EmptySections *[]string `json:"empty_sections,omitempty"`
+	Id            string    `json:"id"`
+	Path          string    `json:"path"`
+	Readonly      *bool     `json:"readonly,omitempty"`
+	Snippet       string    `json:"snippet"`
+	Title         string    `json:"title"`
 }
 
 // TagnotesInput defines model for tagnotes.Input.
@@ -956,6 +958,9 @@ type GetApiSearchParams struct {
 
 	// Untagged only the notes with no tag
 	Untagged *bool `form:"untagged,omitempty" json:"untagged,omitempty"`
+
+	// EmptySections only the notes with a heading followed by nothing up to a heading of its level or higher, or the end; each match lists them
+	EmptySections *bool `form:"empty_sections,omitempty" json:"empty_sections,omitempty"`
 
 	// UpdatedBefore only the notes last changed before this day (2026-01-31) or RFC 3339 instant, the oldest first without q
 	UpdatedBefore *string `form:"updated_before,omitempty" json:"updated_before,omitempty"`
@@ -5802,6 +5807,18 @@ func NewGetApiSearchRequest(server string, params *GetApiSearchParams) (*http.Re
 		if params.Untagged != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "untagged", *params.Untagged, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EmptySections != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "empty_sections", *params.EmptySections, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

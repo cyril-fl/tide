@@ -62,6 +62,37 @@ func Headings(content string) []string {
 	return headings
 }
 
+// EmptySections gives the heading lines followed by nothing up to a heading of the same or a higher level, or the end
+// of content: a section announced and never filled. Blank lines and lines of #tags only are nothing, fenced code is
+// something (its # are not headings).
+func EmptySections(content string) []string {
+	type line struct {
+		level int // 0: something that is not a heading
+		text  string
+	}
+	var lines []line
+	inCode := false
+	for text := range strings.Lines(content) {
+		text = strings.TrimSpace(text)
+		switch {
+		case fence.MatchString(text):
+			inCode = !inCode
+			lines = append(lines, line{})
+		case !inCode && heading.MatchString(text):
+			lines = append(lines, line{level: len(text) - len(strings.TrimLeft(text, "#")), text: text})
+		case inCode || strings.TrimSpace(hashtag.Remove(text, hashtag.Parse(text)...)) != "":
+			lines = append(lines, line{})
+		}
+	}
+	var empty []string
+	for i, l := range lines {
+		if l.level > 0 && (i == len(lines)-1 || lines[i+1].level > 0 && lines[i+1].level <= l.level) {
+			empty = append(empty, l.text)
+		}
+	}
+	return empty
+}
+
 // Helpers
 
 // textLines drops fenced code: a # there is a comment, not a heading.

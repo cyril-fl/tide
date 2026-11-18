@@ -13,7 +13,7 @@ import (
 )
 
 // Handler finds notes by title or content: GET /api/search?q=&max_length=&untagged=&updated_before=&tags_all=&tags_any=
-// &tags_none=&folder=&not_text=&limit=&offset=, X-Total-Count counting the matches.
+// &tags_none=&folder=&not_text=&empty_sections=&limit=&offset=, X-Total-Count counting the matches.
 // @Summary  Find notes by title or content
 // @Description The text in the title first, then in a heading, then the notes with the most backlinks, the latest edited, by path.
 // @Tags     search
@@ -21,6 +21,7 @@ import (
 // @Param    q          query string  false "text to find, may be left out with another filter"
 // @Param    max_length query integer false "only the notes whose content (title line included) has at most that many characters"
 // @Param    untagged   query boolean false "only the notes with no tag"
+// @Param    empty_sections query boolean false "only the notes with a heading followed by nothing up to a heading of its level or higher, or the end; each match lists them"
 // @Param    updated_before query string false "only the notes last changed before this day (2026-01-31) or RFC 3339 instant, the oldest first without q"
 // @Param    tags_all  query []string false "only the notes carrying every one of these tag ids" collectionFormat(multi)
 // @Param    tags_any  query []string false "only the notes carrying at least one of these tag ids: Idée AND (Cuisine OR Boisson) is tags_all Idée and tags_any Cuisine, Boisson" collectionFormat(multi)
@@ -42,9 +43,10 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		}
 		query := r.URL.Query()
 		filter := searchnotes.Filter{
-			Scope:    searchnotes.Scope{TagsAll: query["tags_all"], TagsAny: query["tags_any"], TagsNone: query["tags_none"]},
-			Untagged: query.Get("untagged") == "true",
-			NotText:  strings.TrimSpace(query.Get("not_text")),
+			Scope:         searchnotes.Scope{TagsAll: query["tags_all"], TagsAny: query["tags_any"], TagsNone: query["tags_none"]},
+			Untagged:      query.Get("untagged") == "true",
+			EmptySections: query.Get("empty_sections") == "true",
+			NotText:       strings.TrimSpace(query.Get("not_text")),
 		}
 		if folder := query.Get("folder"); folder != "" {
 			filter.Folders = []string{folder}

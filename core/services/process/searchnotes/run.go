@@ -12,6 +12,7 @@ import (
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/cyril-fl/tide/core/domain"
 	"github.com/cyril-fl/tide/core/services/noteindex"
+	"github.com/cyril-fl/tide/core/services/notetitle"
 	"github.com/cyril-fl/tide/core/services/secret"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
@@ -29,6 +30,8 @@ type Match struct {
 	Path     string `json:"path"`
 	Snippet  string `json:"snippet"`
 	Readonly bool   `json:"readonly,omitempty" binding:"optional"`
+	// With the empty_sections filter, the heading lines of the sections left empty.
+	EmptySections []string `json:"empty_sections,omitempty" binding:"optional"`
 }
 
 type run struct {
@@ -50,6 +53,7 @@ type Filter struct {
 	Untagged      bool      // notes with no tag
 	UpdatedBefore time.Time // notes last changed (or created, never changed) before it, the oldest first without a text; zero: any date
 	NotText       string    // notes whose title and content do not hold it, whatever its case; empty: none left out
+	EmptySections bool      // notes with a heading followed by nothing up to one of its level or higher, or the end
 }
 
 // Scope keeps the notes by their tags and folders, every list left empty keeping them all: Idée AND (Cuisine OR
@@ -96,7 +100,7 @@ func (s Scope) Where(ctx context.Context) (string, []any) {
 
 // empty is true when the filter keeps every note.
 func (f Filter) empty() bool {
-	return f.MaxLength == 0 && !f.Untagged && f.UpdatedBefore.IsZero() && f.NotText == "" &&
+	return f.MaxLength == 0 && !f.Untagged && !f.EmptySections && f.UpdatedBefore.IsZero() && f.NotText == "" &&
 		len(f.TagsAll)+len(f.TagsAny)+len(f.TagsNone)+len(f.Folders) == 0
 }
 
@@ -254,7 +258,7 @@ func (p *run) loadMatches() {
 	}
 
 	var err error
-	p.cache.result, p.cache.total, err = Matches(p.ctx, p.db, p.cache.tree, p.cache.ids, p.cache.text, p.filter.NotText, p.filter.MaxLength, p.limit, p.offset)
+	p.cache.result, p.cache.total, err = Matches(p.ctx, p.db, p.cache.tree, p.cache.ids, p.cache.text, p.filter, p.limit, p.offset)
 	p.SetErr(err)
 }
 
@@ -268,18 +272,19 @@ const (
 )
 
 // Matches opens the notes of ids, in their order, and keeps those holding text in their title or content whatever
-// its case, not holding notText in them when it is not empty, and whose content has at most maxLength characters when
-// it is not 0: limit of them from offset, every one when limit is 0. No text, notText nor maxLength: every note, none
-// opened for its content.
+// its case and passing the content filters of filter (NotText, MaxLength, EmptySections; the others are the caller's):
+// limit of them from offset, every one when limit is 0. No text nor content filter: every note, none opened for its
+// content.
 // The index gives a few notes that do not hold the text, so they are opened until the page is full, not all of them:
-// the total counts the matches met and the notes left unopened (none with maxLength or notText: all are opened, so the
+// the total counts the matches met and the notes left unopened (none with a content filter: all are opened, so the
 // total is exact), and a page costs the ones before it.
 // TODO: the last pages of a search with tens of thousands of matches open them all (1 s at 50,000 notes), as every
 // page did; a cursor instead of an offset if they are ever read.
-func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, text, notText string, maxLength, limit, offset int) ([]Match, int, error) {
+func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, text string, filter Filter, limit, offset int) ([]Match, int, error) {
+	notText, maxLength := filter.NotText, filter.MaxLength
 	lower, notLower := strings.ToLower(text), strings.ToLower(notText)
 	// Every note is opened when its content filters it: the unopened ones cannot be assumed to pass.
-	exact := maxLength > 0 || notText != ""
+	exact := maxLength > 0 || notText != "" || filter.EmptySections
 	inTitle := func(id string) bool { return strings.Contains(strings.ToLower(tree.Titles[id]), lower) }
 	columns := "mn.item_id AS id, mn.readonly"
 	if text != "" || exact {
@@ -330,8 +335,14 @@ func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, te
 			if notText != "" && (strings.Contains(strings.ToLower(string(r.Content)), notLower) || strings.Contains(strings.ToLower(tree.Titles[id]), notLower)) {
 				continue
 			}
+			var empty []string
+			if filter.EmptySections {
+				if empty = notetitle.EmptySections(string(r.Content)); len(empty) == 0 {
+					continue
+				}
+			}
 			if found >= offset && (limit <= 0 || found < offset+limit) {
-				match := Match{ID: id, Title: tree.Titles[id], Path: tree.Paths[id], Readonly: r.Readonly}
+				match := Match{ID: id, Title: tree.Titles[id], Path: tree.Paths[id], Readonly: r.Readonly, EmptySections: empty}
 				if text != "" {
 					match.Snippet = Snippet(string(r.Content), text)
 				}

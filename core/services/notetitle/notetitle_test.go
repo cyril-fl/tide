@@ -42,3 +42,27 @@ func TestFrom(t *testing.T) {
 		}
 	}
 }
+
+func TestEmptySections(t *testing.T) {
+	cases := map[string]struct {
+		content string
+		want    string
+	}{
+		"title only":           {"# Titre", "# Titre"},
+		"filled":               {"# Titre\n\ntexte", ""},
+		"subsection filled":    {"# Titre\n## A\ntexte", ""},
+		"same level":           {"# Recette\n## Ingrédients\n- sel\n## Étapes\n\n## Notes\ntexte", "## Étapes"},
+		"higher level":         {"# A\n### Sous\n## B\ntexte", "### Sous"},
+		"at the end":           {"# Recette\n\ntexte\n### Étapes\n\n", "### Étapes"},
+		"tags only":            {"# Recette\ntexte\n## Étapes\n#cuisine #idée", "## Étapes"},
+		"code is something":    {"# Script\n```sh\n# comment\n```", ""},
+		"heading in code":      {"# Script\ntexte\n```\n# a\n## b\n```", ""},
+		"tag is not a heading": {"# Titre\n#tag texte", ""},
+		"several":              {"# T\n## A\n## B\n", "## A|## B"},
+	}
+	for name, c := range cases {
+		if got := strings.Join(EmptySections(c.content), "|"); got != c.want {
+			t.Errorf("%s: EmptySections(%q) = %q, want %q", name, c.content, got, c.want)
+		}
+	}
+}

@@ -23,18 +23,19 @@ type SearchFilter struct {
 	MaxLength     *int
 	Untagged      bool
 	UpdatedBefore string
+	EmptySections bool
 }
 
 // Filtered tells whether the filter holds a text or a filter.
 func (filter SearchFilter) Filtered() bool {
 	return filter.Text != "" || filter.NotText != "" || len(filter.TagsAll)+len(filter.TagsAny)+len(filter.TagsNone) > 0 ||
-		filter.Folder != "" || filter.MaxLength != nil || filter.Untagged || filter.UpdatedBefore != ""
+		filter.Folder != "" || filter.MaxLength != nil || filter.Untagged || filter.UpdatedBefore != "" || filter.EmptySections
 }
 
 // SearchParams turns the filter into the API's query, the tags and the folder by their ids, limit matches from offset
 // (0: all): the one path the CLI and the MCP search by.
 func SearchParams(ctx context.Context, client *ClientWithResponses, filter SearchFilter, limit, offset int) (*GetApiSearchParams, error) {
-	params := &GetApiSearchParams{Q: &filter.Text, MaxLength: filter.MaxLength, Untagged: &filter.Untagged, Limit: &limit, Offset: &offset}
+	params := &GetApiSearchParams{Q: &filter.Text, MaxLength: filter.MaxLength, Untagged: &filter.Untagged, EmptySections: &filter.EmptySections, Limit: &limit, Offset: &offset}
 	if filter.UpdatedBefore != "" {
 		params.UpdatedBefore = &filter.UpdatedBefore
 	}

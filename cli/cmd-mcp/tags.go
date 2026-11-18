@@ -136,7 +136,11 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 		Annotations: writes(false, true),
 		Description: "Add or remove tags on the notes given, found by the filters of search_notes or grouped in ops, only their #tags rewritten; answers counts and each note's diff.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, tagResult, error) {
-		for _, tag := range args.Add {
+		adds := args.Add
+		for _, op := range args.Ops {
+			adds = append(adds[:len(adds):len(adds)], op.Add...)
+		}
+		for _, tag := range adds {
 			if !hashtag.Valid(tag) {
 				return nil, tagResult{}, fmt.Errorf("%w: %q", hashtag.ErrInvalid, tag)
 			}

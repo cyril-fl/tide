@@ -129,6 +129,12 @@ func TestNotes(t *testing.T) {
 			t.Errorf("tag_notes ops dry_run %v = %+v, then %q", dryRun, tagRes, read.Content)
 		}
 	}
+	// A tag of an op is checked like a top-level one, before anything is sent.
+	bad := []map[string]any{{"notes": []string{created.ID}, "add": []string{"a b"}}}
+	if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "tag_notes", Arguments: map[string]any{"ops": bad}}); err != nil || !result.IsError ||
+		!strings.Contains(result.Content[0].(*mcp.TextContent).Text, "a b") {
+		t.Errorf("tag_notes ops with an invalid tag = %+v, %v", result, err)
+	}
 	// The filters of search_notes pick the notes too: tags_none and folder, dry_run first, then the call; "old" keeps Plan out.
 	call(t, agent, "tag_notes", map[string]any{"tags_none": []string{"old"}, "folder": "/Projects", "add": []string{"x"}, "dry_run": true}, &tagRes)
 	if len(tagRes.Notes) != 0 {

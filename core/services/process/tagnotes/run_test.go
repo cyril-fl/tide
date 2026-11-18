@@ -130,7 +130,29 @@ func TestTag(t *testing.T) {
 		}
 	}
 
-	// #214: a stray ``` (its opening one read as indented code) no longer hides the tags written after it.
+	// #232: ops tag other notes in the same call, each seeing the ones before; a dry run writes none of them.
+	other := note("# Other\n\ntext")
+	ops := Input{Notes: []string{plan}, Add: []string{"A"}, Ops: []Op{{Notes: []string{other, plan}, Add: []string{"B"}}, {Notes: []string{plan}, Remove: []string{"A"}}}}
+	for _, dryRun := range []bool{true, false} {
+		ops.DryRun = dryRun
+		process = Process(ctx, tx, ops)
+		process.Run()
+		got = process.GetResult()
+		if process.HasErr() || len(got) != 4 || got[0].Op != nil || *got[1].Op != 0 || *got[2].Op != 0 || *got[3].Op != 1 ||
+			!slices.Equal(got[1].Added, []string{"B"}) || !slices.Equal(got[3].Removed, []string{"A"}) || !slices.Equal(got[3].Tags, []string{"B", "old"}) {
+			t.Fatalf("ops dry_run %v = %+v, %v", dryRun, got, process.GetErr())
+		}
+		if c, want := content(other), map[bool]string{true: "# Other\n\ntext", false: "# Other\n\ntext\n\n#B"}[dryRun]; c != want {
+			t.Errorf("other after ops dry_run %v = %q, want %q", dryRun, c, want)
+		}
+	}
+	invalid := Process(ctx, tx, Input{Ops: []Op{{Notes: []string{plan}, Add: []string{"no space"}}}})
+	invalid.Run()
+	if !errors.Is(invalid.GetErr(), hashtag.ErrInvalid) {
+		t.Errorf("invalid tag in an op: err = %v", invalid.GetErr())
+	}
+
+	// #214: a stray ```(its opening one read as indented code) no longer hides the tags written after it.
 	stray := note("# Markdown\n\n  \n    Code\n    ```\n{}\n```\n\n #Markdown #Code")
 	process = Process(ctx, tx, Input{Notes: []string{stray}, Add: []string{"Ressource"}})
 	process.Run()

@@ -796,7 +796,17 @@ type TagnotesInput struct {
 	Add *[]string `json:"add,omitempty"`
 
 	// DryRun DryRun runs everything then rolls it back: the answer is the one of a real call, with the diff of each note.
-	DryRun *bool     `json:"dry_run,omitempty"`
+	DryRun *bool    `json:"dry_run,omitempty"`
+	Notes  []string `json:"notes"`
+
+	// Ops Ops are more add/remove on other notes, run after those above in the same transaction, each seeing the ones before.
+	Ops    *[]TagnotesOp `json:"ops,omitempty"`
+	Remove *[]string     `json:"remove,omitempty"`
+}
+
+// TagnotesOp defines model for tagnotes.Op.
+type TagnotesOp struct {
+	Add    *[]string `json:"add,omitempty"`
 	Notes  []string  `json:"notes"`
 	Remove *[]string `json:"remove,omitempty"`
 }
@@ -814,7 +824,10 @@ type TagnotesTagged struct {
 	NotPresent *[]string `json:"not_present,omitempty"`
 
 	// Note the uuid or path asked
-	Note    string    `json:"note"`
+	Note string `json:"note"`
+
+	// Op The index in ops of the operation it comes from, absent for the notes of the top level.
+	Op      *int      `json:"op,omitempty"`
 	Path    *string   `json:"path,omitempty"`
 	Removed *[]string `json:"removed,omitempty"`
 	Tags    *[]string `json:"tags,omitempty"`

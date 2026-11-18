@@ -118,6 +118,16 @@ func TestNotes(t *testing.T) {
 		t.Errorf("tag_notes by text = %+v, then %q", retagged, read.Content)
 	}
 	call(t, agent, "tag_notes", map[string]any{"text": "shipped", "remove": []string{"review"}}, nil)
+	// #232: ops tag several groups in one call, counted apart; the second op sees the first.
+	ops := []map[string]any{{"notes": []string{created.ID}, "add": []string{"a"}}, {"notes": []string{created.ID, "/Nowhere"}, "remove": []string{"a"}}}
+	for _, dryRun := range []bool{true, false} {
+		call(t, agent, "tag_notes", map[string]any{"ops": ops, "dry_run": dryRun}, &tagRes)
+		read = readOne(t, agent, created.ID)
+		if len(tagRes.Notes) != 3 || len(tagRes.Ops) != 2 || tagRes.Changed != 2 || tagRes.Failed != 1 || tagRes.Ops[0] != (tagCount{Changed: 1}) ||
+			tagRes.Ops[1] != (tagCount{Changed: 1, Failed: 1}) || *tagRes.Notes[2].Op != 1 || read.Content != "# Plan\nshipped\n\n#done #old" {
+			t.Errorf("tag_notes ops dry_run %v = %+v, then %q", dryRun, tagRes, read.Content)
+		}
+	}
 	// The filters of search_notes pick the notes too: tags_none and folder, dry_run first, then the call; "old" keeps Plan out.
 	call(t, agent, "tag_notes", map[string]any{"tags_none": []string{"old"}, "folder": "/Projects", "add": []string{"x"}, "dry_run": true}, &tagRes)
 	if len(tagRes.Notes) != 0 {

@@ -70,6 +70,13 @@ type tagNotesArgs struct {
 	DryRun        bool     `json:"dry_run,omitempty" jsonschema:"write nothing, answer each note's diff"`
 	Add           []string `json:"add,omitempty" jsonschema:"without the #"`
 	Remove        []string `json:"remove,omitempty" jsonschema:"without the #"`
+	Ops           []tagOp  `json:"ops,omitempty" jsonschema:"more add/remove on other notes in the same call, counted apart"`
+}
+
+type tagOp struct {
+	Notes  []string `json:"notes"`
+	Add    []string `json:"add,omitempty"`
+	Remove []string `json:"remove,omitempty"`
 }
 
 // tagged is a note after tag_notes, its content left out: what happened to the tags asked, or why it was left as it was.
@@ -77,6 +84,7 @@ type tagged struct {
 	ID             string   `json:"id,omitempty"`
 	Title          string   `json:"title,omitempty"`
 	Note           string   `json:"note,omitempty"` // as asked, only for a note that failed: it has no id then
+	Op             *int     `json:"op,omitempty"`   // the index in ops of the operation, absent for the top level
 	Added          []string `json:"added,omitempty"`
 	AlreadyPresent []string `json:"already_present,omitempty"`
 	Removed        []string `json:"removed,omitempty"`
@@ -85,25 +93,37 @@ type tagged struct {
 	Error          string   `json:"error,omitempty"`
 }
 
-// tagResult counts the notes changed, left as they were and failed, then gives the notes with their diff.
-type tagResult struct {
-	Changed   int      `json:"changed"`
-	Unchanged int      `json:"unchanged"`
-	Failed    int      `json:"failed"`
-	Notes     []tagged `json:"notes"`
+// tagCount counts the notes changed, left as they were and failed.
+type tagCount struct {
+	Changed   int `json:"changed"`
+	Unchanged int `json:"unchanged"`
+	Failed    int `json:"failed"`
 }
 
-// tagCounts counts the notes: failed ones, changed ones (a tag added or removed) and the rest.
-func tagCounts(notes []tagged) tagResult {
-	out := tagResult{Notes: notes}
+// tagResult counts every note, then those of each op, then gives the notes with their diff.
+type tagResult struct {
+	tagCount
+	Ops   []tagCount `json:"ops,omitempty"`
+	Notes []tagged   `json:"notes"`
+}
+
+// tagCounts counts the notes: failed ones, changed ones (a tag added or removed) and the rest, in all and by op.
+func tagCounts(notes []tagged, ops int) tagResult {
+	out := tagResult{Notes: notes, Ops: make([]tagCount, ops)}
 	for _, n := range notes {
-		switch {
-		case n.Error != "":
-			out.Failed++
-		case len(n.Added)+len(n.Removed) > 0:
-			out.Changed++
-		default:
-			out.Unchanged++
+		counts := []*tagCount{&out.tagCount}
+		if n.Op != nil && *n.Op < ops {
+			counts = append(counts, &out.Ops[*n.Op])
+		}
+		for _, c := range counts {
+			switch {
+			case n.Error != "":
+				c.Failed++
+			case len(n.Added)+len(n.Removed) > 0:
+				c.Changed++
+			default:
+				c.Unchanged++
+			}
 		}
 	}
 	return out
@@ -113,7 +133,7 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tag_notes",
 		Annotations: writes(false, true),
-		Description: "Add or remove tags on the notes given or found by the filters of search_notes, only their #tags rewritten; answers counts and each note's diff.",
+		Description: "Add or remove tags on the notes given, found by the filters of search_notes or grouped in ops, only their #tags rewritten; answers counts and each note's diff.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, tagResult, error) {
 		for _, tag := range args.Add {
 			if !hashtag.Valid(tag) {
@@ -127,19 +147,23 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 			return nil, tagResult{}, err
 		}
 		args.Notes = notes
-		if len(args.Notes) == 0 {
-			return nil, tagCounts([]tagged{}), nil
+		if len(args.Notes) == 0 && len(args.Ops) == 0 {
+			return nil, tagCounts([]tagged{}, 0), nil
+		}
+		ops := make([]apiclient.TagnotesOp, len(args.Ops))
+		for i, op := range args.Ops {
+			ops[i] = apiclient.TagnotesOp{Notes: op.Notes, Add: &op.Add, Remove: &op.Remove}
 		}
 		// The API's answer carries the diff of each note. Hundreds of notes take longer than Timeout.
 		ctx, cancel := apiclient.Long(ctx)
 		defer cancel()
-		out, err := decode[[]tagged](client.PatchApiNotesTags(ctx, apiclient.TagnotesInput{Notes: args.Notes, Add: &args.Add, Remove: &args.Remove, DryRun: &args.DryRun}))
+		out, err := decode[[]tagged](client.PatchApiNotesTags(ctx, apiclient.TagnotesInput{Notes: args.Notes, Add: &args.Add, Remove: &args.Remove, Ops: &ops, DryRun: &args.DryRun}))
 		for i := range out {
 			if out[i].Error == "" {
 				out[i].Note = "" // the id says which note
 			}
 		}
-		return nil, tagCounts(out), err
+		return nil, tagCounts(out, len(args.Ops)), err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{

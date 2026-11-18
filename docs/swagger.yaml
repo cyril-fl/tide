@@ -1277,6 +1277,33 @@ components:
             type: string
           type: array
           uniqueItems: false
+        ops:
+          description: Ops are more add/remove on other notes, run after those above
+            in the same transaction, each seeing the ones before.
+          items:
+            $ref: '#/components/schemas/tagnotes.Op'
+          type: array
+          uniqueItems: false
+        remove:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+      required:
+      - notes
+      type: object
+    tagnotes.Op:
+      properties:
+        add:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        notes:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
         remove:
           items:
             type: string
@@ -1318,6 +1345,10 @@ components:
         note:
           description: the uuid or path asked
           type: string
+        op:
+          description: The index in ops of the operation it comes from, absent for
+            the notes of the top level.
+          type: integer
         path:
           type: string
         removed:

@@ -5150,6 +5150,13 @@ export interface components {
             /** @description DryRun runs everything then rolls it back: the answer is the one of a real call, with the diff of each note. */
             dry_run?: boolean;
             notes: string[];
+            /** @description Ops are more add/remove on other notes, run after those above in the same transaction, each seeing the ones before. */
+            ops?: components["schemas"]["tagnotes.Op"][];
+            remove?: string[];
+        };
+        "tagnotes.Op": {
+            add?: string[];
+            notes: string[];
             remove?: string[];
         };
         "tagnotes.Tagged": {
@@ -5163,6 +5170,8 @@ export interface components {
             not_present?: string[];
             /** @description the uuid or path asked */
             note: string;
+            /** @description The index in ops of the operation it comes from, absent for the notes of the top level. */
+            op?: number;
             path?: string;
             removed?: string[];
             tags?: string[];

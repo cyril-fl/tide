@@ -28,13 +28,24 @@ type Input struct {
 	Notes  []string `json:"notes"`
 	Add    []string `json:"add,omitempty" binding:"optional"`
 	Remove []string `json:"remove,omitempty" binding:"optional"`
+	// Ops are more add/remove on other notes, run after those above in the same transaction, each seeing the ones before.
+	Ops []Op `json:"ops,omitempty" binding:"optional"`
 	// DryRun runs everything then rolls it back: the answer is the one of a real call, with the diff of each note.
 	DryRun bool `json:"dry_run,omitempty" binding:"optional"`
 }
 
+// Op adds and removes tags on its notes, as Input does.
+type Op struct {
+	Notes  []string `json:"notes"`
+	Add    []string `json:"add,omitempty" binding:"optional"`
+	Remove []string `json:"remove,omitempty" binding:"optional"`
+}
+
 // Tagged is a note after the call, its content left out, or why it was left as it was.
 type Tagged struct {
-	Note  string   `json:"note"` // the uuid or path asked
+	Note string `json:"note"` // the uuid or path asked
+	// The index in ops of the operation it comes from, absent for the notes of the top level.
+	Op    *int     `json:"op,omitempty" binding:"optional"`
 	ID    string   `json:"id,omitempty" binding:"optional"`
 	Title string   `json:"title,omitempty" binding:"optional"`
 	Path  string   `json:"path,omitempty" binding:"optional"`
@@ -68,6 +79,7 @@ type run struct {
 	ctx   context.Context
 	db    bun.IDB // *bun.DB or bun.Tx: tests run inside a rolled-back transaction
 	input Input
+	ops   []Op // the top level then input.Ops
 }
 
 type cache struct {
@@ -98,14 +110,17 @@ func (p *run) GetResult() []Tagged {
 // Methods
 
 func (p *run) checkInput() {
-	for _, tag := range p.input.Add {
-		if !hashtag.Valid(tag) {
-			p.SetErr(fmt.Errorf("%w: %q", hashtag.ErrInvalid, tag))
-			return
-		}
-		if slices.ContainsFunc(p.input.Remove, func(r string) bool { return strings.EqualFold(r, tag) }) {
-			p.SetErr(fmt.Errorf("%w: add and remove: %s in both", hashtag.ErrInvalid, tag))
-			return
+	p.ops = append([]Op{{Notes: p.input.Notes, Add: p.input.Add, Remove: p.input.Remove}}, p.input.Ops...)
+	for _, op := range p.ops {
+		for _, tag := range op.Add {
+			if !hashtag.Valid(tag) {
+				p.SetErr(fmt.Errorf("%w: %q", hashtag.ErrInvalid, tag))
+				return
+			}
+			if slices.ContainsFunc(op.Remove, func(r string) bool { return strings.EqualFold(r, tag) }) {
+				p.SetErr(fmt.Errorf("%w: add and remove: %s in both", hashtag.ErrInvalid, tag))
+				return
+			}
 		}
 	}
 }
@@ -115,18 +130,23 @@ func (p *run) tagNotes() {
 		return
 	}
 
-	p.cache.result = make([]Tagged, 0, len(p.input.Notes))
+	p.cache.result = []Tagged{}
 	// p.ctx, not the one RunInTx hands: a bun.Tx's own ctx may act for another account.
 	err := p.db.RunInTx(p.ctx, nil, func(_ context.Context, tx bun.Tx) error {
-		for _, ref := range p.input.Notes {
-			done := Tagged{Note: ref}
-			// A savepoint per note: one failing leaves the others, and the transaction usable.
-			if err := tx.RunInTx(p.ctx, nil, func(_ context.Context, sp bun.Tx) error {
-				return p.tagNote(sp, &done)
-			}); err != nil {
-				done.Error = err.Error()
+		for i, op := range p.ops {
+			for _, ref := range op.Notes {
+				done := Tagged{Note: ref}
+				if index := i - 1; i > 0 {
+					done.Op = &index
+				}
+				// A savepoint per note: one failing leaves the others, and the transaction usable.
+				if err := tx.RunInTx(p.ctx, nil, func(_ context.Context, sp bun.Tx) error {
+					return p.tagNote(sp, op, &done)
+				}); err != nil {
+					done.Error = err.Error()
+				}
+				p.cache.result = append(p.cache.result, done)
 			}
-			p.cache.result = append(p.cache.result, done)
 		}
 		if p.input.DryRun {
 			return errDryRun // the same steps ran, nothing stays
@@ -139,7 +159,7 @@ func (p *run) tagNotes() {
 }
 
 // tagNote makes the #tags of a note its own plus add, minus remove, through hashtag.Sync as patchnote does for tags.
-func (p *run) tagNote(tx bun.Tx, done *Tagged) error {
+func (p *run) tagNote(tx bun.Tx, op Op, done *Tagged) error {
 	resolve := resolveitem.Process(p.ctx, tx, domain.NOTE, []string{done.Note})
 	resolve.Run()
 	if resolve.HasErr() {
@@ -152,15 +172,15 @@ func (p *run) tagNote(tx bun.Tx, done *Tagged) error {
 	}
 	note := read.GetResult()
 	before := hashtag.Parse(note.Content)
-	done.AlreadyPresent, done.Added = diff(before, p.input.Add)
-	done.Removed, done.NotPresent = diff(before, p.input.Remove)
+	done.AlreadyPresent, done.Added = diff(before, op.Add)
+	done.Removed, done.NotPresent = diff(before, op.Remove)
 	text := note.Content
 
 	tags := slices.DeleteFunc(hashtag.Parse(note.Content), func(tag string) bool {
-		return slices.ContainsFunc(p.input.Remove, func(r string) bool { return strings.EqualFold(r, tag) })
+		return slices.ContainsFunc(op.Remove, func(r string) bool { return strings.EqualFold(r, tag) })
 	})
-	next := hashtag.Sync(note.Content, append(tags, p.input.Add...))
-	for _, tag := range p.input.Add {
+	next := hashtag.Sync(note.Content, append(tags, op.Add...))
+	for _, tag := range op.Add {
 		if !slices.ContainsFunc(hashtag.Parse(next), func(t string) bool { return strings.EqualFold(t, tag) }) {
 			return fmt.Errorf("%w: %q", ErrUnread, tag)
 		}

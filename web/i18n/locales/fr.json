@@ -134,6 +134,9 @@
     "sortTitle": "Nom",
     "sortCreated": "Date de création",
     "sortUpdated": "Date de modification",
+    "sortPinned": "Épinglés",
+    "sortPinnedFirst": "Épinglés en premier",
+    "sortPinnedLast": "Épinglés en dernier",
     "sortReset": "Réinitialiser le tri"
   },
   "path": {

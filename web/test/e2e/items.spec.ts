@@ -146,34 +146,38 @@ test('opening a folder reads the account once', async ({ page }) => {
   expect(reads).toEqual({ me: 1, folders: 1, recent: 1 });
 });
 
-// Pinned first, then the chosen order, kept on the account for the other devices.
-test('a folder sorts by name or date, the pinned note first', async ({ page }) => {
+// Neutral by name, then choices added in turn, kept on the account for the other devices.
+test('a folder sorts by several choices, back to neutral', async ({ page }) => {
   const older = await box.note('# Ancienne');
   await box.note('# Brouillon');
   const pinned = await box.note('# Zénith');
   await box.api.patch(`/api/notes/${pinned.id}`, { data: { pinned: true } });
   await box.api.patch(`/api/notes/${older.id}`, { data: { content: '# Ancienne\n\nretouchée' } });
+  await box.api.patch('/api/me', { data: { sort: '' } });
   await page.goto(`/folders/${box.folder.id}`);
   // Not by role: the open menu hides the page from the roles.
   const titles = page.locator('main li');
+  const saved = () => expect.poll(async () => (await (await box.api.get('/api/me')).json()).sort);
 
   try {
-    await expect(titles).toHaveText([/Zénith/, /Ancienne/, /Brouillon/]);
-    // A choice goes ascending, then descending, then back to the name; the menu stays open between clicks.
+    await expect(titles).toHaveText([/Ancienne/, /Brouillon/, /Zénith/]);
+    // A choice goes ascending, then descending, then off; the menu stays open between clicks.
     await page.getByRole('button', { name: 'Trier par' }).click();
+    await page.getByRole('menuitem', { name: 'Épinglés' }).click();
+    await expect(titles).toHaveText([/Zénith/, /Ancienne/, /Brouillon/]);
     const modified = page.getByRole('menuitem', { name: 'Date de modification' });
     await modified.click();
-    await expect(titles).toHaveText([/Zénith/, /Brouillon/, /Ancienne/]); // the oldest edit first
+    await expect(titles).toHaveText([/Zénith/, /Brouillon/, /Ancienne/]); // pinned, then the oldest edit
     await modified.click();
     await expect(titles).toHaveText([/Zénith/, /Ancienne/, /Brouillon/]);
-    await expect.poll(async () => (await (await box.api.get('/api/me')).json()).sort).toBe('-updated');
-    await modified.click();
-    await expect.poll(async () => (await (await box.api.get('/api/me')).json()).sort).toBe('title');
-    await page.getByRole('menuitem', { name: 'Nom' }).click();
-    await expect(titles).toHaveText([/Zénith/, /Brouillon/, /Ancienne/]);
+    await saved().toBe('pinned,-updated');
+    await page.getByRole('menuitem', { name: 'Épinglés en premier' }).click();
+    await page.getByRole('menuitem', { name: 'Épinglés en dernier' }).click();
+    await saved().toBe('-updated');
     await page.getByRole('menuitem', { name: 'Réinitialiser le tri' }).click();
-    await expect(titles).toHaveText([/Zénith/, /Ancienne/, /Brouillon/]);
+    await expect(titles).toHaveText([/Ancienne/, /Brouillon/, /Zénith/]);
+    await saved().toBe('');
   } finally {
-    await box.api.patch('/api/me', { data: { sort: 'title' } });
+    await box.api.patch('/api/me', { data: { sort: '' } });
   }
 });

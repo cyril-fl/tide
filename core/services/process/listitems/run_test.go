@@ -139,10 +139,9 @@ func TestListItems(t *testing.T) {
 	// The order is cached: reversed by hand, the next page follows it, until a write changes items_version.
 	reverse := func() {
 		account, _ := orders.Load(ctx, tx, func() (*cachedOrders, error) { return nil, errors.New("not cached") })
-		order := account.ids[orderKey{id, ""}]
-		order.ids = slices.Clone(order.ids)
-		slices.Reverse(order.ids)
-		account.ids[orderKey{id, ""}] = order
+		ids := slices.Clone(account.ids[orderKey{id, ""}])
+		slices.Reverse(ids)
+		account.ids[orderKey{id, ""}] = ids
 	}
 	first := func() (string, int) {
 		page := Process(ctx, tx, id, "").Page(1, 0)
@@ -245,17 +244,22 @@ func TestSort(t *testing.T) {
 		}
 	}
 
-	// Folders first, then B pinned, then the others by the sort; a page keeps the same order.
+	// Folders first, then the keys in turn, the title deciding ties; a page keeps the same order.
 	for _, test := range []struct {
 		sort string
 		want []string
 	}{
-		{"", []string{"Z folder", "B", "A", "C"}},
-		{"-title", []string{"Z folder", "B", "C", "A"}},
-		{"created", []string{"Z folder", "B", "C", "A"}},
+		{"", []string{"Z folder", "A", "B", "C"}},
+		{"-title", []string{"Z folder", "C", "B", "A"}},
+		{"created", []string{"Z folder", "C", "A", "B"}},
 		{"-created", []string{"Z folder", "B", "A", "C"}},
-		{"updated", []string{"Z folder", "B", "A", "C"}},
-		{"-updated", []string{"Z folder", "B", "C", "A"}},
+		{"updated", []string{"Z folder", "A", "B", "C"}},
+		{"-updated", []string{"Z folder", "C", "B", "A"}},
+		{"pinned", []string{"Z folder", "B", "A", "C"}},
+		{"-pinned", []string{"Z folder", "A", "C", "B"}},
+		{"pinned,created", []string{"Z folder", "B", "C", "A"}},
+		{"pinned,-title", []string{"Z folder", "B", "C", "A"}},
+		{"-created,pinned", []string{"Z folder", "B", "A", "C"}},
 	} {
 		for _, page := range []struct{ limit, offset int }{{0, 0}, {2, 2}} {
 			process := Process(ctx, tx, id, "").Sort(test.sort).Page(page.limit, page.offset)
@@ -270,9 +274,11 @@ func TestSort(t *testing.T) {
 		}
 	}
 
-	unknown := Process(ctx, tx, id, "").Sort("size")
-	unknown.Run()
-	if !errors.Is(unknown.GetErr(), ErrInvalidSort) {
-		t.Errorf("err = %v, want %v", unknown.GetErr(), ErrInvalidSort)
+	for _, sort := range []string{"size", "title,-title", "title,"} {
+		unknown := Process(ctx, tx, id, "").Sort(sort)
+		unknown.Run()
+		if !errors.Is(unknown.GetErr(), ErrInvalidSort) {
+			t.Errorf("sort %q: err = %v, want %v", sort, unknown.GetErr(), ErrInvalidSort)
+		}
 	}
 }

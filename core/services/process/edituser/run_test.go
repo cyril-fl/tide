@@ -31,6 +31,7 @@ func TestInvalidInput(t *testing.T) {
 		{Input{ColorMode: text("dim")}, ErrInvalidColorMode},
 		{Input{View: text("table")}, ErrInvalidView},
 		{Input{Sort: text("size")}, ErrInvalidSort},
+		{Input{Sort: text("title,-title")}, ErrInvalidSort},
 		{Input{AfterMerge: text("later")}, ErrInvalidAfterMerge},
 		{Input{Plan: text("max")}, ErrInvalidPlan},
 		{Input{TrashRetentionDays: days(-1)}, ErrInvalidRetention},
@@ -79,13 +80,13 @@ func TestEditUser(t *testing.T) {
 	defer tx.Rollback()
 	ctx, tx = testaccount.New(t, ctx, tx)
 
-	locale, view, sort, never, plan, keep := "en", "grid", "-updated", 0, "pro", "keep"
+	locale, view, sort, never, plan, keep := "en", "grid", "pinned,-updated", 0, "pro", "keep"
 	process := Process(ctx, tx, Input{Locale: &locale})
 	process.Run()
 	if process.HasErr() {
 		t.Fatalf("edit: %v", process.GetErr())
 	}
-	if got := process.GetResult(); got.Locale != "en" || got.ID == "" || got.Theme != "notes" || got.ColorMode != "system" || got.TrashRetentionDays != 30 || got.NeighborsLimit != 50 || got.Plan != "base" || got.AfterMerge != "ask" || got.Sort != "title" {
+	if got := process.GetResult(); got.Locale != "en" || got.ID == "" || got.Theme != "notes" || got.ColorMode != "system" || got.TrashRetentionDays != 30 || got.NeighborsLimit != 50 || got.Plan != "base" || got.AfterMerge != "ask" || got.Sort != "" {
 		t.Errorf("result = %+v, want locale en with ID and the default settings", got)
 	}
 
@@ -94,8 +95,8 @@ func TestEditUser(t *testing.T) {
 	if process.HasErr() {
 		t.Fatalf("edit: %v", process.GetErr())
 	}
-	if got := process.GetResult(); got.Locale != "en" || got.View != "grid" || got.Sort != "-updated" || got.TrashRetentionDays != 0 || got.NeighborsLimit != 0 || got.Plan != "pro" || got.AfterMerge != "keep" {
-		t.Errorf("result = %+v, want locale kept, view grid, sort -updated, retention 0, every neighbor, plan pro, forks kept", got)
+	if got := process.GetResult(); got.Locale != "en" || got.View != "grid" || got.Sort != "pinned,-updated" || got.TrashRetentionDays != 0 || got.NeighborsLimit != 0 || got.Plan != "pro" || got.AfterMerge != "keep" {
+		t.Errorf("result = %+v, want locale kept, view grid, sort pinned,-updated, retention 0, every neighbor, plan pro, forks kept", got)
 	}
 
 	if got := process.GetResult(); len(got.Snippets) != 0 {

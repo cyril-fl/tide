@@ -1040,11 +1040,11 @@ export interface paths {
                     parent?: string;
                     /** @description folder or note, both when left out */
                     kind?: string;
-                    /** @description title, created or updated, - first to reverse; title when left out */
+                    /** @description comma-separated keys among title, created, updated and pinned, the first deciding first, - before one to reverse; by title when left out */
                     sort?: string;
                     /** @description children in the page, all when left out or 0 */
                     limit?: number;
-                    /** @description children skipped before the page: folders first, then notes, the pinned ones first in each, then by sort */
+                    /** @description children skipped before the page: folders first, then notes, each by sort */
                     offset?: number;
                 };
                 header?: never;
@@ -4819,7 +4819,7 @@ export interface components {
             /** @description The order of the sidebar lists and which ones show, [] for the app's default. */
             sidebar_sections: components["schemas"]["domain.SidebarSection"][];
             snippets: components["schemas"]["domain.Snippet"][];
-            /** @description the order of a folder's items, one of Sorts */
+            /** @description the order of a folder's items, see SortKeys */
             sort: string;
             /** @description the colors of the web app, one of Themes */
             theme: string;
@@ -4899,7 +4899,7 @@ export interface components {
             sidebar_sections?: components["schemas"]["domain.SidebarSection"][];
             /** @description the whole list, it replaces the saved one */
             snippets?: components["schemas"]["domain.Snippet"][];
-            /** @description one of domain.Sorts */
+            /** @description see domain.SortKeys, "" for the neutral order */
             sort?: string;
             theme?: string;
             trash_retention_days?: number;

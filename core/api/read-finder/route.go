@@ -18,9 +18,9 @@ import (
 // @Produce  json
 // @Param    parent query string  false "folder uuid, the root when left out"
 // @Param    kind   query string  false "folder or note, both when left out"
-// @Param    sort   query string  false "title, created or updated, - first to reverse; title when left out"
+// @Param    sort   query string  false "comma-separated keys among title, created, updated and pinned, the first deciding first, - before one to reverse; by title when left out"
 // @Param    limit  query integer false "children in the page, all when left out or 0"
-// @Param    offset query integer false "children skipped before the page: folders first, then notes, the pinned ones first in each, then by sort"
+// @Param    offset query integer false "children skipped before the page: folders first, then notes, each by sort"
 // @Success  200 {array} domain.Item
 // @Header   200 {integer} X-Total-Count "every child, not only the page"
 // @Failure  400 {object} respond.Failure

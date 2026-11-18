@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/cyril-fl/tide/core/services/secret"
@@ -23,7 +24,7 @@ type User struct {
 	Theme        string `bun:",notnull,default:'notes'" json:"theme"`       // the colors of the web app, one of Themes
 	ColorMode    string `bun:",notnull,default:'system'" json:"color_mode"` // light or dark, one of ColorModes
 	View         string `bun:",notnull,default:'list'" json:"view"`         // how the web app lists items, one of Views
-	Sort         string `bun:",notnull,default:'title'" json:"sort"`        // the order of a folder's items, one of Sorts
+	Sort         string `bun:",notnull,default:''" json:"sort"`             // the order of a folder's items, see SortKeys
 	Plan         string `bun:",notnull,default:'base'" json:"plan"`         // the features of the web app, one of Plans
 	Admin        bool   `bun:",notnull,default:false" json:"admin"`         // may create, invite and delete accounts; the first account of the base gets it
 	// Days before the trash is purged, 0 to never purge. An insert of 0 gets the default: only an update sets it.
@@ -110,12 +111,31 @@ var (
 	Themes     = []string{"notes", "dracula", "catppuccin", "nord", "gruvbox", "everforest", "tokyo", "vue"}
 	ColorModes = []string{"system", "light", "dark"}
 	Views      = []string{"list", "grid"}
-	// Sorts: by title, creation or last edit, "-" first for the reverse order.
-	Sorts = []string{"title", "-title", "created", "-created", "updated", "-updated"}
-	Plans = []string{"base", "pro", "ultra"}
+	Plans      = []string{"base", "pro", "ultra"}
 	// AfterMerges: the app asks at each merge whether to trash the fork, or trashes it, or keeps it without asking.
 	AfterMerges = []string{"ask", "delete", "keep"}
 )
+
+// SortKeys order a folder's items: a sort is a comma-separated list of them, the first deciding first, "-" before a
+// key for the reverse order ("pinned": the pinned ones first, "-pinned" last). "" is the neutral order: by title.
+var SortKeys = []string{"title", "created", "updated", "pinned"}
+
+// SortList splits a sort into its keys, false when one is unknown or repeated.
+func SortList(sort string) ([]string, bool) {
+	if sort == "" {
+		return nil, true
+	}
+	keys := strings.Split(sort, ",")
+	seen := map[string]bool{}
+	for _, key := range keys {
+		key = strings.TrimPrefix(key, "-")
+		if !slices.Contains(SortKeys, key) || seen[key] {
+			return nil, false
+		}
+		seen[key] = true
+	}
+	return keys, true
+}
 
 // Features are the plan each feature of the web app comes from, each plan including those before it, "off" for no one
 // (unfinished, withdrawn): the one list of them. The API refuses the routes of a feature to the plans without it, and

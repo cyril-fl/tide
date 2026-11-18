@@ -57,7 +57,7 @@ type Input struct {
 	Theme              *string                  `json:"theme,omitempty" binding:"optional"`
 	ColorMode          *string                  `json:"color_mode,omitempty" binding:"optional"`
 	View               *string                  `json:"view,omitempty" binding:"optional"`
-	Sort               *string                  `json:"sort,omitempty" binding:"optional"` // one of domain.Sorts
+	Sort               *string                  `json:"sort,omitempty" binding:"optional"` // see domain.SortKeys, "" for the neutral order
 	Plan               *string                  `json:"plan,omitempty" binding:"optional"`
 	TrashRetentionDays *int                     `json:"trash_retention_days,omitempty" binding:"optional"`
 	NeighborsLimit     *int                     `json:"neighbors_limit,omitempty" binding:"optional"` // one of domain.NeighborsLimits
@@ -118,7 +118,7 @@ func (p *run) checkInput() {
 		p.SetErr(fmt.Errorf("%w: %q", ErrInvalidColorMode, *p.input.ColorMode))
 	case !valid(p.input.View, domain.Views):
 		p.SetErr(fmt.Errorf("%w: %q", ErrInvalidView, *p.input.View))
-	case !valid(p.input.Sort, domain.Sorts):
+	case p.input.Sort != nil && !validSort(*p.input.Sort):
 		p.SetErr(fmt.Errorf("%w: %q", ErrInvalidSort, *p.input.Sort))
 	case !valid(p.input.Plan, domain.Plans):
 		p.SetErr(fmt.Errorf("%w: %q", ErrInvalidPlan, *p.input.Plan))
@@ -267,6 +267,11 @@ func (p *run) updateUser() {
 // valid accepts a setting left out, or one of choices.
 func valid(value *string, choices []string) bool {
 	return value == nil || slices.Contains(choices, *value)
+}
+
+func validSort(sort string) bool {
+	_, ok := domain.SortList(sort)
+	return ok
 }
 
 // validSnippets accepts snippets left out, or a short list of named ones.

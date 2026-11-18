@@ -337,7 +337,7 @@ type DomainUser struct {
 	SidebarSections []DomainSidebarSection `json:"sidebar_sections"`
 	Snippets        []DomainSnippet        `json:"snippets"`
 
-	// Sort the order of a folder's items, one of Sorts
+	// Sort the order of a folder's items, see SortKeys
 	Sort string `json:"sort"`
 
 	// Theme the colors of the web app, one of Themes
@@ -452,7 +452,7 @@ type EdituserInput struct {
 	// Snippets the whole list, it replaces the saved one
 	Snippets *[]DomainSnippet `json:"snippets,omitempty"`
 
-	// Sort one of domain.Sorts
+	// Sort see domain.SortKeys, "" for the neutral order
 	Sort               *string `json:"sort,omitempty"`
 	Theme              *string `json:"theme,omitempty"`
 	TrashRetentionDays *int    `json:"trash_retention_days,omitempty"`
@@ -881,13 +881,13 @@ type GetApiItemsParams struct {
 	// Kind folder or note, both when left out
 	Kind *string `form:"kind,omitempty" json:"kind,omitempty"`
 
-	// Sort title, created or updated, - first to reverse; title when left out
+	// Sort comma-separated keys among title, created, updated and pinned, the first deciding first, - before one to reverse; by title when left out
 	Sort *string `form:"sort,omitempty" json:"sort,omitempty"`
 
 	// Limit children in the page, all when left out or 0
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// Offset children skipped before the page: folders first, then notes, the pinned ones first in each, then by sort
+	// Offset children skipped before the page: folders first, then notes, each by sort
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 

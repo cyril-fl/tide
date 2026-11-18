@@ -134,6 +134,9 @@
     "sortTitle": "Name",
     "sortCreated": "Date created",
     "sortUpdated": "Date modified",
+    "sortPinned": "Pinned",
+    "sortPinnedFirst": "Pinned first",
+    "sortPinnedLast": "Pinned last",
     "sortReset": "Reset the sort"
   },
   "path": {

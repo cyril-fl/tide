@@ -47,7 +47,7 @@ The padlock at the bottom of a note locks it read-only (the editor and the sourc
 
 In a folder, ⌘-click (Ctrl outside macOS) selects several items and ⇧-click a range: a bar offers to move or delete them, and dragging one of them takes the whole selection along. Esc cancels the selection.
 
-The sort button of a folder's header orders it by name, date created or date modified: a click on a choice sorts ascending, a second descending, a third goes back to the name, and "Reset the sort" does the same at once. Like the Finder, folders first, then notes, the pinned notes and favorite folders at the head of each. The choice is stored on the account (`sort`, `GET /api/items?sort=`): the same on all devices.
+The sort button of a folder's header orders it by name, date created, date modified or pinned items (pinned notes and favorite folders): a click on a choice sorts ascending (pinned first), a second descending, a third turns it off. The choices add up, the first one turned on deciding first (its rank shows beside it), and "Reset the sort" turns them all off: the neutral order, by name. Folders always come before notes. The choice is stored on the account (`sort`, `GET /api/items?sort=`): the same on all devices.
 
 The graph moves by dragging and zooms with the wheel, by pinching the trackpad or with its + and − buttons. "Recenter" puts it back as at the start.
 

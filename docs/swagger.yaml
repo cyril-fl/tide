@@ -420,7 +420,7 @@ components:
           type: array
           uniqueItems: false
         sort:
-          description: the order of a folder's items, one of Sorts
+          description: the order of a folder's items, see SortKeys
           type: string
         theme:
           description: the colors of the web app, one of Themes
@@ -615,7 +615,7 @@ components:
           type: array
           uniqueItems: false
         sort:
-          description: one of domain.Sorts
+          description: see domain.SortKeys, "" for the neutral order
           type: string
         theme:
           type: string
@@ -2094,8 +2094,8 @@ paths:
         name: kind
         schema:
           type: string
-      - description: title, created or updated, - first to reverse; title when left
-          out
+      - description: comma-separated keys among title, created, updated and pinned,
+          the first deciding first, - before one to reverse; by title when left out
         in: query
         name: sort
         schema:
@@ -2106,7 +2106,7 @@ paths:
         schema:
           type: integer
       - description: 'children skipped before the page: folders first, then notes,
-          the pinned ones first in each, then by sort'
+          each by sort'
         in: query
         name: offset
         schema:

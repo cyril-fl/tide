@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	plumprimitive "github.com/cyril-fl/plum/primitive"
 	"github.com/cyril-fl/tide/core/domain"
@@ -34,13 +35,13 @@ type run struct {
 	kind     domain.Kind
 	limit    int // 0: every child
 	offset   int
-	sort     string // one of domain.Sorts, "" for title
+	sort     string // see domain.SortKeys, "" for the title order
+	keys     []string
 }
 
 type cache struct {
 	parentID string
 	order    []string // every child id, sorted
-	folders  int      // the folders at the head of order
 	result   []domain.Item
 	total    int
 }
@@ -61,7 +62,7 @@ func (p *run) Page(limit, offset int) *run {
 	return p
 }
 
-// Sort orders the children by one of domain.Sorts, folders first then the pinned notes and favorite folders.
+// Sort orders the children by the keys of a sort (see domain.SortKeys), folders first.
 func (p *run) Sort(sort string) *run {
 	p.sort = sort
 	return p
@@ -73,7 +74,7 @@ func (p *run) Run() {
 	p.checkSort()
 	p.makeParentID()
 	p.loadOrder()
-	p.loadPinned()
+	p.sortOrder()
 	p.loadItems()
 }
 
@@ -102,60 +103,27 @@ func (p *run) checkPage() {
 }
 
 func (p *run) checkSort() {
-	if p.sort != "" && !slices.Contains(domain.Sorts, p.sort) {
+	keys, ok := domain.SortList(p.sort)
+	if !ok {
 		p.SetErr(fmt.Errorf("%w: %s", ErrInvalidSort, p.sort))
 	}
+	p.keys = keys
 }
 
 func (p *run) makeParentID() {
 	p.cache.parentID = strings.TrimSpace(p.parentID)
 }
 
-// loadOrder sorts the children folders first, then notes; soft_delete hides the trashed ones.
+// loadOrder sorts the children folders first, then notes, by title (sealed: ordered here); soft_delete hides the
+// trashed ones. The titles come from the cached paths (none decrypted), and the order itself is cached while
+// users.items_version stays the same: sorting 48,000 notes takes 140 ms, redone on every page otherwise.
 func (p *run) loadOrder() {
 	if p.HasErr() {
 		return
 	}
-	if by := strings.TrimPrefix(p.sort, "-"); by == "created" || by == "updated" {
-		p.loadDateOrder(by)
-		return
-	}
-	p.loadTitleOrder()
-}
-
-// loadDateOrder sorts by date in SQL: an edit moves updated_at without bumping users.items_version, nothing cached.
-func (p *run) loadDateOrder(by string) {
-	column := "created_at"
-	if by == "updated" {
-		column = "coalesce(updated_at, created_at)" // a note never edited has none
-	}
-	direction := "ASC"
-	if strings.HasPrefix(p.sort, "-") {
-		direction = "DESC"
-	}
-	var children []domain.Item
-	query := p.db.NewSelect().Model(&children).Column("id", "kind").
-		OrderExpr("kind = ? DESC, "+column+" "+direction+", id", domain.FOLDER)
-	if err := p.children(query).Scan(p.ctx); err != nil {
-		p.SetErr(toDomainErr(err))
-		return
-	}
-	p.cache.order = make([]string, len(children))
-	for i, item := range children {
-		p.cache.order[i] = item.ID
-		if item.Kind == domain.FOLDER {
-			p.cache.folders++
-		}
-	}
-}
-
-// loadTitleOrder sorts by title (sealed: ordered here). The titles come from the cached paths (none decrypted), and
-// the order itself is cached while users.items_version stays the same: sorting 48,000 notes takes 140 ms, redone on
-// every page otherwise. "-title" reads it backwards in loadPinned.
-func (p *run) loadTitleOrder() {
 
 	account, err := orders.Load(p.ctx, p.db, func() (*cachedOrders, error) {
-		return &cachedOrders{ids: map[orderKey]cachedOrder{}}, nil
+		return &cachedOrders{ids: map[orderKey][]string{}}, nil
 	})
 	if err != nil {
 		p.SetErr(err)
@@ -166,7 +134,7 @@ func (p *run) loadTitleOrder() {
 	order, ok := account.ids[key]
 	account.mu.Unlock()
 	if ok {
-		p.cache.order, p.cache.folders = order.ids, order.folders
+		p.cache.order = order
 		return
 	}
 
@@ -196,31 +164,29 @@ func (p *run) loadTitleOrder() {
 	p.cache.order = make([]string, len(children))
 	for i, item := range children {
 		p.cache.order[i] = item.ID
-		if item.Kind == domain.FOLDER {
-			p.cache.folders++
-		}
 	}
 	account.mu.Lock()
-	account.ids[key] = cachedOrder{p.cache.order, p.cache.folders}
+	account.ids[key] = p.cache.order
 	account.mu.Unlock()
 }
 
-// loadPinned puts the pinned notes and favorite folders first among their kind, read at every call: pinning does
-// not bump users.items_version. "-title" reverses each kind here, the cached order shared and left as it is.
-func (p *run) loadPinned() {
-	if p.HasErr() {
+// sortOrder sorts the title order by the keys of the sort, folders still first and the title deciding ties. Dates
+// and pins are read at every call: editing or pinning does not bump users.items_version.
+func (p *run) sortOrder() {
+	if p.HasErr() || len(p.keys) == 0 {
 		return
 	}
 
-	var ids []string
-	query := p.db.NewSelect().Model((*domain.Item)(nil)).Column("id").
-		Where("EXISTS (SELECT 1 FROM metadata_notes AS mn WHERE mn.item_id = i.id AND mn.pinned) OR " +
-			"EXISTS (SELECT 1 FROM metadata_folders AS mf WHERE mf.item_id = i.id AND mf.pinned)")
-	if err := p.children(query).Scan(p.ctx, &ids); err != nil {
+	var rows []sortRow
+	query := p.db.NewSelect().Model((*domain.Item)(nil)).Column("id", "kind", "created_at").
+		ColumnExpr("coalesce(updated_at, created_at) AS updated_at"). // a note never edited has none
+		ColumnExpr("EXISTS (SELECT 1 FROM metadata_notes AS mn WHERE mn.item_id = i.id AND mn.pinned) OR " +
+			"EXISTS (SELECT 1 FROM metadata_folders AS mf WHERE mf.item_id = i.id AND mf.pinned) AS pinned")
+	if err := p.children(query).Scan(p.ctx, &rows); err != nil {
 		p.SetErr(err)
 		return
 	}
-	p.cache.order = arrange(p.cache.order, p.cache.folders, p.sort == "-title", ids)
+	p.cache.order = sortIDs(p.cache.order, rows, p.keys)
 }
 
 // loadItems reads only the page of the order: a folder may hold 48,000 notes. readonly marks the locked notes,
@@ -285,12 +251,7 @@ var orders domain.Versioned[*cachedOrders]
 
 type cachedOrders struct {
 	mu  sync.Mutex
-	ids map[orderKey]cachedOrder
-}
-
-type cachedOrder struct {
-	ids     []string // shared, do not modify
-	folders int
+	ids map[orderKey][]string // shared, do not modify
 }
 
 type orderKey struct {
@@ -300,26 +261,51 @@ type orderKey struct {
 
 // Helpers
 
-// arrange gives the order in a new slice: in each kind, reversed if asked, the pinned ids first.
-func arrange(order []string, folders int, reverse bool, pinned []string) []string {
-	first := make(map[string]bool, len(pinned))
-	for _, id := range pinned {
-		first[id] = true
+type sortRow struct {
+	ID        string      `bun:"id"`
+	Kind      domain.Kind `bun:"kind"`
+	CreatedAt time.Time   `bun:"created_at"`
+	UpdatedAt time.Time   `bun:"updated_at"`
+	Pinned    bool        `bun:"pinned"`
+}
+
+// sortIDs gives the title order in a new slice sorted by keys, folders first; stable, the title decides ties.
+func sortIDs(order []string, rows []sortRow, keys []string) []string {
+	byID := make(map[string]sortRow, len(rows))
+	for _, row := range rows {
+		byID[row.ID] = row
 	}
-	result := make([]string, 0, len(order))
-	for _, kind := range [][]string{order[:folders], order[folders:]} {
-		if reverse {
-			kind = slices.Clone(kind)
-			slices.Reverse(kind)
+	rank := make(map[string]int, len(order))
+	for i, id := range order {
+		rank[id] = i
+	}
+	result := slices.Clone(order)
+	slices.SortStableFunc(result, func(x, y string) int {
+		a, b := byID[x], byID[y]
+		if c := boolOrder(b.Kind == domain.FOLDER) - boolOrder(a.Kind == domain.FOLDER); c != 0 {
+			return c
 		}
-		for _, wanted := range []bool{true, false} {
-			for _, id := range kind {
-				if first[id] == wanted {
-					result = append(result, id)
-				}
+		for _, key := range keys {
+			var c int
+			switch strings.TrimPrefix(key, "-") {
+			case "title":
+				c = rank[x] - rank[y]
+			case "created":
+				c = a.CreatedAt.Compare(b.CreatedAt)
+			case "updated":
+				c = a.UpdatedAt.Compare(b.UpdatedAt)
+			case "pinned":
+				c = boolOrder(b.Pinned) - boolOrder(a.Pinned)
+			}
+			if strings.HasPrefix(key, "-") {
+				c = -c
+			}
+			if c != 0 {
+				return c
 			}
 		}
-	}
+		return 0
+	})
 	return result
 }
 

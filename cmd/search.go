@@ -16,6 +16,7 @@ var cmdSearch = &cobra.Command{
 
 func init() {
 	plumcliutilsargs.Makeflags(cmdSearch, cmd.Search.Flags)
+	cmdSearch.MarkFlagsMutuallyExclusive("duplicates", "same-path")
 
 	cmdRoot.AddCommand(cmdSearch)
 }

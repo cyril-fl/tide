@@ -48,3 +48,15 @@ func Deref[T any](value *T) T {
 	}
 	return *value
 }
+
+// Duplicates is the groups of notes sharing a title, or a path with samePath, through GET /api/notes/duplicates.
+func Duplicates(ctx context.Context, client *ClientWithResponses, samePath bool) ([]ListduplicatesGroup, error) {
+	response, err := client.GetApiNotesDuplicatesWithResponse(ctx, &GetApiNotesDuplicatesParams{SamePath: &samePath})
+	if err != nil {
+		return nil, err
+	}
+	if response.JSON200 == nil {
+		return nil, Fail(response.HTTPResponse, response.Body)
+	}
+	return *response.JSON200, nil
+}

@@ -67,6 +67,7 @@ tide show note /Projects/Ideas                            # by path or by UUID
 tide move /Projects/Ideas --parent /Archives
 tide search recipe --json | jq -r '.[].id'
 tide search --tag idea --any-tag cooking --not draft   # tags, --folder, --untagged, --max-length, --updated-before
+tide search --duplicates                               # notes sharing a title, grouped (--same-path: sharing a path), --json
 
 tide finder               # browse, open, edit in the terminal
 tide graph                # walk between notes that share tags

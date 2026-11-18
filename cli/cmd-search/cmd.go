@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	cmdeditnote "github.com/cyril-fl/tide/cli/cmd-edit-note"
@@ -15,7 +16,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var errNoFilter = errors.New("give a text or a filter")
+var (
+	errNoFilter  = errors.New("give a text or a filter")
+	errListAlone = errors.New("--duplicates and --same-path take no text, filter nor --limit")
+)
 
 // Search lists the notes containing the text in their title or content and matching the filters, --limit of them
 // (0: all), through GET /api/search; ↳ opens one, ^E edits it, --json prints them for scripts.
@@ -25,12 +29,18 @@ func Search(cobra *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	var asJSON, duplicates, samePath bool
+	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"json": &asJSON, "duplicates": &duplicates, "same-path": &samePath}); err != nil {
+		return err
+	}
+	if duplicates || samePath {
+		if filter.Filtered() || cobra.Flags().Changed("limit") {
+			return errListAlone
+		}
+		return printDuplicates(ctx, samePath, asJSON)
+	}
 	if !filter.Filtered() {
 		return errNoFilter
-	}
-	var asJSON bool
-	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"json": &asJSON}); err != nil {
-		return err
 	}
 	limit, err := cobra.Flags().GetInt("limit")
 	if err != nil {
@@ -125,4 +135,38 @@ func searchPage(ctx context.Context, filter apiclient.SearchFilter, limit int) (
 		})
 	}
 	return page, nil
+}
+
+// printDuplicates prints the groups of notes sharing a title, or a path with samePath: the title or path, then each
+// note's id, path, date and length.
+func printDuplicates(ctx context.Context, samePath, asJSON bool) error {
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	groups, err := apiclient.Duplicates(ctx, client, samePath)
+	if err != nil {
+		return err
+	}
+	if asJSON {
+		screen.PrintJSON(groups)
+		return nil
+	}
+	if len(groups) == 0 {
+		fmt.Println("No duplicate")
+	}
+	for i, group := range groups {
+		if i > 0 {
+			fmt.Println()
+		}
+		fmt.Println(group.Key)
+		for _, note := range group.Notes {
+			updated, err := time.Parse(time.RFC3339Nano, note.UpdatedAt)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("  %s  %s  %s  %d chars\n", note.Id, note.Path, updated.Format("2 Jan 2006"), note.Length)
+		}
+	}
+	return nil
 }

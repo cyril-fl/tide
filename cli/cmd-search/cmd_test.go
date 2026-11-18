@@ -3,12 +3,14 @@ package cmdsearch
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/cyril-fl/tide/cli/services/apiclient/apitest"
 	"github.com/cyril-fl/tide/config"
+	"github.com/cyril-fl/tide/core/services/process/createfolder"
 	"github.com/cyril-fl/tide/core/services/process/createnote"
 	"github.com/cyril-fl/tide/core/services/process/searchnotes"
 	"github.com/spf13/cobra"
@@ -91,5 +93,51 @@ func TestSearchFilters(t *testing.T) {
 	}
 	if _, err := search(map[string][]string{"tag": {"Nowhere"}}); !errors.Is(err, apiclient.ErrNoTag) {
 		t.Errorf("unknown tag: err = %v, want ErrNoTag", err)
+	}
+}
+
+// --duplicates groups the notes sharing a title anywhere, --same-path those sharing a path, as text or JSON; a text,
+// a filter or --limit beside them are refused.
+func TestSearchDuplicates(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	folder := createfolder.Process(ctx, tx, createfolder.Input{Title: "Work"})
+	folder.Run()
+	if folder.HasErr() {
+		t.Fatal(folder.GetErr())
+	}
+	for _, input := range []createnote.Input{{Content: "# Pizza\none"}, {Content: "# Pizza\ntwo"}, {Content: "# pizza\nthree", ParentID: folder.GetResult().ID}, {Content: "# Alone"}} {
+		note := createnote.Process(ctx, tx, input)
+		note.Run()
+		if note.HasErr() {
+			t.Fatal(note.GetErr())
+		}
+	}
+
+	list := func(args []string, flags ...string) (string, error) {
+		command := &cobra.Command{}
+		plumcliutilsargs.Makeflags(command, config.Current.Commands.Search.Flags)
+		command.SetContext(ctx)
+		for i := 0; i < len(flags); i += 2 {
+			if err := command.Flags().Set(flags[i], flags[i+1]); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return apitest.Stdout(t, func() error { return Search(command, args) })
+	}
+
+	printed, err := list(nil, "duplicates", "true", "json", "true")
+	var groups []apiclient.ListduplicatesGroup
+	if err != nil || json.Unmarshal([]byte(printed), &groups) != nil || len(groups) != 1 || len(groups[0].Notes) != 3 {
+		t.Errorf("--duplicates --json = %q, err = %v; want one group of 3 Pizza", printed, err)
+	}
+	printed, err = list(nil, "same-path", "true")
+	if err != nil || !strings.HasPrefix(printed, "/Pizza\n") || strings.Count(printed, " /Pizza ") != 2 || strings.Contains(printed, "Work") {
+		t.Errorf("--same-path = %q, err = %v; want the 2 notes of /Pizza", printed, err)
+	}
+	if _, err := list([]string{"pizza"}, "duplicates", "true"); !errors.Is(err, errListAlone) {
+		t.Errorf("--duplicates with a text: err = %v, want errListAlone", err)
+	}
+	if _, err := list(nil, "same-path", "true", "limit", "5"); !errors.Is(err, errListAlone) {
+		t.Errorf("--same-path --limit: err = %v, want errListAlone", err)
 	}
 }

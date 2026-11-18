@@ -309,7 +309,7 @@ commands:
     use: "search [text]"
     short: "Find notes by their title or content, tags and folder"
     long: "List the notes whose title or content contains the text (case-insensitive) and that match every filter given, title matches first, 50 of them unless --limit says otherwise. The text may be left out when a filter is given. Tags are named with or without #, the folder by its path or uuid. Enter opens a note. --duplicates and --same-path list the notes sharing a title or a path instead, and take no text nor filter."
-    example: "{name} search recette\n{name} search \"pâte brisée\"\n{name} search --tag Idée --any-tag Cuisine --any-tag Boisson --not Étapes\n{name} search --folder /Archives --updated-before 2026-01-31\n{name} search --untagged --max-length 100\n{name} search recette --json\n{name} search recette --limit 0\n{name} search --duplicates\n{name} search --same-path --json"
+    example: "{name} search recette\n{name} search \"pâte brisée\"\n{name} search --tag Idée --any-tag Cuisine --any-tag Boisson --not Étapes\n{name} search --folder /Archives --updated-before 2026-01-31\n{name} search --untagged --max-length 100\n{name} search --empty-sections --tag Recette\n{name} search recette --json\n{name} search recette --limit 0\n{name} search --duplicates\n{name} search --same-path --json"
     args:
       - name: "tag"
         shorthand: ""
@@ -346,6 +346,11 @@ commands:
         value: ""
         usage: "Only the notes with no tag"
         type: "bool"
+      - name: "empty-sections"
+        shorthand: ""
+        value: ""
+        usage: "Only the notes with a heading followed by nothing, listed in --json"
+        type: "bool"
       - name: "updated-before"
         shorthand: ""
         value: ""
@@ -377,7 +382,7 @@ commands:
   tag-notes:
     use: "notes [<uuid|path>...]"
     short: "Add or remove tags on notes, named or found by the filters of search"
-    long: "Add and remove tags on the notes named, or on every note the filters of {name} search find (--text, --tag, --any-tag, --no-tag, --folder, --not, --max-length, --untagged, --updated-before), only their #tags rewritten. Each note says what was added, already there, removed or absent. --dry-run shows that and the lines of text that change, and writes nothing."
+    long: "Add and remove tags on the notes named, or on every note the filters of {name} search find (--text, --tag, --any-tag, --no-tag, --folder, --not, --max-length, --untagged, --empty-sections, --updated-before), only their #tags rewritten. Each note says what was added, already there, removed or absent. --dry-run shows that and the lines of text that change, and writes nothing."
     example: "{name} tag notes /Projects/Plan /Inbox/Idea --add done --remove todo\n{name} tag notes --folder /Archives --updated-before 2026-01-31 --add obsolete --dry-run\n{name} tag notes --untagged --max-length 100 --add stub --json"
     args:
       - name: "add"

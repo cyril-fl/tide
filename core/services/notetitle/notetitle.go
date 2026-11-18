@@ -21,6 +21,8 @@ var (
 	wiki  = regexp.MustCompile(`\[\[([^\[\]\n]+)\]\]`)
 	marks = regexp.MustCompile("\\*\\*|__|~~|[*_`]")
 	rule  = regexp.MustCompile(`^[ \t]*(?:[-*_][ \t]*){3,}$`)
+	// setext underlines the paragraph above as a heading: = level 1, - level 2.
+	setext = regexp.MustCompile(`^ {0,3}(?:=+|-+)[ \t]*$`)
 )
 
 // From gives the first heading of content, else its first line of text cut to MaxLength runes;
@@ -72,15 +74,31 @@ func EmptySections(content string) []string {
 	}
 	var lines []line
 	inCode := false
-	for text := range strings.Lines(content) {
-		text = strings.TrimSpace(text)
+	paragraph := -1 // the index in lines of the paragraph an underline (=== or ---) would turn into a heading
+	for raw := range strings.Lines(content) {
+		raw = strings.TrimRight(raw, "\r\n")
+		text := strings.TrimSpace(raw)
 		switch {
-		case fence.MatchString(text):
+		case fence.MatchString(raw):
 			inCode = !inCode
+			lines, paragraph = append(lines, line{}), -1
+		case inCode:
 			lines = append(lines, line{})
-		case !inCode && heading.MatchString(text):
-			lines = append(lines, line{level: len(text) - len(strings.TrimLeft(text, "#")), text: text})
-		case inCode || strings.TrimSpace(hashtag.Remove(text, hashtag.Parse(text)...)) != "":
+		case heading.MatchString(raw): // indented by 4 spaces or more, it is code
+			lines, paragraph = append(lines, line{level: len(text) - len(strings.TrimLeft(text, "#")), text: text}), -1
+		case paragraph >= 0 && setext.MatchString(raw):
+			lines[paragraph].level = map[byte]int{'=': 1, '-': 2}[text[0]]
+			lines, paragraph = lines[:paragraph+1], -1
+		case text == "":
+			paragraph = -1
+		case strings.TrimSpace(hashtag.Remove(text, hashtag.Parse(text)...)) == "":
+		case strings.TrimSpace(block.FindString(raw)) != "" || rule.MatchString(raw): // a list item, a quote or a rule ends a paragraph
+			lines, paragraph = append(lines, line{}), -1
+		case paragraph >= 0:
+			lines[paragraph].text += " " + text
+		case !strings.HasPrefix(raw, "    ") && !strings.HasPrefix(raw, "\t"):
+			lines, paragraph = append(lines, line{text: text}), len(lines)
+		default:
 			lines = append(lines, line{})
 		}
 	}

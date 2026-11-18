@@ -70,7 +70,7 @@ func Search(cobra *cobra.Command, args []string) error {
 func FilterOf(cobra *cobra.Command, text string) (apiclient.SearchFilter, error) {
 	flags := cobra.Flags()
 	filter := apiclient.SearchFilter{Text: text}
-	errs := make([]error, 8)
+	errs := make([]error, 9)
 	filter.TagsAll, errs[0] = flags.GetStringSlice("tag")
 	filter.TagsAny, errs[1] = flags.GetStringSlice("any-tag")
 	filter.TagsNone, errs[2] = flags.GetStringSlice("no-tag")
@@ -78,6 +78,7 @@ func FilterOf(cobra *cobra.Command, text string) (apiclient.SearchFilter, error)
 	filter.NotText, errs[4] = flags.GetString("not")
 	filter.Untagged, errs[5] = flags.GetBool("untagged")
 	filter.UpdatedBefore, errs[6] = flags.GetString("updated-before")
+	filter.EmptySections, errs[8] = flags.GetBool("empty-sections")
 	if maxLength, err := flags.GetInt("max-length"); err != nil || maxLength > 0 {
 		filter.MaxLength, errs[7] = &maxLength, err
 	}

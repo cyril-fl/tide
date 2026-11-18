@@ -3,6 +3,7 @@ package cmdsearch
 import (
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -49,7 +50,7 @@ func TestSearch(t *testing.T) {
 // and an unknown tag are refused.
 func TestSearchFilters(t *testing.T) {
 	ctx, tx := apitest.Serve(t)
-	for _, content := range []string{"# Tarte\n#Idée #Cuisine", "# Punch\n#Idée #Boisson", "# Pain\n#Idée #Cuisine\nÉtapes", "# Soupe\n#Cuisine"} {
+	for _, content := range []string{"# Tarte\n#Idée #Cuisine", "# Punch\n#Idée #Boisson", "# Pain\n#Idée #Cuisine\nÉtapes", "# Soupe\n#Cuisine", "# Bœuf\nviande hachée et oignons\n## Étapes"} {
 		note := createnote.Process(ctx, tx, createnote.Input{Content: content})
 		note.Run()
 		if note.HasErr() {
@@ -87,6 +88,10 @@ func TestSearchFilters(t *testing.T) {
 	}
 	if matches, err := search(map[string][]string{"max-length": {"20"}}); err != nil || len(matches) != 1 || matches[0].Title != "Soupe" {
 		t.Errorf("--max-length 20 = %+v, err = %v; want Soupe alone", matches, err)
+	}
+	if matches, err := search(map[string][]string{"empty-sections": {"true"}}); err != nil || len(matches) != 4 || matches[0].Title != "Bœuf" ||
+		!slices.Equal(matches[0].EmptySections, []string{"## Étapes"}) {
+		t.Errorf("--empty-sections = %+v, err = %v; want Bœuf and its ## Étapes, then the notes of a title alone but Pain", matches, err)
 	}
 	if _, err := search(map[string][]string{}); !errors.Is(err, errNoFilter) {
 		t.Errorf("no text nor filter: err = %v, want errNoFilter", err)

@@ -59,6 +59,13 @@ func TestEmptySections(t *testing.T) {
 		"heading in code":      {"# Script\ntexte\n```\n# a\n## b\n```", ""},
 		"tag is not a heading": {"# Titre\n#tag texte", ""},
 		"several":              {"# T\n## A\n## B\n", "## A|## B"},
+		"setext empty":         {"Recette\n=======\n\nÉtapes\n------\n", "Étapes"},
+		"setext filled":        {"Recette\n===\ntexte", ""},
+		"setext two lines":     {"Ma\nrecette\n---\n## Étapes\ntexte", "Ma recette"},
+		"rule after a list":    {"# Titre\n- sel\n---", ""},
+		"rule after a blank":   {"# Titre\n\n---\n", ""},
+		"indented is code":     {"# Titre\n    # pas un titre", ""},
+		"indented after text":  {"# Titre\n## A\n\n    ## code\n## B\ntexte", ""},
 	}
 	for name, c := range cases {
 		if got := strings.Join(EmptySections(c.content), "|"); got != c.want {

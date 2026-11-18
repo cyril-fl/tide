@@ -66,7 +66,7 @@ tide edit note /Projects/Ideas --replace teh --with the   # or --title, --sectio
 tide show note /Projects/Ideas                            # by path or by UUID
 tide move /Projects/Ideas --parent /Archives
 tide search recipe --json | jq -r '.[].id'
-tide search --tag idea --any-tag cooking --not draft   # tags, --folder, --untagged, --max-length, --updated-before
+tide search --tag idea --any-tag cooking --not draft   # tags, --folder, --untagged, --empty-sections, --max-length, --updated-before
 tide search --duplicates                               # notes sharing a title, grouped (--same-path: sharing a path), --json
 tide tag notes --folder /Archives --add old --remove todo --dry-run   # notes by path or the filters of search
 

@@ -123,13 +123,13 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 				return nil, tagResult{}, fmt.Errorf("%w: %q", hashtag.ErrInvalid, tag)
 			}
 		}
-		search := searchArgs{Text: args.Text, NotText: args.NotText, TagsAll: args.TagsAll, TagsAny: args.TagsAny,
+		search := apiclient.SearchFilter{Text: args.Text, NotText: args.NotText, TagsAll: args.TagsAll, TagsAny: args.TagsAny,
 			TagsNone: args.TagsNone, Folder: args.Folder, MaxLength: args.MaxLength, Untagged: args.Untagged, UpdatedBefore: args.UpdatedBefore}
-		if search.filtered() {
+		if search.Filtered() {
 			if len(args.Notes) > 0 {
 				return nil, tagResult{}, errNotesOrFilters
 			}
-			params, err := searchParams(ctx, client, search, 0)
+			params, err := apiclient.SearchParams(ctx, client, search, 0, 0)
 			if err != nil {
 				return nil, tagResult{}, err
 			}

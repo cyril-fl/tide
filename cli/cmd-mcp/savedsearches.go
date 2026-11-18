@@ -187,7 +187,7 @@ func findSearch(list []apiclient.DomainSavedSearch, ref string) (int, error) {
 func searchOf(ctx context.Context, client *apiclient.ClientWithResponses, args saveSearchArgs) (apiclient.DomainSavedSearch, error) {
 	search := apiclient.DomainSavedSearch{Name: strings.TrimSpace(args.Name), FolderMode: &args.FolderMode, Text: &args.Text, NotText: &args.NotText}
 	var err error
-	if search.TagIds, search.AnyTagIds, search.NoTagIds, err = tagIDs(ctx, client, args.TagsAll, args.TagsAny, args.TagsNone); err != nil {
+	if search.TagIds, search.AnyTagIds, search.NoTagIds, err = apiclient.TagIDs(ctx, client, args.TagsAll, args.TagsAny, args.TagsNone); err != nil {
 		return search, err
 	}
 	if search.TagIds != nil {

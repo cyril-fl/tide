@@ -146,7 +146,8 @@ par tag (au passage 3 de #198, 198 appels note par note faisaient l'essentiel du
 tag, #232), `dry_run` d'abord, avec `summary` pour les seuls compteurs (au passage 4, le diff de 82 notes coûtait 20 000 caractères, #236) ; un `#tag` dans du code, un lien
 ou une adresse n'est pas lu, et un `#hashtag` d'une snippet devient un tag des notes qu'elle commence ;
 `replace_notes` remplace un texte partout, `rename_tag` avec `merge` fusionne deux tags ; une note verrouillée
-(`readonly: true` dans `list_folder`, `search_notes`, `tags` et `read_notes`, #234) refuse toute écriture, les
+(`readonly: true` dans `list_folder`, `search_notes`, `tags` et `read_notes`, #234) refuse toute écriture sauf
+`rename_tag` et `delete_tag`, qui gardent un tag identique dans toutes les notes ; les
 réécritures gardent l'ancien texte dans `note_history`, les suppressions vont à la corbeille.
 Avec un jeton en lecture seule, les consignes d'écriture sont retirées. Les sous-agents de Claude Code ne les
 reçoivent pas (vérifié le 2026-11-17) : les consignes demandent à l'agent principal de leur passer ce qu'il leur faut.

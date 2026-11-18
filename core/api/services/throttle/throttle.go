@@ -58,9 +58,10 @@ func (t *Throttle) Try(ctx context.Context, key string) (time.Duration, error) {
 		INSERT INTO throttles AS th (key, count, last_at, expires_at) VALUES (?, 1, ?, ?)
 		ON CONFLICT (key) DO UPDATE SET
 			count = CASE WHEN th.expires_at <= excluded.last_at THEN 1 ELSE th.count + 1 END,
-			last_at = excluded.last_at, expires_at = excluded.expires_at
+			last_at = greatest(th.last_at, excluded.last_at), expires_at = greatest(th.expires_at, excluded.expires_at)
 		WHERE th.expires_at <= excluded.last_at
-			OR th.last_at + make_interval(secs => (?::float8[])[least(th.count, ?)]) <= excluded.last_at
+			-- greatest: a try sent at once may read the clock before the one stored, it is not earlier than it
+			OR th.last_at + make_interval(secs => (?::float8[])[least(th.count, ?)]) <= greatest(th.last_at, excluded.last_at)
 		RETURNING count`,
 		t.key(key), now, now.Add(forget), pgdialect.Array(seconds), len(waits)).Scan(ctx, &count)
 	if !errors.Is(err, sql.ErrNoRows) {

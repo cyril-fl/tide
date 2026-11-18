@@ -23,8 +23,8 @@ const emit = defineEmits<{ 'update:modelValue': [markdown: string]; touch: [] }>
 
 const { icons } = useIcons();
 const { has, ready } = usePro();
-const { t } = useI18n();
-const api = useApi();
+const { t, locale } = useI18n();
+const sendFile = useUpload();
 const { confirm } = useDialogs();
 const baseURL = useRuntimeConfig().public.apiBase;
 const toast = useToast();
@@ -46,21 +46,43 @@ function placeBubbles() {
 watch([() => editorRef.value?.editor, () => props.readonly], ([editor, locked]) => editor?.setEditable(!locked, false));
 
 // A dropped image takes no focus: the upload is an interaction, its image an edit.
+// A toast shows the bytes sent and cancels this file; the next ones of a drop still go.
 async function upload(file: File) {
   emit('touch');
+  const stop = new AbortController();
+  const shown = toast.add({
+    title: t('note.fileSending', { name: file.name }),
+    duration: 0,
+    close: false,
+    actions: [{ label: t('common.cancel'), color: 'neutral', variant: 'outline', onClick: () => stop.abort() }],
+  });
   try {
-    const saved = await api<NoteFile>('/api/files', {
-      method: 'POST',
+    const saved = await sendFile<NoteFile>('/api/files', {
       body: file,
       query: { name: file.name },
+      signal: stop.signal,
+      onProgress: (loaded, total) =>
+        toast.update(shown.id, {
+          description: t('settings.importSending', {
+            loaded: fileSize(loaded, locale.value),
+            total: fileSize(total, locale.value),
+          }),
+        }),
       quiet: true,
     });
     return `/api/files/${saved.id}`;
   } catch (error) {
+    if (error instanceof UploadStopped) {
+      if (error.stalled)
+        toast.add({ title: t('note.fileStalled', { name: file.name, seconds: UPLOAD_STALL / 1000 }), color: 'error' });
+      return null;
+    }
     const status = (error as FetchError).status;
     const key = status === 413 ? 'note.imageTooLarge' : status === 415 ? 'note.imageType' : 'note.imageFailed';
     toast.add({ title: t(key, { name: file.name }), color: 'error' });
     return null;
+  } finally {
+    toast.remove(shown.id);
   }
 }
 

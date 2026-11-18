@@ -49,6 +49,24 @@ test('the import button of the toolbar sends the picked image and writes it in t
   await expect(page.locator('.ProseMirror img')).toHaveAttribute('src', /\/api\/files\/[0-9a-f-]{36}$/);
 });
 
+test('a file being sent shows in a toast whose Cancel stops it, nothing written in the note', async ({ page }) => {
+  const note = await box.note(`# ${box.prefix} annulé\n\ntexte`);
+  // The API never answers: the upload stays in progress until it is canceled.
+  await page.route('**/api/files?*', () => {});
+  await page.goto(`/notes/${note.id}`);
+  await cursorAtEnd(page.locator('.ProseMirror'));
+
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Importer une image ou un fichier' }).click();
+  await (await chooser).setFiles({ name: 'lent.png', mimeType: 'image/png', buffer: Buffer.from(PNG, 'base64') });
+
+  const toast = page.getByRole('region').locator('li', { hasText: 'Envoi de lent.png' });
+  await expect(toast).toBeVisible();
+  await toast.getByRole('button', { name: 'Annuler' }).click();
+  await expect(toast).toBeHidden();
+  await expect(page.locator('.ProseMirror img')).toHaveCount(0);
+});
+
 test('a link to a file the API no longer has leaves the note open', async ({ page }) => {
   const note = await box.note(`# ${box.prefix} cassé\n\n[absent.pdf](/api/files/3f2a0000-0000-0000-0000-00000000abcd)`);
   await page.goto(`/notes/${note.id}`);

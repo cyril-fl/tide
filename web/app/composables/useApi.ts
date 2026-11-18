@@ -58,7 +58,7 @@ export function useApi() {
   };
 }
 
-type UploadOptions = Pick<ApiOptions, 'conflict' | 'invalid' | 'tooLarge'> & {
+type UploadOptions = Pick<ApiOptions, 'conflict' | 'invalid' | 'tooLarge' | 'quiet'> & {
   body: XMLHttpRequestBodyInit;
   headers?: Record<string, string>;
   query?: Record<string, string>;
@@ -87,7 +87,10 @@ export function useUpload() {
   const route = useRoute();
   const baseURL = useRuntimeConfig().public.apiBase;
 
-  return function upload<T>(path: string, { body, headers, query, onProgress, signal, ...texts }: UploadOptions) {
+  return function upload<T>(
+    path: string,
+    { body, headers, query, onProgress, signal, quiet, ...texts }: UploadOptions,
+  ) {
     return new Promise<T>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       const url = new URL(path, baseURL || window.location.origin);
@@ -125,19 +128,20 @@ export function useUpload() {
       };
       xhr.onerror = () => {
         done();
-        toast.add({ title: t('api.down'), color: 'error' });
+        if (quiet !== true) toast.add({ title: t('api.down'), color: 'error' });
         reject(new Error('network'));
       };
       xhr.onload = async () => {
         done();
         if (xhr.status < 400) return resolve(xhr.response as T);
+        // Shaped like useApi's error: the caller reads its status.
+        const error = Object.assign(new Error(String(xhr.status)), { status: xhr.status, data: xhr.response });
         if (xhr.status === 401 && route.path !== '/login') {
           await navigateTo({ path: '/login', query: { redirect: route.fullPath } });
-        } else {
-          const error = { status: xhr.status, data: xhr.response } as FetchError;
+        } else if (quiet !== true && !(Array.isArray(quiet) && quiet.includes(xhr.status))) {
           toast.add({ title: errorMessage(error, t, texts), color: 'error' });
         }
-        reject(new Error(String(xhr.status)));
+        reject(error);
       };
       watch();
       xhr.send(body);

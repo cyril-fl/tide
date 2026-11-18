@@ -191,6 +191,8 @@
     "tooLarge": "La note est trop longue (10 Mo au plus) : elle n'est plus enregistrée.",
     "imageTooLarge": "{name} dépasse 20 Mo",
     "imageType": "{name} n'est ni une image (PNG, JPEG, GIF, WebP), ni un PDF, un zip, un son ou une vidéo",
+    "fileSending": "Envoi de {name}",
+    "fileStalled": "Plus rien ne passe depuis {seconds} s : envoi de {name} arrêté. Réessayez avec un meilleur réseau.",
     "imageFailed": "{name} n'a pas pu être envoyé",
     "pendingLink": "Lien en attente",
     "pendingLinkDescription": "Aucune note ne s'appelle « {target} » : il sera relié dès qu'une note portera ce titre.",

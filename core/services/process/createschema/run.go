@@ -33,6 +33,7 @@ func (p *run) Run() {
 	p.createTables()
 	p.createIndexes()
 	p.createTriggers()
+	p.runMigrations()
 	p.runInTx()
 }
 

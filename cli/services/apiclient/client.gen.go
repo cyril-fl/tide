@@ -350,6 +350,10 @@ type DomainUser struct {
 	// An insert of 0 gets the default: only an update sets it.
 	NeighborsLimit int `json:"neighbors_limit"`
 
+	// NotePreviews A note's tile shows the start of its text, with the notePreviews feature; its icon otherwise.
+	// An insert of false gets the default: only an update sets it.
+	NotePreviews bool `json:"note_previews"`
+
 	// Plan the features of the web app, one of Plans
 	Plan          string              `json:"plan"`
 	SavedSearches []DomainSavedSearch `json:"saved_searches"`
@@ -462,6 +466,7 @@ type EdituserInput struct {
 
 	// NeighborsLimit one of domain.NeighborsLimits
 	NeighborsLimit *int    `json:"neighbors_limit,omitempty"`
+	NotePreviews   *bool   `json:"note_previews,omitempty"`
 	Plan           *string `json:"plan,omitempty"`
 
 	// SavedSearches the whole list, it replaces the saved one

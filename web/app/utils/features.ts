@@ -39,6 +39,7 @@ const groups = {
   favorites: 'implied',
   backlinks: 'implied',
   themes: 'display',
+  notePreviews: 'display',
   importExport: 'data',
   trash: 'data',
   storageUsage: 'implied',

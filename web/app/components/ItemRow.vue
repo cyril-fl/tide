@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Item } from '~/types/items';
+import type { Item, User } from '~/types/items';
 
 const { icons } = useIcons();
 const { locale } = useI18n();
@@ -8,6 +8,10 @@ const { locale } = useI18n();
 const props = defineProps<{ item: Item; grid?: boolean; selected?: boolean; text?: string }>();
 
 const { itemMenu } = useItems();
+const { has } = usePro();
+const me = useNuxtData<User>('me').data;
+// An Ultra feature the account may turn off: without it, every tile shows its icon, a search's included.
+const previews = computed(() => has('notePreviews') && !!me.value?.note_previews);
 
 const link = useTemplateRef('link');
 useDragItem(link, () => props.item);
@@ -19,13 +23,13 @@ const isOver = useDropFolder(
   computed(() => (isFolder.value ? link.value : null)),
   () => props.item.id,
 );
-const given = computed(() => withoutTitle(props.text ?? ''));
+const given = computed(() => (previews.value ? withoutTitle(props.text ?? '') : ''));
 const preview = useNotePreview(() =>
-  props.grid && !isFolder.value && !given.value
+  previews.value && props.grid && !isFolder.value && !given.value
     ? { id: props.item.id, version: props.item.updated_at ?? props.item.created_at }
     : undefined,
 );
-const text = computed(() => given.value || preview.value);
+const shown = computed(() => given.value || preview.value);
 const date = computed(() =>
   new Date(props.item.updated_at ?? props.item.created_at).toLocaleDateString(locale.value, {
     day: 'numeric',
@@ -40,9 +44,9 @@ const date = computed(() =>
     <NuxtLink v-if="grid" ref="link" :to="to" class="group flex min-w-0 flex-col gap-2">
       <div
         class="tile relative"
-        :class="{ 'items-start justify-start': text, 'tile-over': isOver, 'tile-selected': selected && !isOver }"
+        :class="{ 'items-start justify-start': shown, 'tile-over': isOver, 'tile-selected': selected && !isOver }"
       >
-        <p v-if="text" class="line-clamp-6 text-muted" :class="{ 'pr-5': item.readonly }">{{ text }}</p>
+        <p v-if="shown" class="line-clamp-6 text-muted" :class="{ 'pr-5': item.readonly }">{{ shown }}</p>
         <UIcon v-else :name="isFolder ? icons.folder : icons.note" class="size-10 text-dimmed" />
         <UIcon
           v-if="item.readonly"

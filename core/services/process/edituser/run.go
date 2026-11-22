@@ -62,6 +62,7 @@ type Input struct {
 	TrashRetentionDays *int                     `json:"trash_retention_days,omitempty" binding:"optional"`
 	NeighborsLimit     *int                     `json:"neighbors_limit,omitempty" binding:"optional"` // one of domain.NeighborsLimits
 	AfterMerge         *string                  `json:"after_merge,omitempty" binding:"optional"`     // one of domain.AfterMerges
+	NotePreviews       *bool                    `json:"note_previews,omitempty" binding:"optional"`
 	Name               *string                  `json:"name,omitempty" binding:"optional"`
 	Avatar             *string                  `json:"avatar,omitempty" binding:"optional"`           // the id of an image of the account, "" for none
 	Snippets           *[]domain.Snippet        `json:"snippets,omitempty" binding:"optional"`         // the whole list, it replaces the saved one
@@ -218,6 +219,9 @@ func (p *run) updateUser() {
 		}
 		if p.input.AfterMerge != nil {
 			query.Set("after_merge = ?", *p.input.AfterMerge)
+		}
+		if p.input.NotePreviews != nil {
+			query.Set("note_previews = ?", *p.input.NotePreviews)
 		}
 		if p.input.Name != nil {
 			query.Set("name = ?", strings.TrimSpace(*p.input.Name))

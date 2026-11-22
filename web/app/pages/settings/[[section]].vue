@@ -171,6 +171,10 @@ const afterMerges = computed(() =>
   })),
 );
 
+async function changeNotePreviews(next: boolean) {
+  me.value = await api<User>('/api/me', { method: 'PATCH', body: { note_previews: next } });
+}
+
 async function changeAfterMerge(next: string) {
   me.value = await api<User>('/api/me', { method: 'PATCH', body: { after_merge: next } });
 }
@@ -465,6 +469,17 @@ async function deleteData() {
               :aria-label="$t('settings.neighbors')"
               class="w-56"
               @update:model-value="changeNeighborsLimit"
+            />
+          </li>
+          <li v-if="has('notePreviews')" class="flex flex-wrap items-center gap-4 px-4 py-3">
+            <div class="flex-1 basis-48">
+              <p class="text-sm">{{ $t('settings.notePreviews') }}</p>
+              <p class="text-xs text-muted">{{ $t('settings.notePreviewsDescription') }}</p>
+            </div>
+            <USwitch
+              :model-value="me?.note_previews"
+              :aria-label="$t('settings.notePreviews')"
+              @update:model-value="changeNotePreviews"
             />
           </li>
         </ul>

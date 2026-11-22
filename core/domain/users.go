@@ -31,11 +31,14 @@ type User struct {
 	TrashRetentionDays int `bun:",notnull,default:30" json:"trash_retention_days"`
 	// The most notes sharing a tag that a note shows around it, one of NeighborsLimits, 0 for all of them.
 	// An insert of 0 gets the default: only an update sets it.
-	NeighborsLimit int           `bun:",notnull,default:50" json:"neighbors_limit"`
-	AfterMerge     string        `bun:",notnull,default:'ask'" json:"after_merge"`   // what a merge does with the fork, one of AfterMerges
-	Avatar         string        `bun:",type:uuid,nullzero" json:"avatar,omitempty"` // the id of a File of the account, purgefiles keeps it
-	Snippets       Snippets      `bun:",type:jsonb,notnull,default:'[]'" json:"snippets"`
-	SavedSearches  SavedSearches `bun:",type:jsonb,notnull,default:'[]'" json:"saved_searches"`
+	NeighborsLimit int    `bun:",notnull,default:50" json:"neighbors_limit"`
+	AfterMerge     string `bun:",notnull,default:'ask'" json:"after_merge"` // what a merge does with the fork, one of AfterMerges
+	// A note's tile shows the start of its text, with the notePreviews feature; its icon otherwise.
+	// An insert of false gets the default: only an update sets it.
+	NotePreviews  bool          `bun:",notnull,default:true" json:"note_previews"`
+	Avatar        string        `bun:",type:uuid,nullzero" json:"avatar,omitempty"` // the id of a File of the account, purgefiles keeps it
+	Snippets      Snippets      `bun:",type:jsonb,notnull,default:'[]'" json:"snippets"`
+	SavedSearches SavedSearches `bun:",type:jsonb,notnull,default:'[]'" json:"saved_searches"`
 	// The order of the sidebar lists and which ones show, [] for the app's default.
 	SidebarSections []SidebarSection `bun:",type:jsonb,notnull,default:'[]'" json:"sidebar_sections"`
 	CreatedAt       time.Time        `bun:",notnull,default:current_timestamp" json:"created_at"`
@@ -175,6 +178,7 @@ var Features = map[string]string{
 	"sidebarOrder":      "pro",
 	"hideFolders":       "ultra",
 	"replaceEverywhere": "ultra",
+	"notePreviews":      "ultra",
 	"search":            "base",
 	"favorites":         "base",
 	"backlinks":         "base",

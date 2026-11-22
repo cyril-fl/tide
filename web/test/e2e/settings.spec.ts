@@ -633,3 +633,29 @@ test('a slow import shows its progress and stops on cancel', async ({ page }) =>
   const search = await (await box.api.get('/api/search', { params: { q: `Lente ${box.prefix}` } })).json();
   expect(search).toHaveLength(0);
 });
+
+// A note's tile shows the start of its text with Ultra, its icon without it or once turned off in the appearance.
+test('the Ultra mode shows the start of the notes in their tiles, turned off in the settings', async ({ page }) => {
+  await box.note(`# Aperçu ${box.prefix}\n\nDébut du texte`);
+  const tile = page.getByRole('main').getByRole('link', { name: new RegExp(`Aperçu ${box.prefix}`) });
+  const before = await (await box.api.get('/api/me')).json();
+  try {
+    await box.api.patch('/api/me', { data: { view: 'grid' } });
+    await page.goto(`/folders/${box.folder.id}`);
+    await expect(tile).toBeVisible();
+    await expect(tile).not.toContainText('Début du texte');
+
+    await box.api.patch('/api/me', { data: { plan: 'ultra' } });
+    await page.reload();
+    await expect(tile).toContainText('Début du texte');
+
+    await page.goto('/settings/appearance');
+    await page.getByRole('switch', { name: 'Aperçu des notes' }).click();
+    await expect.poll(async () => (await (await box.api.get('/api/me')).json()).note_previews).toBe(false);
+    await page.goto(`/folders/${box.folder.id}`);
+    await expect(tile).toBeVisible();
+    await expect(tile).not.toContainText('Début du texte');
+  } finally {
+    await box.api.patch('/api/me', { data: { plan: before.plan, view: before.view, note_previews: true } });
+  }
+});

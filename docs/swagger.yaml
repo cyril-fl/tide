@@ -442,6 +442,11 @@ components:
             The most notes sharing a tag that a note shows around it, one of NeighborsLimits, 0 for all of them.
             An insert of 0 gets the default: only an update sets it.
           type: integer
+        note_previews:
+          description: |-
+            A note's tile shows the start of its text, with the notePreviews feature; its icon otherwise.
+            An insert of false gets the default: only an update sets it.
+          type: boolean
         plan:
           description: the features of the web app, one of Plans
           type: string
@@ -490,6 +495,7 @@ components:
       - locale
       - name
       - neighbors_limit
+      - note_previews
       - plan
       - saved_searches
       - sidebar_sections
@@ -637,6 +643,8 @@ components:
         neighbors_limit:
           description: one of domain.NeighborsLimits
           type: integer
+        note_previews:
+          type: boolean
         plan:
           type: string
         saved_searches:

@@ -4838,6 +4838,11 @@ export interface components {
              *     An insert of 0 gets the default: only an update sets it.
              */
             neighbors_limit: number;
+            /**
+             * @description A note's tile shows the start of its text, with the notePreviews feature; its icon otherwise.
+             *     An insert of false gets the default: only an update sets it.
+             */
+            note_previews: boolean;
             /** @description the features of the web app, one of Plans */
             plan: string;
             saved_searches: components["schemas"]["domain.SavedSearch"][];
@@ -4917,6 +4922,7 @@ export interface components {
             name?: string;
             /** @description one of domain.NeighborsLimits */
             neighbors_limit?: number;
+            note_previews?: boolean;
             plan?: string;
             /** @description the whole list, it replaces the saved one */
             saved_searches?: components["schemas"]["domain.SavedSearch"][];

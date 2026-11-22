@@ -13,6 +13,8 @@ const besideTabs = createGlobalState(() => {
 // The note of the first panel, whose tab a note opened replaces, and the note asked for in a tab of its own.
 const shownNote = createGlobalState(() => useSessionStorage('note-shown', ''));
 const freshNote = createGlobalState(() => ref(''));
+// What the editor of the second panel does before it shows another note: no route guards it (NoteEditor).
+const besideLeave = createGlobalState(() => shallowRef<() => Promise<boolean>>());
 
 /** The Ultra tabs of the editor, in their order, and those of the second panel of the split view (#128, #242). */
 export function useTabs() {
@@ -21,6 +23,7 @@ export function useTabs() {
   const beside = computed(() => besidePanel.value.active);
   const shown = shownNote();
   const fresh = freshNote();
+  const leaving = besideLeave();
 
   // A note trashed, deleted or no longer found leaves the tabs of both panels.
   function forget(ids: string[]) {
@@ -43,5 +46,12 @@ export function useTabs() {
     if ((await navigateTo(`/notes/${id}`)) !== undefined) fresh.value = '';
   }
 
-  return { tabs, beside, besidePanel, forget, show, openInTab };
+  // The second panel shows another note, or none, once what is typed in the one it shows is saved: false if refused.
+  async function setBeside(next: Panel<Tab>) {
+    if (next.active !== besidePanel.value.active && !((await leaving.value?.()) ?? true)) return false;
+    besidePanel.value = next;
+    return true;
+  }
+
+  return { tabs, beside, besidePanel, leaving, forget, show, openInTab, setBeside };
 }

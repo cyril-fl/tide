@@ -25,7 +25,7 @@ const emit = defineEmits<{ created: [id: string] }>();
 const api = useApi();
 const { confirm, confirmMerge, prompt, resolveConflict } = useDialogs();
 const { removeItem } = useItems();
-const { tabs, besidePanel, forget, show } = useTabs();
+const { tabs, leaving, forget, show, setBeside } = useTabs();
 const baseURL = useRuntimeConfig().public.apiBase;
 const toast = useToast();
 
@@ -516,23 +516,29 @@ async function saveOnHide() {
 }
 useEventListener(document, 'visibilitychange', saveOnHide);
 
-async function beforeLeave(to: RouteLocationNormalized) {
-  if (to.params.id === id.value) return true; // The new note getting its address.
+// Leaving the note: what is typed goes first, a save failed asks before it is lost.
+async function leave() {
   if (isEmpty.value) {
     saver.take();
     return true;
   }
   await saver.flush();
   if (!failed.value) return true;
-  const leave = await confirm({
+  const confirmed = await confirm({
     title: t('note.unsaved'),
     description: t('note.unsavedDescription'),
     action: t('note.leaveAnyway'),
   });
-  return leave === true;
+  return confirmed === true;
 }
+// The new note getting its address. Not the note of the second panel opened in the first: it goes there saved.
+const beforeLeave = (to: RouteLocationNormalized) => (!props.beside && to.params.id === id.value) || leave();
 onBeforeRouteLeave(beforeLeave);
 onBeforeRouteUpdate(beforeLeave);
+
+// The second panel has no route: its editor is replaced by key once left, an edit unsent would be lost with it.
+if (props.beside) leaving.value = leave;
+onBeforeUnmount(() => leaving.value === leave && (leaving.value = undefined));
 
 // A note left empty goes to the trash, with its last saved content. Not while typing: clearing it to rewrite it must not close it.
 onBeforeUnmount(async () => {
@@ -623,7 +629,7 @@ const status = computed(() => {
         size="xs"
         class="ml-auto"
         :aria-label="$t('note.closeBeside')"
-        @click="besidePanel = { tabs: [], active: '' }"
+        @click="setBeside({ tabs: [], active: '' })"
       />
     </header>
     <!-- Lazy: CodeMirror is loaded at the first use of the source mode, not with the page. -->

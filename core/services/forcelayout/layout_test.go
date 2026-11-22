@@ -234,3 +234,15 @@ func TestFromSample(t *testing.T) {
 		t.Error("two maps")
 	}
 }
+
+// Several new notes beside the same placed node must not start at the same point: Barnes-Hut cannot split them.
+func TestWarmStartManyNew(t *testing.T) {
+	notes := []Note{note("a", "go"), note("b", "go")}
+	saved, err := Simulate(notes, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Simulate(append(notes, note("c", "go"), note("d", "go")), nil, saved); err != nil {
+		t.Fatal(err)
+	}
+}

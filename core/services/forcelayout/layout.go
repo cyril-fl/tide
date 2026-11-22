@@ -197,12 +197,14 @@ func Simulate(notes []Note, links []Link, seed map[string]Point) (map[string]Poi
 				}
 			}
 		}
-		for _, n := range nodes {
+		for i, n := range nodes {
 			if at, ok := seed[n.id]; ok {
 				n.x, n.y, n.placed = at.X, at.Y, true
 			} else if at, ok := near[n.id]; ok {
-				// Beside its neighbor, not on it: two nodes at the same point have no direction to push apart.
-				n.x, n.y, n.placed = at.X+collideRadius, at.Y+collideRadius, true
+				// Beside its neighbor, each new node at its own angle (golden, by rank): Barnes-Hut fails on two
+				// nodes at the same point.
+				angle := float64(i) * math.Pi * (3 - math.Sqrt(5))
+				n.x, n.y, n.placed = at.X+collideRadius*math.Cos(angle), at.Y+collideRadius*math.Sin(angle), true
 			}
 		}
 	}

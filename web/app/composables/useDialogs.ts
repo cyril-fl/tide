@@ -41,8 +41,13 @@ function createDialogs() {
       raw?: boolean;
       alternative?: { label: string; icon?: string; onSelect: () => void };
     }) => promptDialog.open(props).result as Promise<string | undefined>,
-    confirm: (props: { title: string; description?: string; action: string; expected?: string }) =>
-      confirmDialog.open(props).result as Promise<boolean | undefined>,
+    confirm: (props: {
+      title: string;
+      description?: string;
+      action: string;
+      expected?: string;
+      alternative?: string;
+    }) => confirmDialog.open(props).result as Promise<boolean | 'alternative' | undefined>,
     snippet: (props: { title: string; value?: Snippet }) =>
       snippetDialog.open(props).result as Promise<Snippet | undefined>,
     savedSearch: (props: { title: string; value?: SavedSearch }) =>

@@ -47,5 +47,6 @@ export function useEditMe() {
     );
     me.value = result.me;
     if (!result.saved) toast.add({ title: t('api.staleSettings'), color: 'error' });
+    return result.saved;
   };
 }

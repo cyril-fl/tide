@@ -1,4 +1,4 @@
-import { copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { API, APP } from '../../playwright.config';
@@ -221,6 +221,37 @@ test('snippets are made in the settings and used in the notes', async ({ page })
     await page.getByRole('option', { name: `${box.prefix} réunion` }).click();
     await expect(page).toHaveURL(/\/notes\/new\?/);
     await expect(editor.getByRole('heading', { name: 'Réunion' })).toBeVisible();
+  } finally {
+    await box.api.patch('/api/me', { data: { snippets: [] } });
+  }
+});
+
+// A snippet goes out as a .md, the list as a zip; files come back in, a name taken kept beside as (2). Set back to none.
+test('snippets are exported and imported as .md files', async ({ page }) => {
+  try {
+    await box.api.patch('/api/me', { data: { snippets: [{ name: `${box.prefix} jour`, content: '# Jour' }] } });
+    await page.goto('/settings');
+    const one = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Exporter en .md' }).click();
+    expect((await one).suggestedFilename()).toBe(`${box.prefix} jour.md`);
+    const all = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Exporter tous les snippets' }).click();
+    const archive = await all;
+    expect(archive.suggestedFilename()).toBe('snippets.zip');
+
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Importer des snippets' }).click();
+    await (
+      await chooser
+    ).setFiles([
+      { name: 'snippets.zip', mimeType: 'application/zip', buffer: await readFile((await archive.path())!) },
+      { name: `${box.prefix} bilan.md`, mimeType: 'text/markdown', buffer: Buffer.from('## Bilan') },
+    ]);
+    await page.getByRole('dialog').getByRole('button', { name: 'Garder les deux' }).click();
+    await expect(page.getByText('2 snippets importés', { exact: true })).toBeVisible();
+    const names = async () =>
+      (await (await box.api.get('/api/me')).json()).snippets.map((s: { name: string }) => s.name);
+    await expect.poll(names).toEqual([`${box.prefix} jour`, `${box.prefix} jour (2)`, `${box.prefix} bilan`]);
   } finally {
     await box.api.patch('/api/me', { data: { snippets: [] } });
   }
@@ -590,7 +621,7 @@ test('a slow import shows its progress and stops on cancel', async ({ page }) =>
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('status')).toContainText(/Envoi : [\d,]+\s(ko|Mo) sur 1\sMo/);
   await dialog.getByRole('button', { name: 'Annuler' }).click();
-  await expect(page.getByText("Import annulé : rien n'a été importé.")).toBeVisible();
+  await expect(page.getByText("Import annulé : rien n'a été importé.", { exact: true })).toBeVisible();
   await cdp.send('Network.emulateNetworkConditions', {
     offline: false,
     latency: 0,

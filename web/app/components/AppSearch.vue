@@ -61,6 +61,15 @@ async function changeTheme(theme: string) {
   me.value = await api<User>('/api/me', { method: 'PATCH', body: { theme } });
 }
 
+// Where the note or folder shown is, for ⌘Z to put it back: the folder page has read it, a note is read here.
+async function parentOf(target: { kind: 'note' | 'folder'; id: string }) {
+  const read =
+    target.kind === 'folder'
+      ? useNuxtData<ItemDetail>(`folder:${target.id}`).data.value
+      : await api<ItemDetail>(`/api/notes/${target.id}`);
+  return read?.item.parent_id ?? null;
+}
+
 const proActions = computed<CommandPaletteItem[]>(() => {
   if (!has('paletteActions')) return [];
   const target = here.value;
@@ -69,7 +78,7 @@ const proActions = computed<CommandPaletteItem[]>(() => {
     const children = destinations.value.map((folder) => ({
       label: folder.label,
       icon: icons.folder,
-      onSelect: () => moveItem(target.id, folder.value === ROOT ? null : folder.value),
+      onSelect: async () => moveItem(target.id, folder.value === ROOT ? null : folder.value, await parentOf(target)),
     }));
     actions.push({ label: t('search.moveTo'), icon: icons.move, children });
   }

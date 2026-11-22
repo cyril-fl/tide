@@ -87,7 +87,7 @@ export function useDropFolder(target: Target, folderId: () => string | null) {
         onDrop: ({ source, location, self }) => {
           isOver.value = false;
           if (location.current.dropTargets[0]?.element !== self.element) return;
-          moveItem(source.data.itemIds as string[], folderId());
+          moveItem(source.data.itemIds as string[], folderId(), source.data.parentId as string | null);
         },
       }),
     );

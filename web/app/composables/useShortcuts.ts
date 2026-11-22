@@ -8,6 +8,10 @@ export function useShortcuts() {
     fromSnippet: ['alt', 't'],
     toggleSidebar: ['meta', '\\'],
     focusMode: ['meta', '.'],
+    selectAll: ['meta', 'a'],
+    undo: ['meta', 'z'],
+    redo: ['meta', 'y'],
+    redoShift: ['meta', 'shift', 'z'],
   };
 
   return { shortcuts, key: (name: keyof typeof shortcuts) => shortcuts[name].join('_') };

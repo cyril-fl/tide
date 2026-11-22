@@ -37,19 +37,13 @@ function select(event: MouseEvent, index: number) {
 onKeyStroke('Escape', () => (selection.value = []));
 
 // ⌘A (Ctrl elsewhere) selects every item of the folder, reading the pages not read yet; again, it unselects them.
-onKeyStroke('a', async (event) => {
-  const target = event.target as HTMLElement;
-  if (
-    !(event.metaKey || event.ctrlKey) ||
-    event.shiftKey ||
-    target.isContentEditable ||
-    target.closest('input, textarea')
-  )
-    return;
-  event.preventDefault();
-  if (items.value.length && selection.value.length === items.value.length) return (selection.value = []);
-  await load(0, items.value.length - 1);
-  selection.value = items.value.flatMap((item) => (item ? [item.id] : []));
+const { key } = useShortcuts();
+defineShortcuts({
+  [key('selectAll')]: async () => {
+    if (items.value.length && selection.value.length === items.value.length) return (selection.value = []);
+    await load(0, items.value.length - 1);
+    selection.value = items.value.flatMap((item) => (item ? [item.id] : []));
+  },
 });
 
 // A selected folder cannot go into itself: it is not offered.
@@ -62,7 +56,7 @@ const folders = computed(() =>
     icon: icons.folder,
     onSelect: async () => {
       moving.value = false;
-      await moveItem(selection.value, folder.value === ROOT ? null : folder.value);
+      await moveItem(selection.value, folder.value === ROOT ? null : folder.value, props.folderId ?? null);
       selection.value = [];
     },
   })),

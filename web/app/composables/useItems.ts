@@ -6,6 +6,12 @@ const TAKEN = 'already exists here';
 // The part of the API's message saying the parent folder is gone or in the trash (ErrParentNotFound).
 export const NO_PARENT = 'parent folder not found';
 
+/** A change that can be undone, then done again: each returns undefined when it fails. */
+type Step = { undo: () => Promise<unknown>; redo: () => Promise<unknown> };
+// The moves and deletions of this tab, for ⌘Z and ⌘Y: a new one forgets what was undone.
+const done: Step[] = [];
+let undone: Step[] = [];
+
 /** Every change to the items: the views read again what they show afterwards. */
 export function useItems() {
   const api = useApi();
@@ -61,13 +67,32 @@ export function useItems() {
     );
   }
 
+  function record<T>(result: T, step: Step) {
+    if (result === undefined) return result;
+    done.push(step);
+    done.splice(0, done.length - 50);
+    undone = [];
+    return result;
+  }
+
+  /** Takes back the last move or deletion; a failed one is dropped, the toast told why. */
+  async function undo() {
+    const step = done.pop();
+    if (step && (await step.undo()) !== undefined) undone.push(step);
+  }
+
+  async function redo() {
+    const step = undone.pop();
+    if (step && (await step.redo()) !== undefined) done.push(step);
+  }
+
   function removeItem(item: Pick<Item, 'id' | 'kind'>) {
     return removeItems([item]);
   }
 
   /** The API removes one item per call: they go together, read again once. The notes trashed leave the tabs. */
   // TODO: the notes of a folder trashed keep their tab until opened (the 404 removes it), list them if that bites.
-  function removeItems(items: Pick<Item, 'id' | 'kind'>[]) {
+  function remove(items: Pick<Item, 'id' | 'kind'>[]) {
     return act(async () => {
       await Promise.all(
         items.map((item) =>
@@ -75,30 +100,44 @@ export function useItems() {
         ),
       );
       forget(items.map((item) => item.id));
+      return true;
     });
   }
 
-  /** One id or several; a null parent is the root. */
-  function moveItem(ids: string | string[], parentId: string | null) {
-    const body = { ids: [ids].flat(), parent_id: parentId ?? undefined };
+  async function removeItems(items: Pick<Item, 'id' | 'kind'>[]) {
+    const ids = items.map((item) => item.id);
+    return record(await remove(items), { undo: () => restore(ids), redo: () => remove(items) });
+  }
+
+  function move(ids: string[], parentId: string | null) {
     return act(() =>
       api<Item[]>('/api/move', {
         method: 'POST',
-        body,
+        body: { ids, parent_id: parentId ?? undefined },
         conflict: { [TAKEN]: t('items.nameTaken'), 'into itself': t('items.cycle') },
         invalid: { [NO_PARENT]: t('items.parentInTrash') },
       }),
     );
   }
 
-  function restoreItem(id: string) {
+  /** One id or several, all from the folder from; a null parent is the root. */
+  async function moveItem(ids: string | string[], parentId: string | null, from: string | null) {
+    const list = [ids].flat();
+    return record(await move(list, parentId), { undo: () => move(list, from), redo: () => move(list, parentId) });
+  }
+
+  function restore(ids: string[]) {
     return act(() =>
       api<Item[]>('/api/restore', {
         method: 'POST',
-        body: { ids: [id] },
+        body: { ids },
         conflict: { [TAKEN]: t('items.nameTaken'), 'in the trash': t('items.parentInTrash') },
       }),
     );
+  }
+
+  function restoreItem(id: string) {
+    return restore([id]);
   }
 
   /** Pins a note, or makes a folder a favorite. */
@@ -229,6 +268,8 @@ export function useItems() {
     removeItems,
     moveItem,
     restoreItem,
+    undo,
+    redo,
     pinItem,
     emptyTrash,
     purgeItem,

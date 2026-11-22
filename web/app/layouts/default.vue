@@ -4,7 +4,7 @@ import type { User } from '~/types/items';
 const route = useRoute();
 const api = useApi();
 const { setLocale } = useI18n();
-const { createFolder } = useItems();
+const { createFolder, undo, redo } = useItems();
 const { key } = useShortcuts();
 const searchOpen = useState('search-open', () => false);
 const searchSnippets = useState('search-snippets', () => false);
@@ -68,6 +68,10 @@ defineShortcuts({
   [key('fromSnippet')]: outsideMenu(() => (searchSnippets.value = searchOpen.value = true)),
   [key('toggleSidebar')]: () => (collapsed.value = !collapsed.value),
   [key('focusMode')]: { usingInput: true, handler: () => has('focusMode') && (focus.value = !focus.value) },
+  // Outside a field or the editor, which undo their own text.
+  [key('undo')]: undo,
+  [key('redo')]: redo,
+  [key('redoShift')]: redo,
 });
 // The template: Nuxt UI's dashboard, a sidebar that resizes (its width kept in localStorage), collapses, and becomes a drawer on small screens.
 </script>

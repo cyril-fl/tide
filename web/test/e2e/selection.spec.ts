@@ -63,3 +63,28 @@ test('⌘A selects every item, again unselects them, and the bar sits in the foo
   await main.getByRole('button', { name: 'Annuler la sélection' }).click();
   await expect(main.getByText('2 sélectionnés')).toBeHidden();
 });
+
+test('⌘Z takes back a move and a deletion, ⌘Y does them again', async ({ page }) => {
+  await box.api.post('/api/folders', { data: { title: 'Rangement', parent_id: box.folder.id } });
+  await box.note('# Alpha');
+  await page.goto(`/folders/${box.folder.id}`);
+  const main = page.getByRole('main');
+  const alpha = main.getByRole('link', { name: /Alpha/ });
+
+  await alpha.click({ modifiers: ['ControlOrMeta'] });
+  await main.getByRole('button', { name: 'Déplacer vers' }).click();
+  await page.getByRole('option', { name: `/${box.prefix}/Rangement` }).click();
+  await expect(alpha).toBeHidden();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(alpha).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+y');
+  await expect(alpha).toBeHidden();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(alpha).toBeVisible();
+
+  await alpha.click({ modifiers: ['ControlOrMeta'] });
+  await main.getByRole('button', { name: 'Supprimer' }).click();
+  await expect(alpha).toBeHidden();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(alpha).toBeVisible();
+});

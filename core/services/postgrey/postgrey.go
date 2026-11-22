@@ -1,11 +1,14 @@
 package postgrey
 
 import (
+	"context"
 	"database/sql"
 	"github.com/cyril-fl/tide/config"
 	"net/url"
 	"os"
 	"strings"
+	"sync"
+	"testing"
 
 	plumtransform "github.com/cyril-fl/plum/utils/transform"
 	"github.com/uptrace/bun"
@@ -64,7 +67,30 @@ func (env *PostgresEnvironment) GetEnvDBName() string {
 
 func (env *PostgresEnvironment) Connect() *bun.DB {
 	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(env.GetEnvURI())))
+	if testing.Testing() {
+		lockTests.Do(func() { lockTests.conn = lockBase(sqldb) })
+	}
 	return bun.NewDB(sqldb, pgdialect.New())
+}
+
+// The test binaries of every go test running on the machine (agents, worktrees) share the _test base and the Silo
+// bucket: one package at a time, or the schema, the purges and the sweeps of one break the others' tests.
+var lockTests struct {
+	sync.Once
+	conn *sql.Conn
+}
+
+// lockBase waits for the lock of the base, held by a connection kept until the process exits, which releases it.
+func lockBase(sqldb *sql.DB) *sql.Conn {
+	ctx := context.Background()
+	conn, err := sqldb.Conn(ctx)
+	if err == nil {
+		_, err = conn.ExecContext(ctx, "SELECT pg_advisory_lock(hashtext('tide-tests'))")
+	}
+	if err != nil {
+		panic("postgrey: lock the test base: " + err.Error())
+	}
+	return conn
 }
 
 func (env *PostgresEnvironment) getCredentials() *url.Userinfo {

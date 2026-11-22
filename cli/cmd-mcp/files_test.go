@@ -31,9 +31,9 @@ func TestFiles(t *testing.T) {
 	if image, ok := result.Content[0].(*mcp.ImageContent); !ok || !bytes.Equal(image.Data, gif) || image.MIMEType != "image/gif" {
 		t.Errorf("read_file = %+v", result.Content[0])
 	}
-	var files []map[string]any
+	var files struct{ Files []map[string]any }
 	call(t, agent, "read_file", map[string]any{}, &files)
-	if len(files) != 1 {
+	if len(files.Files) != 1 {
 		t.Errorf("read_file list = %v", files)
 	}
 

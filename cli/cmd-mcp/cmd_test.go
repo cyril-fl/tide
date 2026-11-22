@@ -25,6 +25,10 @@ func TestAddTools(t *testing.T) {
 		if tool.InputSchema == nil || tool.Description == "" {
 			t.Errorf("tool %q: schema %v, description %q", tool.Name, tool.InputSchema, tool.Description)
 		}
+		// MCP wants an object: a client on the Python SDK (Vibe) rejects the whole tool list otherwise.
+		if schema, ok := tool.OutputSchema.(map[string]any); tool.OutputSchema != nil && (!ok || schema["type"] != "object") {
+			t.Errorf("tool %q: output schema %v, want an object", tool.Name, tool.OutputSchema)
+		}
 		// The client asks before a destructive tool and runs a read-only one freely: a tool without hints is
 		// destructive by default, and one marked wrong deletes without asking.
 		a := tool.Annotations

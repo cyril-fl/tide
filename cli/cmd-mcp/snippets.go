@@ -16,6 +16,11 @@ type snippetArgs struct {
 	Delete  bool   `json:"delete,omitempty" jsonschema:"remove the snippet of that name instead"`
 }
 
+// snippetList is the snippets in an object, as MCP wants of a tool's output.
+type snippetList struct {
+	Snippets []apiclient.DomainSnippet `json:"snippets"`
+}
+
 var errNoSnippet = errors.New("no snippet of that name")
 
 func addSnippetTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnly bool) {
@@ -23,9 +28,9 @@ func addSnippetTools(server *mcp.Server, client *apiclient.ClientWithResponses, 
 		Name:        "snippets",
 		Annotations: reads(),
 		Description: "List the snippets: markdown the app inserts or starts a note from.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []apiclient.DomainSnippet, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, snippetList, error) {
 		snippets, err := readSnippets(ctx, client)
-		return nil, snippets, err
+		return nil, snippetList{snippets}, err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{

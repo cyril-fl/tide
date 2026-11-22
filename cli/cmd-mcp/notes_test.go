@@ -175,11 +175,11 @@ func TestNotes(t *testing.T) {
 		t.Errorf("search_notes = %v, list recent = %v", matches, recent)
 	}
 
-	var moved []item
+	var moved changed
 	var listed folderPage
 	call(t, agent, "move_item", map[string]any{"item": "/Projects/Plan", "folder": "/Inbox"}, &moved)
 	call(t, agent, "list_folder", map[string]any{"folder": "/Inbox"}, &listed)
-	if len(moved) != 1 || listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].ID != created.ID || listed.Items[0].CreatedAt != "" {
+	if len(moved.Items) != 1 || listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].ID != created.ID || listed.Items[0].CreatedAt != "" {
 		t.Errorf("move_item = %+v, list_folder = %+v", moved, listed)
 	}
 	// A locked note says so in the lists (#234), unlocked again for what follows.
@@ -221,19 +221,19 @@ func TestNotes(t *testing.T) {
 	}
 
 	// A folder goes to the trash with its content, and comes back with it.
-	var removed, restored []item
+	var removed, restored changed
 	call(t, agent, "delete_item", map[string]any{"item": "/Inbox", "recursive": true}, &removed)
-	if len(removed) != 2 {
+	if len(removed.Items) != 2 {
 		t.Errorf("delete_item recursive = %+v", removed)
 	}
 	var trash folderPage
 	call(t, agent, "list_folder", map[string]any{"trash": true}, &trash)
 	call(t, agent, "restore_item", map[string]any{"item": inbox.ID}, &restored)
-	if len(trash.Trash) != 3 || trash.Total != 3 || len(restored) != 2 { // The folder, and the Bare and Side notes deleted earlier.
+	if len(trash.Trash) != 3 || trash.Total != 3 || len(restored.Items) != 2 { // The folder, and the Bare and Side notes deleted earlier.
 		t.Errorf("list_folder trash = %+v, restore_item = %+v", trash, restored)
 	}
 	call(t, agent, "delete_item", map[string]any{"item": "/Inbox/Plan"}, &removed)
-	if len(removed) != 1 || removed[0].ID != created.ID {
+	if len(removed.Items) != 1 || removed.Items[0].ID != created.ID {
 		t.Errorf("delete_item = %+v", removed)
 	}
 

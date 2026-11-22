@@ -13,8 +13,9 @@ import (
 func TestSnippets(t *testing.T) {
 	agent := connect(t)
 
-	var snippets []apiclient.DomainSnippet
-	call(t, agent, "snippets", map[string]any{}, &snippets)
+	var listed snippetList
+	call(t, agent, "snippets", map[string]any{}, &listed)
+	snippets := listed.Snippets
 	if len(snippets) != 0 {
 		t.Errorf("snippets of a new account = %+v", snippets)
 	}
@@ -26,7 +27,8 @@ func TestSnippets(t *testing.T) {
 	if undated(saved)[0] != want[0] {
 		t.Errorf("save_snippet = %+v, want only %+v", saved, want[0])
 	}
-	call(t, agent, "snippets", map[string]any{}, &snippets)
+	call(t, agent, "snippets", map[string]any{}, &listed)
+	snippets = listed.Snippets
 	if !slices.Equal(undated(snippets...), want) {
 		t.Errorf("snippets = %+v, want %+v", snippets, want)
 	}
@@ -34,7 +36,8 @@ func TestSnippets(t *testing.T) {
 	// delete answers the snippet removed, its content with it.
 	var removed apiclient.DomainSnippet
 	call(t, agent, "save_snippet", map[string]any{"name": "Book", "delete": true}, &removed)
-	call(t, agent, "snippets", map[string]any{}, &snippets)
+	call(t, agent, "snippets", map[string]any{}, &listed)
+	snippets = listed.Snippets
 	if undated(removed)[0] != want[0] || !slices.Equal(undated(snippets...), want[1:]) {
 		t.Errorf("save_snippet delete = %+v, then snippets = %+v, want %+v", removed, snippets, want[1:])
 	}
@@ -45,7 +48,8 @@ func TestSnippets(t *testing.T) {
 			t.Errorf("save_snippet %v = %+v, %v; want an error", args, result, err)
 		}
 	}
-	call(t, agent, "snippets", map[string]any{}, &snippets)
+	call(t, agent, "snippets", map[string]any{}, &listed)
+	snippets = listed.Snippets
 	if !slices.Equal(undated(snippets...), want[1:]) {
 		t.Errorf("snippets after the errors = %+v", snippets)
 	}

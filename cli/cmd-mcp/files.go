@@ -85,7 +85,9 @@ func addFileTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args fileArgs) (*mcp.CallToolResult, any, error) {
 		if args.File == "" {
 			files, err := decode[[]apiclient.DomainFile](client.GetApiFiles(ctx))
-			return nil, files, err
+			return nil, struct {
+				Files []apiclient.DomainFile `json:"files"`
+			}{files}, err
 		}
 		ctx, cancel := apiclient.Long(ctx)
 		defer cancel()

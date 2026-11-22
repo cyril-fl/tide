@@ -31,6 +31,11 @@ type item struct {
 	Preview string    `json:"preview,omitempty"`
 }
 
+// changed is what a move, a deletion or a restore reached: an object, as MCP wants of a tool's output.
+type changed struct {
+	Items []item `json:"items"`
+}
+
 // folderPage is a page of the items of a folder, how many it holds in all, and whether more follow this page; or
 // what the trash holds.
 type folderPage struct {
@@ -97,7 +102,8 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 		}
 		limit, offset := limitOf(args.Limit), max(args.Offset, 0)
 		found, total, err := paged[[]apiclient.DomainItem](client.GetApiItems(ctx, &apiclient.GetApiItemsParams{Parent: &parentID, Limit: &limit, Offset: &offset}))
-		_, items, err := made(found, err)
+		_, page, err := made(found, err)
+		items := page.Items
 		if !args.Dates {
 			for i := range items {
 				items[i].CreatedAt, items[i].UpdatedAt = "", ""
@@ -173,14 +179,14 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 		Name:        "move_item",
 		Annotations: writes(false, true),
 		Description: "Move a note or a folder, with its content, into another folder.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args moveArgs) (*mcp.CallToolResult, []item, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args moveArgs) (*mcp.CallToolResult, changed, error) {
 		id, err := apiclient.Resolve(ctx, client, "", args.Item)
 		if err != nil {
-			return nil, nil, err
+			return nil, changed{}, err
 		}
 		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
-			return nil, nil, err
+			return nil, changed{}, err
 		}
 		return made(decode[[]apiclient.DomainItem](client.PostApiMove(ctx, apiclient.MoveitemsInput{Ids: []string{id}, ParentId: &parentID})))
 	})
@@ -190,23 +196,23 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 		Name:        "delete_item",
 		Annotations: writes(true, true),
 		Description: "Move a note, or with recursive a folder and its content, to the trash.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args deleteArgs) (*mcp.CallToolResult, []item, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args deleteArgs) (*mcp.CallToolResult, changed, error) {
 		if !args.Recursive {
 			id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Item)
 			if err != nil {
 				if strings.HasSuffix(err.Error(), "is a folder, not a note") {
-					return nil, nil, fmt.Errorf("%w: give recursive to trash it with its content", err)
+					return nil, changed{}, fmt.Errorf("%w: give recursive to trash it with its content", err)
 				}
-				return nil, nil, err
+				return nil, changed{}, err
 			}
 			return made(decode[[]apiclient.DomainItem](client.DeleteApiNotesId(ctx, id)))
 		}
 		id, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, args.Item)
 		if err != nil {
 			if strings.HasSuffix(err.Error(), "is a note, not a folder") {
-				return nil, nil, fmt.Errorf("%w: leave out recursive", err)
+				return nil, changed{}, fmt.Errorf("%w: leave out recursive", err)
 			}
-			return nil, nil, err
+			return nil, changed{}, err
 		}
 		return made(decode[[]apiclient.DomainItem](client.DeleteApiFoldersId(ctx, id)))
 	})
@@ -215,7 +221,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 		Name:        "restore_item",
 		Annotations: writes(false, true),
 		Description: "Take a note or a folder out of the trash, with what was removed with it.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args trashedArgs) (*mcp.CallToolResult, []item, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args trashedArgs) (*mcp.CallToolResult, changed, error) {
 		// No resolve: a trashed item has no path to look up.
 		return made(decode[[]apiclient.DomainItem](client.PostApiRestore(ctx, apiclient.RestoreBody{Ids: []string{args.Item}})))
 	})
@@ -261,13 +267,13 @@ func describe(ctx context.Context, client *apiclient.ClientWithResponses, items 
 }
 
 // made turns the items of an answer into what the agent reads, for a tool answering them.
-func made(found []apiclient.DomainItem, err error) (*mcp.CallToolResult, []item, error) {
+func made(found []apiclient.DomainItem, err error) (*mcp.CallToolResult, changed, error) {
 	if err != nil {
-		return nil, nil, err
+		return nil, changed{}, err
 	}
 	items := make([]item, 0, len(found))
 	for _, found := range found {
 		items = append(items, one(found))
 	}
-	return nil, items, nil
+	return nil, changed{items}, nil
 }

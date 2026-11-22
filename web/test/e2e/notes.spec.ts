@@ -54,6 +54,20 @@ test('a [[link]] typed by hand waits, then the API points it to its note', async
   await expect.poll(() => box.content(source.id), { timeout: 5000 }).toContain(`](note:${target.id})`);
 });
 
+test('a comment typed in the editor vanishes from sight and stays in the markdown', async ({ page }) => {
+  const note = await box.note(`# ${box.prefix} commentaire\n\n<!-- déjà là -->\n\nVoir`);
+  await page.goto(`/notes/${note.id}`);
+  const editor = page.locator('.ProseMirror');
+  await expect(editor).not.toContainText('déjà là');
+  await cursorAtEnd(editor);
+  await page.keyboard.type(' a %%caché%% b');
+  await expect(editor).toContainText('a  b');
+  await expect(editor).not.toContainText('caché');
+  await expect
+    .poll(() => box.content(note.id), { timeout: 5000 })
+    .toBe(`# ${box.prefix} commentaire\n\n<!-- déjà là -->\n\nVoir a %%caché%% b`);
+});
+
 test('a [[link]] several notes answer looks ambiguous, a link to none only waits', async ({ page }) => {
   await box.note(`# ${box.prefix} twin`);
   await box.note(`# ${box.prefix} twin`);

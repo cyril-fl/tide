@@ -96,6 +96,8 @@ const modules = [
   ...useNoteTables(),
   useNoteCode(),
   useNoteMath(),
+  // For everyone, or editing a note without them would drop the comments written in the source.
+  { extensions: [InlineComment, BlockComment] },
   ...useNoteCallouts(),
   useNoteImages(baseURL, upload),
   searchModule,

@@ -25,6 +25,8 @@ const extensions = [
   ...code.extensions!,
   InlineMath,
   BlockMath,
+  InlineComment,
+  BlockComment,
 ];
 
 const text = ref<string>();

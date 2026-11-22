@@ -109,7 +109,7 @@ func TestEditMeRetries(t *testing.T) {
 		return apiclient.EdituserInput{Snippets: &snippets}, nil
 	})
 	want := []apiclient.DomainSnippet{{Name: "App"}, {Name: "Agent"}}
-	if err != nil || runs != 2 || !slices.Equal(me.Snippets, want) {
+	if err != nil || runs != 2 || !slices.Equal(undated(me.Snippets...), want) {
 		t.Errorf("editMe = %+v, %v after %d runs; want %+v after 2", me.Snippets, err, runs, want)
 	}
 }

@@ -23,11 +23,11 @@ func TestSnippets(t *testing.T) {
 	var saved apiclient.DomainSnippet
 	call(t, agent, "save_snippet", map[string]any{"name": "Book", "content": "# Book"}, &saved)
 	want := []apiclient.DomainSnippet{{Name: "Book", Content: "# Book"}, {Name: "Trip", Content: "# Trip"}}
-	if saved != want[0] {
+	if undated(saved)[0] != want[0] {
 		t.Errorf("save_snippet = %+v, want only %+v", saved, want[0])
 	}
 	call(t, agent, "snippets", map[string]any{}, &snippets)
-	if !slices.Equal(snippets, want) {
+	if !slices.Equal(undated(snippets...), want) {
 		t.Errorf("snippets = %+v, want %+v", snippets, want)
 	}
 
@@ -35,7 +35,7 @@ func TestSnippets(t *testing.T) {
 	var removed apiclient.DomainSnippet
 	call(t, agent, "save_snippet", map[string]any{"name": "Book", "delete": true}, &removed)
 	call(t, agent, "snippets", map[string]any{}, &snippets)
-	if removed != want[0] || !slices.Equal(snippets, want[1:]) {
+	if undated(removed)[0] != want[0] || !slices.Equal(undated(snippets...), want[1:]) {
 		t.Errorf("save_snippet delete = %+v, then snippets = %+v, want %+v", removed, snippets, want[1:])
 	}
 
@@ -46,7 +46,16 @@ func TestSnippets(t *testing.T) {
 		}
 	}
 	call(t, agent, "snippets", map[string]any{}, &snippets)
-	if !slices.Equal(snippets, want[1:]) {
+	if !slices.Equal(undated(snippets...), want[1:]) {
 		t.Errorf("snippets after the errors = %+v", snippets)
 	}
+}
+
+// undated drops the dates the server sets on save, so a test compares names and contents.
+func undated(snippets ...apiclient.DomainSnippet) []apiclient.DomainSnippet {
+	out := make([]apiclient.DomainSnippet, len(snippets))
+	for i, snippet := range snippets {
+		out[i] = apiclient.DomainSnippet{Name: snippet.Name, Content: snippet.Content}
+	}
+	return out
 }

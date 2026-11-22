@@ -70,17 +70,17 @@ type renameFolderArgs struct {
 }
 
 type moveArgs struct {
-	Item   string `json:"item" jsonschema:"a note or folder"`
-	Folder string `json:"folder,omitempty" jsonschema:"the root when empty"`
+	Items  []string `json:"items" jsonschema:"notes or folders"`
+	Folder string   `json:"folder,omitempty" jsonschema:"the root when empty"`
 }
 
 type deleteArgs struct {
-	Item      string `json:"item"`
-	Recursive bool   `json:"recursive,omitempty" jsonschema:"for a folder: trash its content too"`
+	Items     []string `json:"items,omitempty"`
+	Recursive bool     `json:"recursive,omitempty" jsonschema:"for folders"`
 }
 
 type trashedArgs struct {
-	Item string `json:"item" jsonschema:"its uuid, as list_folder trash gives it"`
+	Items []string `json:"items" jsonschema:"uuids, as list_folder trash gives them"`
 }
 
 func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, readOnly bool) {
@@ -178,52 +178,57 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "move_item",
 		Annotations: writes(false, true),
-		Description: "Move a note or folder, with its content, into another folder.",
+		Description: "Move notes or folders, with their content, into another folder.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args moveArgs) (*mcp.CallToolResult, changed, error) {
-		id, err := apiclient.Resolve(ctx, client, "", args.Item)
-		if err != nil {
-			return nil, changed{}, err
+		ids := make([]string, len(args.Items))
+		for i, it := range args.Items {
+			id, err := apiclient.Resolve(ctx, client, "", it)
+			if err != nil {
+				return nil, changed{}, err
+			}
+			ids[i] = id
 		}
 		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
 			return nil, changed{}, err
 		}
-		return made(decode[[]apiclient.DomainItem](client.PostApiMove(ctx, apiclient.MoveitemsInput{Ids: []string{id}, ParentId: &parentID})))
+		return made(decode[[]apiclient.DomainItem](client.PostApiMove(ctx, apiclient.MoveitemsInput{Ids: ids, ParentId: &parentID})))
 	})
 
 	// A folder needs recursive: a folder's path given for a note must not send a whole subtree to the trash.
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "delete_item",
 		Annotations: writes(true, true),
-		Description: "Move a note, or with recursive a folder and its content, to the trash.",
+		Description: "Trash notes, or with recursive folders and content.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args deleteArgs) (*mcp.CallToolResult, changed, error) {
-		if !args.Recursive {
-			id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Item)
+		kind, other, hint := apiclient.NOTE, "is a folder, not a note", "give recursive to trash it with its content"
+		if args.Recursive {
+			kind, other, hint = apiclient.FOLDER, "is a note, not a folder", "leave out recursive"
+		}
+		ids := make([]string, len(args.Items))
+		for i, it := range args.Items {
+			id, err := apiclient.Resolve(ctx, client, kind, it)
 			if err != nil {
-				if strings.HasSuffix(err.Error(), "is a folder, not a note") {
-					return nil, changed{}, fmt.Errorf("%w: give recursive to trash it with its content", err)
+				if strings.HasSuffix(err.Error(), other) {
+					return nil, changed{}, fmt.Errorf("%w: %s", err, hint)
 				}
 				return nil, changed{}, err
 			}
-			return made(decode[[]apiclient.DomainItem](client.DeleteApiNotesId(ctx, id)))
+			ids[i] = id
 		}
-		id, err := apiclient.Resolve(ctx, client, apiclient.FOLDER, args.Item)
-		if err != nil {
-			if strings.HasSuffix(err.Error(), "is a note, not a folder") {
-				return nil, changed{}, fmt.Errorf("%w: leave out recursive", err)
-			}
-			return nil, changed{}, err
+		if args.Recursive {
+			return made(decode[[]apiclient.DomainItem](client.DeleteApiFolders(ctx, apiclient.DeleteApiFoldersJSONRequestBody{Ids: ids})))
 		}
-		return made(decode[[]apiclient.DomainItem](client.DeleteApiFoldersId(ctx, id)))
+		return made(decode[[]apiclient.DomainItem](client.DeleteApiNotes(ctx, apiclient.DeleteApiNotesJSONRequestBody{Ids: ids})))
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "restore_item",
 		Annotations: writes(false, true),
-		Description: "Take a note or folder out of the trash, with what was trashed with it.",
+		Description: "Take notes or folders out of the trash, with what was trashed with them.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args trashedArgs) (*mcp.CallToolResult, changed, error) {
 		// No resolve: a trashed item has no path to look up.
-		return made(decode[[]apiclient.DomainItem](client.PostApiRestore(ctx, apiclient.RestoreBody{Ids: []string{args.Item}})))
+		return made(decode[[]apiclient.DomainItem](client.PostApiRestore(ctx, apiclient.RestoreBody{Ids: args.Items})))
 	})
 }
 

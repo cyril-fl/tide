@@ -12,10 +12,10 @@ import (
 )
 
 type deleteTagArgs struct {
-	Tag       string `json:"tag"`
-	DryRun    bool   `json:"dry_run,omitempty"`
-	KeepEmpty bool   `json:"keep_empty,omitempty"`
-	Summary   bool   `json:"summary,omitempty" jsonschema:"counts only"`
+	Tags      []string `json:"tags"`
+	DryRun    bool     `json:"dry_run,omitempty"`
+	KeepEmpty bool     `json:"keep_empty,omitempty"`
+	Summary   bool     `json:"summary,omitempty" jsonschema:"counts only"`
 }
 
 // deletedTag counts the notes changed and trashed, then lists those trashed unless summary.
@@ -56,11 +56,11 @@ type carrier struct {
 }
 
 type renameTagArgs struct {
-	Tag     string `json:"tag"`
-	To      string `json:"to"`
-	Merge   bool   `json:"merge,omitempty" jsonschema:"fold it into to when to exists"`
-	DryRun  bool   `json:"dry_run,omitempty" jsonschema:"write nothing, answer the diffs"`
-	Summary bool   `json:"summary,omitempty" jsonschema:"count only"`
+	Tags    []string `json:"tags"`
+	To      string   `json:"to"`
+	Merge   bool     `json:"merge,omitempty" jsonschema:"fold it into to when to exists"`
+	DryRun  bool     `json:"dry_run,omitempty" jsonschema:"write nothing, answer the diffs"`
+	Summary bool     `json:"summary,omitempty" jsonschema:"count only"`
 }
 
 // renamedTag is the tag renamed; with dry_run, the count of the notes it would rewrite and, unless summary, those
@@ -69,6 +69,11 @@ type renamedTag struct {
 	apiclient.DomainTag
 	Changed *int                       `json:"changed,omitempty"`
 	Notes   []apiclient.EdittagChanged `json:"notes,omitempty"`
+}
+
+// renamedTags is every tag renamed, in the order asked.
+type renamedTags struct {
+	Tags []renamedTag `json:"tags"`
 }
 
 type tagNotesArgs struct {
@@ -229,17 +234,21 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "rename_tag",
 		Annotations: writes(false, true),
-		Description: "Rename a tag in the text of every note carrying it; a name taken refuses unless merge.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, renamedTag, error) {
-		renamed, err := decode[renamedTag](client.PatchApiTagsValue(ctx, args.Tag, apiclient.EdittagBody{Value: args.To, Merge: &args.Merge, DryRun: &args.DryRun}))
-		if args.DryRun {
-			changed := len(renamed.Notes)
-			renamed.Changed = &changed
+		Description: "Rename tags, to one name, in the text of every note carrying them; a name taken refuses unless merge.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, renamedTags, error) {
+		ctx, cancel := apiclient.Long(ctx) // many notes take longer than Timeout, like delete_tag
+		defer cancel()
+		renamed, err := decode[[]renamedTag](client.PatchApiTags(ctx, apiclient.EdittagManyBody{Values: args.Tags, Value: args.To, Merge: &args.Merge, DryRun: &args.DryRun}))
+		for i := range renamed {
+			if args.DryRun {
+				changed := len(renamed[i].Notes)
+				renamed[i].Changed = &changed
+			}
+			if args.Summary {
+				renamed[i].Notes = nil
+			}
 		}
-		if args.Summary {
-			renamed.Notes = nil
-		}
-		return nil, renamed, err
+		return nil, renamedTags{renamed}, err
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -250,8 +259,7 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 		// Many notes take longer than Timeout, like tag_notes.
 		ctx, cancel := apiclient.Long(ctx)
 		defer cancel()
-		params := &apiclient.DeleteApiTagsValueParams{DryRun: &args.DryRun, KeepEmpty: &args.KeepEmpty}
-		deleted, err := decode[apiclient.DeletetagResult](client.DeleteApiTagsValue(ctx, args.Tag, params))
+		deleted, err := decode[apiclient.DeletetagResult](client.DeleteApiTags(ctx, apiclient.DeletetagBody{Values: args.Tags, DryRun: &args.DryRun, KeepEmpty: &args.KeepEmpty}))
 		out := deletedTag{Tags: deleted.Tags, Changed: deleted.Changed, Trashed: len(deleted.Trashed), Notes: deleted.Trashed}
 		if args.Summary {
 			out.Notes = nil

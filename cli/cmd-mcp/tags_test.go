@@ -59,11 +59,7 @@ func TestTagsHistoryLinks(t *testing.T) {
 		t.Errorf("note_history version = %+v", version)
 	}
 
-	var renamed struct {
-		Value string `json:"value"`
-	}
-	// dry_run previews the notes rewritten and writes nothing: the real call then renames the tag.
-	var preview, summary struct {
+	type renamedTag struct {
 		Value   string `json:"value"`
 		Changed *int   `json:"changed"`
 		Notes   []struct {
@@ -71,26 +67,30 @@ func TestTagsHistoryLinks(t *testing.T) {
 			Diff []string `json:"diff"`
 		} `json:"notes"`
 	}
-	call(t, agent, "rename_tag", map[string]any{"tag": "go", "to": "golang", "dry_run": true}, &preview)
-	if preview.Value != "golang" || len(preview.Notes) == 0 || len(preview.Notes[0].Diff) == 0 {
+	var renamed, preview, summary struct {
+		Tags []renamedTag `json:"tags"`
+	}
+	// dry_run previews the notes rewritten and writes nothing: the real call then renames the tag.
+	call(t, agent, "rename_tag", map[string]any{"tags": []string{"go"}, "to": "golang", "dry_run": true}, &preview)
+	if len(preview.Tags) != 1 || preview.Tags[0].Value != "golang" || len(preview.Tags[0].Notes) == 0 || len(preview.Tags[0].Notes[0].Diff) == 0 {
 		t.Errorf("rename_tag dry_run = %+v", preview)
 	}
-	call(t, agent, "rename_tag", map[string]any{"tag": "go", "to": "golang", "dry_run": true, "summary": true}, &summary)
-	if summary.Changed == nil || *summary.Changed != len(preview.Notes) || len(summary.Notes) != 0 {
-		t.Errorf("rename_tag summary = %+v, want %d notes counted, none listed", summary, len(preview.Notes))
+	call(t, agent, "rename_tag", map[string]any{"tags": []string{"go"}, "to": "golang", "dry_run": true, "summary": true}, &summary)
+	if len(summary.Tags) != 1 || summary.Tags[0].Changed == nil || *summary.Tags[0].Changed != len(preview.Tags[0].Notes) || len(summary.Tags[0].Notes) != 0 {
+		t.Errorf("rename_tag summary = %+v, want %d notes counted, none listed", summary, len(preview.Tags[0].Notes))
 	}
 	var still tags
 	call(t, agent, "tags", map[string]any{"tag": "go", "limit": 1}, &still)
 	if still.Total == 0 {
 		t.Errorf("rename_tag dry_run renamed the tag: %+v", still)
 	}
-	call(t, agent, "rename_tag", map[string]any{"tag": "go", "to": "golang"}, &renamed)
+	call(t, agent, "rename_tag", map[string]any{"tags": []string{"go"}, "to": "golang"}, &renamed)
 	// A name taken refuses, unless merged.
 	call(t, agent, "create_item", map[string]any{"content": "# Merged\n#gl"}, nil)
-	if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "rename_tag", Arguments: map[string]any{"tag": "gl", "to": "golang"}}); err != nil || !result.IsError {
+	if result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "rename_tag", Arguments: map[string]any{"tags": []string{"gl"}, "to": "golang"}}); err != nil || !result.IsError {
 		t.Errorf("rename_tag onto a taken name = %+v, %v; want an error", result, err)
 	}
-	call(t, agent, "rename_tag", map[string]any{"tag": "gl", "to": "golang", "merge": true}, &renamed)
+	call(t, agent, "rename_tag", map[string]any{"tags": []string{"gl"}, "to": "golang", "merge": true}, &renamed)
 	var replaced struct {
 		Notes       int `json:"notes"`
 		Occurrences int `json:"occurrences"`
@@ -103,19 +103,19 @@ func TestTagsHistoryLinks(t *testing.T) {
 	var deleted, dry, kept, brief deletedTag
 	var bare note
 	call(t, agent, "create_item", map[string]any{"content": "#golang"}, &bare)
-	call(t, agent, "delete_tag", map[string]any{"tag": "golang", "dry_run": true, "keep_empty": true}, &kept)
+	call(t, agent, "delete_tag", map[string]any{"tags": []string{"golang"}, "dry_run": true, "keep_empty": true}, &kept)
 	call(t, agent, "tags", map[string]any{"tag": "golang", "limit": 1}, &still)
 	if len(kept.Tags) != 1 || kept.Changed == 0 || kept.Trashed != 0 || len(kept.Notes) != 0 || still.Total == 0 {
 		t.Errorf("delete_tag dry_run keep_empty = %+v, tag left with %d notes", kept, still.Total)
 	}
 	// bare holds nothing but the tag: trashed, listed unless summary.
-	call(t, agent, "delete_tag", map[string]any{"tag": "golang", "dry_run": true}, &dry)
-	call(t, agent, "delete_tag", map[string]any{"tag": "golang", "dry_run": true, "summary": true}, &brief)
+	call(t, agent, "delete_tag", map[string]any{"tags": []string{"golang"}, "dry_run": true}, &dry)
+	call(t, agent, "delete_tag", map[string]any{"tags": []string{"golang"}, "dry_run": true, "summary": true}, &brief)
 	if dry.Trashed != 1 || len(dry.Notes) != 1 || dry.Notes[0].Id != bare.ID || brief.Trashed != 1 || len(brief.Notes) != 0 || brief.Changed != dry.Changed {
 		t.Errorf("delete_tag dry_run = %+v, summary = %+v", dry, brief)
 	}
-	call(t, agent, "delete_tag", map[string]any{"tag": "golang"}, &deleted)
-	if renamed.Value != "golang" || len(deleted.Tags) != 1 || deleted.Changed != dry.Changed {
+	call(t, agent, "delete_tag", map[string]any{"tags": []string{"golang"}}, &deleted)
+	if len(renamed.Tags) != 1 || renamed.Tags[0].Value != "golang" || len(deleted.Tags) != 1 || deleted.Changed != dry.Changed {
 		t.Errorf("rename_tag = %+v, delete_tag = %+v", renamed, deleted)
 	}
 }

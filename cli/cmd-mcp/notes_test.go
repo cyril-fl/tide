@@ -91,7 +91,7 @@ func TestNotes(t *testing.T) {
 	if len(after.Matches) != 0 || after.Total != 1 {
 		t.Errorf("search_notes offset 1 = %+v, want no match of 1", after)
 	}
-	call(t, agent, "delete_item", map[string]any{"item": bare.ID}, nil)
+	call(t, agent, "delete_item", map[string]any{"items": []string{bare.ID}}, nil)
 
 	// tag_notes changes only the #tags, the rest of the text kept byte for byte, an unknown note reported.
 	var tagRes tagResult
@@ -159,7 +159,7 @@ func TestNotes(t *testing.T) {
 	if len(tagRes.Notes) != 1 || !strings.HasPrefix(read.Content, "# Side") || !strings.Contains(read.Content, "#x") {
 		t.Errorf("tag_notes tags_none = %+v, then %q", tagRes.Notes, read.Content)
 	}
-	call(t, agent, "delete_item", map[string]any{"item": side.ID}, nil)
+	call(t, agent, "delete_item", map[string]any{"items": []string{side.ID}}, nil)
 	// updated_before alone picks the notes too: none changed before 2000.
 	call(t, agent, "tag_notes", map[string]any{"updated_before": "2000-01-01", "add": []string{"stale"}, "dry_run": true}, &tagRes)
 	retagged = tagRes.Notes
@@ -177,7 +177,7 @@ func TestNotes(t *testing.T) {
 
 	var moved changed
 	var listed folderPage
-	call(t, agent, "move_item", map[string]any{"item": "/Projects/Plan", "folder": "/Inbox"}, &moved)
+	call(t, agent, "move_item", map[string]any{"items": []string{"/Projects/Plan"}, "folder": "/Inbox"}, &moved)
 	call(t, agent, "list_folder", map[string]any{"folder": "/Inbox"}, &listed)
 	if len(moved.Items) != 1 || listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].ID != created.ID || listed.Items[0].CreatedAt != "" {
 		t.Errorf("move_item = %+v, list_folder = %+v", moved, listed)
@@ -222,17 +222,17 @@ func TestNotes(t *testing.T) {
 
 	// A folder goes to the trash with its content, and comes back with it.
 	var removed, restored changed
-	call(t, agent, "delete_item", map[string]any{"item": "/Inbox", "recursive": true}, &removed)
+	call(t, agent, "delete_item", map[string]any{"items": []string{"/Inbox"}, "recursive": true}, &removed)
 	if len(removed.Items) != 2 {
 		t.Errorf("delete_item recursive = %+v", removed)
 	}
 	var trash folderPage
 	call(t, agent, "list_folder", map[string]any{"trash": true}, &trash)
-	call(t, agent, "restore_item", map[string]any{"item": inbox.ID}, &restored)
+	call(t, agent, "restore_item", map[string]any{"items": []string{inbox.ID}}, &restored)
 	if len(trash.Trash) != 3 || trash.Total != 3 || len(restored.Items) != 2 { // The folder, and the Bare and Side notes deleted earlier.
 		t.Errorf("list_folder trash = %+v, restore_item = %+v", trash, restored)
 	}
-	call(t, agent, "delete_item", map[string]any{"item": "/Inbox/Plan"}, &removed)
+	call(t, agent, "delete_item", map[string]any{"items": []string{"/Inbox/Plan"}}, &removed)
 	if len(removed.Items) != 1 || removed.Items[0].ID != created.ID {
 		t.Errorf("delete_item = %+v", removed)
 	}
@@ -240,7 +240,7 @@ func TestNotes(t *testing.T) {
 	// A folder's path without recursive is refused, not its subtree trashed; a note's with it too.
 	call(t, agent, "create_item", map[string]any{"content": "# Kept", "folder": "/Projects"}, &created)
 	for args, want := range map[string]string{"/Projects": "give recursive", "/Projects/Kept": "leave out recursive"} {
-		result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "delete_item", Arguments: map[string]any{"item": args, "recursive": args == "/Projects/Kept"}})
+		result, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "delete_item", Arguments: map[string]any{"items": []string{args}, "recursive": args == "/Projects/Kept"}})
 		if err != nil || !result.IsError || !strings.Contains(result.Content[0].(*mcp.TextContent).Text, want) {
 			t.Errorf("delete_item %s = %+v, %v; want %q", args, result, err, want)
 		}

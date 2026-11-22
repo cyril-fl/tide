@@ -13,7 +13,7 @@ import (
 
 // The ceiling of the tool list, 24 tools of 12.4 KB at #225: a tool or a long description more is paid at every
 // request. Raise it knowingly.
-const maxTools, maxToolBytes = 24, 13000
+const maxTools, maxToolBytes = 24, 13500
 
 // TestAddTools catches a schema the SDK cannot infer from the arguments: the tools would be
 // announced broken, and only an agent calling them would find out. It names every tool: one more is a choice.

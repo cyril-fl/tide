@@ -19,3 +19,20 @@ export function moveTab<T>(tabs: T[], from: number, to: number): T[] {
   moved.splice(to, 0, ...moved.splice(from, 1));
   return moved;
 }
+
+/** The tabs of a panel and the note it shows. */
+export type Panel<T> = { tabs: T[]; active: string };
+
+/** The panel without the tab of a note: the note it showed gives way to its neighbour (tabAfterClose), or to none. */
+export function withoutTab<T extends { id: string }>(panel: Panel<T>, id: string): Panel<T> {
+  if (!panel.tabs.some((tab) => tab.id === id)) return panel;
+  const ids = panel.tabs.map((tab) => tab.id);
+  const active = panel.active === id ? (tabAfterClose(ids, id) ?? '') : panel.active;
+  return { tabs: panel.tabs.filter((tab) => tab.id !== id), active };
+}
+
+/** The panel showing a note: in its tab, else in one placed as in the first panel (placeTab). */
+export function openTab<T extends { id: string }>(panel: Panel<T>, tab: T, fresh: boolean): Panel<T> {
+  const open = panel.tabs.some((other) => other.id === tab.id);
+  return { tabs: open ? panel.tabs : placeTab(panel.tabs, panel.active, tab, fresh), active: tab.id };
+}

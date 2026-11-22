@@ -3,7 +3,7 @@ export function useSplit() {
   const { has } = usePro();
   const { icons } = useIcons();
   const { t } = useI18n();
-  const { tabs, beside, openInTab } = useTabs();
+  const { tabs, beside, besidePanel, openInTab } = useTabs();
   const route = useRoute();
   const focus = useState('focus', () => false);
   const can = computed(() => has('splitView') && !(focus.value && has('focusMode')));
@@ -15,7 +15,7 @@ export function useSplit() {
     const open = document.querySelector<HTMLElement>(`[data-note-id="${id}"] .ProseMirror`);
     if (open) return open.focus();
     if (fromBeside) return navigateTo(`/notes/${id}`);
-    beside.value = id;
+    besidePanel.value = openTab(besidePanel.value, { id }, false);
   }
 
   // ⌘ + click or "Open beside": the note in the other panel, not one already on screen. Away from a note, there is

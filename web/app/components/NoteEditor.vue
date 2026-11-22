@@ -25,7 +25,7 @@ const emit = defineEmits<{ created: [id: string] }>();
 const api = useApi();
 const { confirm, confirmMerge, prompt, resolveConflict } = useDialogs();
 const { removeItem } = useItems();
-const { tabs, beside: besideId, forget, show } = useTabs();
+const { tabs, besidePanel, forget, show } = useTabs();
 const baseURL = useRuntimeConfig().public.apiBase;
 const toast = useToast();
 
@@ -623,7 +623,7 @@ const status = computed(() => {
         size="xs"
         class="ml-auto"
         :aria-label="$t('note.closeBeside')"
-        @click="besideId = ''"
+        @click="besidePanel = { tabs: [], active: '' }"
       />
     </header>
     <!-- Lazy: CodeMirror is loaded at the first use of the source mode, not with the page. -->

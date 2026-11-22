@@ -42,11 +42,14 @@ watch(
   },
 );
 // The note of the second panel opened in the first trades places with the note there: never one note in both (#62).
-const { beside } = useTabs();
+const { beside, besidePanel } = useTabs();
 const split = useSplit();
 watch(
   () => route.params.id as string,
-  (id, before) => id === beside.value && (beside.value = before === 'new' ? '' : before),
+  (id, before) =>
+    id === beside.value &&
+    (besidePanel.value =
+      before === 'new' ? withoutTab(besidePanel.value, id) : openTab(besidePanel.value, { id: before }, false)),
 );
 
 // The panel keeps the related notes and the graph from one note to the next, not for a note opened long after.

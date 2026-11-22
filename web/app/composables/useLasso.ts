@@ -29,7 +29,7 @@ export function useLasso(list: Ref<HTMLElement | null>, enabled: () => boolean =
     const bottom = Math.max(from.y, event.clientY);
     if (!square.value && right - left < 4 && bottom - top < 4) return;
     square.value = { left: `${left}px`, top: `${top}px`, width: `${right - left}px`, height: `${bottom - top}px` };
-    // shortcut: only the rows rendered are seen, the pages not in sight are not; no scroll while dragging, when someone needs it.
+    // TODO: only the rows rendered are seen, the pages not in sight are not (no scroll while dragging), when a long list needs it.
     const hit = [...list.value.querySelectorAll<HTMLElement>('li[data-id]')]
       .filter((li) => {
         const box = li.getBoundingClientRect();

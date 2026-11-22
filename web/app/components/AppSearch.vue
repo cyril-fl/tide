@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { CommandPaletteGroup, CommandPaletteItem } from '@nuxt/ui';
-import type { ItemDetail, Match, Recent, User } from '~/types/items';
+import type { CommandPaletteGroup, CommandPaletteItem, DropdownMenuItem } from '@nuxt/ui';
+import type { Item, ItemDetail, Match, Recent, User } from '~/types/items';
 
 const { icons } = useIcons();
 const { shortcuts, key } = useShortcuts();
@@ -9,7 +9,7 @@ const { t } = useI18n();
 const api = useApi();
 const { has } = usePro();
 const route = useRoute();
-const { createFolder, moveItem, renameFolder, renameTag } = useItems();
+const { createFolder, itemMenu, moveItem, renameFolder, renameTag } = useItems();
 const { importNotes, replaceNotes } = useDialogs();
 
 const open = useState('search-open', () => false);
@@ -108,13 +108,51 @@ const proActions = computed<CommandPaletteItem[]>(() => {
   ];
 });
 
-const toNote = (note: { id: string; title: string; path: string; readonly?: boolean }): CommandPaletteItem => ({
+const toNote = (note: Match | Recent): CommandPaletteItem => ({
   label: displayTitle(note.title, t('untitled')),
   suffix: note.path,
   icon: icons.note,
   ...(besideOnly.value ? { onSelect: () => split.openOther(note.id, false) } : { to: `/notes/${note.id}` }),
   readonly: note.readonly,
+  note: besideOnly.value ? undefined : note,
 });
+
+// A note found has the menu of its right-click in the lists: its … button, a right-click on it, or → on it.
+const menuFor = ref<string>();
+watch(open, () => (menuFor.value = undefined));
+function noteMenu(note: Match | Recent): DropdownMenuItem[][] {
+  const item = { ...note, kind: 'note', created_at: '' } as Item;
+  return itemMenu(item, () => parentOf({ kind: 'note', id: note.id })).map((group) =>
+    group.map((entry) => ({
+      ...entry,
+      onSelect: (event: Event) => {
+        open.value = false;
+        entry.onSelect?.(event);
+      },
+    })),
+  );
+}
+const menuOf = (row: Element | null | undefined) =>
+  row?.querySelector<HTMLElement>('[data-note-menu]')?.dataset.noteMenu;
+useEventListener(document, 'contextmenu', (event) => {
+  const id = open.value && menuOf((event.target as Element).closest('[role="option"]'));
+  if (!id) return;
+  event.preventDefault();
+  menuFor.value = id;
+});
+onKeyStroke('ArrowRight', (event) => {
+  const input = event.target as HTMLInputElement;
+  if (!open.value || menuFor.value || input.selectionStart !== input.value?.length) return;
+  const id = menuOf(document.querySelector('[role="option"][data-highlighted]'));
+  if (!id) return;
+  event.preventDefault();
+  menuFor.value = id;
+});
+// Closed without an action, the menu gives the keys back to the search.
+function backToSearch(event: Event) {
+  event.preventDefault();
+  document.querySelector<HTMLInputElement>('[role="dialog"] input')?.focus();
+}
 // Kept open (preventDefault) on the notes to pick, the search typed so far cleared.
 const openBeside = (event: Event) => {
   event.preventDefault();
@@ -190,7 +228,7 @@ const groups = computed<CommandPaletteGroup[]>(() => {
     :placeholder="$t('search.placeholder')"
     :shortcut="key('search')"
   >
-    <!-- The padlock of a locked note at the end of its row, where folders and actions show their chevron. -->
+    <!-- The padlock of a locked note at the end of its row, where folders and actions show their chevron, then its menu. -->
     <template #note-trailing="{ item }">
       <UIcon
         v-if="item.readonly"
@@ -198,6 +236,25 @@ const groups = computed<CommandPaletteGroup[]>(() => {
         :aria-label="$t('note.readonly')"
         class="size-3.5 shrink-0 text-muted"
       />
+      <UDropdownMenu
+        v-if="item.note"
+        :items="noteMenu(item.note)"
+        :open="menuFor === item.note.id"
+        :content="{ align: 'end', onCloseAutoFocus: backToSearch }"
+        @update:open="menuFor = $event ? item.note.id : undefined"
+      >
+        <UButton
+          :icon="icons.more"
+          color="neutral"
+          variant="ghost"
+          size="xs"
+          :aria-label="$t('search.actions')"
+          :data-note-menu="item.note.id"
+          class="-my-1 opacity-0 group-hover:opacity-100 group-data-highlighted:opacity-100 pointer-coarse:opacity-100"
+          @click.stop
+          @pointerdown.stop
+        />
+      </UDropdownMenu>
     </template>
   </UDashboardSearch>
 </template>

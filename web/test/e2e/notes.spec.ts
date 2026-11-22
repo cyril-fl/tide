@@ -15,6 +15,49 @@ test('the palette finds a note and opens it', async ({ page }) => {
   await expect(page).toHaveURL(`/notes/${note.id}`);
 });
 
+test('a note found in the palette has the menu of its right-click: its … button, a right-click or →', async ({
+  page,
+}) => {
+  const shelf = await (
+    await box.api.post('/api/folders', { data: { title: 'Rangée', parent_id: box.folder.id } })
+  ).json();
+  const note = await box.note(`# ${box.prefix} menu`);
+  const parent = async () => (await (await box.api.get(`/api/notes/${note.id}`)).json()).item.parent_id;
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: /Rechercher/ })).toBeVisible();
+  const search = page.getByPlaceholder('Chercher une note, une action…');
+  const row = page.getByRole('option', { name: new RegExp(`^${box.prefix} menu`) });
+
+  await page.keyboard.press('ControlOrMeta+k');
+  await search.fill(`${box.prefix} menu`);
+  await row.hover();
+  await row.getByRole('button', { name: 'Actions' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Exporter' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menuitem', { name: 'Exporter' })).toBeHidden();
+  await expect(search).toBeFocused(); // The menu closed gives the keys back to the search.
+
+  await row.click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Exporter' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(search).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(search).toBeHidden();
+
+  // Typed, the first note found is highlighted: → opens its menu.
+  await page.keyboard.press('ControlOrMeta+k');
+  await search.fill(`${box.prefix} menu`);
+  await expect(row).toHaveAttribute('data-highlighted');
+  await page.keyboard.press('ArrowRight');
+  await page.getByRole('menuitem', { name: 'Déplacer vers…' }).click();
+  await page.getByPlaceholder('Déplacer vers…').fill('Rangée');
+  await page.getByRole('option', { name: `/${box.prefix}/Rangée` }).click();
+  await expect.poll(parent).toBe(shelf.id);
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await page.keyboard.press('ControlOrMeta+z'); // The palette read where the note was.
+  await expect.poll(parent).toBe(box.folder.id);
+});
+
 test('[[ offers the notes and links by id', async ({ page }) => {
   const target = await box.note(`# ${box.prefix} cible`);
   const source = await box.note(`# ${box.prefix} source\n\nVoir`);

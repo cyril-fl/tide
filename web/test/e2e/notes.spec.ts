@@ -82,18 +82,24 @@ test('a web link turns into a large card, then a mini one, kept in the markdown'
   const note = await box.note(`# ${box.prefix} carte\n\nVoir [Exemple](https://example.com) ici`);
   await page.goto(`/notes/${note.id}`);
   const editor = page.locator('.ProseMirror');
-  await editor.getByText('Exemple').click();
+  await editor.getByText('Exemple').click({ button: 'right' });
   await page.getByRole('button', { name: 'Large' }).click();
   await expect(editor.locator('a.link-card-large')).toContainText('Exemple');
   await expect.poll(() => box.content(note.id), { timeout: 5000 }).toContain('[Exemple](https://example.com "large")');
 
-  await editor.locator('a.link-card').click();
+  await editor.locator('a.link-card').click({ button: 'right' });
   await page.getByRole('button', { name: 'Mini' }).click();
   await expect.poll(() => box.content(note.id), { timeout: 5000 }).toContain('[Exemple](https://example.com "mini")');
   await page.reload();
   await expect(editor.locator('a.link-card-mini')).toContainText('Exemple');
 
+  // A left click opens the card, its size menu stays closed.
+  const popup = page.waitForEvent('popup');
   await editor.locator('a.link-card').click();
+  expect((await popup).url()).toContain('example.com');
+  await expect(page.getByRole('button', { name: 'Hyperlien' })).toBeHidden();
+
+  await editor.locator('a.link-card').click({ button: 'right' });
   await page.getByRole('button', { name: 'Hyperlien' }).click();
   await expect.poll(() => box.content(note.id), { timeout: 5000 }).toContain('[Exemple](https://example.com) ici');
 });
@@ -232,7 +238,13 @@ test('the size of an image is picked over it and kept as the title of its markdo
   const image = page.locator('.ProseMirror img[alt="chat"]');
   await expect(image).toHaveClass(/note-image-small/);
 
+  // A left click opens the image, a right click its size menu.
+  const popup = page.waitForEvent('popup');
   await image.click();
+  expect((await popup).url()).toContain('x.org/chat.png');
+  await expect(page.getByRole('button', { name: 'Moyenne' })).toBeHidden();
+
+  await image.click({ button: 'right' });
   await page.getByRole('button', { name: 'Moyenne' }).click();
   await expect(image).toHaveClass(/note-image-medium/);
   await expect

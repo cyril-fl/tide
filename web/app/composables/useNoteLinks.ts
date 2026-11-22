@@ -207,7 +207,19 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
     },
   });
 
+  function openWebLink(href?: string) {
+    // A mail link opens the mail app: a new tab would stay empty.
+    if (href && isMailLink(href)) window.location.href = href;
+    else if (isCardLink(href)) window.open(href, '_blank', 'noopener');
+  }
+
+  // A click opens a web link or a card, a [[link]] its note; the size menu is on a right click.
   function openLink(event: MouseEvent) {
+    const web = (event.target as HTMLElement).closest<HTMLElement>('a[href]:not([data-wikilink])');
+    if (web && isCardLink(web.getAttribute('href'))) {
+      event.preventDefault();
+      return openWebLink(web.getAttribute('href')!);
+    }
     const link = (event.target as HTMLElement).closest<HTMLElement>('a[data-wikilink]');
     if (!link) return;
     event.preventDefault();
@@ -284,10 +296,7 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
       linkMini: linkSizeHandler('mini'),
       linkLarge: linkSizeHandler('large'),
       linkOpen: command((editor) => {
-        const href = linkHref(editor);
-        // A mail link opens the mail app: a new tab would stay empty.
-        if (href && isMailLink(href)) window.location.href = href;
-        else if (isCardLink(href)) window.open(href, '_blank', 'noopener');
+        openWebLink(linkHref(editor));
         return editor.chain();
       }),
     },
@@ -305,6 +314,7 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
         ],
         shouldShow: ({ editor }) =>
           editor.isActive('linkCard') || (editor.isActive('link') && isCardLink(editor.getAttributes('link').href)),
+        contextMenu: true,
       },
     ],
     menus: [

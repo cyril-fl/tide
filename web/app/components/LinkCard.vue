@@ -17,7 +17,7 @@ watch(host, () => (noFavicon.value = false));
 </script>
 
 <template>
-  <!-- A click selects the card for the bubble menu: opening it is the menu's job, not the editor's. -->
+  <!-- The editor opens it on a click (useNoteLinks), its size menu on a right click: not the browser. -->
   <NodeViewWrapper
     as="a"
     :href="href"

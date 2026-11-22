@@ -61,6 +61,7 @@ export function useNoteImages(baseURL: string, upload: (file: File) => Promise<s
           ],
         ],
         shouldShow: ({ editor }) => editor.isActive('image'),
+        contextMenu: true,
       },
     ],
   };

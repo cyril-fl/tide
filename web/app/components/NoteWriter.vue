@@ -5,6 +5,7 @@ import type { Range } from '@tiptap/core';
 import type { Editor } from '@tiptap/vue-3';
 import type { FetchError } from 'ofetch';
 import type { NoteFile } from '~/types/items';
+import type { EditorBubble } from '~/utils/editorModule';
 
 // The editor itself, its modules, toolbar and menus: the note page and the snippet dialog write in the same one.
 // modelValue: the markdown it starts from, read again only when it changes. noteId: the note written, left out of the [[ menu.
@@ -35,7 +36,7 @@ defineExpose({ editor: computed(() => editorRef.value?.editor) });
 // The note scrolls in its own box, which the menus over the text do not watch (only the window): they follow it here.
 function placeBubbles() {
   const editor = editorRef.value?.editor;
-  const shown = editor ? parts.value.bubbles.filter((bubble) => bubble.shouldShow({ editor })) : [];
+  const shown = editor ? bubbles.value.filter((bubble) => bubble.shouldShow({ editor })) : [];
   if (!editor || !shown.length) return;
   const { tr } = editor.state;
   for (const bubble of shown) tr.setMeta(bubble.pluginKey, 'updatePosition');
@@ -161,7 +162,43 @@ const contextMenu = computed(() => (has('contextMenu') && !props.readonly && !to
 // A right click or a long press on a link to a note opens a menu of its own, before the editor's: open it beside.
 const { openMenu } = useSplit();
 const linkAt = shallowRef<{ items: DropdownMenuItem[][]; left: number; top: number } | null>(null);
+// The size menus of images, cards and web links open on a right click or a long press, where it was: a click opens them.
+const sizedAt = shallowRef<number | null>(null);
+const bubbles = computed(() =>
+  parts.value.bubbles.map((bubble) =>
+    bubble.contextMenu
+      ? {
+          ...bubble,
+          shouldShow: (shown: Parameters<EditorBubble['shouldShow']>[0]) =>
+            editorRef.value?.editor?.state.selection.from === sizedAt.value && bubble.shouldShow(shown),
+        }
+      : bubble,
+  ),
+);
+function sizeMenu(event: MouseEvent) {
+  const editor = editorRef.value?.editor;
+  const target = event.target as HTMLElement;
+  const at = editor?.view.posAtCoords({ left: event.clientX, top: event.clientY });
+  if (!editor || !at || props.readonly || !editor.view.dom.contains(target)) return false;
+  const web = target.closest('a[href]:not([data-wikilink])');
+  const atom = target.closest('img:not(.link-card-icon), [data-link-card]');
+  if (!atom && !(web && isCardLink(web.getAttribute('href')))) return false;
+  // An image or a card is selected whole, a web link at the cursor.
+  sizedAt.value = atom ? at.inside : at.pos;
+  if (atom) editor.chain().focus().setNodeSelection(at.inside).run();
+  else editor.chain().focus().setTextSelection(at.pos).run();
+  return true;
+}
+// A left click in the text closes it, not one on its buttons: they keep it open for another size.
+function closeSizeMenu(event: PointerEvent) {
+  if (event.button === 0 && editorRef.value?.editor?.view.dom.contains(event.target as Node)) sizedAt.value = null;
+}
 function linkMenu(event: MouseEvent) {
+  if (sizeMenu(event)) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    return;
+  }
   const link = (event.target as HTMLElement).closest<HTMLElement>('[data-note]');
   const items = link?.dataset.note ? openMenu(link.dataset.note, !!link.closest('[data-beside]')) : [];
   if (!items.length) return;
@@ -231,6 +268,7 @@ const toolbar = computed(() =>
     v-if="ready"
     ref="writer"
     class="flex min-h-0 flex-1 flex-col"
+    @pointerdown.capture="closeSizeMenu"
     @click="parts.onClick"
     @contextmenu.capture="linkMenu"
   >
@@ -268,7 +306,7 @@ const toolbar = computed(() =>
           />
           <NoteSearch v-model:open="searchOpen" :editor="editor" :readonly="readonly" />
           <UEditorToolbar
-            v-for="bubble in readonly ? [] : parts.bubbles"
+            v-for="bubble in readonly ? [] : bubbles"
             :key="bubble.pluginKey"
             :editor="editor"
             :items="bubble.items"

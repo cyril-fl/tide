@@ -8,6 +8,8 @@ export interface EditorBubble {
   pluginKey: string;
   items: EditorToolbarItem[][];
   shouldShow: (props: { editor: Pick<Editor, 'isActive' | 'getAttributes'> }) => boolean;
+  /** Shown on a right click or a long press only: a left click opens what it is on. */
+  contextMenu?: boolean;
 }
 
 /** A menu opened by typing its char; items can follow the data they come from. */

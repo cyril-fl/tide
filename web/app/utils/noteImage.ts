@@ -116,6 +116,12 @@ export function noteImage(baseURL: string, upload: (file: File) => Promise<strin
               return true;
             },
             handleClick(_view, _pos, event) {
+              // A click opens the image, its size menu is on a right click.
+              const img = (event.target as HTMLElement).closest('img:not(.link-card-icon)')?.getAttribute('src');
+              if (img) {
+                window.open(img, '_blank', 'noopener');
+                return true;
+              }
               const href = (event.target as HTMLElement).closest('a')?.getAttribute('href');
               if (!isFileLink(href)) return false;
               openFile(href!, baseURL);

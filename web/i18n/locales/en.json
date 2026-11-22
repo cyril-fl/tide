@@ -403,7 +403,7 @@
     },
     "manageAccount": "Manage account",
     "snippets": "Snippets",
-    "snippetsDescription": "Reusable markdown: type ;; in a note to insert it, or T (or Cmd K) to start a new note with it.",
+    "snippetsDescription": "Reusable markdown: type ;; in a note to insert it, or Option T (or Cmd K) to start a new note with it.",
     "exportSnippet": "Export as .md",
     "exportSnippets": "Export every snippet",
     "snippetsTransfer": "Import or export",

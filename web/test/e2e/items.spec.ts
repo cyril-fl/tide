@@ -17,6 +17,23 @@ test('a note dragged onto a folder moves into it', async ({ page }) => {
   await expect(main.getByRole('link', { name: /Voyageuse/ })).toBeVisible();
 });
 
+test('a note moved from its right-click menu goes into the folder picked, ⌘Z brings it back', async ({ page }) => {
+  await box.api.post('/api/folders', { data: { title: 'Destination', parent_id: box.folder.id } });
+  await box.note('# Voyageuse');
+  await page.goto(`/folders/${box.folder.id}`);
+  const main = page.getByRole('main');
+
+  await main.getByRole('link', { name: /Voyageuse/ }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Déplacer vers…' }).click();
+  await page.getByPlaceholder('Déplacer vers…').fill('Destination');
+  await page.getByRole('option', { name: `/${box.prefix}/Destination` }).click();
+  await expect(main.getByRole('link', { name: /Voyageuse/ })).toBeHidden();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(main.getByRole('link', { name: /Voyageuse/ })).toBeVisible();
+});
+
 test('a removed note comes back from the trash, then leaves it for good', async ({ page }) => {
   const note = await box.note(`# Recyclée ${box.prefix}`);
   await page.goto(`/folders/${box.folder.id}`);

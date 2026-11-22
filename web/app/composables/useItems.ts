@@ -16,7 +16,7 @@ let undone: Step[] = [];
 export function useItems() {
   const api = useApi();
   const route = useRoute();
-  const { prompt, confirm } = useDialogs();
+  const { prompt, confirm, pickFolder } = useDialogs();
   const { icons } = useIcons();
   const { t } = useI18n();
   const toast = useToast();
@@ -215,8 +215,16 @@ export function useItems() {
     }
   }
 
-  /** What right-clicking an item offers. */
-  function itemMenu(item: Item): ContextMenuItem[][] {
+  /** What right-clicking an item offers. from: its folder, for ⌘Z to put it back, when the item does not say it. */
+  function itemMenu(item: Item, from = async () => item.parent_id ?? null): ContextMenuItem[][] {
+    const move = {
+      label: t('search.moveTo'),
+      icon: icons.move,
+      onSelect: async () => {
+        const folder = await pickFolder(item.kind === 'folder' ? [item.id] : []);
+        if (folder) await moveItem(item.id, folder === ROOT ? null : folder, await from());
+      },
+    };
     const remove = {
       label: t('common.delete'),
       icon: icons.delete,
@@ -234,6 +242,7 @@ export function useItems() {
         ...openMenu(item.id),
         [pin],
         [
+          move,
           { label: t('items.share'), icon: icons.share, onSelect: () => shareItem(item) },
           { label: t('settings.export'), icon: icons.export, onSelect: () => exportItems([item.id]) },
         ],
@@ -255,6 +264,7 @@ export function useItems() {
           onSelect: () => pinItem(item, !favorite),
         },
         { label: t('common.rename'), icon: icons.rename, onSelect: () => renameFolder(item) },
+        move,
         { label: t('settings.export'), icon: icons.export, onSelect: () => exportItems([item.id]) },
       ],
       [remove],

@@ -148,10 +148,17 @@ onKeyStroke('ArrowRight', (event) => {
   event.preventDefault();
   menuFor.value = id;
 });
-// Closed without an action, the menu gives the keys back to the search.
+// Closed without an action, the menu gives the keys back to the search, on its note again: the focus gone into the
+// menu, out of the list, took the highlight away, and the list highlights a row on the pointer or the arrows only.
+let lastMenu: string | undefined;
+watch(menuFor, (id) => id && (lastMenu = id));
 function backToSearch(event: Event) {
   event.preventDefault();
   document.querySelector<HTMLInputElement>('[role="dialog"] input')?.focus();
+  document
+    .querySelector(`[data-note-menu="${lastMenu}"]`)
+    ?.closest('[role="option"]')
+    ?.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }));
 }
 // Kept open (preventDefault) on the notes to pick, the search typed so far cleared.
 const openBeside = (event: Event) => {

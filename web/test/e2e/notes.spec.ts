@@ -41,6 +41,11 @@ test('a note found in the palette has the menu of its right-click: its … butto
   await expect(page.getByRole('menuitem', { name: 'Exporter' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(search).toBeFocused();
+  await expect(row).toHaveAttribute('data-highlighted'); // Still on its note: → opens its menu again.
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('menuitem', { name: 'Exporter' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(search).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(search).toBeHidden();
 

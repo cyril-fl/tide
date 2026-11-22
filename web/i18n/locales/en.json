@@ -395,6 +395,7 @@
     "snippetsDescription": "Reusable markdown: type ;; in a note to insert it, or T (or Cmd K) to start a new note with it.",
     "exportSnippet": "Export as .md",
     "exportSnippets": "Export every snippet",
+    "snippetsTransfer": "Import or export",
     "importSnippets": "Import snippets",
     "snippetsImported": "{n} snippet imported | {n} snippets imported",
     "snippetsNoneFound": "No .md file to import",

@@ -235,12 +235,14 @@ test('snippets are exported and imported as .md files', async ({ page }) => {
     await page.getByRole('button', { name: 'Exporter en .md' }).click();
     expect((await one).suggestedFilename()).toBe(`${box.prefix} jour.md`);
     const all = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Exporter tous les snippets' }).click();
+    await page.getByRole('button', { name: 'Importer ou exporter' }).click();
+    await page.getByRole('menuitem', { name: 'Exporter tous les snippets' }).click();
     const archive = await all;
     expect(archive.suggestedFilename()).toBe('snippets.zip');
 
     const chooser = page.waitForEvent('filechooser');
-    await page.getByRole('button', { name: 'Importer des snippets' }).click();
+    await page.getByRole('button', { name: 'Importer ou exporter' }).click();
+    await page.getByRole('menuitem', { name: 'Importer des snippets' }).click();
     await (
       await chooser
     ).setFiles([

@@ -58,6 +58,7 @@ export function useIcons() {
     share: 'i-reicon-share',
     export: 'i-reicon-upload',
     import: 'i-reicon-download',
+    transfer: 'i-reicon-transfer-v',
     snippet: 'i-reicon-text-block',
     appearance: 'i-reicon-palette',
     current: 'i-reicon-check',

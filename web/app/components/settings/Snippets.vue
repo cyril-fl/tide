@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DropdownMenuItem } from '@nuxt/ui';
 import type { Snippet } from '~/types/items';
 
 const { icons } = useIcons();
@@ -102,6 +103,16 @@ function exportSnippets() {
   download('snippets.zip', zip(entries), 'application/zip');
 }
 
+const transferMenu = computed<DropdownMenuItem[]>(() => [
+  { label: t('settings.importSnippets'), icon: icons.import, onSelect: () => picker.open() },
+  {
+    label: t('settings.exportSnippets'),
+    icon: icons.export,
+    disabled: !me.value?.snippets.length,
+    onSelect: exportSnippets,
+  },
+]);
+
 // .md files, one snippet each, or a zip of them (an export, another account's, a folder of templates).
 const picker = useFileDialog({ accept: '.md,.markdown,.txt,.zip', multiple: true, reset: true });
 picker.onChange((files) => files && importSnippets([...files]));
@@ -175,26 +186,17 @@ async function importSnippets(files: File[]) {
           v-model="sort"
           :choices="['title', 'created', 'updated']"
         />
-        <UTooltip :text="$t('settings.importSnippets')">
-          <UButton
-            :icon="icons.import"
-            color="neutral"
-            variant="ghost"
-            :aria-label="$t('settings.importSnippets')"
-            :disabled="!me"
-            @click="picker.open()"
-          />
-        </UTooltip>
-        <UTooltip :text="$t('settings.exportSnippets')">
-          <UButton
-            :icon="icons.export"
-            color="neutral"
-            variant="ghost"
-            :aria-label="$t('settings.exportSnippets')"
-            :disabled="!me?.snippets.length"
-            @click="exportSnippets"
-          />
-        </UTooltip>
+        <UDropdownMenu :items="transferMenu" :content="{ align: 'end' }">
+          <UTooltip :text="$t('settings.snippetsTransfer')">
+            <UButton
+              :icon="icons.transfer"
+              color="neutral"
+              variant="ghost"
+              :aria-label="$t('settings.snippetsTransfer')"
+              :disabled="!me"
+            />
+          </UTooltip>
+        </UDropdownMenu>
         <UButton
           :label="$t('settings.addSnippet')"
           :ui="{ label: 'max-sm:sr-only' }"

@@ -8,25 +8,32 @@ const { data: me } = useMe();
 const { confirm, snippet: editSnippet } = useDialogs();
 const toast = useToast();
 
-// The order is for looking through them here only: the ;; menu keeps the list's, and nothing is saved.
-const sortKey = ref<'created' | 'updated' | 'title'>('created');
-const descending = ref(false);
-const sortKeys = computed(() =>
-  (['created', 'updated', 'title'] as const).map((value) => ({
-    label: t(`folder.sort${value[0]!.toUpperCase()}${value.slice(1)}`),
-    value,
-  })),
-);
-// A snippet saved before the dates existed has none: 0, first, the list keeping their order (the order they came in).
+// The order is for looking through them here only: the ;; menu keeps the list's, and nothing is saved. As the
+// folders' sort, keys the first deciding first, "-" to reverse; "" leaves the list's order (the order they came in).
+const sort = ref('');
+// A snippet saved before the dates existed has none: 0, first.
 const time = (date?: string) => (date ? Date.parse(date) : 0);
+const compare = {
+  title: (a: Snippet, b: Snippet) => a.name.localeCompare(b.name, locale.value),
+  created: (a: Snippet, b: Snippet) => time(a.created_at) - time(b.created_at),
+  updated: (a: Snippet, b: Snippet) => time(a.updated_at) - time(b.updated_at),
+};
+const keys = computed(() => (has('snippetSort') && sort.value ? sort.value.split(',') : []));
 const shown = computed(() => {
   const snippets = me.value?.snippets ?? [];
-  if (!has('snippetSort')) return snippets;
-  const key = sortKey.value;
-  const sorted = snippets.toSorted((a, b) =>
-    key === 'title' ? a.name.localeCompare(b.name, locale.value) : time(a[`${key}_at`]) - time(b[`${key}_at`]),
-  );
-  return descending.value ? sorted.reverse() : sorted;
+  if (!keys.value.length) return snippets;
+  return snippets.toSorted((a, b) => {
+    for (const key of keys.value) {
+      const order = compare[key.replace(/^-/, '') as keyof typeof compare](a, b);
+      if (order) return key.startsWith('-') ? -order : order;
+    }
+    return 0;
+  });
+});
+// The date the list is sorted by first, when it is one.
+const dateKey = computed(() => {
+  const key = keys.value[0]?.replace(/^-/, '');
+  return key === 'created' || key === 'updated' ? key : undefined;
 });
 
 // The snippet whose text shows under its row, one at a time.
@@ -163,27 +170,11 @@ async function importSnippets(files: File[]) {
       </div>
       <!-- One group, so on a phone the controls wrap together under the text. -->
       <div class="flex items-center gap-1">
-        <USelect
-          v-if="has('snippetSort') && shown.length > 1"
-          v-model="sortKey"
-          :items="sortKeys"
-          :aria-label="$t('folder.sort')"
-          color="neutral"
-          variant="ghost"
-          class="w-40 max-sm:w-32"
+        <SortMenu
+          v-if="has('snippetSort') && (me?.snippets.length ?? 0) > 1"
+          v-model="sort"
+          :choices="['title', 'created', 'updated']"
         />
-        <UTooltip
-          v-if="has('snippetSort') && shown.length > 1"
-          :text="descending ? $t('settings.sortDescending') : $t('settings.sortAscending')"
-        >
-          <UButton
-            :icon="descending ? icons.descending : icons.ascending"
-            color="neutral"
-            variant="ghost"
-            :aria-label="descending ? $t('settings.sortDescending') : $t('settings.sortAscending')"
-            @click="descending = !descending"
-          />
-        </UTooltip>
         <UTooltip :text="$t('settings.importSnippets')">
           <UButton
             :icon="icons.import"
@@ -230,12 +221,8 @@ async function importSnippets(files: File[]) {
             :class="open === snippet.name ? 'text-primary' : 'text-muted'"
           />
           <span class="min-w-0 flex-1 truncate text-sm">{{ snippet.name }}</span>
-          <!-- The date the list is sorted by, when it is one. -->
-          <span
-            v-if="has('snippetSort') && sortKey !== 'title' && snippet[`${sortKey}_at`]"
-            class="shrink-0 text-xs text-muted max-sm:hidden"
-          >
-            {{ new Date(snippet[`${sortKey}_at`]!).toLocaleDateString(locale) }}
+          <span v-if="dateKey && snippet[`${dateKey}_at`]" class="shrink-0 text-xs text-muted max-sm:hidden">
+            {{ new Date(snippet[`${dateKey}_at`]!).toLocaleDateString(locale) }}
           </span>
         </button>
         <UTooltip :text="$t('settings.exportSnippet')">

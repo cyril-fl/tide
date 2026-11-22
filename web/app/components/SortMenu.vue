@@ -5,8 +5,18 @@ const { icons } = useIcons();
 const { t } = useI18n();
 
 // The sort is a list of keys, the first deciding first, "-" before one to reverse; "" is neutral (by name).
-const KEYS = ['title', 'created', 'updated', 'pinned'] as const;
-const sort = useSort();
+// Without a v-model, the folders' sort of the account; with one, a list of its own (choices, the keys it offers).
+type SortKey = 'title' | 'created' | 'updated' | 'pinned';
+const props = withDefaults(defineProps<{ modelValue?: string; choices?: readonly SortKey[] }>(), {
+  modelValue: undefined,
+  choices: () => ['title', 'created', 'updated', 'pinned'],
+});
+const emit = defineEmits<{ 'update:modelValue': [sort: string] }>();
+const folders = useSort();
+const sort = computed({
+  get: () => props.modelValue ?? folders.value,
+  set: (next) => (props.modelValue === undefined ? (folders.value = next) : emit('update:modelValue', next)),
+});
 const keys = computed(() => (sort.value ? sort.value.split(',') : []));
 
 // Each click on a choice: ascending (added last), then descending (same place), then off.
@@ -18,7 +28,7 @@ function cycle(key: string) {
   else sort.value = list.toSpliced(index, 1).join(',');
 }
 
-function label(key: (typeof KEYS)[number], reversed: boolean | undefined) {
+function label(key: SortKey, reversed: boolean | undefined) {
   if (key === 'pinned' && reversed !== undefined)
     return t(reversed ? 'folder.sortPinnedLast' : 'folder.sortPinnedFirst');
   return t(`folder.sort${key[0]!.toUpperCase()}${key.slice(1)}`);
@@ -27,7 +37,7 @@ function label(key: (typeof KEYS)[number], reversed: boolean | undefined) {
 const menu = computed<DropdownMenuItem[][]>(() => [
   [
     { type: 'label', label: t('folder.sort') },
-    ...KEYS.map((key) => {
+    ...props.choices.map((key) => {
       const index = keys.value.findIndex((k) => k.replace(/^-/, '') === key);
       const reversed = index < 0 ? undefined : keys.value[index]!.startsWith('-');
       return {

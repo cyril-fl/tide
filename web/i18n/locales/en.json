@@ -393,8 +393,6 @@
     "manageAccount": "Manage account",
     "snippets": "Snippets",
     "snippetsDescription": "Reusable markdown: type ;; in a note to insert it, or T (or Cmd K) to start a new note with it.",
-    "sortAscending": "Ascending",
-    "sortDescending": "Descending",
     "exportSnippet": "Export as .md",
     "exportSnippets": "Export every snippet",
     "importSnippets": "Import snippets",

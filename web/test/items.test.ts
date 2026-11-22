@@ -129,8 +129,8 @@ test('a failed tag change stays on the page and reads nothing again', async () =
 
 const labels = (menu: { label?: string }[][]) => menu.map((group) => group.map((entry) => entry.label));
 
-test('a note offers to pin or unpin it, to share and export it, then to delete it', () => {
-  const share = [['items.share', 'settings.export'], ['common.delete']];
+test('a note offers to pin or unpin it, to move, share and export it, then to delete it', () => {
+  const share = [['search.moveTo', 'items.share', 'settings.export'], ['common.delete']];
   fake();
   assert.deepEqual(labels(useItems().itemMenu(note)), [['items.pin'], ...share]);
   fake({ pinned: ['n1'] });
@@ -139,11 +139,11 @@ test('a note offers to pin or unpin it, to share and export it, then to delete i
   assert.deepEqual(labels(useItems().itemMenu(note)), [['beside n1'], ['items.pin'], ...share]);
 });
 
-test('a folder offers what goes in it, favorite, rename, export, then delete', () => {
+test('a folder offers what goes in it, favorite, rename, move, export, then delete', () => {
   fake({ pinned: ['f1'] });
   assert.deepEqual(labels(useItems().itemMenu(folder)), [
     ['common.newNote', 'common.newFolder'],
-    ['items.removeFavorite', 'common.rename', 'settings.export'],
+    ['items.removeFavorite', 'common.rename', 'search.moveTo', 'settings.export'],
     ['common.delete'],
   ]);
 });

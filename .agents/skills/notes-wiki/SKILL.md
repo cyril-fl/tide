@@ -35,6 +35,17 @@ Find what changed since the last version the wiki knows (`grep -m1 '^## v' Versi
 
 Check each claim against the code or the i18n strings (`web/i18n/locales/en.json`) for the exact labels; the tag message alone is too short.
 
+## Check the whole wiki
+
+The pages drift between updates, and only the touched parts get read. Every run, reread every page but `Versions.md` (a history) against the code and fix what is no longer true:
+
+- names and paths: the binaries (`tide`, `tide-server`), env vars (`TIDE_*`), source paths (`core/`, `cli/`, `web/`), repo links (`cyril-fl/tide`); `grep -n 'notes-go\|notes-app\|NOTES_\|cyril-fl/notes\b' *.md` finds no hit outside `Versions.md`;
+- lists that grow: themes (`domain.Themes`), plans and what each unlocks (`domain.Features`), settings sections and their labels (`web/app/pages/settings/[[section]].vue`, `en.json`), MCP tools (`MCP.md`), tables and columns (`core/domain/`);
+- a cited issue: `gh issue view <n> -R cyril-fl/tide` — a closed one means the sentence about the limit is out of date;
+- a screenshot whose screen changed is retaken.
+
+Say in the report what was checked and what was fixed, and what was left unchecked.
+
 ## Screenshots
 
 A new screen or a visible change gets a PNG in `images/` (`app-<topic>.png`), linked from its page with an alt text in English. Use the `notes-app-screenshot` skill. For a shot that needs content or a click:

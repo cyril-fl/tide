@@ -42,3 +42,20 @@ test('several items are selected, moved, then removed together', async ({ page }
   await main.getByRole('button', { name: 'Supprimer' }).click();
   await expect(main.getByText('Ce dossier est vide')).toBeVisible();
 });
+
+test('⌘A selects every item, again unselects them, and the bar sits in the footer', async ({ page }) => {
+  await box.note('# Alpha');
+  await box.note('# Bravo');
+  await page.goto(`/folders/${box.folder.id}`);
+  const main = page.getByRole('main');
+  await expect(main.getByRole('link', { name: /Bravo/ })).toBeVisible();
+
+  await page.keyboard.press('ControlOrMeta+a');
+  await expect(main.locator('footer').getByText('2 sélectionnés')).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+a');
+  await expect(main.getByText('2 sélectionnés')).toBeHidden();
+
+  await page.keyboard.press('ControlOrMeta+a');
+  await main.getByRole('button', { name: 'Annuler la sélection' }).click();
+  await expect(main.getByText('2 sélectionnés')).toBeHidden();
+});

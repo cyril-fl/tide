@@ -36,6 +36,22 @@ function select(event: MouseEvent, index: number) {
 
 onKeyStroke('Escape', () => (selection.value = []));
 
+// ⌘A (Ctrl elsewhere) selects every item of the folder, reading the pages not read yet; again, it unselects them.
+onKeyStroke('a', async (event) => {
+  const target = event.target as HTMLElement;
+  if (
+    !(event.metaKey || event.ctrlKey) ||
+    event.shiftKey ||
+    target.isContentEditable ||
+    target.closest('input, textarea')
+  )
+    return;
+  event.preventDefault();
+  if (items.value.length && selection.value.length === items.value.length) return (selection.value = []);
+  await load(0, items.value.length - 1);
+  selection.value = items.value.flatMap((item) => (item ? [item.id] : []));
+});
+
 // A selected folder cannot go into itself: it is not offered.
 const destinations = useDestinations(() => selection.value);
 
@@ -59,7 +75,6 @@ const rows = useVirtualRows(
   () => items.value.length,
   () => view.value === 'grid',
   { row: 36, caption: 32 },
-  () => selected.value.length > 0,
 );
 const visible = computed(() => ({ ...rows.value, items: items.value.slice(rows.value.start, rows.value.end) }));
 // The rows in sight that are not read yet come by pages.
@@ -94,47 +109,6 @@ watchEffect(() => load(visible.value.start, visible.value.start + visible.value.
         />
       </UTooltip>
     </PageHeader>
-    <div
-      v-if="selected.length"
-      class="sticky top-0 z-10 mb-3 flex items-center gap-2 rounded-md bg-elevated py-1 pr-1 pl-3 text-sm"
-    >
-      <span class="mr-auto">{{ $t('folder.selected', selected.length) }}</span>
-      <USelectMenu
-        :items="destinations"
-        value-key="value"
-        :placeholder="$t('folder.moveToPlaceholder')"
-        size="sm"
-        class="w-56"
-        :aria-label="$t('folder.moveTo')"
-        @update:model-value="moveSelection"
-      />
-      <UButton
-        :label="$t('settings.export')"
-        :icon="icons.export"
-        color="neutral"
-        variant="ghost"
-        size="sm"
-        @click="exportItems(selection)"
-      />
-      <UButton
-        :label="$t('common.delete')"
-        :icon="icons.delete"
-        color="error"
-        variant="ghost"
-        size="sm"
-        @click="removeSelection"
-      />
-      <UTooltip :text="$t('folder.clearSelection')" :kbds="['esc']">
-        <UButton
-          :icon="icons.close"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          :aria-label="$t('folder.clearSelection')"
-          @click="selection = []"
-        />
-      </UTooltip>
-    </div>
     <ul
       v-if="items.length"
       ref="list"
@@ -167,10 +141,55 @@ watchEffect(() => load(visible.value.start, visible.value.start + visible.value.
         },
       ]"
     />
-    <!-- Like a note's footer. The subtitle is the folder's own path: the breadcrumb leads to its parents. -->
-    <footer v-if="subtitle" class="sticky bottom-0 z-10 -mx-8 -mb-8 mt-auto border-t border-default bg-default px-8">
-      <div class="flex h-9 items-center text-xs text-muted">
-        <PathNav :path="subtitle.slice(0, subtitle.lastIndexOf('/'))" />
+    <!-- Like a note's footer, the selection's actions with the navigation. The subtitle is the folder's own path: the breadcrumb leads to its parents. -->
+    <footer
+      v-if="subtitle || selected.length"
+      class="sticky bottom-0 z-10 -mx-8 -mb-8 mt-auto border-t border-default bg-default px-8"
+    >
+      <div class="flex h-9 items-center gap-2 text-xs text-muted">
+        <PathNav v-if="subtitle" :path="subtitle.slice(0, subtitle.lastIndexOf('/'))" />
+        <template v-if="selected.length">
+          <span class="ml-auto hidden shrink-0 sm:inline">{{ $t('folder.selected', selected.length) }}</span>
+          <USelectMenu
+            :items="destinations"
+            value-key="value"
+            :placeholder="$t('folder.moveToPlaceholder')"
+            size="xs"
+            class="ml-auto w-32 sm:ml-0 sm:w-56"
+            :aria-label="$t('folder.moveTo')"
+            @update:model-value="moveSelection"
+          />
+          <UTooltip :text="$t('settings.export')">
+            <UButton
+              :icon="icons.export"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :aria-label="$t('settings.export')"
+              @click="exportItems(selection)"
+            />
+          </UTooltip>
+          <UTooltip :text="$t('common.delete')">
+            <UButton
+              :icon="icons.delete"
+              color="error"
+              variant="ghost"
+              size="xs"
+              :aria-label="$t('common.delete')"
+              @click="removeSelection"
+            />
+          </UTooltip>
+          <UTooltip :text="$t('folder.clearSelection')" :kbds="['esc']">
+            <UButton
+              :icon="icons.close"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :aria-label="$t('folder.clearSelection')"
+              @click="selection = []"
+            />
+          </UTooltip>
+        </template>
       </div>
     </footer>
   </div>

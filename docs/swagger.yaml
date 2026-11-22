@@ -1288,6 +1288,9 @@ components:
       type: object
     searchnotes.Match:
       properties:
+        created_at:
+          description: The dates of the note, for a tile as a folder shows it.
+          type: string
         empty_sections:
           description: With the empty_sections filter, the heading lines of the sections
             left empty.
@@ -1305,7 +1308,10 @@ components:
           type: string
         title:
           type: string
+        updated_at:
+          type: string
       required:
+      - created_at
       - id
       - path
       - snippet

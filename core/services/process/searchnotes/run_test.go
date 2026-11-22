@@ -96,6 +96,9 @@ func TestSearchNotes(t *testing.T) {
 	if search.HasErr() || strings.Join(titles, ",") != "Z "+word+",A in content,Percent" {
 		t.Fatalf("titles = %v, %v", titles, search.GetErr())
 	}
+	if search.GetResult()[0].CreatedAt.IsZero() {
+		t.Errorf("created_at is empty, want the note's date for its tile")
+	}
 	if got := search.GetResult()[1].Snippet; got != "has "+strings.ToUpper(word)+" inside" {
 		t.Errorf("snippet = %q, want the matching line", got)
 	}

@@ -5164,6 +5164,8 @@ export interface components {
             title: string;
         };
         "searchnotes.Match": {
+            /** @description The dates of the note, for a tile as a folder shows it. */
+            created_at: string;
             /** @description With the empty_sections filter, the heading lines of the sections left empty. */
             empty_sections?: string[];
             id: string;
@@ -5171,6 +5173,7 @@ export interface components {
             readonly?: boolean;
             snippet: string;
             title: string;
+            updated_at?: string;
         };
         "tagnotes.Input": {
             add?: string[];

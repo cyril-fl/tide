@@ -30,6 +30,9 @@ type Match struct {
 	Path     string `json:"path"`
 	Snippet  string `json:"snippet"`
 	Readonly bool   `json:"readonly,omitempty" binding:"optional"`
+	// The dates of the note, for a tile as a folder shows it.
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at,omitzero" binding:"optional"`
 	// With the empty_sections filter, the heading lines of the sections left empty.
 	EmptySections []string `json:"empty_sections,omitempty" binding:"optional"`
 }
@@ -114,9 +117,11 @@ type cache struct {
 
 // row is a note opened for the page: its whole content, cut down to a snippet.
 type row struct {
-	ID       string
-	Content  secret.Text
-	Readonly bool
+	ID        string
+	Content   secret.Text
+	Readonly  bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func Process(ctx context.Context, db bun.IDB, text string) *run {
@@ -286,7 +291,7 @@ func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, te
 	// Every note is opened when its content filters it: the unopened ones cannot be assumed to pass.
 	exact := maxLength > 0 || notText != "" || filter.EmptySections
 	inTitle := func(id string) bool { return strings.Contains(strings.ToLower(tree.Titles[id]), lower) }
-	columns := "mn.item_id AS id, mn.readonly"
+	columns := "mn.item_id AS id, mn.readonly, i.created_at, i.updated_at"
 	if text != "" || exact {
 		columns += ", mn.content"
 	}
@@ -342,7 +347,7 @@ func Matches(ctx context.Context, db bun.IDB, tree domain.Tree, ids []string, te
 				}
 			}
 			if found >= offset && (limit <= 0 || found < offset+limit) {
-				match := Match{ID: id, Title: tree.Titles[id], Path: tree.Paths[id], Readonly: r.Readonly, EmptySections: empty}
+				match := Match{ID: id, Title: tree.Titles[id], Path: tree.Paths[id], Readonly: r.Readonly, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, EmptySections: empty}
 				if text != "" {
 					match.Snippet = Snippet(string(r.Content), text)
 				}

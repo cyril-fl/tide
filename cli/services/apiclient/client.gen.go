@@ -805,6 +805,9 @@ type RunsavedsearchMatch struct {
 
 // SearchnotesMatch defines model for searchnotes.Match.
 type SearchnotesMatch struct {
+	// CreatedAt The dates of the note, for a tile as a folder shows it.
+	CreatedAt string `json:"created_at"`
+
 	// EmptySections With the empty_sections filter, the heading lines of the sections left empty.
 	EmptySections *[]string `json:"empty_sections,omitempty"`
 	Id            string    `json:"id"`
@@ -812,6 +815,7 @@ type SearchnotesMatch struct {
 	Readonly      *bool     `json:"readonly,omitempty"`
 	Snippet       string    `json:"snippet"`
 	Title         string    `json:"title"`
+	UpdatedAt     *string   `json:"updated_at,omitempty"`
 }
 
 // TagnotesInput defines model for tagnotes.Input.

@@ -33,6 +33,10 @@ test('several items are selected, moved, then removed together', async ({ page }
   await expect(page).toHaveURL(new RegExp(box.folder.id)); // ⌘-click selects, it does not open.
 
   await main.getByRole('button', { name: 'Déplacer vers' }).click();
+  await page.getByPlaceholder('Déplacer vers…').fill('Rangement');
+  await page.screenshot({
+    path: '/private/tmp/claude-501/-Users-cyrilflambard-Devloppement-go-notes-develop/b6960f73-ee8c-481d-93f6-d452cc571155/scratchpad/move.png',
+  });
   await page.getByRole('option', { name: `/${box.prefix}/Rangement` }).click();
   await expect(main.getByRole('link', { name: /Alpha/ })).toBeHidden();
 

@@ -55,10 +55,18 @@ onKeyStroke('a', async (event) => {
 // A selected folder cannot go into itself: it is not offered.
 const destinations = useDestinations(() => selection.value);
 
-async function moveSelection(destination: string) {
-  await moveItem(selection.value, destination === ROOT ? null : destination);
-  selection.value = [];
-}
+const moving = ref(false);
+const folders = computed(() =>
+  destinations.value.map((folder) => ({
+    label: folder.label,
+    icon: icons.folder,
+    onSelect: async () => {
+      moving.value = false;
+      await moveItem(selection.value, folder.value === ROOT ? null : folder.value);
+      selection.value = [];
+    },
+  })),
+);
 
 async function removeSelection() {
   await removeItems(selected.value);
@@ -149,16 +157,19 @@ watchEffect(() => load(visible.value.start, visible.value.start + visible.value.
       <div class="flex h-9 items-center gap-2 text-xs text-muted">
         <PathNav v-if="subtitle" :path="subtitle.slice(0, subtitle.lastIndexOf('/'))" />
         <template v-if="selected.length">
-          <span class="ml-auto hidden shrink-0 sm:inline">{{ $t('folder.selected', selected.length) }}</span>
-          <USelectMenu
-            :items="destinations"
-            value-key="value"
-            :placeholder="$t('folder.moveToPlaceholder')"
-            size="xs"
-            class="ml-auto w-32 sm:ml-0 sm:w-56"
-            :aria-label="$t('folder.moveTo')"
-            @update:model-value="moveSelection"
-          />
+          <span class="ml-auto shrink-0">{{ $t('folder.selected', selected.length) }}</span>
+          <UPopover v-model:open="moving">
+            <UTooltip :text="$t('folder.moveTo')">
+              <UButton :icon="icons.move" color="neutral" variant="ghost" size="xs" :aria-label="$t('folder.moveTo')" />
+            </UTooltip>
+            <template #content>
+              <UCommandPalette
+                :groups="[{ id: 'folders', items: folders }]"
+                :placeholder="$t('folder.moveToPlaceholder')"
+                class="max-h-72 w-72"
+              />
+            </template>
+          </UPopover>
           <UTooltip :text="$t('settings.export')">
             <UButton
               :icon="icons.export"

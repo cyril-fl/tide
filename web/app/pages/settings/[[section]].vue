@@ -98,6 +98,9 @@ const kindStyles = {
 // The list, the Pro mode's, a page at a time: an account of photos keeps hundreds.
 const filesPerPage = 20;
 const filesPage = ref(1);
+// The image shown under its row, like a snippet's text.
+const openFile = ref<string>();
+const apiBase = useRuntimeConfig().public.apiBase;
 // The labels under the bar are tabs, the Pro mode's: the notes show nothing, a kind its files.
 const storageTab = ref<'notes' | FileKind>('notes');
 watch(storageTab, () => (filesPage.value = 1));
@@ -633,10 +636,32 @@ async function deleteData() {
             {{ $t('settings.storageEmpty') }}
           </p>
           <ul v-if="pagedFiles.length" class="divide-y divide-default">
-            <li v-for="file in pagedFiles" :key="file.id" class="flex items-center gap-3 px-4 py-2">
-              <UIcon :name="kindStyles[fileKind(file.content_type)].icon" class="size-4 shrink-0 text-muted" />
-              <p class="min-w-0 flex-1 truncate text-sm">{{ file.name || $t('settings.unnamedFile') }}</p>
-              <span class="shrink-0 text-xs text-muted">{{ fileSize(file.size, locale) }}</span>
+            <li v-for="file in pagedFiles" :key="file.id">
+              <component
+                :is="fileKind(file.content_type) === 'images' ? 'button' : 'div'"
+                :type="fileKind(file.content_type) === 'images' ? 'button' : undefined"
+                :aria-expanded="fileKind(file.content_type) === 'images' ? openFile === file.id : undefined"
+                class="flex w-full items-center gap-3 px-4 py-2 text-start"
+                :class="{ 'transition-colors hover:bg-elevated/50': fileKind(file.content_type) === 'images' }"
+                @click="
+                  fileKind(file.content_type) === 'images' && (openFile = openFile === file.id ? undefined : file.id)
+                "
+              >
+                <UIcon
+                  :name="kindStyles[fileKind(file.content_type)].icon"
+                  class="size-4 shrink-0"
+                  :class="openFile === file.id ? 'text-primary' : 'text-muted'"
+                />
+                <p class="min-w-0 flex-1 truncate text-sm">{{ file.name || $t('settings.unnamedFile') }}</p>
+                <span class="shrink-0 text-xs text-muted">{{ fileSize(file.size, locale) }}</span>
+              </component>
+              <div v-if="openFile === file.id" class="flex justify-center border-t border-default bg-elevated/25 p-3">
+                <img
+                  :src="imageSrc(`/api/files/${file.id}`, apiBase)"
+                  :alt="file.name"
+                  class="max-h-80 rounded-md object-contain"
+                />
+              </div>
             </li>
           </ul>
           <div v-if="tabFiles.length > filesPerPage" class="flex justify-center border-t border-default px-4 py-2">

@@ -98,7 +98,7 @@ func factor(read []note) batch {
 
 type notesArgs struct {
 	Notes    []string `json:"notes" jsonschema:"50 at most"`
-	MaxChars int      `json:"max_chars,omitempty" jsonschema:"only the start of each, cut at a line or word end"`
+	MaxChars int      `json:"max_chars,omitempty" jsonschema:"only the start of each, cut at a line or word end; truncated says so"`
 }
 
 type editArgs struct {
@@ -153,7 +153,7 @@ func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "read_notes",
 		Annotations: reads(),
-		Description: "Read notes in the order asked, with their tags and length, what they all share said once.",
+		Description: "Read notes in the order asked, with tags and length, what they share said once.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args notesArgs) (*mcp.CallToolResult, batch, error) {
 		// One request for the batch, the preview cut on the server: the agent may be far over Tailscale (#210).
 		found, err := decode[[]apiclient.ReadnotesNote](client.PostApiNotesRead(ctx, apiclient.ReadnotesBody{Notes: args.Notes, MaxChars: &args.MaxChars}))
@@ -172,7 +172,7 @@ func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "edit_note",
 		Annotations: writes(true, false),
-		Description: "Change a note's whole content, a passage (old or a section) or its title; answers it without content.",
+		Description: "Change a note's whole content, a passage (old or section) or its title; answers it without content.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args editArgs) (*mcp.CallToolResult, partEdit, error) {
 		if args.Content == "" {
 			if args.Title+args.Old+args.Section == "" {

@@ -47,7 +47,7 @@ type folderPage struct {
 
 type listFolderArgs struct {
 	Folder  string `json:"folder,omitempty" jsonschema:"the root when empty"`
-	Limit   *int   `json:"limit,omitempty" jsonschema:"50 when left out, 0 for all"`
+	Limit   *int   `json:"limit,omitempty" jsonschema:"default 50, 0 for all"`
 	Offset  int    `json:"offset,omitempty"`
 	Dates   bool   `json:"dates,omitempty" jsonschema:"add created_at and updated_at"`
 	Tags    bool   `json:"tags,omitempty" jsonschema:"add each note's tags"`
@@ -87,7 +87,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "list_folder",
 		Annotations: reads(),
-		Description: "List a folder's notes and folders, folders first, with total and has_more; or the trash.",
+		Description: "List a folder's notes and folders, folders first, with total; or the trash.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args listFolderArgs) (*mcp.CallToolResult, folderPage, error) {
 		if args.Trash {
 			if args.Folder != "" {
@@ -178,7 +178,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "move_item",
 		Annotations: writes(false, true),
-		Description: "Move a note or a folder, with its content, into another folder.",
+		Description: "Move a note or folder, with its content, into another folder.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args moveArgs) (*mcp.CallToolResult, changed, error) {
 		id, err := apiclient.Resolve(ctx, client, "", args.Item)
 		if err != nil {
@@ -220,7 +220,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "restore_item",
 		Annotations: writes(false, true),
-		Description: "Take a note or a folder out of the trash, with what was removed with it.",
+		Description: "Take a note or folder out of the trash, with what was trashed with it.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args trashedArgs) (*mcp.CallToolResult, changed, error) {
 		// No resolve: a trashed item has no path to look up.
 		return made(decode[[]apiclient.DomainItem](client.PostApiRestore(ctx, apiclient.RestoreBody{Ids: []string{args.Item}})))

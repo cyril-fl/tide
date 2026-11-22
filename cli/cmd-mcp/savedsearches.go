@@ -16,7 +16,7 @@ import (
 
 type savedSearchesArgs struct {
 	Search string `json:"search,omitempty" jsonschema:"its id or name; the list when empty"`
-	Limit  *int   `json:"limit,omitempty" jsonschema:"50 when left out, 0 for all"`
+	Limit  *int   `json:"limit,omitempty" jsonschema:"default 50, 0 for all"`
 	Offset int    `json:"offset,omitempty"`
 }
 

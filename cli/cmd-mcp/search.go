@@ -26,7 +26,7 @@ type searchArgs struct {
 	UpdatedBefore string   `json:"updated_before,omitempty" jsonschema:"changed before this day or RFC 3339 instant, oldest first"`
 	EmptySections bool     `json:"empty_sections,omitempty" jsonschema:"a heading with nothing before the next of its level or the end, listed"`
 	List          string   `json:"list,omitempty" jsonschema:"instead of a search: recent (20 last changed), duplicates (same title), same_path (same title and folder)"`
-	Limit         *int     `json:"limit,omitempty" jsonschema:"50 when left out, 0 for all"`
+	Limit         *int     `json:"limit,omitempty" jsonschema:"default 50, 0 for all"`
 	Offset        int      `json:"offset,omitempty"`
 }
 
@@ -50,7 +50,7 @@ func addSearchTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "search_notes",
 		Annotations: reads(),
-		Description: "Find notes matching a text and every filter given, with the line found and total, or a list (recent, duplicates).",
+		Description: "Find notes by text and filters, all combined (folder with tags), with the line found and total; or list recent or duplicate titles.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args searchArgs) (*mcp.CallToolResult, searchPage, error) {
 		if args.List != "" && args.filter().Filtered() {
 			return nil, searchPage{}, errListAlone

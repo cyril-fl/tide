@@ -30,7 +30,7 @@ type tagsArgs struct {
 	Tag      string `json:"tag,omitempty" jsonschema:"the account's tags when empty"`
 	Prefix   string `json:"prefix,omitempty" jsonschema:"tags starting with it, any case"`
 	MinNotes int    `json:"min_notes,omitempty" jsonschema:"tags of that many notes at least"`
-	Limit    *int   `json:"limit,omitempty" jsonschema:"50 when left out, 0 for all"`
+	Limit    *int   `json:"limit,omitempty" jsonschema:"default 50, 0 for all"`
 	Offset   int    `json:"offset,omitempty"`
 	Dates    bool   `json:"dates,omitempty" jsonschema:"add created_at and updated_at"`
 	Similar  bool   `json:"similar,omitempty" jsonschema:"groups of close tags: typo, case, accent, plural"`
@@ -151,7 +151,7 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tag_notes",
 		Annotations: writes(false, true),
-		Description: "Add or remove #tags on notes given, found by search_notes filters or in ops; answers counts and diffs.",
+		Description: "Add or remove #tags in the text of notes given, found by search_notes filters or in ops; answers counts and diffs.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, tagResult, error) {
 		adds := args.Add
 		for _, op := range args.Ops {
@@ -196,7 +196,7 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tags",
 		Annotations: reads(),
-		Description: "List the notes carrying a tag, with the total; without a tag, the account's tags, most used first.",
+		Description: "Tags are #words in note text, case-insensitive. List a tag's notes and total; without one, all tags, most used first.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagsArgs) (*mcp.CallToolResult, tags, error) {
 		if args.Tag == "" {
 			counts, err := decode[[]apiclient.CounttagsTagCount](client.GetApiGraph(ctx))

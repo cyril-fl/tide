@@ -47,7 +47,7 @@ type attached struct {
 type exportArgs struct {
 	Folder string   `json:"folder,omitempty" jsonschema:"everything when empty"`
 	Items  []string `json:"items,omitempty" jsonschema:"notes or folders, instead of folder"`
-	Limit  *int     `json:"limit,omitempty" jsonschema:"50 when left out, 0 for all"`
+	Limit  *int     `json:"limit,omitempty" jsonschema:"default 50, 0 for all"`
 	Offset int      `json:"offset,omitempty"`
 }
 

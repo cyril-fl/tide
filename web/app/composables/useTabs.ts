@@ -15,6 +15,8 @@ const shownNote = createGlobalState(() => useSessionStorage('note-shown', ''));
 const freshNote = createGlobalState(() => ref(''));
 // What the editor of the second panel does before it shows another note: no route guards it (NoteEditor).
 const besideLeave = createGlobalState(() => shallowRef<() => Promise<boolean>>());
+// The tab dragged, which the other panel's bar takes too: it shows while it is dragged, even with one note.
+const draggedTab = createGlobalState(() => ref<{ id: string; beside: boolean }>());
 
 /** The Ultra tabs of the editor, in their order, and those of the second panel of the split view (#128, #242). */
 export function useTabs() {
@@ -24,6 +26,7 @@ export function useTabs() {
   const shown = shownNote();
   const fresh = freshNote();
   const leaving = besideLeave();
+  const dragged = draggedTab();
 
   // A note trashed, deleted or no longer found leaves the tabs of both panels.
   function forget(ids: string[]) {
@@ -53,5 +56,40 @@ export function useTabs() {
     return true;
   }
 
-  return { tabs, beside, besidePanel, leaving, forget, show, openInTab, setBeside };
+  // A tab of the first panel closed: the note open there gives way to its neighbour, the last one to the home page. A leave
+  // refused (a note not saved) keeps the tab: false.
+  async function closeTab(id: string) {
+    if (id === useRouter().currentRoute.value.params.id) {
+      const next = tabAfterClose(
+        tabs.value.map((tab) => tab.id),
+        id,
+      );
+      if ((await navigateTo(next ? `/notes/${next}` : '/')) !== undefined) return false;
+    }
+    tabs.value = tabs.value.filter((tab) => tab.id !== id);
+    return true;
+  }
+
+  // The second panel shows a note, in the tab of the one it shows or in a tab of its own (fresh). Its tab in the first
+  // panel moves here: a note has one tab (#62). The note of the first one opening in the second, the first goes on.
+  async function showBeside(id: string, fresh = false) {
+    if (id === besidePanel.value.active || !((await leaving.value?.()) ?? true)) return;
+    const moved = tabs.value.find((tab) => tab.id === id);
+    if (moved && !(await closeTab(id))) return;
+    besidePanel.value = openTab(besidePanel.value, moved ?? { id }, fresh);
+  }
+
+  return {
+    tabs,
+    beside,
+    besidePanel,
+    leaving,
+    dragged,
+    forget,
+    show,
+    openInTab,
+    setBeside,
+    closeTab,
+    showBeside,
+  };
 }

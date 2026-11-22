@@ -5,7 +5,7 @@ const { icons } = useIcons();
 const { has } = usePro();
 const { t } = useI18n();
 const route = useRoute();
-const { tabs, besidePanel, setBeside } = useTabs();
+const { tabs, besidePanel, dragged, setBeside, closeTab, showBeside, openInTab } = useTabs();
 const { openMenu, besideClick } = useSplit();
 // The focus mode leaves only the note on screen: the tabs go with the sidebar.
 const focus = useState('focus', () => false);
@@ -21,7 +21,7 @@ const label = (tab: Tab) => displayTitle(tab.title, t('untitled'));
 
 // A tab of the second panel opens there, ⌘ + click in the first one.
 function click(id: string, event: MouseEvent) {
-  besideClick(id)(event);
+  besideClick(id, props.beside)(event);
   if (!props.beside || event.defaultPrevented) return;
   event.preventDefault();
   setBeside({ ...besidePanel.value, active: id });
@@ -29,15 +29,7 @@ function click(id: string, event: MouseEvent) {
 
 // The open note's tab closed opens its neighbour; a leave refused (a note not saved) keeps the tab.
 async function close(id: string) {
-  if (props.beside) return setBeside(withoutTab(besidePanel.value, id));
-  if (id === open.value) {
-    const next = tabAfterClose(
-      tabs.value.map((tab) => tab.id),
-      id,
-    );
-    if ((await navigateTo(next ? `/notes/${next}` : '/')) !== undefined) return;
-  }
-  tabs.value = tabs.value.filter((tab) => tab.id !== id);
+  return props.beside ? setBeside(withoutTab(besidePanel.value, id)) : closeTab(id);
 }
 
 // Every other tab closed opens the one kept; all of them closed leaves the notes for the home page.
@@ -51,15 +43,21 @@ async function closeAll() {
   if ((await navigateTo('/')) === undefined) tabs.value = [];
 }
 
-// A tab dragged onto another takes its place.
-const dragged = ref<number>();
-function drop(index: number) {
-  if (dragged.value !== undefined) list.value = moveTab(list.value, dragged.value, index);
+// A tab dragged onto another takes its place; from the other panel's bar, it moves to this panel, after the open tab.
+function drop(index?: number) {
+  const from = dragged.value;
   dragged.value = undefined;
+  if (!from) return;
+  if (from.beside !== props.beside) return props.beside ? showBeside(from.id, true) : openInTab(from.id);
+  const at = list.value.findIndex((tab) => tab.id === from.id);
+  if (index !== undefined) list.value = moveTab(list.value, at, index);
 }
+const other = computed(() => !!dragged.value && dragged.value.beside !== props.beside);
 
 // One note open is no tab: the bar shows from the second one.
-const shown = computed(() => has('tabs') && list.value.length > 1 && !(focus.value && has('focusMode')));
+const shown = computed(
+  () => has('tabs') && (list.value.length > 1 || other.value) && !(focus.value && has('focusMode')),
+);
 </script>
 
 <template>
@@ -67,6 +65,8 @@ const shown = computed(() => has('tabs') && list.value.length > 1 && !(focus.val
     v-if="shown"
     :aria-label="beside ? $t('note.besideTabs') : $t('note.tabs')"
     class="flex shrink-0 border-b border-default px-2"
+    @dragover.prevent
+    @drop.prevent="drop()"
   >
     <div class="flex min-w-0 flex-1 overflow-x-auto">
       <!-- A middle click closes the tab, as in a browser, instead of opening the note in a new one. The close button of
@@ -87,13 +87,13 @@ const shown = computed(() => has('tabs') && list.value.length > 1 && !(focus.val
           class="group -mb-px flex max-w-48 shrink-0 items-center border-b-2"
           :class="[
             tab.id === open ? 'border-primary text-default' : 'border-transparent text-muted hover:text-default',
-            { 'opacity-50': dragged === index },
+            { 'opacity-50': dragged?.id === tab.id },
           ]"
           @auxclick.middle.prevent="close(tab.id)"
-          @dragstart="dragged = index"
+          @dragstart="dragged = { id: tab.id, beside }"
           @dragend="dragged = undefined"
           @dragover.prevent
-          @drop.prevent="drop(index)"
+          @drop.prevent.stop="drop(index)"
         >
           <NuxtLink
             :to="`/notes/${tab.id}`"

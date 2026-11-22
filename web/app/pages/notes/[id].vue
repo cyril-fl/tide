@@ -41,15 +41,13 @@ watch(
     if (turn === opening) editor.value = { ...next, key: editor.value.key + 1, note };
   },
 );
-// The note of the second panel opened in the first trades places with the note there: never one note in both (#62).
+// A note opened in the first panel takes its tab from the second, saved by its route guard: one tab per note (#62).
 const { beside, besidePanel } = useTabs();
 const split = useSplit();
 watch(
   () => route.params.id as string,
-  (id, before) =>
-    id === beside.value &&
-    (besidePanel.value =
-      before === 'new' ? withoutTab(besidePanel.value, id) : openTab(besidePanel.value, { id: before }, false)),
+  (id) => (besidePanel.value = withoutTab(besidePanel.value, id)),
+  { immediate: true },
 );
 
 // The panel keeps the related notes and the graph from one note to the next, not for a note opened long after.

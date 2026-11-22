@@ -234,6 +234,7 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
     const heading = link.dataset.heading ? `#${encodeURIComponent(link.dataset.heading)}` : '';
     if (link.dataset.note && (event.metaKey || event.ctrlKey) && split.can.value)
       return split.openOther(link.dataset.note, !!link.closest('[data-beside]'));
+    if (link.dataset.note && link.closest('[data-beside]')) return split.openBeside(link.dataset.note);
     if (link.dataset.note) return navigateTo(`/notes/${link.dataset.note}${heading}`);
     const target = link.dataset.wikilink!.split('#')[0]!.trim();
     const paths = pendingCandidates(target).map((note) => note.path);

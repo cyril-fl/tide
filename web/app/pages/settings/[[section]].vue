@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui';
-import type { Account, BrokenLink, Invite, NoteFile, NoteStats, Plan, Snippet, User } from '~/types/items';
+import type { Account, BrokenLink, Invite, NoteFile, NoteStats, Plan, User } from '~/types/items';
 
 // Decided before the page renders, so the Pro mode never shows every section first and then jumps to one.
 definePageMeta({
@@ -60,7 +60,7 @@ const { plan, has } = usePro();
 
 const sidebarSections = computed(() => sidebar.value.filter((s) => s.id !== 'savedSearches' || has('savedSearches')));
 // Read only where the section shows: it opens every note of the account.
-const showLinks = computed(() => show('links') && has('brokenLinks'));
+const showLinks = computed(() => show('content') && has('brokenLinks'));
 // A key per state: another section's page, still mounted during the navigation, would hand over its null.
 const { data: brokenLinks } = useLazyAsyncData(
   () => (showLinks.value ? 'broken-links' : 'broken-links-hidden'),
@@ -172,45 +172,8 @@ async function changeAfterMerge(next: string) {
   me.value = await api<User>('/api/me', { method: 'PATCH', body: { after_merge: next } });
 }
 
-const { confirm, snippet: editSnippet, importNotes } = useDialogs();
+const { confirm, importNotes } = useDialogs();
 const { addSavedSearch } = useSavedSearches();
-
-// The API takes the whole list: an edit sends it back with the one changed. change makes it from the account's, and
-// runs again on the fresh one after a 409; a snippet is found there by its name, as it has no id.
-const editMe = useEditMe();
-function saveSnippets(change: (snippets: Snippet[]) => Snippet[]) {
-  return editMe((account) => ({ snippets: change([...(account.snippets ?? [])]) }));
-}
-
-async function addSnippet() {
-  const added = await editSnippet({ title: t('settings.addSnippet') });
-  if (added) await saveSnippets((snippets) => [...snippets, added]);
-}
-
-async function changeSnippet(index: number) {
-  const old = me.value?.snippets?.[index];
-  const changed = await editSnippet({ title: t('settings.editSnippet'), value: old });
-  if (!changed) return;
-  await saveSnippets((snippets) => {
-    const at = snippets.findIndex((s) => s.name === old?.name);
-    snippets.splice(at < 0 ? snippets.length : at, 1, changed);
-    return snippets;
-  });
-}
-
-async function removeSnippet(index: number) {
-  const old = me.value?.snippets?.[index];
-  const confirmed = await confirm({
-    title: t('settings.deleteSnippet', { name: old?.name }),
-    action: t('common.delete'),
-  });
-  if (!confirmed) return;
-  await saveSnippets((snippets) => {
-    const at = snippets.findIndex((s) => s.name === old?.name);
-    if (at >= 0) snippets.splice(at, 1);
-    return snippets;
-  });
-}
 
 // The accounts of the server, for an admin only: read where the section shows, like the links and the files.
 const showAccounts = computed(() => show('accounts') && !!me.value?.admin);
@@ -522,43 +485,35 @@ async function deleteData() {
               @update:model-value="changeAfterMerge"
             />
           </li>
-          <li class="flex flex-wrap items-center gap-4 px-4 py-3">
-            <div class="flex-1 basis-48">
-              <p class="text-sm">{{ $t('settings.snippets') }}</p>
-              <p class="text-xs text-muted">{{ $t('settings.snippetsDescription') }}</p>
-            </div>
-            <UButton
-              :label="$t('settings.addSnippet')"
-              :ui="{ label: 'max-sm:sr-only' }"
-              :icon="icons.noteAdd"
-              color="neutral"
-              variant="outline"
-              :disabled="!me"
-              @click="addSnippet"
-            />
-          </li>
-          <li v-for="(snippet, index) in me?.snippets" :key="index" class="flex items-center gap-3 px-4 py-2">
-            <UIcon :name="icons.snippet" class="size-4 shrink-0 text-muted" />
-            <p class="min-w-0 flex-1 truncate text-sm">{{ snippet.name }}</p>
-            <UButton
-              :icon="icons.rename"
-              color="neutral"
-              variant="ghost"
-              :aria-label="$t('settings.editSnippet')"
-              @click="changeSnippet(index)"
-            />
-            <UButton
-              :icon="icons.delete"
-              color="neutral"
-              variant="ghost"
-              :aria-label="$t('common.delete')"
-              @click="removeSnippet(index)"
-            />
-          </li>
-          <li v-if="me && !me.snippets.length" class="px-4 py-3 text-xs text-muted">
-            {{ $t('settings.snippetsEmpty') }}
-          </li>
         </ul>
+      </section>
+
+      <section v-if="show('content')">
+        <SettingsHeading id="content" />
+        <SettingsSnippets />
+        <template v-if="showLinks">
+          <h3 class="mt-6 text-xs font-medium text-muted">{{ $t('settings.sections.links') }}</h3>
+          <p class="mb-2 text-xs text-muted">{{ $t('settings.sections.linksDescription') }}</p>
+          <ul class="divide-y divide-default rounded-lg border border-default">
+            <li v-for="(link, index) in brokenLinks" :key="index">
+              <NuxtLink :to="`/notes/${link.note_id}`" class="flex items-center gap-3 px-4 py-2 hover:bg-elevated/50">
+                <UIcon :name="icons.note" class="size-4 shrink-0 text-muted" />
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm">{{ link.target }}</p>
+                  <p class="truncate text-xs text-muted">{{ link.note_path }}</p>
+                </div>
+                <UBadge
+                  :label="$t(`settings.linkKinds.${link.kind}`)"
+                  :color="linkColors[link.kind]"
+                  variant="subtle"
+                />
+              </NuxtLink>
+            </li>
+            <li v-if="brokenLinks && !brokenLinks.length" class="px-4 py-3 text-xs text-muted">
+              {{ $t('settings.linksEmpty') }}
+            </li>
+          </ul>
+        </template>
       </section>
 
       <section v-if="show('savedSearches') && has('savedSearches')">
@@ -697,25 +652,6 @@ async function deleteData() {
           </div>
           <UButton :label="$t('common.delete')" color="error" variant="ghost" :disabled="!me" @click="deleteData" />
         </div>
-      </section>
-
-      <section v-if="showLinks">
-        <SettingsHeading id="links" />
-        <ul class="divide-y divide-default rounded-lg border border-default">
-          <li v-for="(link, index) in brokenLinks" :key="index">
-            <NuxtLink :to="`/notes/${link.note_id}`" class="flex items-center gap-3 px-4 py-2 hover:bg-elevated/50">
-              <UIcon :name="icons.note" class="size-4 shrink-0 text-muted" />
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm">{{ link.target }}</p>
-                <p class="truncate text-xs text-muted">{{ link.note_path }}</p>
-              </div>
-              <UBadge :label="$t(`settings.linkKinds.${link.kind}`)" :color="linkColors[link.kind]" variant="subtle" />
-            </NuxtLink>
-          </li>
-          <li v-if="brokenLinks && !brokenLinks.length" class="px-4 py-3 text-xs text-muted">
-            {{ $t('settings.linksEmpty') }}
-          </li>
-        </ul>
       </section>
 
       <section v-if="showAccounts">

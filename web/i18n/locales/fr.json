@@ -429,6 +429,8 @@
       "appearanceDescription": "Les couleurs et le mode de l’interface.",
       "editor": "Éditeur",
       "editorDescription": "Ce qui aide à écrire les notes.",
+      "content": "Contenu",
+      "contentDescription": "Les snippets, et les liens qui ne mènent nulle part.",
       "data": "Données",
       "dataDescription": "Exporter, importer, la corbeille, la place des fichiers, et tout effacer.",
       "links": "Liens",

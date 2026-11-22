@@ -2,9 +2,9 @@
 export const settingsSections = [
   { id: 'general', icon: 'settings' },
   { id: 'appearance', icon: 'appearance' },
-  { id: 'editor', icon: 'snippet' },
+  { id: 'editor', icon: 'rename' },
+  { id: 'content', icon: 'snippet' },
   { id: 'data', icon: 'data' },
-  { id: 'links', icon: 'linkBroken', feature: 'brokenLinks' },
   { id: 'savedSearches', icon: 'savedSearch', feature: 'savedSearches' },
   { id: 'accounts', icon: 'accounts', admin: true },
 ] as const;

@@ -534,7 +534,7 @@ test('the Pro storage and broken links load when reached from another section', 
     await files;
     await page.goto('/settings/general');
     const links = page.waitForResponse((response) => response.url().endsWith('/api/links/broken'));
-    await page.getByRole('link', { name: 'Liens' }).first().click();
+    await page.getByRole('link', { name: 'Contenu' }).first().click();
     await links;
   } finally {
     await box.api.patch('/api/me', { data: { plan: 'base' } });

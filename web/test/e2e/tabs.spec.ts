@@ -255,9 +255,6 @@ test('the second panel shows a bar from its second note and opens its links ther
 });
 
 test('the second panel saves what is typed when another of its tabs is shown', async ({ page }) => {
-  // App bug seen on 2026-11-22: a click on an inactive tab of the right bar navigates the main panel to that note
-  // instead of showing it in the right one. Drop test.fail once fixed.
-  test.fail();
   const s = await ultraSplit(page);
   try {
     await s.twoBeside();

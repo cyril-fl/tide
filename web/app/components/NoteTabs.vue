@@ -19,7 +19,7 @@ const list = computed({
 const open = computed(() => (props.beside ? besidePanel.value.active : (route.params.id as string)));
 const label = (tab: Tab) => displayTitle(tab.title, t('untitled'));
 
-// A tab of the second panel opens there, ⌘ + click in the first one.
+// A tab of the second panel opens there, ⌘ + click in the first one. Capture: the link's own click navigates first.
 function click(id: string, event: MouseEvent) {
   besideClick(id, props.beside)(event);
   if (!props.beside || event.defaultPrevented) return;
@@ -100,7 +100,7 @@ const shown = computed(
             :aria-current="tab.id === open ? (beside ? 'true' : 'page') : undefined"
             draggable="false"
             class="truncate py-2 pr-1 pl-3 text-sm"
-            @click="click(tab.id, $event)"
+            @click.capture="click(tab.id, $event)"
           >
             {{ label(tab) }}
           </NuxtLink>

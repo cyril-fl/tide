@@ -50,13 +50,17 @@ setup:
 	go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 	"$$(go env GOBIN | grep . || echo "$$(go env GOPATH)/bin")/lefthook" install --force
 
-# The tests run in <POSTGRES_DB>_test, made on first use: they create the schema, a migration being written must not
-# reach the base the API serves. -p 1: the tests of every package share it, and deadlock when they create the schema
-# and tags at the same time.
+# Every run has a base and a Silo bucket of its own, removed after it, even on Ctrl+C: agents run the tests at once,
+# and the schema, purges and sweeps of one broke the others'. A migration being written never reaches the API's base.
+# -p 1: the packages of a run share its base, and deadlock when they create the schema and tags at the same time.
+# A plain go test (the note-app command) shares <POSTGRES_DB>_test and notes-test, one package at a time (postgrey).
 test:
-	@set -a && . ./.env && set +a && \
-	docker compose exec -T postgres sh -c 'psql -U "$$POSTGRES_USER" -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '"'"'$${POSTGRES_DB}_test'"'"'" | grep -q 1 || createdb -U "$$POSTGRES_USER" "$${POSTGRES_DB}_test"' && \
-	POSTGRES_DB=$${POSTGRES_DB}_test CONFIG_FILE=$(CURDIR)/config/config.yaml go test -p 1 $(or $(ARGS),./...)
+	@set -a && . ./.env && set +a && db=$${POSTGRES_DB}_test_$$$$ && bucket=notes-test-$$$$ && \
+	trap 'docker compose exec -T -e DB=$$db postgres sh -c "dropdb -U \"\$$POSTGRES_USER\" --if-exists --force \$$DB"; \
+		docker compose exec -T -e BUCKET=$$bucket silo sh -c "mcli alias set local http://127.0.0.1:9000 \"\$$MINIO_ROOT_USER\" \"\$$MINIO_ROOT_PASSWORD\" >/dev/null && mcli rb --force local/\$$BUCKET >/dev/null 2>&1"; true' EXIT && \
+	trap 'exit 130' INT TERM && \
+	docker compose exec -T -e DB=$$db postgres sh -c 'createdb -U "$$POSTGRES_USER" "$$DB"' && \
+	POSTGRES_DB=$$db S3_TEST_BUCKET=$$bucket CONFIG_FILE=$(CURDIR)/config/config.yaml go test -p 1 $(or $(ARGS),./...)
 
 # The base, then the images of Silo beside it. Restore:
 #   docker compose exec -T postgres sh -c 'psql -U "$$POSTGRES_USER" "$$POSTGRES_DB"' < backups/<file>.sql

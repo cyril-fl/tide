@@ -1,8 +1,10 @@
 package purgefiles
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -197,7 +199,8 @@ func TestPurgeFiles(t *testing.T) {
 // The real Silo of compose.yaml, skipped when it is not running: the sweep must read the keys it lists the same
 // way the files table writes them, or it would take the cited bytes too.
 func TestPurgeStraysInSilo(t *testing.T) {
-	t.Setenv("S3_BUCKET", "notes-test") // like the base of the tests, not the bucket the API serves
+	// Like the base of the tests, not the bucket the API serves: make test gives each run its own.
+	t.Setenv("S3_BUCKET", cmp.Or(os.Getenv("S3_TEST_BUCKET"), "notes-test"))
 	ctx := context.Background()
 	reach, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()

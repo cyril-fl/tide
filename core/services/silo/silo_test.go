@@ -2,9 +2,11 @@ package silo_test
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"testing"
 	"time"
 
@@ -17,7 +19,8 @@ import (
 
 // The real Silo of compose.yaml, skipped when it is not running: a file put comes back, sealed, and goes.
 func TestSilo(t *testing.T) {
-	t.Setenv("S3_BUCKET", "notes-test") // like the base of the tests, not the bucket the API serves
+	// Like the base of the tests, not the bucket the API serves: make test gives each run its own.
+	t.Setenv("S3_BUCKET", cmp.Or(os.Getenv("S3_TEST_BUCKET"), "notes-test"))
 	ctx := context.Background()
 	reach, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()

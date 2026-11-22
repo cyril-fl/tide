@@ -92,6 +92,7 @@ function onCreated(id: string) {
       :aria-label="$t('note.beside')"
       class="flex min-w-0 flex-1 flex-col max-lg:min-h-72 max-lg:border-t max-lg:border-default"
     >
+      <NoteTabs beside />
       <NoteEditor :key="beside" :note-id="beside" beside />
     </section>
   </div>

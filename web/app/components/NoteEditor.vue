@@ -25,7 +25,7 @@ const emit = defineEmits<{ created: [id: string] }>();
 const api = useApi();
 const { confirm, confirmMerge, prompt, resolveConflict } = useDialogs();
 const { removeItem } = useItems();
-const { tabs, leaving, forget, show, setBeside } = useTabs();
+const { tabs, besidePanel, leaving, forget, show, setBeside } = useTabs();
 const baseURL = useRuntimeConfig().public.apiBase;
 const toast = useToast();
 
@@ -33,6 +33,8 @@ const id = ref(props.noteId);
 const parent = ref(props.parentId);
 const path = ref('');
 const title = ref<string>();
+// One note beside has no tab bar (NoteTabs): a header of its own gives its title and closes it.
+const titled = computed(() => props.beside && !(has('tabs') && besidePanel.value.tabs.length > 1));
 if (!props.beside) useHead({ title: () => displayTitle(title.value, t('untitled')) });
 const tags = ref<string[]>([]);
 let links = '';
@@ -209,7 +211,7 @@ watch(
   [id, title, loading, ready],
   ([note, name]) => {
     if (!note || loading.value || notFound.value || !ready.value) return;
-    const tab = tabs.value.find((tab) => tab.id === note);
+    const tab = (props.beside ? besidePanel.value.tabs : tabs.value).find((tab) => tab.id === note);
     if (!props.beside && has('tabs')) show({ id: note, title: name });
     else if (tab) tab.title = name;
   },
@@ -611,14 +613,14 @@ const status = computed(() => {
   <article
     v-else-if="!loading && ready"
     class="flex min-h-0 flex-1 flex-col"
-    :class="{ 'pt-4': !beside }"
+    :class="{ 'pt-4': !titled }"
     :data-note-id="id"
     :data-beside="beside || undefined"
     @focusin="touched = true"
     @pointerdown.capture="touched = true"
   >
     <header
-      v-if="beside"
+      v-if="titled"
       class="mb-4 flex shrink-0 items-center gap-1 border-b border-default py-1.5 pr-2 pl-5 text-sm"
     >
       <h2 class="truncate">{{ displayTitle(title, $t('untitled')) }}</h2>

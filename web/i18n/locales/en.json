@@ -181,6 +181,7 @@
     "closeAll": "Close all tabs",
     "openInTab": "Open in a new tab",
     "beside": "Note beside",
+    "besideTabs": "Notes open beside",
     "closeBeside": "Close the note beside",
     "openBeside": "Open beside",
     "unsaved": "The note is not saved",

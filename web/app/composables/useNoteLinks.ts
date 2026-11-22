@@ -59,10 +59,6 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
     );
   }
 
-  function linkHref(editor: Editor) {
-    return (editor.getAttributes('linkCard').href ?? editor.getAttributes('link').href) as string | undefined;
-  }
-
   // The notes offered after [[, found by the API on the text before #: the whole list weighs 7 MB at 50,000 notes (#150).
   // Picked, the link points to the note's id right away.
   const query = ref('');
@@ -295,12 +291,8 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
       linkHyperlink: linkSizeHandler('hyperlink'),
       linkMini: linkSizeHandler('mini'),
       linkLarge: linkSizeHandler('large'),
-      linkOpen: command((editor) => {
-        openWebLink(linkHref(editor));
-        return editor.chain();
-      }),
     },
-    // Shown on a web link or a card, like the menu of Apple Notes.
+    // Its size menu, on a right click or a long press over a web link or a card, like the menu of Apple Notes.
     bubbles: [
       {
         pluginKey: 'linkMenu',
@@ -310,7 +302,6 @@ export function useNoteLinks(id: Ref<string | undefined>): EditorModule {
             { kind: 'linkMini', icon: icons.linkMini, tooltip: { text: t('note.linkMini') } },
             { kind: 'linkLarge', icon: icons.linkLarge, tooltip: { text: t('note.linkLarge') } },
           ],
-          [{ kind: 'linkOpen', icon: icons.linkOpen, tooltip: { text: t('note.linkOpen') } }],
         ],
         shouldShow: ({ editor }) =>
           editor.isActive('linkCard') || (editor.isActive('link') && isCardLink(editor.getAttributes('link').href)),

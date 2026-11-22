@@ -113,7 +113,6 @@ export function useIcons() {
     attach: 'i-reicon-paperclip',
     image: 'i-reicon-gallery-wide-filled',
     imageNormal: 'i-reicon-gallery-wide',
-    linkOpen: 'i-reicon-arrow-up-right-square',
     mail: 'i-reicon-envelope',
     orderedList: 'i-reicon-ordered-list',
     taskList: 'i-reicon-list-check',

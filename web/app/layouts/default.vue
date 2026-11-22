@@ -22,6 +22,8 @@ watch(
 // The note's editor fills it (a Teleport to #context-panel).
 const contextPanel = useContextPanel();
 const notePanel = computed(() => contextPanel.value && route.path.startsWith('/notes/'));
+// The aside drawn: a note page shown before the layout follows the route would teleport into nothing.
+const contextDrawn = useState('context-drawn', () => false);
 
 // The account's language wins over the cookie's, which only remembers this browser's last one.
 const { data: me } = useMe();
@@ -122,7 +124,12 @@ defineShortcuts({
         body: 'gap-0 p-0',
       }"
     >
-      <aside id="context-panel" class="flex flex-1 flex-col gap-6 p-4" :aria-label="$t('features.contextPanel')" />
+      <aside
+        id="context-panel"
+        :ref="(el) => (contextDrawn = !!el)"
+        class="flex flex-1 flex-col gap-6 p-4"
+        :aria-label="$t('features.contextPanel')"
+      />
     </UDashboardSidebar>
 
     <AppSearch />

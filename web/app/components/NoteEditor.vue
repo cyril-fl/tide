@@ -543,6 +543,7 @@ onBeforeUnmount(async () => {
 
 // The headings of the note, for the context panel: a click scrolls the text to one, without moving the cursor.
 const panel = useContextPanel();
+const panelDrawn = useState('context-drawn', () => false);
 // Laid out by the server, only when the panel shows it.
 const { data: graph, status: graphStatus } = useNoteGraph(() => (panel.value && has('graph') ? id.value : undefined));
 // The graph of the previous note until this one's comes, rather than none (#154).
@@ -747,7 +748,7 @@ const status = computed(() => {
     </footer>
 
     <!-- Drawn by the layout beside the note, like the sidebar. -->
-    <Teleport v-if="panel" to="#context-panel" defer>
+    <Teleport v-if="panel && panelDrawn" to="#context-panel" defer>
       <nav v-if="source === undefined" :aria-label="$t('note.outline')">
         <h2 class="mb-2 text-xs font-medium text-muted">{{ $t('note.outline') }}</h2>
         <p v-if="!outline.length" class="text-xs text-dimmed">{{ $t('note.noOutline') }}</p>

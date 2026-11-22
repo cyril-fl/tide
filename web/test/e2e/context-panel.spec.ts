@@ -49,6 +49,15 @@ test('the Pro context panel follows the note', async ({ page }) => {
     await page.keyboard.press('ControlOrMeta+Period');
     await expect(panel).toBeVisible();
 
+    // A new note opened from a folder fills the panel once the layout draws it, not before (no Vue error).
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto(`/folders/${box.folder.id}`);
+    await page.getByRole('link', { name: 'Nouvelle note' }).first().click();
+    await expect(panel.getByRole('navigation', { name: 'Plan' })).toBeVisible();
+    await expect(page.getByRole('textbox')).toBeVisible();
+    expect(errors).toEqual([]);
+
     await box.api.patch('/api/me', { data: { plan: 'base' } });
     await page.reload();
     await expect(page.getByRole('textbox')).toBeVisible();

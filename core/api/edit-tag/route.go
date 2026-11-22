@@ -6,6 +6,7 @@ import (
 	"github.com/cyril-fl/tide/core/api/services/respond"
 	"github.com/cyril-fl/tide/core/domain"
 	"github.com/cyril-fl/tide/core/services/process/edittag"
+	"github.com/cyril-fl/tide/core/services/process/edittags"
 	"github.com/uptrace/bun"
 )
 
@@ -54,5 +55,45 @@ func Handler(db bun.IDB) http.HandlerFunc {
 			return
 		}
 		respond.JSON(w, http.StatusOK, Renamed{Tag: process.GetResult(), Notes: process.GetNotes()})
+	}
+}
+
+// ManyBody renames each of values as value.
+type ManyBody struct {
+	Values []string `json:"values"`
+	Body
+}
+
+// Many renames the tags of the body to one name in one transaction, a failure renaming none, and answers each as Handler
+// does: PATCH /api/tags.
+// @Summary  Rename tags to one name, in the text of their notes too, or merge them into it with merge
+// @Tags     tags
+// @Accept   json
+// @Produce  json
+// @Param    body body ManyBody true "body"
+// @Success  200 {array} edittags.Renamed
+// @Failure  400 {object} respond.Failure
+// @Failure  404 {object} respond.Failure
+// @Failure  409 {object} respond.Failure
+// @Failure  413 {object} respond.Failure
+// @Failure  500 {object} respond.Failure
+// @Router   /api/tags [patch]
+func Many(db bun.IDB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input ManyBody
+		if !respond.Decode(w, r, &input) {
+			return
+		}
+
+		process := edittags.Process(r.Context(), db, input.Values, input.Value, input.Merge)
+		if input.DryRun {
+			process.DryRun()
+		}
+		process.Run()
+		if process.HasErr() {
+			respond.Error(w, r, process.GetErr())
+			return
+		}
+		respond.List(w, http.StatusOK, process.GetResult())
 	}
 }

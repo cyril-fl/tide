@@ -611,7 +611,43 @@ components:
       - path
       - title
       type: object
+    edittag.ManyBody:
+      properties:
+        dry_run:
+          description: DryRun answers with the notes it would rewrite and their diff,
+            and writes nothing.
+          type: boolean
+        merge:
+          description: Merge folds the tag into value when value is another tag already,
+            instead of a 409.
+          type: boolean
+        value:
+          type: string
+        values:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+      required:
+      - value
+      - values
+      type: object
     edittag.Renamed:
+      properties:
+        id:
+          type: string
+        notes:
+          items:
+            $ref: '#/components/schemas/edittag.Changed'
+          type: array
+          uniqueItems: false
+        value:
+          type: string
+      required:
+      - id
+      - value
+      type: object
+    edittags.Renamed:
       properties:
         id:
           type: string
@@ -4091,6 +4127,59 @@ paths:
                 $ref: '#/components/schemas/respond.Failure'
           description: Internal Server Error
       summary: List every tag
+      tags:
+      - tags
+    patch:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/edittag.ManyBody'
+              description: body
+              summary: body
+        description: body
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/edittags.Renamed'
+                type: array
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Conflict
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Request Entity Too Large
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/respond.Failure'
+          description: Internal Server Error
+      summary: Rename tags to one name, in the text of their notes too, or merge them
+        into it with merge
       tags:
       - tags
     post:

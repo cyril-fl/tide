@@ -4036,7 +4036,77 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        patch?: never;
+        /** Rename tags to one name, in the text of their notes too, or merge them into it with merge */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description body */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["edittag.ManyBody"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["edittags.Renamed"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Request Entity Too Large */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["respond.Failure"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/tags/{value}": {
@@ -4907,7 +4977,20 @@ export interface components {
             path: string;
             title: string;
         };
+        "edittag.ManyBody": {
+            /** @description DryRun answers with the notes it would rewrite and their diff, and writes nothing. */
+            dry_run?: boolean;
+            /** @description Merge folds the tag into value when value is another tag already, instead of a 409. */
+            merge?: boolean;
+            value: string;
+            values: string[];
+        };
         "edittag.Renamed": {
+            id: string;
+            notes?: components["schemas"]["edittag.Changed"][];
+            value: string;
+        };
+        "edittags.Renamed": {
             id: string;
             notes?: components["schemas"]["edittag.Changed"][];
             value: string;

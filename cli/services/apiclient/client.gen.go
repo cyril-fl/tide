@@ -446,8 +446,26 @@ type EdittagChanged struct {
 	Title string   `json:"title"`
 }
 
+// EdittagManyBody defines model for edittag.ManyBody.
+type EdittagManyBody struct {
+	// DryRun DryRun answers with the notes it would rewrite and their diff, and writes nothing.
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// Merge Merge folds the tag into value when value is another tag already, instead of a 409.
+	Merge  *bool    `json:"merge,omitempty"`
+	Value  string   `json:"value"`
+	Values []string `json:"values"`
+}
+
 // EdittagRenamed defines model for edittag.Renamed.
 type EdittagRenamed struct {
+	Id    string            `json:"id"`
+	Notes *[]EdittagChanged `json:"notes,omitempty"`
+	Value string            `json:"value"`
+}
+
+// EdittagsRenamed defines model for edittags.Renamed.
+type EdittagsRenamed struct {
 	Id    string            `json:"id"`
 	Notes *[]EdittagChanged `json:"notes,omitempty"`
 	Value string            `json:"value"`
@@ -1137,6 +1155,9 @@ type PostApiSignupJSONRequestBody = AdduserInput
 // DeleteApiTagsJSONRequestBody defines body for DeleteApiTags for application/json ContentType.
 type DeleteApiTagsJSONRequestBody = DeletetagBody
 
+// PatchApiTagsJSONRequestBody defines body for PatchApiTags for application/json ContentType.
+type PatchApiTagsJSONRequestBody = EdittagManyBody
+
 // PostApiTagsJSONRequestBody defines body for PostApiTags for application/json ContentType.
 type PostApiTagsJSONRequestBody = CreatetagBody
 
@@ -1767,6 +1788,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/tags (the `GetApiTags` operationId).
 	GetApiTags(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PatchApiTagsWithBody Rename tags to one name, in the text of their notes too, or merge them into it with merge
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/tags (the `PatchApiTags` operationId).
+	PatchApiTagsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PatchApiTags Rename tags to one name, in the text of their notes too, or merge them into it with merge
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/tags (the `PatchApiTags` operationId).
+	PatchApiTags(ctx context.Context, body PatchApiTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiTagsWithBody Create tags, skipping existing ones
 	//
@@ -3273,6 +3308,40 @@ func (c *Client) DeleteApiTags(ctx context.Context, body DeleteApiTagsJSONReques
 // Corresponds with GET /api/tags (the `GetApiTags` operationId).
 func (c *Client) GetApiTags(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiTagsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PatchApiTagsWithBody Rename tags to one name, in the text of their notes too, or merge them into it with merge
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/tags (the `PatchApiTags` operationId).
+func (c *Client) PatchApiTagsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiTagsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PatchApiTags Rename tags to one name, in the text of their notes too, or merge them into it with merge
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/tags (the `PatchApiTags` operationId).
+func (c *Client) PatchApiTags(ctx context.Context, body PatchApiTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiTagsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6251,6 +6320,46 @@ func NewGetApiTagsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewPatchApiTagsRequest calls the generic PatchApiTags builder with application/json body
+func NewPatchApiTagsRequest(server string, body PatchApiTagsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPatchApiTagsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPatchApiTagsRequestWithBody constructs an http.Request for the PatchApiTags method, with any body, and a specified content type
+func NewPatchApiTagsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/tags")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPostApiTagsRequest calls the generic PostApiTags builder with application/json body
 func NewPostApiTagsRequest(server string, body PostApiTagsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -7362,6 +7471,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/tags (the `GetApiTags` operationId).
 	GetApiTagsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiTagsResponse, error)
+
+	// PatchApiTagsWithBodyWithResponse Rename tags to one name, in the text of their notes too, or merge them into it with merge
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/tags (the `PatchApiTags` operationId).
+	PatchApiTagsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiTagsResponse, error)
+
+	// PatchApiTagsWithResponse Rename tags to one name, in the text of their notes too, or merge them into it with merge
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/tags (the `PatchApiTags` operationId).
+	PatchApiTagsWithResponse(ctx context.Context, body PatchApiTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiTagsResponse, error)
 
 	// PostApiTagsWithBodyWithResponse Create tags, skipping existing ones
 	//
@@ -11249,6 +11372,82 @@ func (r GetApiTagsResponse) ContentType() string {
 	return ""
 }
 
+type PatchApiTagsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]EdittagsRenamed
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *RespondFailure
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *RespondFailure
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *RespondFailure
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *RespondFailure
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *RespondFailure
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PatchApiTagsResponse) GetJSON200() *[]EdittagsRenamed {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PatchApiTagsResponse) GetJSON400() *RespondFailure {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PatchApiTagsResponse) GetJSON404() *RespondFailure {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r PatchApiTagsResponse) GetJSON409() *RespondFailure {
+	return r.JSON409
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r PatchApiTagsResponse) GetJSON413() *RespondFailure {
+	return r.JSON413
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PatchApiTagsResponse) GetJSON500() *RespondFailure {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PatchApiTagsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PatchApiTagsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PatchApiTagsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PatchApiTagsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type PostApiTagsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -13067,6 +13266,32 @@ func (c *ClientWithResponses) GetApiTagsWithResponse(ctx context.Context, reqEdi
 		return nil, err
 	}
 	return ParseGetApiTagsResponse(rsp)
+}
+
+// PatchApiTagsWithBodyWithResponse Rename tags to one name, in the text of their notes too, or merge them into it with merge
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/tags (the `PatchApiTags` operationId).
+func (c *ClientWithResponses) PatchApiTagsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiTagsResponse, error) {
+	rsp, err := c.PatchApiTagsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiTagsResponse(rsp)
+}
+
+// PatchApiTagsWithResponse Rename tags to one name, in the text of their notes too, or merge them into it with merge
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/tags (the `PatchApiTags` operationId).
+func (c *ClientWithResponses) PatchApiTagsWithResponse(ctx context.Context, body PatchApiTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiTagsResponse, error) {
+	rsp, err := c.PatchApiTags(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiTagsResponse(rsp)
 }
 
 // PostApiTagsWithBodyWithResponse Create tags, skipping existing ones
@@ -16110,6 +16335,67 @@ func ParseGetApiTagsResponse(rsp *http.Response) (*GetApiTagsResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePatchApiTagsResponse parses an HTTP response from a PatchApiTagsWithResponse call
+func ParsePatchApiTagsResponse(rsp *http.Response) (*PatchApiTagsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PatchApiTagsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []EdittagsRenamed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest RespondFailure
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest RespondFailure

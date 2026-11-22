@@ -121,6 +121,7 @@ func New(db bun.IDB, store silo.Store, origin, addUserMode string) http.Handler 
 	mux.Handle("GET /api/tags", apireadtag.List(db))
 	mux.Handle("POST /api/tags", apicreatetag.Handler(db))
 	mux.Handle("DELETE /api/tags", apideletetag.Many(db))
+	mux.Handle("PATCH /api/tags", apiedittag.Many(db))
 	mux.Handle("GET /api/tags/{value}", apireadtag.Handler(db))
 	mux.Handle("PATCH /api/tags/{value}", apiedittag.Handler(db))
 	mux.Handle("DELETE /api/tags/{value}", apideletetag.Handler(db))

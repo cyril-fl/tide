@@ -27,6 +27,7 @@ import (
 	"github.com/cyril-fl/tide/core/services/process/editnotetext"
 	"github.com/cyril-fl/tide/core/services/process/editpassword"
 	"github.com/cyril-fl/tide/core/services/process/edittag"
+	"github.com/cyril-fl/tide/core/services/process/edittags"
 	"github.com/cyril-fl/tide/core/services/process/edituser"
 	"github.com/cyril-fl/tide/core/services/process/emptytrash"
 	"github.com/cyril-fl/tide/core/services/process/exportnotes"
@@ -72,7 +73,7 @@ var statuses = []struct {
 		edituser.ErrInvalidLocale, edituser.ErrInvalidTheme, edituser.ErrInvalidColorMode, edituser.ErrInvalidView, edituser.ErrInvalidSort, edituser.ErrInvalidPlan, edituser.ErrInvalidAfterMerge, edituser.ErrInvalidRetention, edituser.ErrInvalidNeighbors, edituser.ErrInvalidAvatar, edituser.ErrInvalidSnippet, edituser.ErrInvalidSavedSearch, edituser.ErrInvalidSidebar,
 		adduser.ErrNoName, adduser.ErrShortPassword, editpassword.ErrWrongPassword,
 		createapitoken.ErrNoName, createapitoken.ErrLongName, createapitoken.ErrInvalidLifetime,
-		edittag.ErrNoValue,
+		edittag.ErrNoValue, edittags.ErrNoValue,
 		hashtag.ErrInvalid,
 		listitems.ErrInvalidID, listitems.ErrInvalidKind, listitems.ErrInvalidPage, listitems.ErrInvalidSort,
 		moveitems.ErrNoValue, moveitems.ErrInvalidID, moveitems.ErrParentNotFound,

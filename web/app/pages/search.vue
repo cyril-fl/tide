@@ -25,7 +25,7 @@ const {
     <PageHeader :title="$t('search.title')" :subtitle="q">
       <ViewToggle />
     </PageHeader>
-    <NoteList v-if="matches.length" :notes="matches" :grid="view === 'grid'" :load="load" />
+    <NoteList v-if="matches.length" :notes="matches" :grid="view === 'grid'" dated :load="load" />
     <UEmpty
       v-else-if="status !== 'pending'"
       :icon="icons.searchEmpty"

@@ -23,3 +23,11 @@ export function retitle(markdown: string, title: string) {
   lines[index] = lines[index]!.match(heading)![0] + title;
   return lines.join('\n');
 }
+
+/** The markdown without its title line, for a preview that shows the title apart. */
+export function withoutTitle(markdown: string) {
+  const lines = markdown.split('\n');
+  const index = titleLine(lines);
+  if (index >= 0) lines.splice(index, 1);
+  return lines.join('\n').trim();
+}

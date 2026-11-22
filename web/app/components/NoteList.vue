@@ -15,7 +15,7 @@ const props = defineProps<{
   // A hole stands for a note of a page not read yet.
   notes: (Note | undefined)[];
   grid?: boolean;
-  /** The notes carry their dates (a tag's): tiles as a folder shows them. */
+  /** The notes carry their dates: their tiles have a second line, the date. */
   dated?: boolean;
   /** Reads the notes from one index to another: a list read by pages renders only the rows in sight. */
   load?: (from: number, to: number) => void;
@@ -50,19 +50,7 @@ watchEffect(() => props.load?.(visible.value.start, visible.value.start + visibl
         <!-- A tile is a square, then gap-2 and its line of text. -->
         <USkeleton :class="grid ? `${dated ? 'mb-10' : 'mb-6'} aspect-square` : 'h-13'" />
       </template>
-      <ItemRow v-else-if="grid && dated" :item="{ ...note, kind: 'note' } as Item" grid />
-      <NuxtLink v-else-if="grid" :to="`/notes/${note.id}`" class="group flex flex-col gap-2">
-        <div class="tile relative items-start justify-start text-muted">
-          <p class="line-clamp-6">{{ note.snippet || note.path }}</p>
-          <UIcon
-            v-if="note.readonly"
-            :name="icons.lock"
-            :aria-label="$t('note.readonly')"
-            class="absolute top-2 right-2 size-4 text-muted"
-          />
-        </div>
-        <p class="truncate text-center text-xs">{{ displayTitle(note.title, $t('untitled')) }}</p>
-      </NuxtLink>
+      <ItemRow v-else-if="grid" :item="{ ...note, kind: 'note' } as Item" :text="note.snippet" grid />
       <NuxtLink
         v-else
         :to="`/notes/${note.id}`"

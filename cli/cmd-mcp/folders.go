@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/cyril-fl/tide/cli/services/apiclient"
@@ -11,7 +12,7 @@ import (
 )
 
 var (
-	errCreateMode = errors.New("give either content (a note) or title (a folder)")
+	errCreateMode = errors.New("give one of content (a note), notes (several) or title (a folder)")
 	errTrashAlone = errors.New("trash takes no folder")
 )
 
@@ -52,6 +53,7 @@ type listFolderArgs struct {
 
 type createArgs struct {
 	Content string   `json:"content,omitempty" jsonschema:"a note's markdown: its first heading is the title, its #hashtags tags"`
+	Notes   []string `json:"notes,omitempty" jsonschema:"several contents at once"`
 	Title   string   `json:"title,omitempty" jsonschema:"a folder's title, instead of content"`
 	Folder  string   `json:"folder,omitempty" jsonschema:"where; the root when empty"`
 	Tags    []string `json:"tags,omitempty" jsonschema:"tags added to content"`
@@ -80,7 +82,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "list_folder",
 		Annotations: reads(),
-		Description: "List a folder's notes and folders, folders first then by title, with total and has_more; or the trash.",
+		Description: "List a folder's notes and folders, folders first, with total and has_more; or the trash.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args listFolderArgs) (*mcp.CallToolResult, folderPage, error) {
 		if args.Trash {
 			if args.Folder != "" {
@@ -111,10 +113,13 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "create_item",
 		Annotations: writes(false, false),
-		Description: "Create a note from markdown content, or a folder from a title.",
+		Description: "Create a note from content, several from notes, or a folder from title.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args createArgs) (*mcp.CallToolResult, any, error) {
-		if (args.Content == "") == (args.Title == "") {
+		if len(slices.DeleteFunc([]bool{args.Content != "", len(args.Notes) > 0, args.Title != ""}, func(set bool) bool { return !set })) != 1 {
 			return nil, nil, errCreateMode
+		}
+		if args.Content != "" {
+			args.Notes = []string{args.Content}
 		}
 		parentID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {
@@ -127,16 +132,28 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 			}
 			return nil, one(created), nil
 		}
-		created, err := decode[apiclient.DomainItem](client.PostApiNotes(ctx, apiclient.CreatenoteInput{Content: args.Content, ParentId: &parentID, Tags: &args.Tags}))
-		if err != nil {
-			return nil, nil, err
+		read := make([]note, 0, len(args.Notes))
+		for _, content := range args.Notes {
+			created, err := decode[apiclient.DomainItem](client.PostApiNotes(ctx, apiclient.CreatenoteInput{Content: content, ParentId: &parentID, Tags: &args.Tags}))
+			if err == nil {
+				// Read back: the API answers the item alone, without the path nor the tags it parsed.
+				var got note
+				if got, err = readNote(decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, created.Id))); err == nil {
+					read = append(read, got)
+					continue
+				}
+			}
+			// No batch endpoint: the notes made before the failure stay, say which.
+			made := make([]string, len(read))
+			for i, n := range read {
+				made[i] = n.Path
+			}
+			return nil, nil, fmt.Errorf("note %d of %d: %w (created before it: %v)", len(read)+1, len(args.Notes), err, made)
 		}
-		// Read back: the API answers the item alone, without the path nor the tags it parsed.
-		read, err := readNote(decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, created.Id)))
-		if err != nil {
-			return nil, nil, err
+		if args.Content != "" {
+			return nil, read[0], nil
 		}
-		return nil, read, nil
+		return nil, factor(read), nil
 	})
 
 	addTool(server, readOnly, &mcp.Tool{

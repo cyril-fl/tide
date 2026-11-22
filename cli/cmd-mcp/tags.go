@@ -151,7 +151,7 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "tag_notes",
 		Annotations: writes(false, true),
-		Description: "Add or remove tags on notes given, found by search_notes filters or in ops, rewriting only their #tags; answers counts and diffs.",
+		Description: "Add or remove #tags on notes given, found by search_notes filters or in ops; answers counts and diffs.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagNotesArgs) (*mcp.CallToolResult, tagResult, error) {
 		adds := args.Add
 		for _, op := range args.Ops {

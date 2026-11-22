@@ -104,7 +104,7 @@ func addSavedSearchTools(server *mcp.Server, client *apiclient.ClientWithRespons
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "save_search",
 		Annotations: writes(true, false),
-		Description: "Create, replace or delete a saved search, its notes matching every criterion given, the others kept; answers it; Pro plan.",
+		Description: "Create, replace or delete a saved search (its notes match every criterion), the others kept; Pro plan.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args saveSearchArgs) (*mcp.CallToolResult, savedSearch, error) {
 		if _, err := readSearches(ctx, client); err != nil {
 			return nil, savedSearch{}, err

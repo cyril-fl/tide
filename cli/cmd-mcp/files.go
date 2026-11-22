@@ -122,7 +122,7 @@ func addFileTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "export_notes",
 		Annotations: reads(),
-		Description: "Export notes as markdown files with their id and last change, folders as directories, with the total.",
+		Description: "Export notes as markdown files with id and last change, folders as directories.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args exportArgs) (*mcp.CallToolResult, export, error) {
 		folderID, err := resolveFolder(ctx, client, args.Folder)
 		if err != nil {

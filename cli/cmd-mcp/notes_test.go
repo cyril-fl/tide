@@ -305,15 +305,27 @@ func TestEditText(t *testing.T) {
 	fails("edit_note", map[string]any{"note": created.ID, "content": "# X", "old": "x"}, "give one of")
 	fails("edit_note", map[string]any{"note": created.ID, "title": "X", "old": "x"}, "give one of")
 	fails("edit_note", map[string]any{"note": created.ID, "old": "un", "tags": []string{"x"}}, "tag_notes")
-	// create_item makes a note or a folder, not both nor neither.
-	fails("create_item", map[string]any{"content": "# X", "title": "X"}, "give either")
-	fails("create_item", map[string]any{"folder": "/"}, "give either")
+	// create_item makes a note, several or a folder, one at a time.
+	fails("create_item", map[string]any{"content": "# X", "title": "X"}, "give one of")
+	fails("create_item", map[string]any{"content": "# X", "notes": []string{"# Y"}}, "give one of")
+	fails("create_item", map[string]any{"folder": "/"}, "give one of")
 
 	// The text before the first change of the session is in the history.
 	var versions history
 	call(t, agent, "note_history", map[string]any{"note": created.ID}, &versions)
 	if len(versions.Versions) != 1 {
 		t.Errorf("note_history = %+v, want the text before the rename", versions)
+	}
+}
+
+// TestCreateNotes makes several notes in one call, all in the folder with the tags given, answered as read_notes does.
+func TestCreateNotes(t *testing.T) {
+	agent := connect(t)
+	var several batch
+	call(t, agent, "create_item", map[string]any{"notes": []string{"# Soup\nleeks", "# Tart\napples #dessert"}, "tags": []string{"recipe"}}, &several)
+	if several.Common.Folder != "/" || len(several.Notes) != 2 || several.Notes[0].Title != "Soup" ||
+		!slices.Equal(slices.Sorted(slices.Values(several.Notes[1].Tags)), []string{"dessert", "recipe"}) {
+		t.Errorf("create_item notes = %+v", several)
 	}
 }
 

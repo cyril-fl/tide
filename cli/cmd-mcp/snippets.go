@@ -22,7 +22,7 @@ func addSnippetTools(server *mcp.Server, client *apiclient.ClientWithResponses, 
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "snippets",
 		Annotations: reads(),
-		Description: "List the snippets, the markdown the app inserts while typing or starts a note from.",
+		Description: "List the snippets: markdown the app inserts or starts a note from.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, []apiclient.DomainSnippet, error) {
 		snippets, err := readSnippets(ctx, client)
 		return nil, snippets, err
@@ -31,7 +31,7 @@ func addSnippetTools(server *mcp.Server, client *apiclient.ClientWithResponses, 
 	addTool(server, readOnly, &mcp.Tool{
 		Name:        "save_snippet",
 		Annotations: writes(true, true),
-		Description: "Create, replace or delete a snippet by its name, the others kept; answers it.",
+		Description: "Create, replace or delete a snippet by name, the others kept.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args snippetArgs) (*mcp.CallToolResult, apiclient.DomainSnippet, error) {
 		answer := apiclient.DomainSnippet{Name: args.Name, Content: args.Content}
 		_, err := editMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {

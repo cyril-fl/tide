@@ -34,7 +34,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := restoreitems.Process(r.Context(), db, input.IDs)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.List(w, http.StatusOK, process.GetResult())

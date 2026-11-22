@@ -20,7 +20,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := emptytrash.Process(r.Context(), db)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -46,7 +46,7 @@ func Item(db bun.IDB) http.HandlerFunc {
 		process := emptytrash.Process(r.Context(), db, id)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

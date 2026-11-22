@@ -21,7 +21,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := listduplicates.Process(r.Context(), db, r.URL.Query().Get("same_path") == "true")
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.List(w, http.StatusOK, process.GetResult())

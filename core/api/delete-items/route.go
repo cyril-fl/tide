@@ -36,7 +36,7 @@ func Handler(db bun.IDB, kind domain.Kind) http.HandlerFunc {
 		process := deleteitems.Process(r.Context(), db, kind, input.IDs)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.List(w, http.StatusOK, process.GetResult())

@@ -55,7 +55,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 			if !errors.Is(process.GetErr(), createsession.ErrBadCredentials) {
 				failed.Forgive(r.Context(), key)
 			}
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		failed.Reset(r.Context(), key)
@@ -80,7 +80,7 @@ func Logout(db bun.IDB) http.HandlerFunc {
 		process := deletesession.Process(r.Context(), db, auth.Token(r))
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		auth.SetCookie(w, "", time.Time{})
@@ -99,7 +99,7 @@ func Me(db bun.IDB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var user domain.User
 		if err := db.NewSelect().Model(&user).Where("id = ?", domain.UserID(r.Context())).Scan(r.Context()); err != nil {
-			respond.Error(w, err)
+			respond.Error(w, r, err)
 			return
 		}
 		respond.JSON(w, http.StatusOK, user)
@@ -130,7 +130,7 @@ func EditMe(db bun.IDB) http.HandlerFunc {
 		process := edituser.Process(r.Context(), db, input)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusOK, process.GetResult())
@@ -167,7 +167,7 @@ func EditPassword(db bun.IDB) http.HandlerFunc {
 			if !errors.Is(process.GetErr(), editpassword.ErrWrongPassword) {
 				failed.Forgive(r.Context(), key)
 			}
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		failed.Reset(r.Context(), key)
@@ -188,7 +188,7 @@ func Stats(db bun.IDB) http.HandlerFunc {
 		process := countnotes.Process(r.Context(), db)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusOK, process.GetResult())
@@ -208,7 +208,7 @@ func DeleteData(db bun.IDB) http.HandlerFunc {
 		process := purgeaccount.Process(r.Context(), db)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -229,7 +229,7 @@ func Tokens(db bun.IDB) http.HandlerFunc {
 		process := listapitokens.Process(r.Context(), db)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.List(w, http.StatusOK, process.GetResult())
@@ -258,7 +258,7 @@ func AddToken(db bun.IDB) http.HandlerFunc {
 		process := createapitoken.Process(r.Context(), db, input)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusCreated, process.GetResult())
@@ -285,7 +285,7 @@ func RevokeToken(db bun.IDB) http.HandlerFunc {
 		process := deleteapitoken.Process(r.Context(), db, id)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

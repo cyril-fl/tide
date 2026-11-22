@@ -28,7 +28,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := readitem.Process(r.Context(), db, domain.NOTE, id)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		note := process.GetResult()

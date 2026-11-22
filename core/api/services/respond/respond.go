@@ -132,8 +132,8 @@ func Total(w http.ResponseWriter, total int) {
 }
 
 // Error writes the status of a process error. An unknown error is a bug or an outage:
-// its detail may expose SQL or connection strings, so it only goes to the logs.
-func Error(w http.ResponseWriter, err error) {
+// its detail may expose SQL or connection strings, so it only goes to the logs, with the request and its account.
+func Error(w http.ResponseWriter, r *http.Request, err error) {
 	for _, group := range statuses {
 		for _, known := range group.errs {
 			if errors.Is(err, known) {
@@ -143,7 +143,7 @@ func Error(w http.ResponseWriter, err error) {
 		}
 	}
 
-	log.Printf("internal error: %v", err)
+	log.Printf("internal error: %s %s account=%s: %v", r.Method, r.URL.Path, domain.UserID(r.Context()), err)
 	fail(w, http.StatusInternalServerError, "internal error")
 }
 

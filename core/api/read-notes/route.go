@@ -36,7 +36,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := readnotes.Process(r.Context(), db, input.Notes, input.MaxChars)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.List(w, http.StatusOK, process.GetResult())

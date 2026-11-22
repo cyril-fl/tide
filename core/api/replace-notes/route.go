@@ -32,7 +32,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := replacenotes.Process(r.Context(), db, input)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusOK, process.GetResult())

@@ -43,7 +43,7 @@ func Handler(db bun.IDB, store silo.Store) http.HandlerFunc {
 			found := readsavedsearch.Process(r.Context(), db, search)
 			found.Run()
 			if found.HasErr() {
-				respond.Error(w, found.GetErr())
+				respond.Error(w, r, found.GetErr())
 				return
 			}
 			ids = nil
@@ -56,7 +56,7 @@ func Handler(db bun.IDB, store silo.Store) http.HandlerFunc {
 			process := exportnotes.Process(r.Context(), db, parent, ids...)
 			process.Run()
 			if process.HasErr() {
-				respond.Error(w, process.GetErr())
+				respond.Error(w, r, process.GetErr())
 				return
 			}
 			exported = process.GetResult()

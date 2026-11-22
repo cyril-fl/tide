@@ -30,7 +30,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := listversions.Process(r.Context(), db, id)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.List(w, http.StatusOK, process.GetResult())
@@ -63,7 +63,7 @@ func Read(db bun.IDB) http.HandlerFunc {
 		process := readversion.Process(r.Context(), db, id, version)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusOK, process.GetResult())
@@ -105,7 +105,7 @@ func Keep(db bun.IDB) http.HandlerFunc {
 		process := keepconflict.Process(r.Context(), db, id, body.Content)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		if process.GetResult().ID == "" {

@@ -73,7 +73,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := searchnotes.Process(r.Context(), db, query.Get("q")).Filter(filter).Page(limit, offset)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.Total(w, process.GetTotal())

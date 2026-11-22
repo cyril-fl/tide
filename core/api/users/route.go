@@ -66,7 +66,7 @@ func Modes(db bun.IDB, mode string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		allowed, err := allowed(r, db, mode, r.URL.Query().Get("invite"))
 		if err != nil {
-			respond.Error(w, err)
+			respond.Error(w, r, err)
 			return
 		}
 		respond.JSON(w, http.StatusOK, Mode{Mode: mode, Allowed: allowed})
@@ -97,7 +97,7 @@ func Signup(db bun.IDB, mode string) http.HandlerFunc {
 
 		switch allowed, err := allowed(r, db, mode, input.Invite); {
 		case err != nil:
-			respond.Error(w, err)
+			respond.Error(w, r, err)
 			return
 		case !allowed:
 			forbidden(w, "this server does not take new accounts")
@@ -117,7 +117,7 @@ func Signup(db bun.IDB, mode string) http.HandlerFunc {
 			if throttled {
 				created.Forgive(r.Context(), address)
 			}
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 
@@ -125,7 +125,7 @@ func Signup(db bun.IDB, mode string) http.HandlerFunc {
 		session := createsession.Process(r.Context(), db, createsession.Input{Name: input.Name, Password: input.Password})
 		session.Run()
 		if session.HasErr() {
-			respond.Error(w, session.GetErr())
+			respond.Error(w, r, session.GetErr())
 			return
 		}
 		result := session.GetResult()
@@ -152,7 +152,7 @@ func List(db bun.IDB) http.HandlerFunc {
 		var accounts []Account
 		err := db.NewSelect().Table("users").Column("id", "name", "admin", "created_at").Order("name").Scan(r.Context(), &accounts)
 		if err != nil {
-			respond.Error(w, err)
+			respond.Error(w, r, err)
 			return
 		}
 		respond.List(w, http.StatusOK, accounts)
@@ -183,7 +183,7 @@ func Delete(db bun.IDB, store silo.Store) http.HandlerFunc {
 		process := deleteuser.Process(r.Context(), db, store, id)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -218,14 +218,14 @@ func ResetPassword(db bun.IDB) http.HandlerFunc {
 			err = resetpassword.ErrNotFound
 		}
 		if err != nil {
-			respond.Error(w, err)
+			respond.Error(w, r, err)
 			return
 		}
 		reset := Reset{Password: password.Token()}
 		process := resetpassword.Process(r.Context(), db, name, reset.Password)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusOK, reset)
@@ -250,7 +250,7 @@ func Invite(db bun.IDB) http.HandlerFunc {
 		process := addinvite.Process(r.Context(), db)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusCreated, process.GetResult())
@@ -277,12 +277,12 @@ func Invites(db bun.IDB) http.HandlerFunc {
 		var admins []string
 		if err := db.NewSelect().Model((*domain.Invite)(nil)).Distinct().Column("user_id").
 			Where(pendingInvites).Scan(r.Context(), &admins); err != nil {
-			respond.Error(w, err)
+			respond.Error(w, r, err)
 			return
 		}
 		for _, admin := range admins {
 			if err := secret.Load(r.Context(), db, admin); err != nil {
-				respond.Error(w, err)
+				respond.Error(w, r, err)
 				return
 			}
 		}
@@ -290,7 +290,7 @@ func Invites(db bun.IDB) http.HandlerFunc {
 		var invites []domain.Invite
 		err := db.NewSelect().Model(&invites).Where(pendingInvites).Order("created_at DESC").Scan(r.Context())
 		if err != nil {
-			respond.Error(w, err)
+			respond.Error(w, r, err)
 			return
 		}
 		respond.List(w, http.StatusOK, invites)
@@ -319,7 +319,7 @@ func Revoke(db bun.IDB) http.HandlerFunc {
 
 		result, err := db.NewDelete().Model((*domain.Invite)(nil)).Where("id = ?", id).Exec(r.Context())
 		if err != nil {
-			respond.Error(w, err)
+			respond.Error(w, r, err)
 			return
 		}
 		if gone, err := result.RowsAffected(); err == nil && gone == 0 {
@@ -372,7 +372,7 @@ func VersionHandler(db bun.IDB) http.HandlerFunc {
 func isAdmin(w http.ResponseWriter, r *http.Request, db bun.IDB) bool {
 	admin, err := db.NewSelect().Model((*domain.User)(nil)).Where("id = ? AND admin", domain.UserID(r.Context())).Exists(r.Context())
 	if err != nil {
-		respond.Error(w, err)
+		respond.Error(w, r, err)
 		return false
 	}
 	if !admin {

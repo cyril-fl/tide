@@ -35,7 +35,7 @@ func Handler(db bun.IDB, store silo.Store) http.HandlerFunc {
 		process := readfile.Process(r.Context(), db, store, id)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		body := process.GetBody()

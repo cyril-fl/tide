@@ -32,13 +32,13 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		path := r.URL.Query().Get("path")
 		// resolveitem hands back a ref without / as a uuid: here only paths make sense.
 		if !strings.HasPrefix(path, "/") {
-			respond.Error(w, fmt.Errorf("%w: %q", resolveitem.ErrNotFound, path))
+			respond.Error(w, r, fmt.Errorf("%w: %q", resolveitem.ErrNotFound, path))
 			return
 		}
 		process := resolveitem.Process(r.Context(), db, domain.Kind(r.URL.Query().Get("kind")), []string{path})
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusOK, Resolved{ID: process.GetResult()[0]})

@@ -52,7 +52,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := patchnote.Process(r.Context(), db, patchnote.Input{ID: id, Pinned: changes.Pinned, Readonly: changes.Readonly, Content: changes.Content, Tags: changes.Tags, UpdatedAt: changes.UpdatedAt, Restore: changes.Restore})
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		reply(w, process.GetResult())

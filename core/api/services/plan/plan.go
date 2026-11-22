@@ -16,7 +16,7 @@ func Require(db bun.IDB, feature string, next http.Handler) http.Handler {
 		var plan string
 		err := db.NewSelect().Model((*domain.User)(nil)).Column("plan").Where("id = ?", domain.UserID(r.Context())).Scan(r.Context(), &plan)
 		if err != nil {
-			respond.Error(w, err)
+			respond.Error(w, r, err)
 			return
 		}
 		if !domain.Unlocked(feature, plan) {

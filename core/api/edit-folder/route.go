@@ -52,7 +52,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 			return err
 		})
 		if err != nil {
-			respond.Error(w, err)
+			respond.Error(w, r, err)
 			return
 		}
 		respond.JSON(w, http.StatusOK, folder)

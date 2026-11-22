@@ -97,7 +97,7 @@ func (t *Throttle) Reset(ctx context.Context, key string) {
 func (t *Throttle) Blocked(w http.ResponseWriter, r *http.Request, key string) bool {
 	wait, err := t.Try(r.Context(), key)
 	if err != nil {
-		respond.Error(w, err)
+		respond.Error(w, r, err)
 		return true
 	}
 	if wait == 0 {

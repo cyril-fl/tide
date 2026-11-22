@@ -76,14 +76,14 @@ func Handler(db bun.IDB, store silo.Store) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			respond.Error(w, err)
+			respond.Error(w, r, err)
 			return
 		}
 
 		process := importnotes.Process(r.Context(), db, store, importnotes.Input{Dir: dir, ParentID: parent})
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusOK, process.GetResult())

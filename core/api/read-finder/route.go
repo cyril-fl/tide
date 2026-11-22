@@ -36,7 +36,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		limit, errLimit := number(r.URL.Query().Get("limit"))
 		offset, errOffset := number(r.URL.Query().Get("offset"))
 		if errLimit != nil || errOffset != nil {
-			respond.Error(w, fmt.Errorf("%w: not a number", listitems.ErrInvalidPage))
+			respond.Error(w, r, fmt.Errorf("%w: not a number", listitems.ErrInvalidPage))
 			return
 		}
 
@@ -44,7 +44,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 			Sort(r.URL.Query().Get("sort")).Page(limit, offset)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		w.Header().Set("X-Total-Count", strconv.Itoa(process.GetTotal()))

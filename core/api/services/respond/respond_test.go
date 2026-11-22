@@ -1,11 +1,14 @@
 package respond
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/cyril-fl/tide/core/domain"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -28,15 +31,24 @@ func TestError(t *testing.T) {
 		"unknown":     {errors.New("dial postgres://user:secret@db"), http.StatusInternalServerError, "internal error"},
 	}
 
+	var logs bytes.Buffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	r := httptest.NewRequest(http.MethodGet, "/api/notes/x", nil)
+	r = r.WithContext(domain.WithUser(r.Context(), "account-1"))
+
 	for name, test := range tests {
 		w := httptest.NewRecorder()
-		Error(w, test.err)
+		Error(w, r, test.err)
 		if w.Code != test.status || !strings.Contains(w.Body.String(), test.body) {
 			t.Errorf("%s: %d %s, want %d with %q", name, w.Code, w.Body, test.status, test.body)
 		}
 		if strings.Contains(w.Body.String(), "secret") {
 			t.Errorf("%s: the error leaks to the client: %s", name, w.Body)
 		}
+	}
+	if !strings.Contains(logs.String(), "GET /api/notes/x account=account-1: dial") {
+		t.Errorf("the 500 is logged without its request: %q", logs.String())
 	}
 }
 

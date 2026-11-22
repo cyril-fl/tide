@@ -30,12 +30,12 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := deleteitems.Process(r.Context(), db, domain.NOTE, []string{id})
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		// deleteitems skips what it does not find: for one item, that is a 404.
 		if len(process.GetResult()) == 0 {
-			respond.Error(w, fmt.Errorf("%w: %q", readitem.ErrNotFound, id))
+			respond.Error(w, r, fmt.Errorf("%w: %q", readitem.ErrNotFound, id))
 			return
 		}
 		respond.List(w, http.StatusOK, process.GetResult())

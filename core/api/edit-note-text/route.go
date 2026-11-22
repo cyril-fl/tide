@@ -39,7 +39,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := editnotetext.Process(r.Context(), db, input)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		result := process.GetResult()

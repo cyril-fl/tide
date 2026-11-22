@@ -46,7 +46,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := forknote.Process(r.Context(), db, forknote.Input{ID: id, Content: body.Content})
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusCreated, process.GetResult())
@@ -72,7 +72,7 @@ func Read(db bun.IDB) http.HandlerFunc {
 		process := readfork.Process(r.Context(), db, id)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusOK, process.GetResult())
@@ -120,7 +120,7 @@ func Merge(db bun.IDB) http.HandlerFunc {
 		process := mergefork.Process(r.Context(), db, mergefork.Input{ID: id, Content: body.Content, Base: body.Base, UpdatedAt: body.UpdatedAt, Trash: body.Trash})
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		note := process.GetResult()
@@ -151,7 +151,7 @@ func Unmerge(db bun.IDB) http.HandlerFunc {
 		process := unmergefork.Process(r.Context(), db, id)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		note := process.GetResult()
@@ -199,7 +199,7 @@ func Rebase(db bun.IDB) http.HandlerFunc {
 		process := rebasefork.Process(r.Context(), db, rebasefork.Input{ID: id, Content: body.Content, Base: body.Base, UpdatedAt: body.UpdatedAt})
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		note := process.GetResult()

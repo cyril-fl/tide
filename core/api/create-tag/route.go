@@ -33,7 +33,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := createtag.Process(r.Context(), db, input.Values)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.List(w, http.StatusCreated, process.GetResult())

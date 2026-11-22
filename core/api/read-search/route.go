@@ -35,7 +35,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := readsavedsearch.Process(r.Context(), db, r.PathValue("id")).Page(limit, offset)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.Total(w, process.GetTotal())
@@ -69,14 +69,14 @@ func Preview(db bun.IDB) http.HandlerFunc {
 			return
 		}
 		if !edituser.ValidSavedSearchIDs(search) {
-			respond.Error(w, edituser.ErrInvalidSavedSearch)
+			respond.Error(w, r, edituser.ErrInvalidSavedSearch)
 			return
 		}
 
 		process := runsavedsearch.Process(r.Context(), db, search).Page(limit, offset)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.Total(w, process.GetTotal())

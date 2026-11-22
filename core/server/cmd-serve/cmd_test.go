@@ -1,7 +1,9 @@
 package cmdserve
 
 import (
+	"bytes"
 	"context"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -111,6 +113,41 @@ func TestOnLoopback(t *testing.T) {
 	} {
 		if got := onLoopback(addr); got != want {
 			t.Errorf("onLoopback(%q) = %v, want %v", addr, got, want)
+		}
+	}
+}
+
+func TestWithLog(t *testing.T) {
+	var logs bytes.Buffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	slow := slowRequest
+	slowRequest = 20 * time.Millisecond
+	t.Cleanup(func() { slowRequest = slow })
+
+	handler := withLog(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/fail":
+			w.WriteHeader(http.StatusInternalServerError)
+		case "/slow":
+			time.Sleep(30 * time.Millisecond)
+		}
+		w.Write([]byte("ok"))
+	}))
+	tests := map[string]struct {
+		path string
+		want string
+	}{
+		"failed": {"/fail", "GET /fail 500 "},
+		"slow":   {"/slow", "GET /slow 200 "},
+		"normal": {"/fine", ""},
+	}
+
+	for name, test := range tests {
+		logs.Reset()
+		handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, test.path, nil))
+		if test.want == "" && logs.Len() > 0 || !strings.Contains(logs.String(), test.want) {
+			t.Errorf("%s: logged %q, want %q", name, logs.String(), test.want)
 		}
 	}
 }

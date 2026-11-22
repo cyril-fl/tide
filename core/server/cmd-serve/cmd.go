@@ -38,6 +38,9 @@ const (
 	shutdownTimeout = 10 * time.Second
 )
 
+// slowRequest is the duration past which withLog logs a request; a var for the tests.
+var slowRequest = time.Second
+
 // Serve runs the API until SIGINT or SIGTERM; requests in progress finish first.
 func Serve(cobra *cobra.Command, args []string) error {
 	addr, err := cobra.Flags().GetString("addr")
@@ -129,6 +132,7 @@ func Serve(cobra *cobra.Command, args []string) error {
 	if onLoopback(published) {
 		handler = withProxy(handler)
 	}
+	handler = withLog(handler)
 	server := &http.Server{
 		Addr:              addr,
 		Handler:           handler,
@@ -152,6 +156,7 @@ func Serve(cobra *cobra.Command, args []string) error {
 		if onLoopback(mcpPublished) {
 			mcpHandler = withProxy(mcpHandler)
 		}
+		mcpHandler = withLog(mcpHandler)
 		mcpServer := &http.Server{
 			Addr:              mcpAddr,
 			Handler:           mcpHandler,
@@ -255,6 +260,35 @@ func withProxy(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// withLog logs the method, path, status and duration of the requests that fail (>= 500) or take slowRequest or more:
+// one line per request would drown the logs, the app makes many.
+func withLog(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		recorder := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(recorder, r)
+		if took := time.Since(start); recorder.status >= 500 || took >= slowRequest {
+			log.Printf("%s %s %d %s", r.Method, r.URL.Path, recorder.status, took.Round(time.Millisecond))
+		}
+	})
+}
+
+// statusWriter keeps the status written through it.
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+// Unwrap lets http.ResponseController reach the real writer: the import and the export lift their deadlines with it.
+func (w *statusWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
 
 // withWeb serves the web app of dir next to the API, so both share one origin. A path that is no file is a page of

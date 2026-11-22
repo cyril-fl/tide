@@ -42,14 +42,14 @@ func Handler(db bun.IDB, store silo.Store) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			respond.Error(w, err)
+			respond.Error(w, r, err)
 			return
 		}
 
 		process := createfile.Process(r.Context(), db, store, createfile.Input{Name: r.URL.Query().Get("name"), Data: data})
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusCreated, process.GetResult())

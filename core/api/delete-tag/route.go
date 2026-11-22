@@ -46,7 +46,7 @@ func Many(db bun.IDB) http.HandlerFunc {
 		}
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.JSON(w, http.StatusOK, process.GetResult())
@@ -76,12 +76,12 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		}
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		// deletetag skips what it does not find: for one tag, that is a 404.
 		if len(process.GetResult().Tags) == 0 {
-			respond.Error(w, fmt.Errorf("%w: %q", readtag.ErrNotFound, value))
+			respond.Error(w, r, fmt.Errorf("%w: %q", readtag.ErrNotFound, value))
 			return
 		}
 		respond.JSON(w, http.StatusOK, process.GetResult())

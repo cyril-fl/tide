@@ -23,7 +23,7 @@ func Handler(db bun.IDB) http.HandlerFunc {
 		process := counttags.Process(r.Context(), db)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.List(w, http.StatusOK, process.GetResult())
@@ -42,10 +42,10 @@ func Handler(db bun.IDB) http.HandlerFunc {
 func Notes(db bun.IDB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("layout") == "false" {
-			layout(w, readgraph.Process(r.Context(), db, true))
+			layout(w, r, readgraph.Process(r.Context(), db, true))
 			return
 		}
-		layout(w, layoutgraph.Process(r.Context(), db, ""))
+		layout(w, r, layoutgraph.Process(r.Context(), db, ""))
 	}
 }
 
@@ -65,7 +65,7 @@ func Graph(db bun.IDB) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		layout(w, layoutgraph.Process(r.Context(), db, id))
+		layout(w, r, layoutgraph.Process(r.Context(), db, id))
 	}
 }
 
@@ -83,7 +83,7 @@ func List(db bun.IDB) http.HandlerFunc {
 		process := readgraph.Process(r.Context(), db, false)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		respond.List(w, http.StatusOK, readgraph.Match(process.GetResult().Notes, r.URL.Query().Get("q"), 50))
@@ -109,7 +109,7 @@ func Neighbors(db bun.IDB) http.HandlerFunc {
 		process := readneighbors.Process(r.Context(), db, id)
 		process.Run()
 		if process.HasErr() {
-			respond.Error(w, process.GetErr())
+			respond.Error(w, r, process.GetErr())
 			return
 		}
 		result := process.GetResult()
@@ -119,7 +119,7 @@ func Neighbors(db bun.IDB) http.HandlerFunc {
 	}
 }
 
-func layout(w http.ResponseWriter, process interface {
+func layout(w http.ResponseWriter, r *http.Request, process interface {
 	Run()
 	HasErr() bool
 	GetErr() error
@@ -127,7 +127,7 @@ func layout(w http.ResponseWriter, process interface {
 }) {
 	process.Run()
 	if process.HasErr() {
-		respond.Error(w, process.GetErr())
+		respond.Error(w, r, process.GetErr())
 		return
 	}
 	result := process.GetResult()

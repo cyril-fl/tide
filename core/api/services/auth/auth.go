@@ -45,7 +45,7 @@ func New(db bun.IDB, next http.Handler) http.Handler {
 		session := readsession.Process(r.Context(), db, token)
 		session.Run()
 		if session.HasErr() {
-			respond.Error(w, session.GetErr())
+			respond.Error(w, r, session.GetErr())
 			return
 		}
 		// readsession started the session's lifetime again: the cookie follows.
@@ -60,7 +60,7 @@ func apiToken(db bun.IDB, next http.Handler, w http.ResponseWriter, r *http.Requ
 	process := readapitoken.Process(r.Context(), db, token)
 	process.Run()
 	if process.HasErr() {
-		respond.Error(w, process.GetErr())
+		respond.Error(w, r, process.GetErr())
 		return
 	}
 	if account(r) {

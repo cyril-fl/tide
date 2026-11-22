@@ -7,7 +7,7 @@ const { icons } = useIcons();
 const route = useRoute();
 const api = useApi();
 const { t } = useI18n();
-const { renameTag, removeTag, exportItems } = useItems();
+const { renameTag, removeTag, removeItems, exportItems } = useItems();
 const { addSavedSearch } = useSavedSearches();
 const { has } = usePro();
 const view = useView();
@@ -19,6 +19,14 @@ const single = computed(() => (filter.value.and.length === 1 && !filter.value.no
 const title = computed(() =>
   [...filter.value.and.map((tag) => `#${tag}`), ...filter.value.not.map((tag) => `−#${tag}`)].join(' '),
 );
+
+const selection = useSelection();
+onKeyStroke('Escape', () => (selection.value = []));
+
+async function removeSelection() {
+  await removeItems(selection.value.map((id) => ({ id, kind: 'note' as const })));
+  selection.value = [];
+}
 
 // The tags of the account by value: the search and a smart folder name them by id.
 async function tagIds(values: string[]) {
@@ -91,7 +99,7 @@ useHead({ title });
 </script>
 
 <template>
-  <div class="p-8">
+  <div class="flex min-h-full flex-col p-8">
     <PageHeader
       :title="title"
       :subtitle="notes.length || status === 'success' ? $t('tag.count', notes.length) : undefined"
@@ -112,7 +120,7 @@ useHead({ title });
         />
       </UTooltip>
     </PageHeader>
-    <NoteList v-if="notes.length" :notes="notes" :grid="view === 'grid'" dated :load="load" />
+    <NoteList v-if="notes.length" :notes="notes" :grid="view === 'grid'" dated selectable :load="load" />
     <UEmpty
       v-else-if="error"
       :icon="icons.tag"
@@ -132,5 +140,43 @@ useHead({ title });
       :title="$t('tag.filterEmpty')"
       :description="$t('tag.filterEmptyDescription')"
     />
+    <footer
+      v-if="selection.length"
+      class="sticky bottom-0 z-10 -mx-8 -mb-8 mt-auto border-t border-default bg-default px-8"
+    >
+      <div class="flex h-9 items-center gap-2 text-xs text-muted">
+        <span class="ml-auto shrink-0">{{ $t('folder.selected', selection.length) }}</span>
+        <UTooltip :text="$t('settings.export')">
+          <UButton
+            :icon="icons.export"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :aria-label="$t('settings.export')"
+            @click="exportItems(selection)"
+          />
+        </UTooltip>
+        <UTooltip :text="$t('common.delete')">
+          <UButton
+            :icon="icons.delete"
+            color="error"
+            variant="ghost"
+            size="xs"
+            :aria-label="$t('common.delete')"
+            @click="removeSelection"
+          />
+        </UTooltip>
+        <UTooltip :text="$t('folder.clearSelection')" :kbds="['esc']">
+          <UButton
+            :icon="icons.close"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :aria-label="$t('folder.clearSelection')"
+            @click="selection = []"
+          />
+        </UTooltip>
+      </div>
+    </footer>
   </div>
 </template>

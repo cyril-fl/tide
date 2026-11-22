@@ -35,16 +35,16 @@ Find what changed since the last version the wiki knows (`grep -m1 '^## v' Versi
 
 Check each claim against the code or the i18n strings (`web/i18n/locales/en.json`) for the exact labels; the tag message alone is too short.
 
-## Check the whole wiki
+## Follow the diff into every page
 
-The pages drift between updates, and only the touched parts get read. Every run, reread every page but `Versions.md` (a history) against the code and fix what is no longer true:
+The source of truth is the diff since the last tag the wiki knows, not the wiki: `git diff --stat <last>..<new tag>` in `develop/`, then the diff of what the user sees. A change rarely stays on one page, so for each change grep every page but `Versions.md` (a history) for what it touches and fix each sentence it makes false, not only the feature's page:
 
-- names and paths: the binaries (`tide`, `tide-server`), env vars (`TIDE_*`), source paths (`core/`, `cli/`, `web/`), repo links (`cyril-fl/tide`); `grep -n 'notes-go\|notes-app\|NOTES_\|cyril-fl/notes\b' *.md` finds no hit outside `Versions.md`;
-- lists that grow: themes (`domain.Themes`), plans and what each unlocks (`domain.Features`), settings sections and their labels (`web/app/pages/settings/[[section]].vue`, `en.json`), MCP tools (`MCP.md`), tables and columns (`core/domain/`);
-- a cited issue: `gh issue view <n> -R cyril-fl/tide` — a closed one means the sentence about the limit is out of date;
-- a screenshot whose screen changed is retaken.
+- a renamed thing (a binary, an env var, a path, the repo, a label in `en.json`, a shortcut in `useShortcuts.ts`): grep its old name;
+- a list that grew or shrank (`domain.Themes`, `domain.Features` and what each plan unlocks, the settings sections, the MCP tools of `MCP.md`, the tables and columns of `core/domain/`): every page that lists it;
+- a fixed limit (an issue closed by a commit of the range): grep its number, and the sentence that described the limit;
+- a screen that changed: its screenshot is retaken.
 
-Say in the report what was checked and what was fixed, and what was left unchecked.
+Say in the report which changes of the diff moved which pages, and what was left unchecked.
 
 ## Screenshots
 

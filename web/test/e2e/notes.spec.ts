@@ -244,7 +244,13 @@ test('the size of an image is picked over it and kept as the title of its markdo
   expect((await popup).url()).toContain('x.org/chat.png');
   await expect(page.getByRole('button', { name: 'Moyenne' })).toBeHidden();
 
+  // A right click, or a Ctrl+click on a Mac, opens nothing.
+  const pages = page.context().pages().length;
   await image.click({ button: 'right' });
+  await image.click({ modifiers: ['Control'] });
+  await image.click({ button: 'right' });
+  await expect(page.getByRole('button', { name: 'Moyenne' })).toBeVisible();
+  expect(page.context().pages()).toHaveLength(pages);
   await page.getByRole('button', { name: 'Moyenne' }).click();
   await expect(image).toHaveClass(/note-image-medium/);
   await expect

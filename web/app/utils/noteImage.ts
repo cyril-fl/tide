@@ -116,6 +116,8 @@ export function noteImage(baseURL: string, upload: (file: File) => Promise<strin
               return true;
             },
             handleClick(_view, _pos, event) {
+              // ProseMirror calls it on any button: a right click, or a Ctrl+click on a Mac, opens the size menu instead.
+              if (event.button !== 0 || event.ctrlKey) return false;
               // A click opens the image, its size menu is on a right click.
               const img = (event.target as HTMLElement).closest('img:not(.link-card-icon)')?.getAttribute('src');
               if (img) {

@@ -27,6 +27,7 @@ func TestParse(t *testing.T) {
 		"link target":        {"[x](http://a.b/#go) [y](/p#sql)", nil},
 		"link text":          {"[#go #fyp](http://a.b) ![#img](/f) #sql", []string{"sql"}},
 		"bracket in text":    {"[a [b] #go](http://a.b)", []string{"go"}},
+		"wiki link":          {"[[#Top]] [[Note#Plan]] ![[a #b]] #go", []string{"go"}},
 		"indented code":      {"texte\n\n    ### Titre {#custom-id}\n\t#tab\n\n#sql", []string{"sql"}},
 		"indented at start":  {"    #go\n\n#sql", []string{"sql"}},
 		"indented paragraph": {"texte\n    #go", []string{"go"}},

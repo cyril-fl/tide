@@ -72,6 +72,7 @@ const isOver = useDropFolder(panel, () => props.folderId ?? null);
 
 // A row is h-9, a tile has two text-xs lines under its square.
 const list = useTemplateRef('list');
+const lasso = useLasso(list);
 const rows = useVirtualRows(
   list,
   () => items.value.length,
@@ -111,6 +112,7 @@ watchEffect(() => load(visible.value.start, visible.value.start + visible.value.
         />
       </UTooltip>
     </PageHeader>
+    <div v-if="lasso" class="pointer-events-none fixed z-50 border border-primary/60 bg-primary/10" :style="lasso" />
     <ul
       v-if="items.length"
       ref="list"
@@ -120,6 +122,7 @@ watchEffect(() => load(visible.value.start, visible.value.start + visible.value.
       <li
         v-for="(item, index) in visible.items"
         :key="item?.id ?? visible.start + index"
+        :data-id="item?.id"
         @click.capture="select($event, visible.start + index)"
       >
         <ItemRow v-if="item" :item="item" :grid="view === 'grid'" :selected="selectedIds.has(item.id)" />

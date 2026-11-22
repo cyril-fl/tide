@@ -85,3 +85,21 @@ test('⌘Z takes back a move and a deletion, ⌘Y does them again', async ({ pag
   await page.keyboard.press('ControlOrMeta+z');
   await expect(alpha).toBeVisible();
 });
+
+test('dragging a square over the empty space selects the rows it touches', async ({ page }) => {
+  await box.notes(['# Alpha', '# Bravo', '# Charlie']);
+  await page.goto(`/folders/${box.folder.id}`);
+  const main = page.getByRole('main');
+  const alpha = (await main.getByRole('link', { name: /Alpha/ }).boundingBox())!;
+  const bravo = (await main.getByRole('link', { name: /Bravo/ }).boundingBox())!;
+  const charlie = (await main.getByRole('link', { name: /Charlie/ }).boundingBox())!;
+  await expect(main.getByRole('link', { name: /Charlie/ })).toBeVisible();
+
+  // From the empty space under the last row, up to the middle of the second.
+  await page.mouse.move(alpha.x + 20, charlie.y + charlie.height + 20);
+  await page.mouse.down();
+  await page.mouse.move(alpha.x + 20, bravo.y + bravo.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect(main.getByText('2 sélectionnés')).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(box.folder.id));
+});

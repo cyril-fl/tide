@@ -309,8 +309,10 @@ type DomainSidebarSection struct {
 
 // DomainSnippet defines model for domain.Snippet.
 type DomainSnippet struct {
-	Content string `json:"content"`
-	Name    string `json:"name"`
+	Content   string  `json:"content"`
+	CreatedAt *string `json:"created_at,omitempty"`
+	Name      string  `json:"name"`
+	UpdatedAt *string `json:"updated_at,omitempty"`
 }
 
 // DomainTag defines model for domain.Tag.

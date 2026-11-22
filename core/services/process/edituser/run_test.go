@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/cyril-fl/tide/core/domain"
 	"github.com/cyril-fl/tide/core/services/postgrey"
@@ -105,8 +106,15 @@ func TestEditUser(t *testing.T) {
 	snippets := []domain.Snippet{{Name: "Meeting", Content: "## Meeting #work"}, {Name: "Day", Content: "# Today"}}
 	process = Process(ctx, tx, Input{Snippets: &snippets})
 	process.Run()
-	if got := process.GetResult(); process.HasErr() || len(got.Snippets) != 2 || got.Snippets[1] != snippets[1] {
-		t.Errorf("snippets: result = %+v, err = %v; want both saved", got.Snippets, process.GetErr())
+	if got := process.GetResult(); process.HasErr() || len(got.Snippets) != 2 || got.Snippets[1].Content != snippets[1].Content || got.Snippets[1].CreatedAt.IsZero() {
+		t.Errorf("snippets: result = %+v, err = %v; want both saved and dated", got.Snippets, process.GetErr())
+	}
+	created := process.GetResult().Snippets[0].CreatedAt
+	snippets[0].Content = "## Meeting #work #notes"
+	process = Process(ctx, tx, Input{Snippets: &snippets})
+	process.Run()
+	if got := process.GetResult().Snippets[0]; process.HasErr() || !got.CreatedAt.Equal(created) || got.UpdatedAt.IsZero() {
+		t.Errorf("snippet edited: %+v, err = %v; want its created_at %v kept", got, process.GetErr(), created)
 	}
 
 	searches := []domain.SavedSearch{{ID: "s1", Name: "Work", TagMode: "all"}, {ID: "s2", Name: "Recent"}}
@@ -251,5 +259,32 @@ func TestEditUserGuards(t *testing.T) {
 	}
 	if len(user.Snippets) != 1 || user.Snippets[0].Name != "A" {
 		t.Errorf("snippets = %+v, want the first write kept", user.Snippets)
+	}
+}
+
+func TestStampSnippets(t *testing.T) {
+	old := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	now := time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC)
+	saved := []domain.Snippet{
+		{Name: "same", Content: "a", CreatedAt: old, UpdatedAt: old},
+		{Name: "edited", Content: "a", CreatedAt: old, UpdatedAt: old},
+		{Name: "legacy", Content: "a"},
+	}
+	next := []domain.Snippet{
+		{Name: "same", Content: "a"},
+		{Name: "edited", Content: "b"},
+		{Name: "legacy", Content: "a"},
+		{Name: "new", Content: "c"},
+		{Name: "renamed", Content: "d", CreatedAt: old},
+	}
+	want := domain.Snippets{
+		{Name: "same", Content: "a", CreatedAt: old, UpdatedAt: old},
+		{Name: "edited", Content: "b", CreatedAt: old, UpdatedAt: now},
+		{Name: "legacy", Content: "a"},
+		{Name: "new", Content: "c", CreatedAt: now, UpdatedAt: now},
+		{Name: "renamed", Content: "d", CreatedAt: old, UpdatedAt: now},
+	}
+	if got := stampSnippets(saved, next, now); !slices.Equal(got, want) {
+		t.Errorf("stampSnippets = %+v, want %+v", got, want)
 	}
 }

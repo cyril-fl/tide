@@ -385,7 +385,11 @@ components:
       properties:
         content:
           type: string
+        created_at:
+          type: string
         name:
+          type: string
+        updated_at:
           type: string
       required:
       - content

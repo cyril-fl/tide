@@ -227,7 +227,14 @@ func (p *run) updateUser() {
 		}
 
 		if p.input.Snippets != nil {
-			sealed, err := domain.Snippets(*p.input.Snippets).Seal(domain.UserID(p.ctx))
+			// Read under the update's lock: the dates of each snippet come from the saved list.
+			var saved domain.Snippets
+			err := tx.NewSelect().Model((*domain.User)(nil)).Column("snippets").
+				Where("id = ?", domain.UserID(p.ctx)).For("UPDATE").Scan(ctx, &saved)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
+			sealed, err := stampSnippets(saved, *p.input.Snippets, time.Now()).Seal(domain.UserID(p.ctx))
 			if err != nil {
 				return err
 			}
@@ -272,6 +279,29 @@ func valid(value *string, choices []string) bool {
 func validSort(sort string) bool {
 	_, ok := domain.SortList(sort)
 	return ok
+}
+
+// stampSnippets dates the snippets to save from the saved ones of the same name: a new name is created now (or keeps
+// the created_at it brings, a rename or an import), a changed content updated now, an unchanged one keeps its dates.
+func stampSnippets(saved, next []domain.Snippet, now time.Time) domain.Snippets {
+	now = now.UTC().Truncate(time.Second)
+	stamped := make(domain.Snippets, len(next))
+	for i, snippet := range next {
+		at := slices.IndexFunc(saved, func(s domain.Snippet) bool { return s.Name == snippet.Name })
+		switch {
+		case at < 0:
+			if snippet.CreatedAt.IsZero() {
+				snippet.CreatedAt = now
+			}
+			snippet.UpdatedAt = now
+		case saved[at].Content != snippet.Content:
+			snippet.CreatedAt, snippet.UpdatedAt = saved[at].CreatedAt, now
+		default:
+			snippet.CreatedAt, snippet.UpdatedAt = saved[at].CreatedAt, saved[at].UpdatedAt
+		}
+		stamped[i] = snippet
+	}
+	return stamped
 }
 
 // validSnippets accepts snippets left out, or a short list of named ones.

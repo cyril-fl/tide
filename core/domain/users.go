@@ -57,9 +57,12 @@ func (u *User) AfterScanRow(context.Context) error {
 }
 
 // Snippet is a piece of markdown of the account, inserted while typing or starting a new note; its #tags become tags of that note.
+// The server sets its dates when the list is saved; one saved before they existed has none.
 type Snippet struct {
-	Name    string `json:"name"`
-	Content string `json:"content"`
+	Name      string    `json:"name"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at,omitzero" binding:"optional"`
+	UpdatedAt time.Time `json:"updated_at,omitzero" binding:"optional"`
 }
 
 // Snippets are kept sealed, as one JSON string in their jsonb column: write Seal's.

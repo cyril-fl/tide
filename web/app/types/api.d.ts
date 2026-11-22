@@ -4806,7 +4806,9 @@ export interface components {
         };
         "domain.Snippet": {
             content: string;
+            created_at?: string;
             name: string;
+            updated_at?: string;
         };
         "domain.Tag": {
             id: string;

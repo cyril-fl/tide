@@ -37,7 +37,9 @@ export function useItems() {
       action: t('common.save'),
       // A smart folder lives in the sidebar, not in a folder: offered at the root only.
       alternative:
-        !parentId && has('savedSearches') ? { label: t('search.saved.add'), onSelect: addSavedSearch } : undefined,
+        !parentId && has('savedSearches')
+          ? { label: t('search.saved.add'), onSelect: () => addSavedSearch() }
+          : undefined,
     });
     if (!title) return;
     const body = { title, parent_id: parentId };
@@ -279,9 +281,9 @@ export function tagPath(value: string) {
   return `/tags/${encodeURIComponent(value)}`;
 }
 
-// snippet: the index of the account's snippet the note starts with.
-export function newNotePath(parentId?: string, snippet?: number) {
-  return { path: '/notes/new', query: { parent: parentId, snippet } };
+// snippet: the index of the account's snippet the note starts with; tags: the #tags it starts with.
+export function newNotePath(parentId?: string, snippet?: number, tags?: string[]) {
+  return { path: '/notes/new', query: { parent: parentId, snippet, tags: tags?.join(',') || undefined } };
 }
 
 /** Items a folder holds, the root without an id; only those of this kind when given. */
@@ -390,8 +392,9 @@ export function useSavedSearches() {
     return editMe((me) => ({ saved_searches: change(me.saved_searches ?? []) }));
   }
 
-  async function addSavedSearch() {
-    const added = await savedSearch({ title: t('search.saved.add') });
+  /** value: criteria to start from, a tag filter's. */
+  async function addSavedSearch(value?: SavedSearch) {
+    const added = await savedSearch({ title: t('search.saved.add'), value });
     if (!added) return;
     const id = crypto.randomUUID();
     await save((searches) => [...searches, { ...added, id }]);

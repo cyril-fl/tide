@@ -534,7 +534,7 @@ async function deleteData() {
               color="neutral"
               variant="outline"
               :disabled="!me"
-              @click="addSavedSearch"
+              @click="addSavedSearch()"
             />
           </li>
           <SavedSearchSettingsRow v-for="search in me?.saved_searches" :key="search.id" :search="search" />

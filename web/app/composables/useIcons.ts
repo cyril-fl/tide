@@ -21,6 +21,7 @@ export function useIcons() {
     rename: 'i-reicon-edit',
     move: 'i-reicon-folder-move',
     reorder: 'i-reicon-menu',
+    more: 'i-reicon-more',
     delete: 'i-reicon-trash3',
     trash: 'i-reicon-trash2',
 

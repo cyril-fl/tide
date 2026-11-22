@@ -292,7 +292,11 @@
     "empty": "No note with this tag",
     "emptyDescription": "Write #{value} in a note to find it here.",
     "filterEmpty": "No note matches this filter",
-    "filterEmptyDescription": "Click a tag in the sidebar to include it, again to exclude it, a third time to drop it."
+    "filterEmptyDescription": "Click a tag in the sidebar to include it, again to exclude it, a third time to drop it.",
+    "actions": "Actions",
+    "export": "Export the notes",
+    "saveSearch": "Create a smart folder",
+    "newNote": "New note with these tags"
   },
   "trash": {
     "emptyConfirm": "Empty the trash?",

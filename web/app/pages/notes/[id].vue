@@ -11,7 +11,13 @@ const { data: me } = useMe();
 function editorFor() {
   const id = route.params.id as string;
   // TODO: a reload of /notes/new?snippet= before me is loaded starts empty, wait for me if that bites.
-  const start = id === 'new' ? me.value?.snippets[Number(route.query.snippet)]?.content : undefined;
+  const tags = typeof route.query.tags === 'string' && route.query.tags ? route.query.tags.split(',') : [];
+  const start =
+    id !== 'new'
+      ? undefined
+      : (me.value?.snippets[Number(route.query.snippet)]?.content ??
+        // An empty first line above the tags takes the cursor and the title.
+        (tags.length ? `&nbsp;\n\n${tags.map((tag) => `#${tag}`).join(' ')}` : undefined));
   return { noteId: id === 'new' ? undefined : id, parentId: route.query.parent as string | undefined, start };
 }
 

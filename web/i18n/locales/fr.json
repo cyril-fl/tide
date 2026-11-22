@@ -292,7 +292,11 @@
     "empty": "Aucune note avec ce tag",
     "emptyDescription": "Écrivez #{value} dans une note pour l'y retrouver.",
     "filterEmpty": "Aucune note pour ce filtre",
-    "filterEmptyDescription": "Cliquez un tag de la barre latérale pour l'inclure, encore pour l'exclure, une troisième fois pour le retirer."
+    "filterEmptyDescription": "Cliquez un tag de la barre latérale pour l'inclure, encore pour l'exclure, une troisième fois pour le retirer.",
+    "actions": "Actions",
+    "export": "Exporter les notes",
+    "saveSearch": "Créer un dossier intelligent",
+    "newNote": "Nouvelle note avec ces tags"
   },
   "trash": {
     "emptyConfirm": "Vider la corbeille ?",

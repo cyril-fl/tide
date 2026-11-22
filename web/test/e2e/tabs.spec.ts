@@ -65,7 +65,7 @@ test('the Ultra tabs keep the open notes', async ({ page }) => {
     await inTab('Fourth');
     await expect(bar.getByRole('link')).toHaveCount(3);
     await bar.getByRole('link', { name: `Third ${box.prefix}` }).click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Fermer les autres notes' }).click();
+    await page.getByRole('menuitem', { name: 'Fermer les autres onglets' }).click();
     await expect(page).toHaveURL(`/notes/${third.id}`);
     await expect(bar).toHaveCount(0);
 
@@ -75,7 +75,7 @@ test('the Ultra tabs keep the open notes', async ({ page }) => {
     await expect(bar.getByRole('link')).toHaveCount(2);
     await page.reload();
     await expect.poll(titles).toEqual([`First ${box.prefix}`, `Fourth ${box.prefix}`]);
-    await bar.getByRole('button', { name: 'Fermer toutes les notes' }).click();
+    await bar.getByRole('button', { name: 'Fermer tous les onglets' }).click();
     await expect(page).toHaveURL('/');
     await page.goto(`/notes/${first.id}`);
     await inTab('Fourth');

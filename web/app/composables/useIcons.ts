@@ -43,6 +43,7 @@ export function useIcons() {
     up: 'i-reicon-chevron-up',
     down: 'i-reicon-chevron-down',
     close: 'i-reicon-x',
+    closeOthers: 'i-lucide-copy-x',
     beside: 'i-lucide-columns-2',
     newTab: 'i-lucide-square-plus',
     calendar: 'i-reicon-calendar',

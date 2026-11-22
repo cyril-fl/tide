@@ -57,7 +57,7 @@ const shown = computed(() => has('tabs') && tabs.value.length > 1 && !(focus.val
           ...openMenu(tab.id),
           [
             { label: $t('note.closeTab', { title: label(tab) }), icon: icons.close, onSelect: () => close(tab.id) },
-            { label: $t('note.closeOthers'), onSelect: () => closeOthers(tab.id) },
+            { label: $t('note.closeOthers'), icon: icons.closeOthers, onSelect: () => closeOthers(tab.id) },
           ],
         ]"
       >

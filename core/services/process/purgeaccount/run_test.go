@@ -74,6 +74,14 @@ func TestPurgeAccount(t *testing.T) {
 		t.Fatalf("trash: %v", trash.GetErr())
 	}
 
+	// Snippets and saved searches of both accounts.
+	for _, account := range []context.Context{ctx, other} {
+		if _, err := tx.NewUpdate().Table("users").Set(`snippets = '[{"content":"x"}]'`).Set(`saved_searches = '[{"name":"x"}]'`).
+			Where("id = ?", domain.UserID(account)).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	purge := Process(ctx, tx)
 	purge.Run()
 	if purge.HasErr() {
@@ -97,6 +105,19 @@ func TestPurgeAccount(t *testing.T) {
 		}
 		if count != c.want {
 			t.Errorf("%s of %s = %d, want %d", c.table, domain.UserID(c.account), count, c.want)
+		}
+	}
+	for _, c := range []struct {
+		account context.Context
+		want    int64
+	}{{ctx, 1}, {other, 0}} {
+		count, err := tx.NewSelect().Table("users").Where("id = ?", domain.UserID(c.account)).
+			Where("snippets = '[]'::jsonb AND saved_searches = '[]'::jsonb").Count(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if count != c.want {
+			t.Errorf("account %s with empty snippets and saved searches = %d, want %d", domain.UserID(c.account), count, c.want)
 		}
 	}
 	for _, image := range images {

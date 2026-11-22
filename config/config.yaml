@@ -579,8 +579,8 @@ commands:
     short: "Manage the account logged in"
   account-purge:
     use: "purge"
-    short: "Delete every note, folder, tag and image of the account"
-    long: "Delete for good every note, folder, tag and image of the account logged in, the trash included. The account and its settings stay. Type the account's name to confirm."
+    short: "Delete every note, folder, tag, image, snippet and saved search of the account"
+    long: "Delete for good every note, folder, tag and image of the account logged in, the trash included, and empty its snippets and saved searches. The account and its other settings stay. Type the account's name to confirm."
     example: "{name} account purge"
   root:
     short: "The root of the notes system"

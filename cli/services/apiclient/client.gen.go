@@ -1395,7 +1395,7 @@ type ClientInterface interface {
 	// Corresponds with PATCH /api/me (the `PatchApiMe` operationId).
 	PatchApiMe(ctx context.Context, body PatchApiMeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DeleteApiMeData Delete every note, folder, tag and image of the account logged in
+	// DeleteApiMeData Delete every note, folder, tag, image, snippet and saved search of the account logged in
 	//
 	// Corresponds with DELETE /api/me/data (the `DeleteApiMeData` operationId).
 	DeleteApiMeData(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2320,7 +2320,7 @@ func (c *Client) PatchApiMe(ctx context.Context, body PatchApiMeJSONRequestBody,
 	return c.Client.Do(req)
 }
 
-// DeleteApiMeData Delete every note, folder, tag and image of the account logged in
+// DeleteApiMeData Delete every note, folder, tag, image, snippet and saved search of the account logged in
 //
 // Corresponds with DELETE /api/me/data (the `DeleteApiMeData` operationId).
 func (c *Client) DeleteApiMeData(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -6948,7 +6948,7 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /api/me (the `PatchApiMe` operationId).
 	PatchApiMeWithResponse(ctx context.Context, body PatchApiMeJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiMeResponse, error)
 
-	// DeleteApiMeDataWithResponse Delete every note, folder, tag and image of the account logged in
+	// DeleteApiMeDataWithResponse Delete every note, folder, tag, image, snippet and saved search of the account logged in
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -12300,7 +12300,7 @@ func (c *ClientWithResponses) PatchApiMeWithResponse(ctx context.Context, body P
 	return ParsePatchApiMeResponse(rsp)
 }
 
-// DeleteApiMeDataWithResponse Delete every note, folder, tag and image of the account logged in
+// DeleteApiMeDataWithResponse Delete every note, folder, tag, image, snippet and saved search of the account logged in
 //
 // Returns a wrapper object for the known response body format(s).
 //

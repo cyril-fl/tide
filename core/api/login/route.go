@@ -195,9 +195,9 @@ func Stats(db bun.IDB) http.HandlerFunc {
 	}
 }
 
-// DeleteData deletes for good every note, folder, tag and image of the account logged in: DELETE /api/me/data.
+// DeleteData deletes for good every note, folder, tag, image, snippet and saved search of the account logged in: DELETE /api/me/data.
 // The account, its settings and its sessions stay.
-// @Summary  Delete every note, folder, tag and image of the account logged in
+// @Summary  Delete every note, folder, tag, image, snippet and saved search of the account logged in
 // @Tags     account
 // @Success  204
 // @Failure  401 {object} respond.Failure

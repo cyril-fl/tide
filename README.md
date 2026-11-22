@@ -134,7 +134,7 @@ docker compose cp backups/<file>.files silo:/tmp/restore
 docker compose exec silo sh -c 'mcli alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mcli mirror /tmp/restore local/notes'
 ```
 
-`make purge` erases the notes, folders, tags and images of every account, after a backup (type `purge` to confirm); accounts and settings stay.
+`make purge` erases the notes, folders, tags, images, snippets and saved searches of every account, after a backup (type `purge` to confirm); accounts and settings stay.
 
 ## Development
 

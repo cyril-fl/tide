@@ -1411,7 +1411,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete every note, folder, tag and image of the account logged in */
+        /** Delete every note, folder, tag, image, snippet and saved search of the account logged in */
         delete: {
             parameters: {
                 query?: never;

@@ -40,7 +40,7 @@ tide-server rotate-secret               # re-encrypts the accounts' keys with a 
 - `--password-stdin` reads the password from standard input, for `user add` and `user reset-password`.
 - The admin flag is set on the first account created in an empty database, however it is created. To move it or add one, you have to touch the database: `UPDATE users SET admin = true WHERE name = '<name>'`.
 - Deleting an account permanently erases its notes, folders, tags and images. An admin can neither delete themselves nor delete the last admin.
-- `tide account purge` empties the logged-in account (notes, folders, tags, images), after typing its name. The account and its settings stay.
+- `tide account purge` empties the logged-in account (notes, folders, tags, images, snippets, saved searches), after typing its name. The account and its other settings stay.
 
 ## Notes, titles and tags
 

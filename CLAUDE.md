@@ -43,6 +43,6 @@ Two binaries. `tide-server` (`cmd/tide-server/`, `core/server/`) is the only one
 
 ## Skills
 
-`notes-cli-command`, `notes-account-setting`, `notes-app-screenshot`, `notes-release`, `notes-wiki`, `notes-issue-done`, `notes-issue-hunt` (audit, then the missing issues), `plum-process`, `go-tests`, `primitive-first-review`.
+`notes-cli-command`, `notes-account-setting`, `notes-app-screenshot`, `notes-release`, `notes-wiki`, `notes-issue-done`, `notes-issue-hunt` (audit, then the missing issues), `plum-process`, `go-documentation`, `go-tests`, `primitive-first-review`.
 
 Subagents (`.claude/agents/`): `notes-auditor`, a read-only audit of the code used by `notes-issue-hunt`; `notes-release-checker` (Sonnet), the checks, tag, issues and handoff of `notes-release` once the commits are made.

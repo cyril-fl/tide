@@ -53,6 +53,8 @@ const recentNotes = computed(() =>
 const { data: tags } = useLazyAsyncData('tags', () => api<TagCount[]>('/api/graph'), {
   default: () => [] as TagCount[],
 });
+// On a tag page, a click on a tag includes it, excludes it, then leaves it (utils/tagFilter.ts).
+const tagFilter = computed(() => readTagFilter(route));
 
 const baseURL = useRuntimeConfig().public.apiBase;
 const avatarSrc = computed(() => (me.value?.avatar ? imageSrc(`/api/files/${me.value.avatar}`, baseURL) : undefined));
@@ -331,13 +333,14 @@ const isOverRoot = useDropFolder(rootLink, () => null);
             <div class="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto px-2">
               <UContextMenu v-for="tag in tags" :key="tag.value" :items="tagMenu(tag.value)">
                 <UButton
-                  :to="tagPath(tag.value)"
+                  :to="tagFilterPath(nextTagFilter(tagFilter, tag.value))"
                   :label="`#${tag.value}`"
                   size="xs"
-                  color="primary"
-                  variant="soft"
-                  active-variant="solid"
+                  :color="tagFilter.not.includes(tag.value) ? 'error' : 'primary'"
+                  :variant="tagFilter.and.includes(tag.value) ? 'solid' : 'soft'"
+                  :aria-pressed="tagFilter.and.includes(tag.value) || tagFilter.not.includes(tag.value)"
                   class="max-w-full font-normal"
+                  :class="{ 'line-through': tagFilter.not.includes(tag.value) }"
                   :ui="{ label: 'truncate' }"
                 />
               </UContextMenu>

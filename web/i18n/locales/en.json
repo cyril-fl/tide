@@ -290,7 +290,9 @@
     "notFound": "This tag does not exist",
     "notFoundDescription": "It may have been renamed or deleted.",
     "empty": "No note with this tag",
-    "emptyDescription": "Write #{value} in a note to find it here."
+    "emptyDescription": "Write #{value} in a note to find it here.",
+    "filterEmpty": "No note matches this filter",
+    "filterEmptyDescription": "Click a tag in the sidebar to include it, again to exclude it, a third time to drop it."
   },
   "trash": {
     "emptyConfirm": "Empty the trash?",

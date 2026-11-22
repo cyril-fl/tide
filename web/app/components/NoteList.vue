@@ -53,7 +53,7 @@ watchEffect(() => props.load?.(visible.value.start, visible.value.start + visibl
       <ItemRow v-else-if="grid && dated" :item="{ ...note, kind: 'note' } as Item" grid />
       <NuxtLink v-else-if="grid" :to="`/notes/${note.id}`" class="group flex flex-col gap-2">
         <div class="tile relative items-start justify-start text-muted">
-          <p class="line-clamp-6">{{ note.snippet ?? note.path }}</p>
+          <p class="line-clamp-6">{{ note.snippet || note.path }}</p>
           <UIcon
             v-if="note.readonly"
             :name="icons.lock"
@@ -77,7 +77,7 @@ watchEffect(() => props.load?.(visible.value.start, visible.value.start + visibl
             class="ml-auto size-3.5 shrink-0 text-muted"
           />
         </p>
-        <p class="truncate text-xs text-muted">{{ note.snippet ?? note.path }}</p>
+        <p class="truncate text-xs text-muted">{{ note.snippet || note.path }}</p>
       </NuxtLink>
     </li>
   </ul>

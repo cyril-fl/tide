@@ -30,6 +30,7 @@ const groups = {
   linkCards: 'editing',
   tagSuggestions: 'implied',
   snippets: 'editing',
+  snippetSort: 'editing',
   savedSearches: 'navigation',
   sidebarOrder: 'navigation',
   hideFolders: 'navigation',

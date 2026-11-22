@@ -170,6 +170,7 @@ var Features = map[string]string{
 	"linkCards":         "base",
 	"tagSuggestions":    "base",
 	"snippets":          "base",
+	"snippetSort":       "ultra",
 	"savedSearches":     "pro",
 	"sidebarOrder":      "pro",
 	"hideFolders":       "ultra",

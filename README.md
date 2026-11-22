@@ -8,7 +8,7 @@ Notes live in folders and connect through their `[[links]]` and `#tags`. A Go se
 
 ## Features
 
-- **Writing**: a rich markdown editor with a source mode, Mermaid diagrams and LaTeX formulas.
+- **Writing**: a rich markdown editor with a source mode, Mermaid diagrams, LaTeX formulas and hidden comments (`%%…%%`, `<!--…-->`).
 - **Organizing**: folders, favorites, pins, `#tags` written in the text, smart folders.
 - **Linking**: `[[links]]`, backlinks, embedded notes (`![[Note]]`), a graph, broken links spotted.
 - **Finding**: a ⌘K palette over titles and text, find and replace across every note.

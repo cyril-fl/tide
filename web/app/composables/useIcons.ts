@@ -44,6 +44,7 @@ export function useIcons() {
     down: 'i-reicon-chevron-down',
     close: 'i-reicon-x',
     beside: 'i-lucide-columns-2',
+    newTab: 'i-lucide-square-plus',
     calendar: 'i-reicon-calendar',
 
     // Views and settings

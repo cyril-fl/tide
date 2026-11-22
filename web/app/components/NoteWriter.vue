@@ -159,11 +159,11 @@ useEventListener(window, 'keydown', slashKey);
 const touch = useMediaQuery('(pointer: coarse)');
 const contextMenu = computed(() => (has('contextMenu') && !props.readonly && !touch.value ? slashMenu.value : []));
 // A right click or a long press on a link to a note opens a menu of its own, before the editor's: open it beside.
-const { besideMenu } = useSplit();
+const { openMenu } = useSplit();
 const linkAt = shallowRef<{ items: DropdownMenuItem[][]; left: number; top: number } | null>(null);
 function linkMenu(event: MouseEvent) {
   const link = (event.target as HTMLElement).closest<HTMLElement>('[data-note]');
-  const items = link?.dataset.note ? besideMenu(link.dataset.note, !!link.closest('[data-beside]')) : [];
+  const items = link?.dataset.note ? openMenu(link.dataset.note, !!link.closest('[data-beside]')) : [];
   if (!items.length) return;
   event.preventDefault();
   event.stopImmediatePropagation();

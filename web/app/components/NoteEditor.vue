@@ -25,7 +25,7 @@ const emit = defineEmits<{ created: [id: string] }>();
 const api = useApi();
 const { confirm, confirmMerge, prompt, resolveConflict } = useDialogs();
 const { removeItem } = useItems();
-const { tabs, beside: besideId, forget } = useTabs();
+const { tabs, beside: besideId, forget, show } = useTabs();
 const baseURL = useRuntimeConfig().public.apiBase;
 const toast = useToast();
 
@@ -204,14 +204,14 @@ async function load() {
 }
 load();
 
-// The Ultra tabs follow the note shown: it takes one once loaded, renamed with it (#128).
+// The Ultra tabs follow the note shown: it takes the tab of the one before once loaded, renamed with it (#128).
 watch(
   [id, title, loading, ready],
   ([note, name]) => {
     if (!note || loading.value || notFound.value || !ready.value) return;
     const tab = tabs.value.find((tab) => tab.id === note);
-    if (tab) tab.title = name;
-    else if (!props.beside && has('tabs')) tabs.value.push({ id: note, title: name });
+    if (!props.beside && has('tabs')) show({ id: note, title: name });
+    else if (tab) tab.title = name;
   },
   { immediate: true },
 );

@@ -17,7 +17,7 @@ export function useItems() {
   const { has } = usePro();
   const { addSavedSearch } = useSavedSearches();
   const { forget } = useTabs();
-  const { besideMenu } = useSplit();
+  const { openMenu } = useSplit();
 
   // On failure the toast already told the user.
   async function act<T>(request: () => Promise<T>): Promise<T | undefined> {
@@ -190,7 +190,7 @@ export function useItems() {
         onSelect: () => pinItem(item, !pinned),
       };
       return [
-        ...besideMenu(item.id),
+        ...openMenu(item.id),
         [pin],
         [
           { label: t('items.share'), icon: icons.share, onSelect: () => shareItem(item) },

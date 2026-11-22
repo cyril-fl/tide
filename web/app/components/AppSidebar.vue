@@ -10,7 +10,7 @@ defineProps<{ collapsed?: boolean }>();
 const api = useApi();
 const route = useRoute();
 const { createFolder, tagMenu, pinItem } = useItems();
-const { besideMenu, besideClick } = useSplit();
+const { openMenu, besideClick } = useSplit();
 const searchOpen = useState('search-open', () => false);
 const colorMode = useColorMode();
 const { has } = usePro();
@@ -239,8 +239,8 @@ const isOverRoot = useDropFolder(rootLink, () => null);
             <UContextMenu
               v-for="note in pinnedNotes"
               :key="note.id"
-              :items="besideMenu(note.id)"
-              :disabled="!besideMenu(note.id).length"
+              :items="openMenu(note.id)"
+              :disabled="!openMenu(note.id).length"
             >
               <div class="row" :class="{ 'row-active': route.params.id === note.id }">
                 <UTooltip :text="$t('sidebar.unpin')">
@@ -273,8 +273,8 @@ const isOverRoot = useDropFolder(rootLink, () => null);
             <UContextMenu
               v-for="note in recentNotes"
               :key="note.id"
-              :items="besideMenu(note.id)"
-              :disabled="!besideMenu(note.id).length"
+              :items="openMenu(note.id)"
+              :disabled="!openMenu(note.id).length"
             >
               <NuxtLink
                 :to="`/notes/${note.id}`"

@@ -40,7 +40,7 @@ function fake({
     refreshNuxtData: async () => void refreshes++,
     navigateTo: async (to: unknown) => void navigations.push(to),
     useTabs: () => ({ forget: (ids: string[]) => void forgotten.push(ids) }),
-    useSplit: () => ({ besideMenu: (id: string) => (split ? [[{ label: `beside ${id}` }]] : []) }),
+    useSplit: () => ({ openMenu: (id: string) => (split ? [[{ label: `beside ${id}` }]] : []) }),
   });
   return { calls, navigations, prompts, forgotten, refreshes: () => refreshes };
 }

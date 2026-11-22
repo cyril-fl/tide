@@ -177,6 +177,9 @@
   "note": {
     "tabs": "Notes ouvertes",
     "closeTab": "Fermer l'onglet {title}",
+    "closeOthers": "Fermer les autres notes",
+    "closeAll": "Fermer toutes les notes",
+    "openInTab": "Ouvrir dans un nouvel onglet",
     "beside": "Note à côté",
     "closeBeside": "Fermer la note à côté",
     "openBeside": "Ouvrir à côté",

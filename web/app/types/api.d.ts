@@ -67,6 +67,8 @@ export interface paths {
                     id?: string[];
                     /** @description folder whose content to export, without the folder itself */
                     parent?: string;
+                    /** @description smart folder whose notes to export */
+                    search?: string;
                     /** @description false: the images in _files are empty, only named */
                     files?: boolean;
                 };

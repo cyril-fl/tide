@@ -1473,6 +1473,20 @@ func TestPreviewSearch(t *testing.T) {
 	}
 	ids := strings.Repeat(`"x",`, 50) + `"x"`
 	c.do("POST", "/api/searches", `{"id":"","name":"","tag_ids":[`+ids+`]}`, http.StatusBadRequest, nil)
+
+	// Exported, a smart folder gives the notes it finds only; one finding nothing gives an empty zip.
+	c.do("PATCH", "/api/me", fmt.Sprintf(`{"saved_searches":[{"id":"s","name":"x","tag_ids":[%q]},{"id":"none","name":"y","text":"zzqqxx-nothing"}]}`, tagID), http.StatusOK, nil)
+	for search, want := range map[string]int{"s": 1, "none": 0} {
+		exported := c.raw("/api/export?search=" + search)
+		read, err := zip.NewReader(strings.NewReader(exported), int64(len(exported)))
+		if err != nil {
+			t.Fatalf("export of %s is not a zip: %v", search, err)
+		}
+		if len(read.File) != want {
+			t.Errorf("export of %s has %d entries, want %d", search, len(read.File), want)
+		}
+	}
+	c.do("GET", "/api/export?search=unknown", "", http.StatusNotFound, nil)
 }
 
 // A PATCH /api/me sent with the updated_at it read is refused once another write changed the account (#201).

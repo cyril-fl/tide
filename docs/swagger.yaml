@@ -1508,6 +1508,11 @@ paths:
         name: parent
         schema:
           type: string
+      - description: smart folder whose notes to export
+        in: query
+        name: search
+        schema:
+          type: string
       - description: 'false: the images in _files are empty, only named'
         in: query
         name: files

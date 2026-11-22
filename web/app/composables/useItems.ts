@@ -427,7 +427,17 @@ export function useSavedSearches() {
 
   function savedSearchMenu(search: SavedSearch): ContextMenuItem[][] {
     return [
-      [{ label: t('common.edit'), icon: icons.rename, onSelect: () => editSavedSearch(search) }],
+      [
+        { label: t('common.edit'), icon: icons.rename, onSelect: () => editSavedSearch(search) },
+        {
+          label: t('settings.export'),
+          icon: icons.export,
+          onSelect: () =>
+            window.location.assign(
+              `${useRuntimeConfig().public.apiBase}/api/export?${new URLSearchParams({ search: search.id })}`,
+            ),
+        },
+      ],
       [
         {
           label: t('common.delete'),

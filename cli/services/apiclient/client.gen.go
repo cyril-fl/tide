@@ -899,6 +899,9 @@ type GetApiExportParams struct {
 	// Parent folder whose content to export, without the folder itself
 	Parent *string `form:"parent,omitempty" json:"parent,omitempty"`
 
+	// Search smart folder whose notes to export
+	Search *string `form:"search,omitempty" json:"search,omitempty"`
+
 	// Files false: the images in _files are empty, only named
 	Files *bool `form:"files,omitempty" json:"files,omitempty"`
 }
@@ -3571,6 +3574,18 @@ func NewGetApiExportRequest(server string, params *GetApiExportParams) (*http.Re
 		if params.Parent != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "parent", *params.Parent, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

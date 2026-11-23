@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 
 	cmdreadfolder "github.com/cyril-fl/tide/cli/cmd-read-folder"
+	cmdreadlinks "github.com/cyril-fl/tide/cli/cmd-read-links"
 	cmdreadnote "github.com/cyril-fl/tide/cli/cmd-read-note"
 	cmdreadtag "github.com/cyril-fl/tide/cli/cmd-read-tag"
 	cmdreadtoken "github.com/cyril-fl/tide/cli/cmd-read-token"
@@ -44,6 +45,15 @@ var cmdReadTag = &cobra.Command{
 	RunE:    cmdreadtag.Read,
 }
 
+var cmdReadLinks = &cobra.Command{
+	Use:     cmd.ReadLinks.Use,
+	Short:   cmd.ReadLinks.Short,
+	Long:    cmd.ReadLinks.Long,
+	Example: cmd.ReadLinks.Example,
+	Args:    cobra.NoArgs,
+	RunE:    cmdreadlinks.Read,
+}
+
 var cmdReadToken = &cobra.Command{
 	Use:     cmd.ReadToken.Use,
 	Short:   cmd.ReadToken.Short,
@@ -60,7 +70,8 @@ func init() {
 	cmdReadTag.MarkFlagsMutuallyExclusive("yaml", "json")
 	cmdReadTag.MarkFlagsMutuallyExclusive("list", "similar")
 	plumcliutilsargs.Makeflags(cmdReadFloder, cmd.ReadFolder.Flags)
+	plumcliutilsargs.Makeflags(cmdReadLinks, cmd.ReadLinks.Flags)
 
-	cmdRead.AddCommand(cmdReadNote, cmdReadFloder, cmdReadTag, cmdReadToken)
+	cmdRead.AddCommand(cmdReadNote, cmdReadFloder, cmdReadTag, cmdReadLinks, cmdReadToken)
 	cmdRoot.AddCommand(cmdRead)
 }

@@ -104,6 +104,17 @@ commands:
         value: ""
         usage: "Display the result as JSON"
         type: "bool"
+  read-links:
+    use: "links"
+    short: "List the broken links"
+    long: "List the broken links of every note: a [[link]] to no note or to several, a link to a note in the trash, an image or file the account no longer keeps. Each with the path of its note and the link as written."
+    example: "{name} show links\n{name} show links --json"
+    args:
+      - name: "json"
+        shorthand: ""
+        value: ""
+        usage: "Display the result as JSON"
+        type: "bool"
   read-tag:
     use: "tag [<value>]"
     short: "Show an existing tag"

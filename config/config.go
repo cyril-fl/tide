@@ -59,6 +59,7 @@ type commands struct {
 	Read              plumcliconfig.Cmdparams `yaml:"read"`
 	ReadNote          plumcliconfig.Cmdparams `yaml:"read-note"`
 	ReadFolder        plumcliconfig.Cmdparams `yaml:"read-folder"`
+	ReadLinks         plumcliconfig.Cmdparams `yaml:"read-links"`
 	ReadTag           plumcliconfig.Cmdparams `yaml:"read-tag"`
 	ReadToken         plumcliconfig.Cmdparams `yaml:"read-token"`
 	Edit              plumcliconfig.Cmdparams `yaml:"edit"`

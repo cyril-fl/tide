@@ -3,6 +3,7 @@ package cmdreadnote
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -21,10 +22,14 @@ import (
 )
 
 // Read shows the note path, its tags and dates, then its content rendered as markdown; ctrl+e edits it, then shows it
-// again; --json prints it for scripts.
+// again; --history lists its versions, --version shows one; --json prints them for scripts.
 func Read(cobra *cobra.Command, args []string) error {
-	var asJSON bool
-	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"json": &asJSON}); err != nil {
+	var asJSON, asHistory bool
+	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"json": &asJSON, "history": &asHistory}); err != nil {
+		return err
+	}
+	version, err := cobra.Flags().GetString("version")
+	if err != nil {
 		return err
 	}
 	client, err := apiclient.Read().Client()
@@ -34,6 +39,12 @@ func Read(cobra *cobra.Command, args []string) error {
 	id, err := apiclient.Resolve(cobra.Context(), client, apiclient.NOTE, args[0])
 	if err != nil {
 		return err
+	}
+	if asHistory {
+		return printHistory(cobra.Context(), client, id, asJSON)
+	}
+	if version != "" {
+		return printVersion(cobra.Context(), client, id, version, asJSON)
 	}
 	if asJSON {
 		note, err := fetch(cobra.Context(), client, id)
@@ -64,6 +75,57 @@ func toJSON(note apiclient.ReaditemResult) noteJSON {
 		Tags: append([]string{}, apiclient.Deref(note.Tags)...), Readonly: apiclient.Deref(note.Readonly),
 		CreatedAt: note.Item.CreatedAt, UpdatedAt: note.Item.UpdatedAt,
 	}
+}
+
+// printHistory lists the versions of the note, latest first: date, uuid, and the texts kept from a conflict.
+func printHistory(ctx context.Context, client *apiclient.ClientWithResponses, id string, asJSON bool) error {
+	versions, err := apiclient.Versions(ctx, client, id)
+	if err != nil {
+		return err
+	}
+	if asJSON {
+		plumdebug.Json(append([]apiclient.DomainNoteVersion{}, versions...))
+		return nil
+	}
+	if len(versions) == 0 {
+		fmt.Println(style.Empty().Render("This note has no version yet"))
+		return nil
+	}
+	fmt.Print(style.Table(historyRows(versions), -1, 1))
+	return nil
+}
+
+func historyRows(versions []apiclient.DomainNoteVersion) [][]string {
+	rows := make([][]string, len(versions))
+	for i, version := range versions {
+		date := version.CreatedAt
+		if parsed, err := time.Parse(time.RFC3339Nano, version.CreatedAt); err == nil {
+			date = parsed.Local().Format("2 Jan 2006 15:04")
+		}
+		rows[i] = []string{date, version.Id}
+		if version.Conflict {
+			rows[i] = append(rows[i], "conflict")
+		}
+	}
+	return rows
+}
+
+// printVersion shows the text of one version, rendered like the note.
+func printVersion(ctx context.Context, client *apiclient.ClientWithResponses, id, versionID string, asJSON bool) error {
+	version, err := apiclient.Version(ctx, client, id, versionID)
+	if err != nil {
+		return err
+	}
+	if asJSON {
+		plumdebug.Json(version)
+		return nil
+	}
+	content, err := render(apiclient.Deref(version.Content))
+	if err != nil {
+		return err
+	}
+	fmt.Print(content)
+	return nil
 }
 
 // View is the show note screen: ctrl+e edits the note, then shows it again, until the user quits, both through the

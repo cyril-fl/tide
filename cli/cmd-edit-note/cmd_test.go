@@ -132,3 +132,50 @@ func TestEditPart(t *testing.T) {
 		t.Errorf("history: %d version(s), err = %v; want the replaced text kept", len(versions.GetResult()), versions.GetErr())
 	}
 }
+
+// Through the API: --restore-version brings a version's text back and keeps the replaced one in the history; it
+// refuses a text flag beside it.
+func TestRestoreVersion(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	seed := createnote.Process(ctx, tx, createnote.Input{Content: "# Ideas\n\nold"})
+	seed.Run()
+	if seed.HasErr() {
+		t.Fatal(seed.GetErr())
+	}
+	id := seed.GetResult().ID
+	edit := func(args ...string) error {
+		flags := noFlags()
+		if err := flags.Parse(args); err != nil {
+			t.Fatal(err)
+		}
+		_, err := apitest.Stdout(t, func() error { return run(ctx, id, flags) })
+		return err
+	}
+	versions := func() []domain.NoteVersion {
+		list := listversions.Process(ctx, tx, id)
+		list.Run()
+		if list.HasErr() {
+			t.Fatal(list.GetErr())
+		}
+		return list.GetResult()
+	}
+
+	if err := edit("--replace", "old", "--with", "new"); err != nil {
+		t.Fatal(err)
+	}
+	before := versions()
+	if len(before) == 0 {
+		t.Fatal("no version after --replace")
+	}
+	if err := edit("--restore-version", before[0].ID, "--content", "x"); err == nil {
+		t.Error("--restore-version --content: no error")
+	}
+	if err := edit("--restore-version", before[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	note := readitem.Process(ctx, tx, domain.NOTE, id)
+	note.Run()
+	if note.HasErr() || note.GetResult().Content != "# Ideas\n\nold" || len(versions()) <= len(before) {
+		t.Errorf("restored: content %q, %d version(s), err = %v; want the old text back and the new one kept", note.GetResult().Content, len(versions()), note.GetErr())
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/cyril-fl/tide/cli/services/apiclient/apitest"
 	"github.com/cyril-fl/tide/core/services/process/createnote"
+	"github.com/cyril-fl/tide/core/services/process/patchnote"
 	"github.com/spf13/cobra"
 )
 
@@ -29,6 +30,8 @@ func TestReadJSON(t *testing.T) {
 	} {
 		command := &cobra.Command{}
 		command.Flags().Bool("json", true, "")
+		command.Flags().Bool("history", false, "")
+		command.Flags().String("version", "", "")
 		command.SetContext(ctx)
 		printed, err := apitest.Stdout(t, func() error { return Read(command, []string{ref}) })
 		var got noteJSON
@@ -39,6 +42,43 @@ func TestReadJSON(t *testing.T) {
 			!slices.Equal(got.Tags, want.Tags) || got.Tags == nil || got.Readonly || got.CreatedAt == "" || got.UpdatedAt != nil {
 			t.Errorf("%s: printed %s, err = %v; want %+v", ref, printed, err, want)
 		}
+	}
+}
+
+// --history and --version through the API: the list of versions, then one with its text.
+func TestReadHistory(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	seed := createnote.Process(ctx, tx, createnote.Input{Content: "# Ideas\n\nold"})
+	seed.Run()
+	if seed.HasErr() {
+		t.Fatal(seed.GetErr())
+	}
+	content := "# Ideas\n\nnew"
+	edit := patchnote.Process(ctx, tx, patchnote.Input{ID: seed.GetResult().ID, Content: &content, Restore: true})
+	edit.Run()
+	if edit.HasErr() {
+		t.Fatal(edit.GetErr())
+	}
+	read := func(history bool, version string) string {
+		command := &cobra.Command{}
+		command.Flags().Bool("json", true, "")
+		command.Flags().Bool("history", history, "")
+		command.Flags().String("version", version, "")
+		command.SetContext(ctx)
+		printed, err := apitest.Stdout(t, func() error { return Read(command, []string{"/Ideas"}) })
+		if err != nil {
+			t.Fatal(err)
+		}
+		return printed
+	}
+
+	var versions []apiclient.DomainNoteVersion
+	if err := json.Unmarshal([]byte(read(true, "")), &versions); err != nil || len(versions) != 1 || versions[0].Content != nil {
+		t.Fatalf("--history: %+v, err = %v; want one version, its text left out", versions, err)
+	}
+	var version apiclient.DomainNoteVersion
+	if err := json.Unmarshal([]byte(read(false, versions[0].Id)), &version); err != nil || apiclient.Deref(version.Content) != "# Ideas\n\nold" {
+		t.Errorf("--version: %+v, err = %v; want the old text", version, err)
 	}
 }
 

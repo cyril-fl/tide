@@ -64,6 +64,7 @@ tide add note --content "# Ideas" --parent /Projects     # a missing value opens
 cat ideas.md | tide edit note /Projects/Ideas --content -
 tide edit note /Projects/Ideas --replace teh --with the   # or --title, --section <heading> --with
 tide show note /Projects/Ideas --json                     # by path or by UUID; tags, dates and lock
+tide show note /Projects/Ideas --history                  # its versions; --version <uuid> shows one, edit note --restore-version brings it back
 tide move /Projects/Ideas --parent /Archives
 tide search recipe --json | jq -r '.[].id'
 tide search --tag idea --any-tag cooking --not draft   # tags, --folder, --untagged, --empty-sections, --max-length, --updated-before

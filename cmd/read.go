@@ -72,6 +72,7 @@ func init() {
 	plumcliutilsargs.Makeflags(cmdReadFloder, cmd.ReadFolder.Flags)
 	plumcliutilsargs.Makeflags(cmdReadLinks, cmd.ReadLinks.Flags)
 	plumcliutilsargs.Makeflags(cmdReadNote, cmd.ReadNote.Flags)
+	cmdReadNote.MarkFlagsMutuallyExclusive("history", "version")
 
 	cmdRead.AddCommand(cmdReadNote, cmdReadFloder, cmdReadTag, cmdReadLinks, cmdReadToken)
 	cmdRoot.AddCommand(cmdRead)

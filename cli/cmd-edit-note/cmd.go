@@ -52,6 +52,10 @@ func run(ctx context.Context, id string, flags *pflag.FlagSet) error {
 	if part != nil && textChanged {
 		return errors.New("--title, --replace and --section cannot be given with --content or tag flags")
 	}
+	restoreID, _ := flags.GetString("restore-version")
+	if restoreID != "" && (part != nil || textChanged) {
+		return errors.New("--restore-version cannot be given with --content, tag flags, --title, --replace or --section")
+	}
 	// A part edit goes after --unlock and before --lock, so a lock given with it does not refuse it.
 	unlockFirst := flags.Changed("unlock")
 	if part != nil && !unlockFirst {
@@ -62,7 +66,15 @@ func run(ctx context.Context, id string, flags *pflag.FlagSet) error {
 	if part != nil && input.Pinned == nil && input.Readonly == nil {
 		return nil
 	}
-	if input.Pinned == nil && input.Readonly == nil || textChanged {
+	if restoreID != "" {
+		// Saved as a restore, like the web app's: the API keeps the text it replaces in the history.
+		version, err := apiclient.Version(ctx, client, id, restoreID)
+		if err != nil {
+			return err
+		}
+		content, restore := apiclient.Deref(version.Content), true
+		input.Content, input.Restore = &content, &restore
+	} else if input.Pinned == nil && input.Readonly == nil || textChanged {
 		// The mill applies --tag and --untag over the current note, the API then only saves its result.
 		resolver := millflagseditnote.New(millflagseditnote.Template{Ctx: ctx, Client: client, Flags: flags, ID: id})
 		note := resolver.Resolve()
@@ -85,7 +97,9 @@ func run(ctx context.Context, id string, flags *pflag.FlagSet) error {
 		return err
 	}
 
-	if input.Content != nil {
+	if restoreID != "" {
+		fmt.Printf("Successfully restored version %s of note %s\n", restoreID, id)
+	} else if input.Content != nil {
 		fmt.Printf("Successfully updated note %s\n", id)
 	}
 	if input.Pinned != nil && *input.Pinned {

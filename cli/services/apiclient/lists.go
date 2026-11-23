@@ -60,3 +60,27 @@ func Duplicates(ctx context.Context, client *ClientWithResponses, samePath bool)
 	}
 	return *response.JSON200, nil
 }
+
+// Versions is the history of a note, latest first, their texts left out, through GET /api/notes/{id}/versions.
+func Versions(ctx context.Context, client *ClientWithResponses, id string) ([]DomainNoteVersion, error) {
+	response, err := client.GetApiNotesIdVersionsWithResponse(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if response.JSON200 == nil {
+		return nil, Fail(response.HTTPResponse, response.Body)
+	}
+	return *response.JSON200, nil
+}
+
+// Version is one version of a note with its text, through GET /api/notes/{id}/versions/{version}.
+func Version(ctx context.Context, client *ClientWithResponses, id, version string) (DomainNoteVersion, error) {
+	response, err := client.GetApiNotesIdVersionsVersionWithResponse(ctx, id, version)
+	if err != nil {
+		return DomainNoteVersion{}, err
+	}
+	if response.JSON200 == nil {
+		return DomainNoteVersion{}, Fail(response.HTTPResponse, response.Body)
+	}
+	return *response.JSON200, nil
+}

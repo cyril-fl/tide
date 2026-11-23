@@ -28,6 +28,12 @@ async function removeSelection() {
   selection.value = [];
 }
 
+// Not while typing in a field: defineShortcuts skips them unless asked.
+defineShortcuts({
+  delete: () => selection.value.length && removeSelection(),
+  backspace: () => selection.value.length && removeSelection(),
+});
+
 // The tags of the account by value: the search and a smart folder name them by id.
 async function tagIds(values: string[]) {
   const all = tags.value.length ? tags.value : await api<Tag[]>('/api/tags');

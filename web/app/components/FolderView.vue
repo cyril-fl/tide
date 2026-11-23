@@ -44,6 +44,9 @@ defineShortcuts({
     await load(0, items.value.length - 1);
     selection.value = items.value.flatMap((item) => (item ? [item.id] : []));
   },
+  // Not while typing in a field: defineShortcuts skips them unless asked.
+  delete: () => selection.value.length && removeSelection(),
+  backspace: () => selection.value.length && removeSelection(),
 });
 
 // A selected folder cannot go into itself: it is not offered.

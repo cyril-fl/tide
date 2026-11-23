@@ -180,7 +180,7 @@ async function changeAfterMerge(next: string) {
 }
 
 const { confirm, importNotes } = useDialogs();
-const { addSavedSearch } = useSavedSearches();
+const { addSavedSearch, addSavedGroup } = useSavedSearches();
 
 // The accounts of the server, for an admin only: read where the section shows, like the links and the files.
 const showAccounts = computed(() => show('accounts') && !!me.value?.admin);
@@ -550,6 +550,15 @@ async function deleteData() {
               variant="outline"
               :disabled="!me"
               @click="addSavedSearch()"
+            />
+            <UButton
+              :label="$t('search.saved.addGroup')"
+              :ui="{ label: 'max-sm:sr-only' }"
+              :icon="icons.folderAdd"
+              color="neutral"
+              variant="outline"
+              :disabled="!me"
+              @click="addSavedGroup()"
             />
           </li>
           <SavedSearchSettingsRow v-for="search in me?.saved_searches" :key="search.id" :search="search" />

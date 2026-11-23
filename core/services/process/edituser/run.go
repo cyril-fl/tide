@@ -333,8 +333,14 @@ func validSavedSearches(searches *[]domain.SavedSearch) bool {
 	if len(*searches) > MaxSavedSearches {
 		return false
 	}
+	byID := map[string]domain.SavedSearch{}
+	for _, search := range *searches {
+		byID[search.ID] = search
+	}
 	for _, search := range *searches {
 		switch {
+		case !validParent(search, byID):
+			return false
 		case strings.TrimSpace(search.ID) == "" || strings.TrimSpace(search.Name) == "":
 			return false
 		case search.TagMode != "" && !slices.Contains(domain.TagModes, search.TagMode):
@@ -346,6 +352,18 @@ func validSavedSearches(searches *[]domain.SavedSearch) bool {
 		case search.TagMode != "all" && len(search.TagIDs) > 0 && len(search.AnyTagIDs) > 0: // two "one of" lists: TagIDs in "all" mode
 			return false
 		}
+	}
+	return true
+}
+
+// validParent is true when search has no parent, or one that is a group of the list and does not lead back to search.
+func validParent(search domain.SavedSearch, byID map[string]domain.SavedSearch) bool {
+	for id, steps := search.ParentID, 0; id != ""; steps++ {
+		parent, ok := byID[id]
+		if !ok || !parent.Group || id == search.ID || steps > len(byID) {
+			return false
+		}
+		id = parent.ParentID
 	}
 	return true
 }

@@ -286,15 +286,21 @@ type DomainSavedSearch struct {
 
 	// FolderMode "include" or "exclude", one of FolderModes
 	FolderMode *string `json:"folder_mode,omitempty"`
-	Id         string  `json:"id"`
-	Name       string  `json:"name"`
+
+	// Group a folder of smart folders: no criteria, only holds the ones whose parent_id is its id
+	Group *bool  `json:"group,omitempty"`
+	Id    string `json:"id"`
+	Name  string `json:"name"`
 
 	// NoTagIds the notes carry none of them
 	NoTagIds *[]string `json:"no_tag_ids,omitempty"`
 
 	// NotText the title and content do not hold it, whatever its case
-	NotText *string   `json:"not_text,omitempty"`
-	TagIds  *[]string `json:"tag_ids,omitempty"`
+	NotText *string `json:"not_text,omitempty"`
+
+	// ParentId the id of the group it sits in, none at the root
+	ParentId *string   `json:"parent_id,omitempty"`
+	TagIds   *[]string `json:"tag_ids,omitempty"`
 
 	// TagMode "any" (default) or "all", one of TagModes
 	TagMode *string `json:"tag_mode,omitempty"`

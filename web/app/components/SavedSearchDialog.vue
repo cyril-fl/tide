@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SavedSearch } from '~/types/items';
+import type { SavedSearch, User } from '~/types/items';
 
 const props = defineProps<{ title: string; value?: SavedSearch }>();
 const emit = defineEmits<{ close: [value?: SavedSearch] }>();
@@ -25,6 +25,16 @@ function fromDay(day: string, end: boolean) {
 }
 
 const name = ref(props.value?.name ?? '');
+// Where it sits: a group other than itself or what it holds, else the root.
+const parentId = ref(props.value?.parent_id ?? '');
+const parentOptions = computed(() => {
+  const all = useNuxtData<User>('me').data.value?.saved_searches ?? [];
+  const id = props.value?.id ?? '';
+  const groups = all
+    .filter((s) => s.group && s.id !== id && !(id && isInside(all, s.id, id)))
+    .map((s) => ({ label: s.name, value: s.id }));
+  return groups.length ? [{ label: t('search.saved.root'), value: '' }, ...groups] : [];
+});
 // tag_ids are every tag in "all" mode, one of them in "any" (an older search): shown as the list they mean, saved as
 // tag_ids in "all" mode and any_tag_ids, which the API refuses beside tag_ids in "any" mode.
 const anyMode = props.value?.tag_mode !== 'all';
@@ -91,6 +101,8 @@ function remove(criterion: Criterion) {
 const criteria = computed<SavedSearch>(() => ({
   id: props.value?.id ?? '',
   name: name.value.trim(),
+  group: props.value?.group || undefined,
+  parent_id: parentId.value || undefined,
   tag_ids: tagIds.value,
   tag_mode: 'all',
   any_tag_ids: anyTagIds.value,
@@ -114,14 +126,16 @@ const total = ref(0);
 const { status } = useLazyAsyncData(
   'saved-search-preview',
   () =>
-    api('/api/searches', {
-      method: 'POST',
-      body: previewed.value,
-      headers: { 'Content-Type': 'application/json' },
-      query: { limit: 1 },
-      quiet: true,
-      onResponse: ({ response }) => void (total.value = Number(response.headers.get('X-Total-Count'))),
-    }),
+    props.value?.group
+      ? Promise.resolve(null)
+      : api('/api/searches', {
+          method: 'POST',
+          body: previewed.value,
+          headers: { 'Content-Type': 'application/json' },
+          query: { limit: 1 },
+          quiet: true,
+          onResponse: ({ response }) => void (total.value = Number(response.headers.get('X-Total-Count'))),
+        }),
   { watch: [previewed] },
 );
 
@@ -145,6 +159,18 @@ function submit() {
               autofocus
               class="min-w-0 flex-1 max-sm:basis-full"
               :aria-label="$t('search.saved.name')"
+            />
+          </li>
+
+          <li v-if="parentOptions.length" class="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-3 sm:px-4">
+            <p class="w-28 shrink-0 text-sm">{{ $t('search.saved.parent') }}</p>
+            <USelectMenu
+              v-model="parentId"
+              :items="parentOptions"
+              value-key="value"
+              :search-input="false"
+              class="min-w-0 flex-1 max-sm:basis-full"
+              :aria-label="$t('search.saved.parent')"
             />
           </li>
 
@@ -226,7 +252,7 @@ function submit() {
             />
           </li>
 
-          <li v-if="addMenu.length" class="px-2 py-1.5">
+          <li v-if="addMenu.length && !value?.group" class="px-2 py-1.5">
             <UDropdownMenu :items="addMenu" :content="{ align: 'start' }">
               <UButton :icon="icons.add" :label="$t('search.saved.addCriterion')" color="neutral" variant="ghost" />
             </UDropdownMenu>
@@ -237,9 +263,15 @@ function submit() {
     <template #footer>
       <div class="flex w-full items-center gap-2">
         <!-- With a text criterion the total also counts the notes after the page that may match. -->
-        <span class="me-auto text-sm" :class="status === 'pending' ? 'text-dimmed' : 'text-muted'" aria-live="polite">
+        <span
+          v-if="!value?.group"
+          class="me-auto text-sm"
+          :class="status === 'pending' ? 'text-dimmed' : 'text-muted'"
+          aria-live="polite"
+        >
           {{ $t(criteria.text ? 'search.saved.matchesAtMost' : 'search.saved.matches', total) }}
         </span>
+        <span v-else class="me-auto" />
         <UButton :label="$t('common.cancel')" color="neutral" variant="ghost" @click="emit('close')" />
         <UButton type="submit" form="saved-search" :label="$t('settings.save')" :disabled="!name.trim()" />
       </div>

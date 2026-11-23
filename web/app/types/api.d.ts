@@ -4861,12 +4861,16 @@ export interface components {
             folder_ids?: string[];
             /** @description "include" or "exclude", one of FolderModes */
             folder_mode?: string;
+            /** @description a folder of smart folders: no criteria, only holds the ones whose parent_id is its id */
+            group?: boolean;
             id: string;
             name: string;
             /** @description the notes carry none of them */
             no_tag_ids?: string[];
             /** @description the title and content do not hold it, whatever its case */
             not_text?: string;
+            /** @description the id of the group it sits in, none at the root */
+            parent_id?: string;
             tag_ids?: string[];
             /** @description "any" (default) or "all", one of TagModes */
             tag_mode?: string;

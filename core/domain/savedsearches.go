@@ -12,6 +12,9 @@ type SavedSearch struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 
+	Group    bool   `json:"group,omitempty" binding:"optional"`     // a folder of smart folders: no criteria, only holds the ones whose parent_id is its id
+	ParentID string `json:"parent_id,omitempty" binding:"optional"` // the id of the group it sits in, none at the root
+
 	TagIDs    []string `json:"tag_ids,omitempty" binding:"optional"`
 	TagMode   string   `json:"tag_mode,omitempty" binding:"optional"`    // "any" (default) or "all", one of TagModes
 	AnyTagIDs []string `json:"any_tag_ids,omitempty" binding:"optional"` // the notes also carry one of them, beside tag_ids in "all" mode only: a AND (b OR c) is tag_ids [a] and any_tag_ids [b, c]

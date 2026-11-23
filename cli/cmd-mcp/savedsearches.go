@@ -136,7 +136,7 @@ func addSavedSearchTools(server *mcp.Server, client *apiclient.ClientWithRespons
 				search = list[i]
 				list = slices.Delete(list, i, i+1)
 			} else {
-				search.Id = list[i].Id
+				search.Id, search.ParentId = list[i].Id, list[i].ParentId // kept in its group
 				list[i] = search
 			}
 			return apiclient.EdituserInput{SavedSearches: &list}, nil

@@ -73,7 +73,7 @@ func (p *run) findSearch() {
 	}
 
 	for _, search := range searches {
-		if search.ID == p.id {
+		if search.ID == p.id && !search.Group { // a group holds no criteria: it would match every note
 			p.cache.search = search
 			return
 		}

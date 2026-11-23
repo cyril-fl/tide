@@ -20,8 +20,6 @@ export function useItems() {
   const { icons } = useIcons();
   const { t } = useI18n();
   const toast = useToast();
-  const { has } = usePro();
-  const { addSavedSearch } = useSavedSearches();
   const { forget } = useTabs();
   const { openMenu } = useSplit();
 
@@ -41,11 +39,6 @@ export function useItems() {
       title: t('common.newFolder'),
       placeholder: t('items.folderName'),
       action: t('common.save'),
-      // A smart folder lives in the sidebar, not in a folder: offered at the root only.
-      alternative:
-        !parentId && has('savedSearches')
-          ? { label: t('search.saved.add'), onSelect: () => addSavedSearch() }
-          : undefined,
     });
     if (!title) return;
     const body = { title, parent_id: parentId };
@@ -451,8 +444,19 @@ export function useSavedSearches() {
     await save((searches) => [...searches, { ...added, id }]);
   }
 
+  /** A group: a folder of smart folders, a name only. */
+  async function addSavedGroup() {
+    const added = await savedSearch({ title: t('search.saved.addGroup'), value: { id: '', name: '', group: true } });
+    if (!added) return;
+    const id = crypto.randomUUID();
+    await save((searches) => [...searches, { ...added, id }]);
+  }
+
   async function editSavedSearch(search: SavedSearch) {
-    const changed = await savedSearch({ title: t('search.saved.edit'), value: search });
+    const changed = await savedSearch({
+      title: t(search.group ? 'search.saved.editGroup' : 'search.saved.edit'),
+      value: search,
+    });
     if (!changed) return;
     await save((searches) => searches.map((s) => (s.id === search.id ? { ...changed, id: search.id } : s)));
   }
@@ -462,19 +466,26 @@ export function useSavedSearches() {
       title: t('search.saved.delete', { name: search.name }),
       action: t('common.delete'),
     });
-    if (confirmed) await save((searches) => searches.filter((s) => s.id !== search.id));
+    // What a deleted group held goes up to its own parent.
+    if (confirmed) {
+      await save((searches) =>
+        searches
+          .filter((s) => s.id !== search.id)
+          .map((s) => (s.parent_id === search.id ? { ...s, parent_id: search.parent_id } : s)),
+      );
+    }
   }
 
-  /** Drops what useDragItem carried onto this saved search, moving the dragged one right before it. */
+  /** Drops what useDragItem carried onto this saved search, moving the dragged one right before it, in its group. */
   async function reorderSavedSearch(draggedId: string, targetId: string) {
     if (draggedId === targetId) return;
     await save((current) => {
       const searches = [...current];
       const from = searches.findIndex((s) => s.id === draggedId);
       const to = searches.findIndex((s) => s.id === targetId);
-      if (from < 0 || to < 0) return searches;
+      if (from < 0 || to < 0 || isInside(searches, targetId, draggedId)) return searches;
       const [moved] = searches.splice(from, 1);
-      searches.splice(to, 0, moved!);
+      searches.splice(to, 0, { ...moved!, parent_id: searches.find((s) => s.id === targetId)?.parent_id });
       return searches;
     });
   }
@@ -483,14 +494,18 @@ export function useSavedSearches() {
     return [
       [
         { label: t('common.edit'), icon: icons.rename, onSelect: () => editSavedSearch(search) },
-        {
-          label: t('settings.export'),
-          icon: icons.export,
-          onSelect: () =>
-            window.location.assign(
-              `${useRuntimeConfig().public.apiBase}/api/export?${new URLSearchParams({ search: search.id })}`,
-            ),
-        },
+        ...(search.group
+          ? []
+          : [
+              {
+                label: t('settings.export'),
+                icon: icons.export,
+                onSelect: () =>
+                  window.location.assign(
+                    `${useRuntimeConfig().public.apiBase}/api/export?${new URLSearchParams({ search: search.id })}`,
+                  ),
+              },
+            ]),
       ],
       [
         {
@@ -503,5 +518,5 @@ export function useSavedSearches() {
     ];
   }
 
-  return { addSavedSearch, editSavedSearch, removeSavedSearch, reorderSavedSearch, savedSearchMenu };
+  return { addSavedSearch, addSavedGroup, editSavedSearch, removeSavedSearch, reorderSavedSearch, savedSearchMenu };
 }

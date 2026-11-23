@@ -10,12 +10,19 @@ defineProps<{ collapsed?: boolean }>();
 const api = useApi();
 const route = useRoute();
 const { createFolder, tagMenu, pinItem } = useItems();
+const { addSavedSearch, addSavedGroup } = useSavedSearches();
 const { openMenu, besideClick } = useSplit();
 const searchOpen = useState('search-open', () => false);
 const colorMode = useColorMode();
 const { has } = usePro();
 // The account, loaded by the layout: its avatar opens the account menu, and an admin gets the accounts section.
 const { data: me } = useNuxtData<User>('me');
+const addMenu = computed(() => [
+  [
+    { label: t('search.saved.add'), icon: icons.savedSearch, onSelect: () => addSavedSearch() },
+    { label: t('search.saved.addGroup'), icon: icons.folder, onSelect: () => addSavedGroup() },
+  ],
+]);
 // Pro: on the settings, the sidebar becomes their nav, like Kaneo's.
 const settingsNav = computed(
   () => has('settingsNav') && (route.path.startsWith('/settings') || route.path === '/account'),
@@ -320,11 +327,21 @@ const isOverRoot = useDropFolder(rootLink, () => null);
           </section>
 
           <section
-            v-if="s.id === 'savedSearches' && s.shown && has('savedSearches') && me?.saved_searches?.length"
+            v-if="s.id === 'savedSearches' && s.shown && has('savedSearches')"
             :class="{ 'mt-auto': s.id === bottom }"
           >
-            <h2 class="px-2 pb-1 text-xs font-medium text-muted">{{ $t('sidebar.savedSearches') }}</h2>
-            <SavedSearchRow v-for="search in me.saved_searches" :key="search.id" :search="search" />
+            <div class="flex items-center justify-between ps-2">
+              <h2 class="text-xs font-medium text-muted">{{ $t('sidebar.savedSearches') }}</h2>
+              <UDropdownMenu :items="addMenu" :content="{ align: 'end' }">
+                <UButton :icon="icons.add" color="neutral" variant="ghost" size="xs" :aria-label="$t('common.new')" />
+              </UDropdownMenu>
+            </div>
+            <SavedSearchRow
+              v-for="search in (me?.saved_searches ?? []).filter((s) => !s.parent_id)"
+              :key="search.id"
+              :search="search"
+              :all="me?.saved_searches ?? []"
+            />
           </section>
 
           <section v-if="s.id === 'tags' && s.shown && tags.length" :class="{ 'mt-auto': s.id === bottom }">

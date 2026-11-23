@@ -344,6 +344,10 @@ components:
         folder_mode:
           description: '"include" or "exclude", one of FolderModes'
           type: string
+        group:
+          description: 'a folder of smart folders: no criteria, only holds the ones
+            whose parent_id is its id'
+          type: boolean
         id:
           type: string
         name:
@@ -356,6 +360,9 @@ components:
           uniqueItems: false
         not_text:
           description: the title and content do not hold it, whatever its case
+          type: string
+        parent_id:
+          description: the id of the group it sits in, none at the root
           type: string
         tag_ids:
           items:

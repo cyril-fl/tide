@@ -14,7 +14,7 @@ function fake({
   split = false,
 } = {}) {
   const calls: Call[] = [];
-  const prompts: { alternative?: { label: string } }[] = [];
+  const prompts: unknown[] = [];
   const navigations: unknown[] = [];
   const forgotten: string[][] = [];
   let refreshes = 0;
@@ -28,7 +28,7 @@ function fake({
       },
     useRoute: () => ({ path }),
     useDialogs: () => ({
-      prompt: async (props: (typeof prompts)[number]) => (prompts.push(props), answer),
+      prompt: async (props: unknown) => (prompts.push(props), answer),
       confirm: async () => answer,
     }),
     usePro: () => ({ has: () => true }),
@@ -153,14 +153,4 @@ test('pinning from the menu patches the item at its route', async () => {
   const [[pin]] = useItems().itemMenu(folder).slice(1);
   await pin!.onSelect!(new Event('select'));
   assert.deepEqual(api.calls, [{ url: '/api/folders/f1', method: 'PATCH', body: { pinned: true } }]);
-});
-
-test('a new folder at the root offers a smart folder instead, a subfolder does not', async () => {
-  const api = fake();
-  await useItems().createFolder();
-  await useItems().createFolder('f1');
-  assert.deepEqual(
-    api.prompts.map((p) => p.alternative?.label),
-    ['search.saved.add', undefined],
-  );
 });

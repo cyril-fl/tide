@@ -16,6 +16,7 @@
     "search": "Search",
     "tags": "Tags",
     "newNote": "New note",
+    "new": "New",
     "newFolder": "New folder",
     "backToNotes": "Back to notes",
     "root": "Root",
@@ -73,6 +74,10 @@
       "done": "{n} note changed | {n} notes changed"
     },
     "saved": {
+      "addGroup": "Group",
+      "editGroup": "Edit the group",
+      "parent": "Place in",
+      "root": "Root",
       "add": "Smart folder",
       "edit": "Edit the smart folder",
       "delete": "Delete “{name}”?",

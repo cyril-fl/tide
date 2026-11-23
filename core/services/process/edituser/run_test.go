@@ -47,6 +47,9 @@ func TestInvalidInput(t *testing.T) {
 		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", TagMode: "both"}}}, ErrInvalidSavedSearch},
 		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", FolderMode: "maybe"}}}, ErrInvalidSavedSearch},
 		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", TagIDs: []string{"t1"}, AnyTagIDs: []string{"t2"}}}}, ErrInvalidSavedSearch},
+		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", ParentID: "nope"}}}, ErrInvalidSavedSearch},
+		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "g", Name: "g"}, {ID: "a", Name: "x", ParentID: "g"}}}, ErrInvalidSavedSearch}, // not a group
+		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "g", Name: "g", Group: true, ParentID: "h"}, {ID: "h", Name: "h", Group: true, ParentID: "g"}}}, ErrInvalidSavedSearch}, // a cycle
 		{Input{SavedSearches: &[]domain.SavedSearch{{ID: "a", Name: "x", NoTagIDs: make([]string, MaxSavedSearchIDs+1)}}}, ErrInvalidSavedSearch},
 		{Input{SidebarSections: &[]domain.SidebarSection{{ID: "graph"}}}, ErrInvalidSidebar},
 		{Input{SidebarSections: &[]domain.SidebarSection{{ID: "recent"}, {ID: "recent"}}}, ErrInvalidSidebar},
@@ -117,10 +120,10 @@ func TestEditUser(t *testing.T) {
 		t.Errorf("snippet edited: %+v, err = %v; want its created_at %v kept", got, process.GetErr(), created)
 	}
 
-	searches := []domain.SavedSearch{{ID: "s1", Name: "Work", TagMode: "all"}, {ID: "s2", Name: "Recent"}}
+	searches := []domain.SavedSearch{{ID: "s1", Name: "Work", TagMode: "all"}, {ID: "s2", Name: "Recent", ParentID: "g1"}, {ID: "g1", Name: "Group", Group: true}}
 	process = Process(ctx, tx, Input{SavedSearches: &searches})
 	process.Run()
-	if got := process.GetResult(); process.HasErr() || len(got.SavedSearches) != 2 || got.SavedSearches[0].Name != "Work" || got.SavedSearches[0].TagMode != "all" {
+	if got := process.GetResult(); process.HasErr() || len(got.SavedSearches) != 3 || got.SavedSearches[0].Name != "Work" || got.SavedSearches[0].TagMode != "all" {
 		t.Errorf("saved searches: result = %+v, err = %v; want both saved", got.SavedSearches, process.GetErr())
 	}
 

@@ -41,7 +41,6 @@ function createDialogs() {
       action?: string;
       multiline?: boolean;
       raw?: boolean;
-      alternative?: { label: string; icon?: string; onSelect: () => void };
     }) => promptDialog.open(props).result as Promise<string | undefined>,
     confirm: (props: {
       title: string;

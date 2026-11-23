@@ -16,6 +16,7 @@
     "search": "Rechercher",
     "tags": "Tags",
     "newNote": "Nouvelle note",
+    "new": "Nouveau",
     "newFolder": "Nouveau dossier",
     "backToNotes": "Retour aux notes",
     "root": "Racine",
@@ -73,6 +74,10 @@
       "done": "{n} note modifiée | {n} notes modifiées"
     },
     "saved": {
+      "addGroup": "Groupe",
+      "editGroup": "Modifier le groupe",
+      "parent": "Placer dans",
+      "root": "Racine",
       "add": "Dossier intelligent",
       "edit": "Modifier le dossier intelligent",
       "delete": "Supprimer « {name} » ?",

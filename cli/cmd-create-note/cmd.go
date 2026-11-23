@@ -44,7 +44,37 @@ func run(ctx context.Context, flags *pflag.FlagSet) error {
 	if response.JSON201 == nil {
 		return apiclient.Fail(response.HTTPResponse, response.Body)
 	}
-	fmt.Printf("Successfully created note %s\n", response.JSON201.Id)
+	id := response.JSON201.Id
+	fmt.Printf("Successfully created note %s\n", id)
+	return pinAndLock(ctx, client, id, flags)
+}
+
+// pinAndLock applies --pin and --lock through PATCH /api/notes/{id}, as edit note does, once the note exists.
+func pinAndLock(ctx context.Context, client *apiclient.ClientWithResponses, id string, flags *pflag.FlagSet) error {
+	pin, lock := flags.Changed("pin"), flags.Changed("lock")
+	if !pin && !lock {
+		return nil
+	}
+	var input apiclient.EditnoteBody
+	if pin {
+		input.Pinned = &pin
+	}
+	if lock {
+		input.Readonly = &lock
+	}
+	response, err := client.PatchApiNotesIdWithResponse(ctx, id, input)
+	if err == nil && response.JSON200 == nil {
+		err = apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	if err != nil {
+		return fmt.Errorf("note %s was created but not pinned or locked: %w", id, err)
+	}
+	if pin {
+		fmt.Printf("Successfully pinned note %s\n", id)
+	}
+	if lock {
+		fmt.Printf("Successfully locked note %s\n", id)
+	}
 	return nil
 }
 

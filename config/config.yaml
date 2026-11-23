@@ -7,8 +7,8 @@ commands:
   create-note:
     use: "note"
     short: "Add a new note"
-    long: "Add a new note. A form opens for the content when --content is not given. The title is the first heading of the content, or its first words."
-    example: "{name} add note --content \"# Ideas\" --tag go,sql\ncat ideas.md | {name} add note --content - --parent /Projects"
+    long: "Add a new note. A form opens for the content when --content is not given. The title is the first heading of the content, or its first words. --pin and --lock pin and lock it once created."
+    example: "{name} add note --content \"# Ideas\" --tag go,sql\ncat ideas.md | {name} add note --content - --parent /Projects\n{name} add note --content \"# Ideas\" --pin --lock"
     args:
       - name: "content"
         shorthand: "c"
@@ -34,6 +34,16 @@ commands:
         shorthand: ""
         value: ""
         usage: "Pick the parent folder from a list"
+        type: "bool"
+      - name: "pin"
+        shorthand: ""
+        value: ""
+        usage: "Pin the note"
+        type: "bool"
+      - name: "lock"
+        shorthand: ""
+        value: ""
+        usage: "Lock the note read-only"
         type: "bool"
   create-folder:
     use: "folder"

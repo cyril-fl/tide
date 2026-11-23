@@ -3,6 +3,7 @@ package cmdreadnote
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -59,9 +60,10 @@ func TestReadHistory(t *testing.T) {
 	if edit.HasErr() {
 		t.Fatal(edit.GetErr())
 	}
+	asJSON := true
 	read := func(history bool, version string) string {
 		command := &cobra.Command{}
-		command.Flags().Bool("json", true, "")
+		command.Flags().Bool("json", asJSON, "")
 		command.Flags().Bool("history", history, "")
 		command.Flags().String("version", version, "")
 		command.SetContext(ctx)
@@ -79,6 +81,24 @@ func TestReadHistory(t *testing.T) {
 	var version apiclient.DomainNoteVersion
 	if err := json.Unmarshal([]byte(read(false, versions[0].Id)), &version); err != nil || apiclient.Deref(version.Content) != "# Ideas\n\nold" {
 		t.Errorf("--version: %+v, err = %v; want the old text", version, err)
+	}
+
+	asJSON = false
+	if got := read(true, ""); !strings.Contains(got, versions[0].Id) {
+		t.Errorf("--history table = %q, want the version's id", got)
+	}
+	if got := read(false, versions[0].Id); !strings.Contains(got, "old") || strings.Contains(got, "new") {
+		t.Errorf("--version text = %q, want the old text rendered", got)
+	}
+
+	apitest.Plan(t, ctx, tx, "base")
+	command := &cobra.Command{}
+	command.Flags().Bool("json", false, "")
+	command.Flags().Bool("history", true, "")
+	command.Flags().String("version", "", "")
+	command.SetContext(ctx)
+	if _, err := apitest.Stdout(t, func() error { return Read(command, []string{"/Ideas"}) }); err == nil || !strings.Contains(err.Error(), "noteHistory") {
+		t.Errorf("--history on the base plan: err = %v, want the plan refusal", err)
 	}
 }
 

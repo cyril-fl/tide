@@ -1,6 +1,11 @@
 package cmdcreatenote
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -41,5 +46,37 @@ func TestCreate(t *testing.T) {
 	note.Run()
 	if note.HasErr() || note.GetResult().Path != "/Projects/Ideas" || !slices.Equal(note.GetResult().Tags, []string{"go"}) || !note.GetResult().Pinned || !note.GetResult().Readonly {
 		t.Errorf("note = %+v, err = %v; want /Projects/Ideas tagged go, pinned and locked", note.GetResult(), note.GetErr())
+	}
+}
+
+// A PATCH refused after the create says the note exists: a proxy in front of the API fails every PATCH.
+func TestCreatePatchRefused(t *testing.T) {
+	ctx, _ := apitest.Serve(t)
+	api, err := url.Parse(os.Getenv(config.Env("URL")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	forward := httputil.NewSingleHostReverseProxy(api)
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPatch {
+			http.Error(w, `{"error":"refused"}`, http.StatusInternalServerError)
+			return
+		}
+		forward.ServeHTTP(w, r)
+	}))
+	t.Cleanup(proxy.Close)
+	t.Setenv(config.Env("URL"), proxy.URL)
+
+	command := &cobra.Command{}
+	plumcliutilsargs.Makeflags(command, config.Current.Commands.CreateNote.Flags)
+	command.SetContext(ctx)
+	if err := command.ParseFlags([]string{"--content", "# Ideas", "--pin"}); err != nil {
+		t.Fatal(err)
+	}
+	printed, err := apitest.Stdout(t, func() error { return Create(command, nil) })
+	first, _, _ := strings.Cut(printed, "\n")
+	id := strings.TrimPrefix(first, "Successfully created note ")
+	if want := "note " + id + " was created but not pinned or locked: refused"; id == first || err == nil || err.Error() != want {
+		t.Errorf("printed %q, err = %v; want %q", printed, err, want)
 	}
 }

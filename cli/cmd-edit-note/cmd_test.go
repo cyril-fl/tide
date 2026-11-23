@@ -143,12 +143,13 @@ func TestRestoreVersion(t *testing.T) {
 		t.Fatal(seed.GetErr())
 	}
 	id := seed.GetResult().ID
-	edit := func(args ...string) error {
+	var printed string
+	edit := func(args ...string) (err error) {
 		flags := noFlags()
 		if err := flags.Parse(args); err != nil {
 			t.Fatal(err)
 		}
-		_, err := apitest.Stdout(t, func() error { return run(ctx, id, flags) })
+		printed, err = apitest.Stdout(t, func() error { return run(ctx, id, flags) })
 		return err
 	}
 	versions := func() []domain.NoteVersion {
@@ -172,6 +173,9 @@ func TestRestoreVersion(t *testing.T) {
 	}
 	if err := edit("--restore-version", before[0].ID); err != nil {
 		t.Fatal(err)
+	}
+	if want := "Successfully restored version " + before[0].ID + " of note " + id; !strings.Contains(printed, want) {
+		t.Errorf("printed %q, want %q", printed, want)
 	}
 	note := readitem.Process(ctx, tx, domain.NOTE, id)
 	note.Run()

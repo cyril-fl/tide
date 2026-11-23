@@ -62,6 +62,14 @@ func Serve(t *testing.T) (context.Context, bun.Tx) {
 	return ctx, savepoint
 }
 
+// Plan sets the plan of the account of ctx, for the tests of a refusal: Serve gives it every plan.
+func Plan(t *testing.T, ctx context.Context, tx bun.Tx, plan string) {
+	t.Helper()
+	if _, err := tx.NewUpdate().Model((*domain.User)(nil)).Set("plan = ?", plan).Where("id = ?", domain.UserID(ctx)).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Stdout returns what print writes to stdout, through fmt or lipgloss (screen.Print).
 func Stdout(t *testing.T, print func() error) (string, error) {
 	t.Helper()

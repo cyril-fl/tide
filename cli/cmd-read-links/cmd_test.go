@@ -48,3 +48,15 @@ func TestRead(t *testing.T) {
 		t.Errorf("table = %q", got)
 	}
 }
+
+// An account whose plan lacks brokenLinks gets the API's refusal.
+func TestReadRefused(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	apitest.Plan(t, ctx, tx, "base")
+	command := &cobra.Command{}
+	command.Flags().Bool("json", false, "")
+	command.SetContext(ctx)
+	if _, err := apitest.Stdout(t, func() error { return Read(command, nil) }); err == nil || !strings.Contains(err.Error(), "brokenLinks") {
+		t.Errorf("err = %v, want the plan refusal", err)
+	}
+}

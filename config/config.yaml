@@ -91,8 +91,14 @@ commands:
   read-note:
     use: "note <uuid|path>"
     short: "Show an existing note"
-    long: "Show the path of a note, then its content rendered as markdown."
-    example: "{name} show note <uuid>\n{name} show note /Projects/Go/Ideas"
+    long: "Show the path of a note, its tags, its creation and last change dates and its lock, then its content rendered as markdown. --json prints its id, title, path, content, tags, readonly, created_at and updated_at."
+    example: "{name} show note <uuid>\n{name} show note /Projects/Go/Ideas --json"
+    args:
+      - name: "json"
+        shorthand: ""
+        value: ""
+        usage: "Display the result as JSON"
+        type: "bool"
   read-folder:
     use: "folder <uuid|path>"
     short: "Show an existing folder"

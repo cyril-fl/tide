@@ -71,6 +71,7 @@ func init() {
 	cmdReadTag.MarkFlagsMutuallyExclusive("list", "similar")
 	plumcliutilsargs.Makeflags(cmdReadFloder, cmd.ReadFolder.Flags)
 	plumcliutilsargs.Makeflags(cmdReadLinks, cmd.ReadLinks.Flags)
+	plumcliutilsargs.Makeflags(cmdReadNote, cmd.ReadNote.Flags)
 
 	cmdRead.AddCommand(cmdReadNote, cmdReadFloder, cmdReadTag, cmdReadLinks, cmdReadToken)
 	cmdRoot.AddCommand(cmdRead)

@@ -77,6 +77,7 @@ type commands struct {
 	ShowGraph         plumcliconfig.Cmdparams `yaml:"show-graph"`
 	Trash             plumcliconfig.Cmdparams `yaml:"trash"`
 	Restore           plumcliconfig.Cmdparams `yaml:"restore"`
+	Replace           plumcliconfig.Cmdparams `yaml:"replace"`
 	Search            plumcliconfig.Cmdparams `yaml:"search"`
 	Tag               plumcliconfig.Cmdparams `yaml:"tag"`
 	TagNotes          plumcliconfig.Cmdparams `yaml:"tag-notes"`

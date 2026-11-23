@@ -73,6 +73,7 @@ tide show tag --similar    # tags a typo, case, accent or plural apart, grouped 
 tide show links           # the broken links: [[links]] to no note, trashed notes, missing files
 tide edit tag draft wip --merge --dry-run --summary   # how many notes the merge rewrites, without their diff
 tide remove tag inbox --dry-run --keep-empty   # the notes it changes; --keep-empty trashes none, --summary lists none
+tide replace teh the --folder /Projects --dry-run   # every note's occurrences, then without --dry-run replaces them all (Ultra)
 
 tide finder               # browse, open, edit in the terminal
 tide graph                # walk between notes that share tags

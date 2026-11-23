@@ -81,6 +81,7 @@ const progress = computed(() =>
     : t('settings.importWorking'),
 );
 let stop: AbortController | undefined;
+let lastDraw = 0;
 
 async function submit() {
   importing.value = true;
@@ -90,7 +91,13 @@ async function submit() {
     const result = await upload<ImportResult>('/api/import', {
       query: parent.value === ROOT ? {} : { parent: parent.value },
       ...body(),
-      onProgress: (loaded, total) => (sent.value = { loaded, total }),
+      onProgress: (loaded, total) => {
+        // The browser reports every few ms: a re-render of the dialog (its file list) each time slows a big import.
+        const now = Date.now();
+        if (loaded < total && now - lastDraw < 250) return;
+        lastDraw = now;
+        sent.value = { loaded, total };
+      },
       signal: stop.signal,
       conflict: t('settings.importConflict'),
       tooLarge: t('settings.importTooLarge'),

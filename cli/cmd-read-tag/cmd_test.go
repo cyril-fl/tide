@@ -82,6 +82,13 @@ func TestLoadTag(t *testing.T) {
 	if _, err := loadTag(ctx, client, "nothing"); err == nil || !strings.HasPrefix(err.Error(), readtag.ErrNotFound.Error()) {
 		t.Errorf("unknown tag: err = %v, want %v", err, readtag.ErrNotFound)
 	}
+
+	command := &cobra.Command{}
+	command.SetContext(ctx)
+	printed, err := apitest.Stdout(t, func() error { return printTag(command, "go") })
+	if err != nil || !strings.Contains(printed, `"value": "go"`) || !strings.Contains(printed, `"id": "`+note.GetResult().ID+`"`) {
+		t.Errorf("--json: printed %s, err = %v; want the tag and its note", printed, err)
+	}
 }
 
 // --similar prints each group of close tags on a line with the note counts; a tag alone is left out.

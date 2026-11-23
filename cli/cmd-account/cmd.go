@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"charm.land/huh/v2"
+	plumdebug "github.com/cyril-fl/plum/utils/debug"
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/cyril-fl/tide/config"
 	"github.com/cyril-fl/tide/core/services/huhform"
@@ -84,8 +85,10 @@ func Logout(cobra *cobra.Command, args []string) error {
 	return nil
 }
 
-// Whoami prints the account of the CLI's session and its server.
+// Whoami prints the account of the CLI's session and its server, or with --json the account (GET /api/me) with its
+// server as "server".
 func Whoami(cobra *cobra.Command, args []string) error {
+	asJSON, _ := cobra.Flags().GetBool("json")
 	session := apiclient.Read()
 	client, err := session.Client()
 	if err != nil {
@@ -97,6 +100,13 @@ func Whoami(cobra *cobra.Command, args []string) error {
 	}
 	if response.JSON200 == nil {
 		return apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	if asJSON {
+		plumdebug.Json(struct {
+			apiclient.DomainUser
+			Server string `json:"server"`
+		}{*response.JSON200, session.URL})
+		return nil
 	}
 	fmt.Printf("%s on %s\n", response.JSON200.Name, session.URL)
 	return nil

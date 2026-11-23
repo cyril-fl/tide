@@ -109,6 +109,7 @@ func run(t *testing.T, ctx context.Context, runE func(*cobra.Command, []string) 
 	t.Helper()
 	command := &cobra.Command{}
 	command.Flags().Bool("password-stdin", huhform.Input == nil, "")
+	command.Flags().Bool("json", false, "")
 	command.SetContext(ctx)
 
 	in, inWriter, err := os.Pipe()
@@ -198,6 +199,14 @@ func TestWhoami(t *testing.T) {
 	printed, err := run(t, ctx, Whoami, "")
 	if want := name + " on " + server + "\n"; err != nil || printed != want {
 		t.Errorf("printed %q, err = %v; want %q", printed, err, want)
+	}
+	asJSON := func(command *cobra.Command, args []string) error {
+		command.Flags().Set("json", "true")
+		return Whoami(command, args)
+	}
+	printed, err = run(t, ctx, asJSON, "")
+	if err != nil || !strings.Contains(printed, `"name": "`+name+`"`) || !strings.Contains(printed, `"server": "`+server+`"`) {
+		t.Errorf("--json: printed %s, err = %v; want the account and its server", printed, err)
 	}
 
 	t.Setenv(config.Env("SESSION"), "expired")

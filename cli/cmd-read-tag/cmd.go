@@ -18,7 +18,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Read shows one tag and its notes, or lists tags with --list, one value per line, or as YAML/JSON with --yaml/--json.
+// Read shows one tag and its notes (as JSON with --json), or lists tags with --list, one value per line, or as
+// YAML/JSON with --yaml/--json.
 func Read(cobra *cobra.Command, args []string) error {
 	var asList, similar, asYAML, asJSON bool
 	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"list": &asList, "similar": &similar, "yaml": &asYAML, "json": &asJSON}); err != nil {
@@ -30,6 +31,8 @@ func Read(cobra *cobra.Command, args []string) error {
 		return listSimilar(cobra, asYAML, asJSON)
 	case asList:
 		return listTags(cobra, asYAML, asJSON)
+	case len(args) == 1 && asJSON:
+		return printTag(cobra, args[0])
 	case len(args) == 1:
 		return showTag(cobra, args[0])
 	default:
@@ -60,15 +63,35 @@ func showTag(cobra *cobra.Command, value string) error {
 	}
 }
 
-func loadTag(ctx context.Context, client *apiclient.ClientWithResponses, value string) (string, error) {
+// printTag prints the tag and the notes carrying it as JSON, for --json.
+func printTag(cobra *cobra.Command, value string) error {
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	result, err := fetchTag(cobra.Context(), client, value)
+	if err == nil {
+		plumdebug.Json(result)
+	}
+	return err
+}
+
+func fetchTag(ctx context.Context, client *apiclient.ClientWithResponses, value string) (*apiclient.ReadtagResult, error) {
 	response, err := client.GetApiTagsValueWithResponse(ctx, value, nil)
+	if err != nil {
+		return nil, err
+	}
+	if response.JSON200 == nil {
+		return nil, apiclient.Fail(response.HTTPResponse, response.Body)
+	}
+	return response.JSON200, nil
+}
+
+func loadTag(ctx context.Context, client *apiclient.ClientWithResponses, value string) (string, error) {
+	result, err := fetchTag(ctx, client, value)
 	if err != nil {
 		return "", err
 	}
-	if response.JSON200 == nil {
-		return "", apiclient.Fail(response.HTTPResponse, response.Body)
-	}
-	result := response.JSON200
 
 	header := style.Title().Render(result.Tag.Value) + "\n\n"
 	if len(result.Notes) == 0 {

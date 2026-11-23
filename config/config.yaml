@@ -97,8 +97,8 @@ commands:
   read-tag:
     use: "tag [<value>]"
     short: "Show an existing tag"
-    long: "Show a tag and the notes carrying it, or every tag with --list, or with --similar the groups of tags that differ by a typo, case, accents or a plural, with their note count, to merge with edit tag --merge (--yaml/--json apply to --list and --similar)."
-    example: "{name} show tag go\n{name} show tag --list --json\n{name} show tag --similar"
+    long: "Show a tag and the notes carrying it, or every tag with --list, or with --similar the groups of tags that differ by a typo, case, accents or a plural, with their note count, to merge with edit tag --merge (--yaml applies to --list and --similar, --json to the three)."
+    example: "{name} show tag go\n{name} show tag go --json\n{name} show tag --list --json\n{name} show tag --similar"
     args:
       - name: "list"
         shorthand: "l"
@@ -533,6 +533,13 @@ commands:
   whoami:
     use: "whoami"
     short: "Show the account and the server the CLI acts for"
+    example: "{name} whoami\n{name} whoami --json"
+    args:
+      - name: "json"
+        shorthand: ""
+        value: ""
+        usage: "Display the account and its server as JSON"
+        type: "bool"
   user:
     use: "user"
     short: "Manage the accounts"

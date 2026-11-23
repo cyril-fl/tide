@@ -23,10 +23,11 @@ var cmdLogout = &cobra.Command{
 }
 
 var cmdWhoami = &cobra.Command{
-	Use:   cmd.Whoami.Use,
-	Short: cmd.Whoami.Short,
-	Args:  cobra.NoArgs,
-	RunE:  cmdaccount.Whoami,
+	Use:     cmd.Whoami.Use,
+	Short:   cmd.Whoami.Short,
+	Example: cmd.Whoami.Example,
+	Args:    cobra.NoArgs,
+	RunE:    cmdaccount.Whoami,
 }
 
 var cmdAccount = &cobra.Command{
@@ -45,6 +46,7 @@ var cmdAccountPurge = &cobra.Command{
 
 func init() {
 	plumcliutilsargs.Makeflags(cmdLogin, cmd.Login.Flags)
+	plumcliutilsargs.Makeflags(cmdWhoami, cmd.Whoami.Flags)
 
 	cmdAccount.AddCommand(cmdAccountPurge)
 	cmdRoot.AddCommand(cmdLogin, cmdLogout, cmdWhoami, cmdAccount)

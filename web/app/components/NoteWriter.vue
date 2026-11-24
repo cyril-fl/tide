@@ -99,6 +99,7 @@ const modules = [
   useNoteMath(),
   // For everyone, or editing a note without them would drop the comments written in the source.
   { extensions: [InlineComment, BlockComment] },
+  { extensions: [Hashtag] },
   ...useNoteCallouts(),
   useNoteImages(baseURL, upload),
   searchModule,

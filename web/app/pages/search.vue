@@ -22,9 +22,11 @@ const {
 
 <template>
   <div class="p-8">
-    <PageHeader :title="$t('search.title')" :subtitle="q">
-      <ViewToggle />
-    </PageHeader>
+    <UPageHeader :title="$t('search.title')" :headline="q">
+      <template #links>
+        <ViewToggle />
+      </template>
+    </UPageHeader>
     <NoteList v-if="matches.length" :notes="matches" :grid="view === 'grid'" dated :load="load" />
     <UEmpty
       v-else-if="status !== 'pending'"

@@ -25,30 +25,32 @@ useHead({ title: () => search.value?.name ?? '' });
 
 <template>
   <div class="p-8">
-    <PageHeader
+    <UPageHeader
       :title="search?.name ?? ''"
-      :subtitle="results.length || status === 'success' ? $t('tag.count', results.length) : undefined"
+      :headline="results.length || status === 'success' ? $t('tag.count', results.length) : undefined"
     >
-      <ViewToggle />
-      <UTooltip v-if="search" :text="$t('common.edit')">
-        <UButton
-          :icon="icons.rename"
-          color="neutral"
-          variant="ghost"
-          :aria-label="$t('common.edit')"
-          @click="editSavedSearch(search)"
-        />
-      </UTooltip>
-      <UTooltip v-if="search" :text="$t('common.delete')">
-        <UButton
-          :icon="icons.delete"
-          color="neutral"
-          variant="ghost"
-          :aria-label="$t('common.delete')"
-          @click="removeSavedSearch(search)"
-        />
-      </UTooltip>
-    </PageHeader>
+      <template #links>
+        <ViewToggle />
+        <UTooltip v-if="search" :text="$t('common.edit')">
+          <UButton
+            :icon="icons.rename"
+            color="neutral"
+            variant="ghost"
+            :aria-label="$t('common.edit')"
+            @click="editSavedSearch(search)"
+          />
+        </UTooltip>
+        <UTooltip v-if="search" :text="$t('common.delete')">
+          <UButton
+            :icon="icons.delete"
+            color="neutral"
+            variant="ghost"
+            :aria-label="$t('common.delete')"
+            @click="removeSavedSearch(search)"
+          />
+        </UTooltip>
+      </template>
+    </UPageHeader>
     <NoteList v-if="results.length" :notes="results" :grid="view === 'grid'" :load="load" />
     <UEmpty
       v-else-if="error"

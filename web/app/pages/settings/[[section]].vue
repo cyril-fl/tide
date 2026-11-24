@@ -322,9 +322,9 @@ async function deleteData() {
 
 <template>
   <div class="p-8">
-    <PageHeader
+    <UPageHeader
       :title="current ? $t(`settings.sections.${current}`) : $t('common.settings')"
-      :subtitle="current ? $t('common.settings') : undefined"
+      :headline="current ? $t('common.settings') : undefined"
     />
 
     <div class="space-y-10">

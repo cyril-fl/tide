@@ -7,6 +7,16 @@ export default defineAppConfig({
     // Empty states sit in the page, not in a bordered box, in the middle of the space under the page header.
     // TODO: 12rem is the layout padding plus the page header, adjust it if the header grows.
     empty: { slots: { root: 'min-h-[calc(100dvh-12rem)]' }, defaultVariants: { variant: 'naked' } },
+    // Page headers: a compact title on one line, the actions beside it, the headline a muted line above.
+    pageHeader: {
+      slots: {
+        root: 'mb-6 border-0 py-0',
+        headline: 'mb-0 truncate text-xs font-normal text-muted',
+        wrapper: 'flex-row items-start gap-4 lg:items-start',
+        title: 'min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight text-default sm:text-2xl',
+        links: 'shrink-0 flex-nowrap gap-1',
+      },
+    },
     // Modals: one block without dividers, the page dimmed and blurred behind.
     modal: {
       slots: {

@@ -41,9 +41,11 @@ function deletedOn(item: Trashed) {
 
 <template>
   <div class="p-8">
-    <PageHeader :title="$t('common.trash')">
-      <UButton v-if="items.length" :label="$t('trash.emptyAction')" color="error" variant="ghost" @click="askEmpty" />
-    </PageHeader>
+    <UPageHeader :title="$t('common.trash')">
+      <template #links>
+        <UButton v-if="items.length" :label="$t('trash.emptyAction')" color="error" variant="ghost" @click="askEmpty" />
+      </template>
+    </UPageHeader>
     <ul v-if="items.length">
       <li v-for="item in items" :key="item.id" class="row h-10 border-b border-muted last:border-0">
         <UIcon :name="item.kind === 'folder' ? icons.folder : icons.note" class="size-4 shrink-0 text-muted" />

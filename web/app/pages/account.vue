@@ -161,7 +161,7 @@ function day(at: string) {
 
 <template>
   <div class="flex min-h-full flex-col p-8">
-    <PageHeader :title="$t('account.title')" />
+    <UPageHeader :title="$t('account.title')" />
 
     <section class="mb-8">
       <h2 class="mb-1 text-sm font-semibold">{{ $t('account.profile') }}</h2>

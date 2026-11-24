@@ -93,28 +93,30 @@ watchEffect(() => load(visible.value.start, visible.value.start + visible.value.
     class="flex min-h-full flex-col p-8 transition-shadow duration-150"
     :class="{ 'ring-2 ring-inset ring-primary/40': isOver }"
   >
-    <PageHeader :title="title">
-      <SortMenu />
-      <ViewToggle />
-      <UTooltip :text="$t('common.newFolder')">
-        <UButton
-          :icon="icons.folderAdd"
-          color="neutral"
-          variant="ghost"
-          :aria-label="$t('common.newFolder')"
-          @click="createFolder(folderId)"
-        />
-      </UTooltip>
-      <UTooltip :text="$t('common.newNote')">
-        <UButton
-          :icon="icons.noteAdd"
-          color="neutral"
-          variant="ghost"
-          :aria-label="$t('common.newNote')"
-          :to="newNotePath(folderId)"
-        />
-      </UTooltip>
-    </PageHeader>
+    <UPageHeader :title="title">
+      <template #links>
+        <SortMenu />
+        <ViewToggle />
+        <UTooltip :text="$t('common.newFolder')">
+          <UButton
+            :icon="icons.folderAdd"
+            color="neutral"
+            variant="ghost"
+            :aria-label="$t('common.newFolder')"
+            @click="createFolder(folderId)"
+          />
+        </UTooltip>
+        <UTooltip :text="$t('common.newNote')">
+          <UButton
+            :icon="icons.noteAdd"
+            color="neutral"
+            variant="ghost"
+            :aria-label="$t('common.newNote')"
+            :to="newNotePath(folderId)"
+          />
+        </UTooltip>
+      </template>
+    </UPageHeader>
     <div v-if="lasso" class="pointer-events-none fixed z-50 border border-primary/60 bg-primary/10" :style="lasso" />
     <ul
       v-if="items.length"

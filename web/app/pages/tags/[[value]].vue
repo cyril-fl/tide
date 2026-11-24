@@ -106,26 +106,28 @@ useHead({ title });
 
 <template>
   <div class="flex min-h-full flex-col p-8">
-    <PageHeader
+    <UPageHeader
       :title="title"
-      :subtitle="notes.length || status === 'success' ? $t('tag.count', notes.length) : undefined"
+      :headline="notes.length || status === 'success' ? $t('tag.count', notes.length) : undefined"
     >
-      <ViewToggle />
-      <UDropdownMenu :items="menu" :content="{ align: 'end' }">
-        <UTooltip :text="$t('tag.actions')">
-          <UButton :icon="icons.more" color="neutral" variant="ghost" :aria-label="$t('tag.actions')" />
+      <template #links>
+        <ViewToggle />
+        <UDropdownMenu :items="menu" :content="{ align: 'end' }">
+          <UTooltip :text="$t('tag.actions')">
+            <UButton :icon="icons.more" color="neutral" variant="ghost" :aria-label="$t('tag.actions')" />
+          </UTooltip>
+        </UDropdownMenu>
+        <UTooltip :text="$t('tag.newNote')">
+          <UButton
+            :icon="icons.noteAdd"
+            color="neutral"
+            variant="ghost"
+            :aria-label="$t('tag.newNote')"
+            :to="newNotePath(undefined, undefined, filter.and)"
+          />
         </UTooltip>
-      </UDropdownMenu>
-      <UTooltip :text="$t('tag.newNote')">
-        <UButton
-          :icon="icons.noteAdd"
-          color="neutral"
-          variant="ghost"
-          :aria-label="$t('tag.newNote')"
-          :to="newNotePath(undefined, undefined, filter.and)"
-        />
-      </UTooltip>
-    </PageHeader>
+      </template>
+    </UPageHeader>
     <NoteList v-if="notes.length" :notes="notes" :grid="view === 'grid'" dated selectable :load="load" />
     <UEmpty
       v-else-if="error"

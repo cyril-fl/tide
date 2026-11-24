@@ -29,17 +29,22 @@ const selectedNotePath = computed(() => {
 
 <template>
   <div class="flex h-full flex-col p-8">
-    <PageHeader :title="$t('common.graph')" :subtitle="center ? displayTitle(center.title, $t('untitled')) : undefined">
-      <UButton
-        v-if="noteId"
-        :label="$t('graph.showAll')"
-        :icon="icons.graph"
-        to="/graph"
-        color="neutral"
-        variant="ghost"
-        size="sm"
-      />
-    </PageHeader>
+    <UPageHeader
+      :title="$t('common.graph')"
+      :headline="center ? displayTitle(center.title, $t('untitled')) : undefined"
+    >
+      <template #links>
+        <UButton
+          v-if="noteId"
+          :label="$t('graph.showAll')"
+          :icon="icons.graph"
+          to="/graph"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+        />
+      </template>
+    </UPageHeader>
     <template v-if="graph">
       <GraphView v-if="graph.notes.length" class="min-h-0 flex-1" :graph="graph" :selected="noteId" />
       <UEmpty

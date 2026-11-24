@@ -4,8 +4,11 @@ import (
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/spf13/cobra"
 
+	cmdcreatefile "github.com/cyril-fl/tide/cli/cmd-create-file"
 	cmdcreatefolder "github.com/cyril-fl/tide/cli/cmd-create-folder"
 	cmdcreatenote "github.com/cyril-fl/tide/cli/cmd-create-note"
+	cmdcreatesearch "github.com/cyril-fl/tide/cli/cmd-create-search"
+	cmdcreatesnippet "github.com/cyril-fl/tide/cli/cmd-create-snippet"
 	cmdcreatetag "github.com/cyril-fl/tide/cli/cmd-create-tag"
 	cmdcreatetoken "github.com/cyril-fl/tide/cli/cmd-create-token"
 	"github.com/cyril-fl/tide/cli/services/apiclient"
@@ -54,6 +57,33 @@ var cmdCreateToken = &cobra.Command{
 	RunE:    cmdcreatetoken.Create,
 }
 
+var cmdCreateFile = &cobra.Command{
+	Use:     cmd.CreateFile.Use,
+	Short:   cmd.CreateFile.Short,
+	Long:    cmd.CreateFile.Long,
+	Example: cmd.CreateFile.Example,
+	Args:    cobra.MinimumNArgs(1),
+	RunE:    cmdcreatefile.Create,
+}
+
+var cmdCreateSnippet = &cobra.Command{
+	Use:     cmd.CreateSnippet.Use,
+	Short:   cmd.CreateSnippet.Short,
+	Long:    cmd.CreateSnippet.Long,
+	Example: cmd.CreateSnippet.Example,
+	Args:    cobra.ExactArgs(1),
+	RunE:    withStdin(cmdcreatesnippet.Create),
+}
+
+var cmdCreateSearch = &cobra.Command{
+	Use:     cmd.CreateSearch.Use,
+	Short:   cmd.CreateSearch.Short,
+	Long:    cmd.CreateSearch.Long,
+	Example: cmd.CreateSearch.Example,
+	Args:    cobra.ExactArgs(1),
+	RunE:    cmdcreatesearch.Create,
+}
+
 func init() {
 	plumcliutilsargs.Makeflags(cmdCreateToken, cmd.CreateToken.Flags)
 
@@ -64,6 +94,11 @@ func init() {
 	plumcliutilsargs.Makeflags(cmdCreateFloder, cmd.CreateFolder.Flags)
 	cmdCreateFloder.MarkFlagsMutuallyExclusive("parent", "parent-from-list")
 
-	cmdCreate.AddCommand(cmdCreateNote, cmdCreateFloder, cmdCreateTag, cmdCreateToken)
+	plumcliutilsargs.Makeflags(cmdCreateFile, cmd.CreateFile.Flags)
+	plumcliutilsargs.Makeflags(cmdCreateSnippet, cmd.CreateSnippet.Flags)
+	cobra.CheckErr(cmdCreateSnippet.MarkFlagRequired("content"))
+	plumcliutilsargs.Makeflags(cmdCreateSearch, cmd.CreateSearch.Flags)
+
+	cmdCreate.AddCommand(cmdCreateNote, cmdCreateFloder, cmdCreateTag, cmdCreateFile, cmdCreateSnippet, cmdCreateSearch, cmdCreateToken)
 	cmdRoot.AddCommand(cmdCreate)
 }

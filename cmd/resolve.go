@@ -46,6 +46,16 @@ func apiResolved(kind apiclient.DomainKind, run func(*cobra.Command, []string) e
 	}
 }
 
+// withStdin runs a command whose args are names, not paths, with --content - replaced by stdin.
+func withStdin(run func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
+	return func(cobra *cobra.Command, args []string) error {
+		if err := readContent(cobra.Flags(), os.Stdin); err != nil {
+			return err
+		}
+		return run(cobra, args)
+	}
+}
+
 // readContent fails on a blank stdin: without content, add note would open a form instead.
 func readContent(flags *pflag.FlagSet, stdin io.Reader) error {
 	content := flags.Lookup("content")

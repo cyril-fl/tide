@@ -6,6 +6,8 @@ import (
 
 	cmddeletefolder "github.com/cyril-fl/tide/cli/cmd-delete-folder"
 	cmddeletenote "github.com/cyril-fl/tide/cli/cmd-delete-note"
+	cmddeletesearch "github.com/cyril-fl/tide/cli/cmd-delete-search"
+	cmddeletesnippet "github.com/cyril-fl/tide/cli/cmd-delete-snippet"
 	cmddeletetag "github.com/cyril-fl/tide/cli/cmd-delete-tag"
 	cmddeletetoken "github.com/cyril-fl/tide/cli/cmd-delete-token"
 	"github.com/cyril-fl/tide/cli/services/apiclient"
@@ -54,8 +56,26 @@ var cmdDeleteToken = &cobra.Command{
 	RunE:    cmddeletetoken.Delete,
 }
 
+var cmdDeleteSnippet = &cobra.Command{
+	Use:     cmd.DeleteSnippet.Use,
+	Short:   cmd.DeleteSnippet.Short,
+	Long:    cmd.DeleteSnippet.Long,
+	Example: cmd.DeleteSnippet.Example,
+	Args:    cobra.ExactArgs(1),
+	RunE:    cmddeletesnippet.Delete,
+}
+
+var cmdDeleteSearch = &cobra.Command{
+	Use:     cmd.DeleteSearch.Use,
+	Short:   cmd.DeleteSearch.Short,
+	Long:    cmd.DeleteSearch.Long,
+	Example: cmd.DeleteSearch.Example,
+	Args:    cobra.ExactArgs(1),
+	RunE:    cmddeletesearch.Delete,
+}
+
 func init() {
 	plumcliutilsargs.Makeflags(cmdDeleteTag, cmd.DeleteTag.Flags)
-	cmdDelete.AddCommand(cmdDeleteNote, cmdDeleteFloder, cmdDeleteTag, cmdDeleteToken)
+	cmdDelete.AddCommand(cmdDeleteNote, cmdDeleteFloder, cmdDeleteTag, cmdDeleteSnippet, cmdDeleteSearch, cmdDeleteToken)
 	cmdRoot.AddCommand(cmdDelete)
 }

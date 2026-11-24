@@ -6,6 +6,7 @@ import (
 
 	cmdeditfolder "github.com/cyril-fl/tide/cli/cmd-edit-folder"
 	cmdeditnote "github.com/cyril-fl/tide/cli/cmd-edit-note"
+	cmdeditsearch "github.com/cyril-fl/tide/cli/cmd-edit-search"
 	cmdedittag "github.com/cyril-fl/tide/cli/cmd-edit-tag"
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 )
@@ -44,6 +45,15 @@ var cmdEditTag = &cobra.Command{
 	RunE:    cmdedittag.Edit,
 }
 
+var cmdEditSearch = &cobra.Command{
+	Use:     cmd.EditSearch.Use,
+	Short:   cmd.EditSearch.Short,
+	Long:    cmd.EditSearch.Long,
+	Example: cmd.EditSearch.Example,
+	Args:    cobra.ExactArgs(1),
+	RunE:    cmdeditsearch.Edit,
+}
+
 func init() {
 	plumcliutilsargs.Makeflags(cmdEditNote, cmd.EditNote.Flags)
 	cmdEditNote.MarkFlagsMutuallyExclusive("pin", "unpin")
@@ -52,6 +62,8 @@ func init() {
 	plumcliutilsargs.Makeflags(cmdEditFloder, cmd.EditFolder.Flags)
 	plumcliutilsargs.Makeflags(cmdEditTag, cmd.EditTag.Flags)
 
-	cmdEdit.AddCommand(cmdEditNote, cmdEditFloder, cmdEditTag)
+	plumcliutilsargs.Makeflags(cmdEditSearch, cmd.EditSearch.Flags)
+
+	cmdEdit.AddCommand(cmdEditNote, cmdEditFloder, cmdEditTag, cmdEditSearch)
 	cmdRoot.AddCommand(cmdEdit)
 }

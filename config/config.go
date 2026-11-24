@@ -56,21 +56,30 @@ type commands struct {
 	CreateFolder      plumcliconfig.Cmdparams `yaml:"create-folder"`
 	CreateTag         plumcliconfig.Cmdparams `yaml:"create-tag"`
 	CreateToken       plumcliconfig.Cmdparams `yaml:"create-token"`
+	CreateFile        plumcliconfig.Cmdparams `yaml:"create-file"`
+	CreateSnippet     plumcliconfig.Cmdparams `yaml:"create-snippet"`
+	CreateSearch      plumcliconfig.Cmdparams `yaml:"create-search"`
 	Read              plumcliconfig.Cmdparams `yaml:"read"`
 	ReadNote          plumcliconfig.Cmdparams `yaml:"read-note"`
 	ReadFolder        plumcliconfig.Cmdparams `yaml:"read-folder"`
 	ReadLinks         plumcliconfig.Cmdparams `yaml:"read-links"`
 	ReadTag           plumcliconfig.Cmdparams `yaml:"read-tag"`
 	ReadToken         plumcliconfig.Cmdparams `yaml:"read-token"`
+	ReadFile          plumcliconfig.Cmdparams `yaml:"read-file"`
+	ReadSnippet       plumcliconfig.Cmdparams `yaml:"read-snippet"`
+	ReadSearch        plumcliconfig.Cmdparams `yaml:"read-search"`
 	Edit              plumcliconfig.Cmdparams `yaml:"edit"`
 	EditNote          plumcliconfig.Cmdparams `yaml:"edit-note"`
 	EditFolder        plumcliconfig.Cmdparams `yaml:"edit-folder"`
 	EditTag           plumcliconfig.Cmdparams `yaml:"edit-tag"`
+	EditSearch        plumcliconfig.Cmdparams `yaml:"edit-search"`
 	Delete            plumcliconfig.Cmdparams `yaml:"delete"`
 	DeleteNote        plumcliconfig.Cmdparams `yaml:"delete-note"`
 	DeleteFolder      plumcliconfig.Cmdparams `yaml:"delete-folder"`
 	DeleteTag         plumcliconfig.Cmdparams `yaml:"delete-tag"`
 	DeleteToken       plumcliconfig.Cmdparams `yaml:"delete-token"`
+	DeleteSnippet     plumcliconfig.Cmdparams `yaml:"delete-snippet"`
+	DeleteSearch      plumcliconfig.Cmdparams `yaml:"delete-search"`
 	Move              plumcliconfig.Cmdparams `yaml:"move"`
 	Show              plumcliconfig.Cmdparams `yaml:"show"`
 	ShowFinder        plumcliconfig.Cmdparams `yaml:"show-finder"`

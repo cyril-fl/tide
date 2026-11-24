@@ -4,9 +4,12 @@ import (
 	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/spf13/cobra"
 
+	cmdreadfile "github.com/cyril-fl/tide/cli/cmd-read-file"
 	cmdreadfolder "github.com/cyril-fl/tide/cli/cmd-read-folder"
 	cmdreadlinks "github.com/cyril-fl/tide/cli/cmd-read-links"
 	cmdreadnote "github.com/cyril-fl/tide/cli/cmd-read-note"
+	cmdreadsearch "github.com/cyril-fl/tide/cli/cmd-read-search"
+	cmdreadsnippet "github.com/cyril-fl/tide/cli/cmd-read-snippet"
 	cmdreadtag "github.com/cyril-fl/tide/cli/cmd-read-tag"
 	cmdreadtoken "github.com/cyril-fl/tide/cli/cmd-read-token"
 )
@@ -63,6 +66,33 @@ var cmdReadToken = &cobra.Command{
 	RunE:    cmdreadtoken.Read,
 }
 
+var cmdReadFile = &cobra.Command{
+	Use:     cmd.ReadFile.Use,
+	Short:   cmd.ReadFile.Short,
+	Long:    cmd.ReadFile.Long,
+	Example: cmd.ReadFile.Example,
+	Args:    cobra.MaximumNArgs(1),
+	RunE:    cmdreadfile.Read,
+}
+
+var cmdReadSnippet = &cobra.Command{
+	Use:     cmd.ReadSnippet.Use,
+	Short:   cmd.ReadSnippet.Short,
+	Long:    cmd.ReadSnippet.Long,
+	Example: cmd.ReadSnippet.Example,
+	Args:    cobra.MaximumNArgs(1),
+	RunE:    cmdreadsnippet.Read,
+}
+
+var cmdReadSearch = &cobra.Command{
+	Use:     cmd.ReadSearch.Use,
+	Short:   cmd.ReadSearch.Short,
+	Long:    cmd.ReadSearch.Long,
+	Example: cmd.ReadSearch.Example,
+	Args:    cobra.MaximumNArgs(1),
+	RunE:    cmdreadsearch.Read,
+}
+
 func init() {
 	plumcliutilsargs.Makeflags(cmdReadToken, cmd.ReadToken.Flags)
 	cmdReadToken.MarkFlagsMutuallyExclusive("yaml", "json")
@@ -74,6 +104,11 @@ func init() {
 	plumcliutilsargs.Makeflags(cmdReadNote, cmd.ReadNote.Flags)
 	cmdReadNote.MarkFlagsMutuallyExclusive("history", "version")
 
-	cmdRead.AddCommand(cmdReadNote, cmdReadFloder, cmdReadTag, cmdReadLinks, cmdReadToken)
+	plumcliutilsargs.Makeflags(cmdReadFile, cmd.ReadFile.Flags)
+	cmdReadFile.MarkFlagsMutuallyExclusive("output", "json")
+	plumcliutilsargs.Makeflags(cmdReadSnippet, cmd.ReadSnippet.Flags)
+	plumcliutilsargs.Makeflags(cmdReadSearch, cmd.ReadSearch.Flags)
+
+	cmdRead.AddCommand(cmdReadNote, cmdReadFloder, cmdReadTag, cmdReadLinks, cmdReadFile, cmdReadSnippet, cmdReadSearch, cmdReadToken)
 	cmdRoot.AddCommand(cmdRead)
 }

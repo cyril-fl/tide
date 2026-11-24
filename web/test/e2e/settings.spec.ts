@@ -343,6 +343,8 @@ test('the Pro mode adds the / commands to the editor', async ({ page }) => {
     await page.keyboard.type('/');
     await page.getByRole('menuitem', { name: 'Titres' }).hover();
     await page.getByRole('menuitem', { name: 'Titre 2' }).click();
+    // Tiptap's focus() waits for the next frame: a key typed before goes to the closing menu.
+    await expect(editor).toBeFocused();
     await page.keyboard.type('Sous-titre');
     await expect.poll(() => box.content(note.id), { timeout: 5000 }).toContain('## Sous-titre');
   } finally {

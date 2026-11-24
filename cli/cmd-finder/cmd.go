@@ -16,7 +16,6 @@ import (
 	cmdreadfolder "github.com/cyril-fl/tide/cli/cmd-read-folder"
 	cmdreadnote "github.com/cyril-fl/tide/cli/cmd-read-note"
 	"github.com/cyril-fl/tide/cli/services/apiclient"
-	"github.com/cyril-fl/tide/config"
 	"github.com/cyril-fl/tide/core/services/huhform"
 	"github.com/cyril-fl/tide/core/services/screen"
 	"github.com/spf13/cobra"
@@ -168,7 +167,7 @@ func loadFolder(ctx context.Context, id string) (page, error) {
 	if err != nil {
 		return page{}, err
 	}
-	folder, err := readFolder(ctx, client, id)
+	folder, err := cmdreadfolder.Fetch(ctx, client, id)
 	if err != nil {
 		return page{}, err
 	}
@@ -180,23 +179,4 @@ func loadFolder(ctx context.Context, id string) (page, error) {
 	}
 	tags, err := apiclient.NoteTags(ctx, client, ids)
 	return page{ReaditemResult: folder, children: children, tags: tags}, err
-}
-
-// readFolder reads a folder with its children, as show folder does; "" is the root, its children read through
-// GET /api/items.
-func readFolder(ctx context.Context, client *apiclient.ClientWithResponses, id string) (apiclient.ReaditemResult, error) {
-	if id != "" {
-		return cmdreadfolder.Fetch(ctx, client, id)
-	}
-
-	root := apiclient.ReaditemResult{Item: apiclient.DomainItem{Kind: apiclient.FOLDER, Title: config.Title()}, Path: "/"}
-	response, err := client.GetApiItemsWithResponse(ctx, &apiclient.GetApiItemsParams{})
-	if err != nil {
-		return root, err
-	}
-	if response.JSON200 == nil {
-		return root, apiclient.Fail(response.HTTPResponse, response.Body)
-	}
-	root.Children = response.JSON200
-	return root, nil
 }

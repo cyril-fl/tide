@@ -247,25 +247,21 @@ func describe(ctx context.Context, client *apiclient.ClientWithResponses, items 
 			at, ids = append(at, i), append(ids, it.ID)
 		}
 	}
-	maxChars := max(args.Preview, 1) // 0 would send the whole content
-	for from := 0; from < len(ids); from += readBatch {
-		to := min(from+readBatch, len(ids))
-		read, err := apiclient.Decode[[]apiclient.ReadnotesNote](client.PostApiNotesRead(ctx, apiclient.ReadnotesBody{Notes: ids[from:to], MaxChars: &maxChars}))
-		if err != nil {
-			return err
+	read, err := apiclient.ReadNotes(ctx, client, ids, max(args.Preview, 1)) // 0 would send the whole content
+	if err != nil {
+		return err
+	}
+	for j, r := range read {
+		it := &items[at[j]]
+		if args.Tags {
+			tags := append([]string{}, apiclient.Deref(r.Tags)...)
+			it.Tags = &tags
 		}
-		for j, r := range read {
-			it := &items[at[from+j]]
-			if args.Tags {
-				tags := append([]string{}, apiclient.Deref(r.Tags)...)
-				it.Tags = &tags
-			}
-			if args.Length {
-				it.Length = &r.Length
-			}
-			if args.Preview > 0 {
-				it.Preview = apiclient.Deref(r.Content)
-			}
+		if args.Length {
+			it.Length = &r.Length
+		}
+		if args.Preview > 0 {
+			it.Preview = apiclient.Deref(r.Content)
 		}
 	}
 	return nil

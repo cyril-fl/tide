@@ -84,3 +84,20 @@ func Version(ctx context.Context, client *ClientWithResponses, id, version strin
 	}
 	return *response.JSON200, nil
 }
+
+// ReadBatch is readnotes.MaxNotes, how many notes one POST /api/notes/read takes.
+const ReadBatch = 50
+
+// ReadNotes reads the notes of refs (uuids or paths) in their order through POST /api/notes/read, ReadBatch per
+// request, only the first maxChars of each content when maxChars > 0 (cut on the server, see #210).
+func ReadNotes(ctx context.Context, client *ClientWithResponses, refs []string, maxChars int) ([]ReadnotesNote, error) {
+	out := make([]ReadnotesNote, 0, len(refs))
+	for from := 0; from < len(refs); from += ReadBatch {
+		read, err := Decode[[]ReadnotesNote](client.PostApiNotesRead(ctx, ReadnotesBody{Notes: refs[from:min(from+ReadBatch, len(refs))], MaxChars: &maxChars}))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, read...)
+	}
+	return out, nil
+}

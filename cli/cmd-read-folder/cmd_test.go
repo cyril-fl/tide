@@ -6,9 +6,11 @@ import (
 	"testing"
 	"time"
 
+	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	plumdebug "github.com/cyril-fl/plum/utils/debug"
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/cyril-fl/tide/cli/services/apiclient/apitest"
+	"github.com/cyril-fl/tide/config"
 	"github.com/cyril-fl/tide/core/domain"
 	"github.com/cyril-fl/tide/core/services/process/createfolder"
 	"github.com/cyril-fl/tide/core/services/process/createnote"
@@ -45,7 +47,10 @@ func TestReadJSON(t *testing.T) {
 		})
 
 		command := &cobra.Command{}
-		command.Flags().Bool("json", true, "")
+		plumcliutilsargs.Makeflags(command, config.Current.Commands.ReadFolder.Flags)
+		if err := command.ParseFlags([]string{"--json"}); err != nil {
+			t.Fatal(err)
+		}
 		command.SetContext(ctx)
 		printed, err := apitest.Stdout(t, func() error { return Read(command, []string{ref}) })
 		// The generated types order and omit fields their own way: printed back in readitem's, it must be the same.
@@ -79,5 +84,50 @@ func TestInfo(t *testing.T) {
 		if got := info(test.folder); got != test.want {
 			t.Errorf("%s: info() = %q, want %q", name, got, test.want)
 		}
+	}
+}
+
+// Without an arg, a page of the root with the notes' tags, length and preview: the total of the whole root, the page
+// --limit long from --offset, folders first.
+func TestReadPage(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	folder := createfolder.Process(ctx, tx, createfolder.Input{Title: "Archives"})
+	folder.Run()
+	note := createnote.Process(ctx, tx, createnote.Input{Content: "# Ideas\n\nship it #go"})
+	note.Run()
+	if folder.HasErr() || note.HasErr() {
+		t.Fatal(folder.GetErr(), note.GetErr())
+	}
+	read := func(flags ...string) string {
+		t.Helper()
+		command := &cobra.Command{}
+		plumcliutilsargs.Makeflags(command, config.Current.Commands.ReadFolder.Flags)
+		if err := command.ParseFlags(flags); err != nil {
+			t.Fatal(err)
+		}
+		command.SetContext(ctx)
+		printed, err := apitest.Stdout(t, func() error { return Read(command, nil) })
+		if err != nil {
+			t.Fatal(err)
+		}
+		return printed
+	}
+
+	var page folderPage
+	printed := read("--tags", "--length", "--preview", "7", "--offset", "1", "--limit", "1", "--json")
+	if err := json.Unmarshal([]byte(printed), &page); err != nil {
+		t.Fatal(err)
+	}
+	if page.Path != "/" || page.Total != 2 || len(page.Children) != 1 {
+		t.Fatalf("page = %s", printed)
+	}
+	got := page.Children[0]
+	if got.Id != note.GetResult().ID || got.Tags == nil || len(*got.Tags) != 1 || (*got.Tags)[0] != "go" || got.Length == nil || *got.Length != 20 ||
+		got.Preview == nil || *got.Preview != "# Ideas" {
+		t.Errorf("note = %s", printed)
+	}
+
+	if printed := read("--limit", "1"); !strings.Contains(printed, "1 of 2 items") || !strings.Contains(printed, "Archives") || strings.Contains(printed, "Ideas") {
+		t.Errorf("table = %q", printed)
 	}
 }

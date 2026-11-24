@@ -21,8 +21,11 @@ import (
 	"golang.org/x/term"
 )
 
+var errOneNote = errors.New("--history and --version take one note")
+
 // Read shows the note path, its tags and dates, then its content rendered as markdown; ctrl+e edits it, then shows it
-// again; --history lists its versions, --version shows one; --json prints them for scripts.
+// again; --history lists its versions, --version shows one; --json prints them for scripts. Several notes, or
+// --max-chars, are printed one after the other, without the screen.
 func Read(cobra *cobra.Command, args []string) error {
 	var asJSON, asHistory bool
 	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"json": &asJSON, "history": &asHistory}); err != nil {
@@ -32,9 +35,19 @@ func Read(cobra *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	maxChars, err := cobra.Flags().GetInt("max-chars")
+	if err != nil {
+		return err
+	}
+	if len(args) > 1 && (asHistory || version != "") {
+		return errOneNote
+	}
 	client, err := apiclient.Read().Client()
 	if err != nil {
 		return err
+	}
+	if len(args) > 1 || maxChars > 0 {
+		return printNotes(cobra.Context(), client, args, maxChars, asJSON)
 	}
 	id, err := apiclient.Resolve(cobra.Context(), client, apiclient.NOTE, args[0])
 	if err != nil {
@@ -67,6 +80,8 @@ type noteJSON struct {
 	Readonly  bool     `json:"readonly"`
 	CreatedAt string   `json:"created_at"`
 	UpdatedAt *string  `json:"updated_at"`
+	Length    *int     `json:"length,omitempty"`    // the whole content's characters, under --max-chars
+	Truncated *bool    `json:"truncated,omitempty"` // a pointer: false is said too, under --max-chars
 }
 
 func toJSON(note apiclient.ReaditemResult) noteJSON {
@@ -75,6 +90,45 @@ func toJSON(note apiclient.ReaditemResult) noteJSON {
 		Tags: append([]string{}, apiclient.Deref(note.Tags)...), Readonly: apiclient.Deref(note.Readonly),
 		CreatedAt: note.Item.CreatedAt, UpdatedAt: note.Item.UpdatedAt,
 	}
+}
+
+// printNotes reads the notes of refs (uuids or paths) in one request per 50, only the start of each under maxChars,
+// and prints them one after the other, or as JSON: an object for one note, an array for several.
+func printNotes(ctx context.Context, client *apiclient.ClientWithResponses, refs []string, maxChars int, asJSON bool) error {
+	read, err := apiclient.ReadNotes(ctx, client, refs, maxChars)
+	if err != nil {
+		return err
+	}
+	if asJSON {
+		notes := make([]noteJSON, len(read))
+		for i, r := range read {
+			notes[i] = toJSON(apiclient.ReaditemResult{Item: r.Item, Path: r.Path, Content: r.Content, Readonly: r.Readonly, Tags: r.Tags})
+			if maxChars > 0 {
+				notes[i].Length, notes[i].Truncated = &r.Length, &r.Truncated
+			}
+		}
+		if len(notes) == 1 {
+			plumdebug.Json(notes[0])
+		} else {
+			plumdebug.Json(notes)
+		}
+		return nil
+	}
+	for i, r := range read {
+		note := apiclient.ReaditemResult{Item: r.Item, Path: r.Path, Content: r.Content, Readonly: r.Readonly, Tags: r.Tags}
+		content, err := render(apiclient.Deref(r.Content))
+		if err != nil {
+			return err
+		}
+		if i > 0 {
+			fmt.Println()
+		}
+		fmt.Print(style.Muted().Render(note.Path) + "\n" + style.Subtle().Render(info(note)) + "\n\n" + content)
+		if r.Truncated {
+			fmt.Println(style.Subtle().Render(fmt.Sprintf("… %d characters in all", r.Length)))
+		}
+	}
+	return nil
 }
 
 // printHistory lists the versions of the note, latest first: date, uuid, and the texts kept from a conflict.

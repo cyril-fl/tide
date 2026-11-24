@@ -14,6 +14,7 @@ import (
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/cyril-fl/tide/core/domain"
 	"github.com/cyril-fl/tide/core/services/process/exportnotes"
+	"github.com/cyril-fl/tide/core/services/process/readnotes"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -111,7 +112,7 @@ func TestExportedFiles(t *testing.T) {
 
 // The CLI has no kernel to import them from: they must stay those of the server.
 func TestServerNames(t *testing.T) {
-	if filesDir != exportnotes.FilesDir || apiclient.FileURL("id") != domain.FileURL("id") {
-		t.Errorf("filesDir %q, fileURL %q; want %q, %q", filesDir, apiclient.FileURL("id"), exportnotes.FilesDir, domain.FileURL("id"))
+	if filesDir != exportnotes.FilesDir || apiclient.FileURL("id") != domain.FileURL("id") || apiclient.ReadBatch != readnotes.MaxNotes {
+		t.Errorf("filesDir %q, fileURL %q, ReadBatch %d; want %q, %q, %d", filesDir, apiclient.FileURL("id"), apiclient.ReadBatch, exportnotes.FilesDir, domain.FileURL("id"), readnotes.MaxNotes)
 	}
 }

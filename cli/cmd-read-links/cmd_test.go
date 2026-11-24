@@ -60,3 +60,35 @@ func TestReadRefused(t *testing.T) {
 		t.Errorf("err = %v, want the plan refusal", err)
 	}
 }
+
+// With a note: its links and backlinks through the API, and [] rather than null for what it lacks.
+func TestReadNote(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	for _, content := range []string{"# Target", "# Source\nsee [[Target]]"} {
+		note := createnote.Process(ctx, tx, createnote.Input{Content: content})
+		if note.Run(); note.HasErr() {
+			t.Fatal(note.GetErr())
+		}
+	}
+	read := func(ref string, asJSON bool) string {
+		t.Helper()
+		command := &cobra.Command{}
+		command.Flags().Bool("json", asJSON, "")
+		command.SetContext(ctx)
+		printed, err := apitest.Stdout(t, func() error { return Read(command, []string{ref}) })
+		if err != nil {
+			t.Fatal(err)
+		}
+		return printed
+	}
+
+	var links noteLinks
+	printed := read("/Source", true)
+	if err := json.Unmarshal([]byte(printed), &links); err != nil || len(links.Links) != 1 || links.Links[0].Path != "/Target" ||
+		links.Backlinks == nil || len(links.Backlinks) != 0 || !strings.Contains(printed, `"neighbors": []`) {
+		t.Errorf("/Source --json = %s, err = %v", printed, err)
+	}
+	if printed := read("/Target", false); !strings.Contains(printed, "Backlinks") || !strings.Contains(printed, "/Source") {
+		t.Errorf("/Target = %q", printed)
+	}
+}

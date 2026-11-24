@@ -13,9 +13,6 @@ import (
 // thousands of notes, megabytes an agent cannot read.
 const pageSize = 50
 
-// readBatch is readnotes.MaxNotes, how many notes one read_notes request takes.
-const readBatch = 50
-
 // limitOf is the limit an agent asked, pageSize when it named none, 0 (all) for a negative one.
 func limitOf(asked *int) int {
 	if asked == nil {

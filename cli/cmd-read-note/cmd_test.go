@@ -2,13 +2,16 @@ package cmdreadnote
 
 import (
 	"encoding/json"
+	"errors"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	plumcliutilsargs "github.com/cyril-fl/plum/cli/utils/args"
 	"github.com/cyril-fl/tide/cli/services/apiclient"
 	"github.com/cyril-fl/tide/cli/services/apiclient/apitest"
+	"github.com/cyril-fl/tide/config"
 	"github.com/cyril-fl/tide/core/services/process/createnote"
 	"github.com/cyril-fl/tide/core/services/process/patchnote"
 	"github.com/spf13/cobra"
@@ -33,6 +36,7 @@ func TestReadJSON(t *testing.T) {
 		command.Flags().Bool("json", true, "")
 		command.Flags().Bool("history", false, "")
 		command.Flags().String("version", "", "")
+		command.Flags().Int("max-chars", 0, "")
 		command.SetContext(ctx)
 		printed, err := apitest.Stdout(t, func() error { return Read(command, []string{ref}) })
 		var got noteJSON
@@ -66,6 +70,7 @@ func TestReadHistory(t *testing.T) {
 		command.Flags().Bool("json", asJSON, "")
 		command.Flags().Bool("history", history, "")
 		command.Flags().String("version", version, "")
+		command.Flags().Int("max-chars", 0, "")
 		command.SetContext(ctx)
 		printed, err := apitest.Stdout(t, func() error { return Read(command, []string{"/Ideas"}) })
 		if err != nil {
@@ -96,6 +101,7 @@ func TestReadHistory(t *testing.T) {
 	command.Flags().Bool("json", false, "")
 	command.Flags().Bool("history", true, "")
 	command.Flags().String("version", "", "")
+	command.Flags().Int("max-chars", 0, "")
 	command.SetContext(ctx)
 	if _, err := apitest.Stdout(t, func() error { return Read(command, []string{"/Ideas"}) }); err == nil || !strings.Contains(err.Error(), "noteHistory") {
 		t.Errorf("--history on the base plan: err = %v, want the plan refusal", err)
@@ -120,5 +126,54 @@ func TestInfo(t *testing.T) {
 		if got := info(test.note); got != test.want {
 			t.Errorf("%s: info() = %q, want %q", name, got, test.want)
 		}
+	}
+}
+
+// Several notes, or --max-chars, are read in one request: an array for several, an object for one, with the length
+// and truncated that --max-chars adds; plain text prints them one after the other.
+func TestReadSeveral(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	for _, content := range []string{"# Long\n\none two three four five six", "# Short"} {
+		note := createnote.Process(ctx, tx, createnote.Input{Content: content})
+		if note.Run(); note.HasErr() {
+			t.Fatal(note.GetErr())
+		}
+	}
+	both := []string{"/Long", "/Short"}
+	read := func(refs []string, flags ...string) (string, error) {
+		t.Helper()
+		command := &cobra.Command{}
+		plumcliutilsargs.Makeflags(command, config.Current.Commands.ReadNote.Flags)
+		if err := command.ParseFlags(flags); err != nil {
+			t.Fatal(err)
+		}
+		command.SetContext(ctx)
+		return apitest.Stdout(t, func() error { return Read(command, refs) })
+	}
+
+	printed, err := read(both, "--max-chars", "12", "--json")
+	var notes []noteJSON
+	if err == nil {
+		err = json.Unmarshal([]byte(printed), &notes)
+	}
+	if err != nil || len(notes) != 2 || notes[0].Path != "/Long" || !*notes[0].Truncated || *notes[0].Length != 35 || len(notes[0].Content) > 12 ||
+		notes[1].Path != "/Short" || *notes[1].Truncated || notes[1].Content != "# Short" {
+		t.Errorf("two notes --max-chars --json: printed %s, err = %v", printed, err)
+	}
+
+	printed, err = read([]string{"/Long"}, "--max-chars", "12", "--json")
+	var one noteJSON
+	if err == nil {
+		err = json.Unmarshal([]byte(printed), &one)
+	}
+	if err != nil || one.Path != "/Long" || one.Truncated == nil || !*one.Truncated {
+		t.Errorf("one note --max-chars --json: printed %s, err = %v", printed, err)
+	}
+
+	if printed, err := read(both); err != nil || !strings.Contains(printed, "/Long") || !strings.Contains(printed, "six") || !strings.Contains(printed, "/Short") {
+		t.Errorf("two notes: printed %q, err = %v", printed, err)
+	}
+	if _, err := read(both, "--history"); !errors.Is(err, errOneNote) {
+		t.Errorf("two notes --history: err = %v, want errOneNote", err)
 	}
 }

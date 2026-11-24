@@ -1,122 +1,82 @@
 ---
 name: notes-cli-command
-description: Implement a Tide CLI command (add/show/edit/remove on tag, note, folder) end to end - config.yaml entry, cobra wiring, a shared plum Process doing the bun query, its tests, and optional --yaml/--json output.
+description: Add or change a Tide CLI command (add/show/edit/remove on a noun, or a verb of its own) end to end - config.yaml entry and config.go key, cobra wiring, the command as a client of the API through apiclient, the same capability on the MCP, --json output, tests against the test server, README.
 ---
 
 # Tide CLI command
 
-Use this skill to turn a stub in `cli/cmd-<verb>-<noun>/cmd.go` into a working command.
-Reference implementations: `createtag`, `deletetag`, `edittag`, `listtag` in `core/services/process/`.
-Process rules come from the `plum-process` skill; this skill only adds what is specific to the Tide CLI.
+`tide` is a client of the API: a command never opens the base, it calls a route through `cli/services/apiclient`. Its MCP (`cli/cmd-mcp/`) is the other face of the same client, and the two move together (`cli/CLAUDE.md`). Reference implementations: `cli/cmd-read-search` (list, run, --json), `cli/cmd-create-search` + `cli/cmd-edit-search` (flags shared, only the given ones changed), `cli/cmd-read-note` (one or many args, --json object or array).
 
 ## 1. Ask before writing
 
-The user is learning bun: explain non-obvious choices, and ask (AskUserQuestion, recommended option first) about:
+Ask the user (AskUserQuestion, recommended option first), with the command lines as a preview:
 
-- **Input**: positional args (one or many) or flags. Many values -> `cobra.MinimumNArgs(1)`, a rename -> `cobra.ExactArgs(2)`.
-- **Identifier**: value (case-insensitive, `lower(...)`) or uuid.
-- **Edge cases**: already exists, not found, still referenced. Batch commands (create/delete) skip silently and return only affected rows; single-target commands (edit) return an error.
+- **Name**: the verbs are `add`, `show`, `edit`, `remove` on a noun (`cmd/<verb>.go`, config key `<create|read|edit|delete>-<noun>`), or a verb of its own (`replace`, `search`, `trash`).
+- **Input**: positional args (one, many, optional) or flags. Notes and folders are named by uuid or path; other things by name or id.
+- **Edge cases**: not found, already exists, refused by the plan, an empty result (`[]` in --json, a message in plain text).
 
-## 2. Layout
+## 2. Where things go
 
 | What | Where |
 |------|-------|
-| Command name, help, flags | `config/config.yaml` under `commands.<verb>-<noun>` (struct in `config/config.go`) |
-| Cobra wiring (`Args`, flags) | `cmd/<verb>.go` |
-| CLI entry | `cli/cmd-<verb>-<noun>/cmd.go` |
-| Business logic | `core/services/process/<verb><noun>/run.go` (shared: the API routes reuse it) |
-| Tests | same package, `run_test.go` |
+| Name, help, examples, flags | `config/config.yaml`, `commands.<key>` |
+| The key in the config struct | `config/config.go`, `commands` (a key missing there gives an empty `Use`) |
+| Cobra wiring: `Args`, flags, mutually exclusive | `cmd/<verb>.go` |
+| The command | `cli/cmd-<key>/cmd.go` |
+| Code the MCP needs too | `cli/services/apiclient/` (decoding, account edits, saved searches, snippets, files, batched reads already there) |
+| A route the API lacks | `core/api/` (`core/api/CLAUDE.md`) on a plum Process (`plum-process` skill), then `make openapi` and `bun run types` in `web/` |
 
-Check the config entry exists: a missing key gives an empty `Use` and cobra silently cannot find the command.
+Wiring helpers of `cmd/resolve.go`: `apiResolved(kind, run)` turns paths in the args and `--parent` into uuids and `--content -` into stdin; `withStdin(run)` only does stdin, for args that are names.
 
-## 3. Process
-
-```go
-type run struct {
-	plumprimitive.Process
-	cache
-
-	ctx    context.Context
-	db     bun.IDB // *bun.DB or bun.Tx: tests run inside a rolled-back transaction
-	values []string
-}
-
-func (p *run) Run() {
-	p.makeValues() // trim, drop blanks, SetErr(ErrNoValue) if none left
-	p.insertTags() // guarded by if p.HasErr() { return }
-}
-```
-
-- Take `bun.IDB`, never `*bun.DB`: callers can pass a transaction.
-- Export sentinel errors (`ErrNoValue`, `ErrNotFound`, `ErrAlreadyExists`) and wrap with `%w` + the value, so callers use `errors.Is` and never import `pgdriver`.
-
-## 4. bun patterns used here
-
-- **Insert many, skip duplicates**: `Model(&tags).On("CONFLICT ((lower(value))) DO NOTHING").Returning("*").Scan(ctx, &result)`. The conflict target must match the unique index expression exactly; scan into a separate slice (bun would overwrite the first elements of `tags`).
-- **Delete/update by value**: `Model((*domain.Tag)(nil))` (typed nil = table only). Lower both sides in SQL, not with `strings.ToLower`, so matching equals the index: `Where("lower(value) IN (SELECT lower(v) FROM unnest(?::text[]) AS v)", pgdialect.Array(values))`.
-- **Not found**: `Scan` into a struct returns `sql.ErrNoRows` on 0 rows; into a slice it returns nil.
-- **Unique violation**: let the index fail (no SELECT first, it races), then `errors.As(err, &pgErr) && pgErr.Field('C') == "23505"`.
-- **List**: `Model(&result).OrderExpr("lower(value)").Scan(ctx)`.
-- **Soft delete (items)**: `Item.DeletedAt` has `soft_delete`, so bun adds `deleted_at IS NULL` to every Item select/update; use `WhereDeleted()` / `WhereAllWithDeleted()` to see the trash, `ForceDelete()` to really delete. `deleteitems` marks a subtree with one recursive `UPDATE` (same timestamp), `purgeitems` empties the trash when `tide-server serve` starts, then hourly, after each account's `trash_retention_days`.
-- Deleting a parent relies on the `ON DELETE CASCADE` FKs from `createschema`: no code needed.
-
-## 5. CLI entry
+## 3. The command
 
 ```go
-func Create(cobra *cobra.Command, args []string) error {
-	process := createtag.Process(cobra.Context(), postgrey.GetDb(), args)
-	process.Run()
-
-	if !process.HasErr() {
-		fmt.Printf("Successfully created %d tag(s)\n", len(process.GetResult()))
+// Read lists the snippets, or prints the markdown of the one named.
+func Read(cobra *cobra.Command, args []string) error {
+	var asJSON bool
+	if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"json": &asJSON}); err != nil {
+		return err
 	}
-
-	return process.GetErr()
+	client, err := apiclient.Read().Client()
+	if err != nil {
+		return err
+	}
+	snippets, err := apiclient.Snippets(cobra.Context(), client)
+	// ...
 }
 ```
 
-Check errors with `HasErr()`, never `if err := process.GetErr(); err != nil`. The DB comes from `postgrey.GetDb()` (set once by the root of `tide-server`, `cmd/tide-server/main.go`).
+- Call a route with `apiclient.Decode[T](client.GetApiX(ctx, ...))`, or `Paged[T]` for a list with its `X-Total-Count`; a non-2xx answer is the API's error, returned as is.
+- `apiclient.Long(ctx)` for an upload, a download or an export.
+- Output: plain text by default (`style.Table`, `style.Empty` for nothing, `Successfully ...` for a write), `--json` on every command that reads, with `[]` rather than null. Messages in English.
+- Edit commands change only what a flag asks for: `flags.Changed(name)` decides.
+- An interactive form for what is missing is a mill (`services/mill/`, see `cmd-create-note`); a new command may require its flags instead (`MarkFlagRequired`).
 
-## 6. Flags and --yaml / --json
+## 4. The MCP side, in the same change
 
-```yaml
-# config/config.yaml
-  read-tag:
-    use: "tag"
-    args:
-      - { name: "list", shorthand: "l", value: "", usage: "List all tags", type: "bool" }
-      - { name: "yaml", shorthand: "", value: "", usage: "Display the result as YAML", type: "bool" }
-      - { name: "json", shorthand: "", value: "", usage: "Display the result as JSON", type: "bool" }
-```
+What the command adds, the MCP gets too, and the reverse: an option or a field folded into an existing tool (few tools, one-sentence descriptions), on the same `apiclient` function. Exempt: screens (`finder`, `graph`), session and account commands, forms. A gap left on purpose gets a `TODO:` and an issue.
+
+## 5. Tests
+
+Each command gets a test in its package against the test server, no mock:
 
 ```go
-// cmd/read.go init()
-plumcliutilsargs.Makeflags(cmdReadTag, cmd.ReadTag.Flags)
-cmdReadTag.MarkFlagsMutuallyExclusive("yaml", "json")
-
-// cmd.go
-var asList, asYAML, asJSON bool
-if err := plumcliutilsargs.GetBoolFlags(cobra, map[string]*bool{"list": &asList, "yaml": &asYAML, "json": &asJSON}); err != nil {
-	return err
+ctx, tx := apitest.Serve(t) // an account with every plan, the API on a transaction rolled back after
+command := &cobra.Command{}
+plumcliutilsargs.Makeflags(command, config.Current.Commands.ReadSnippet.Flags) // the real flags: catches a rename
+if err := command.ParseFlags([]string{"--json"}); err != nil {
+	t.Fatal(err)
 }
-// switch: asJSON -> plumdebug.Json(result), asYAML -> plumdebug.Yaml(result), default -> plain text
+command.SetContext(ctx)
+printed, err := apitest.Stdout(t, func() error { return Read(command, nil) })
 ```
 
-The printed domain struct needs `json:"-" yaml:"-"` on `bun.BaseModel` and lowercase `json`/`yaml` tags on fields.
+- Seed with the processes of `core/services/process/` on `tx` (`createnote`, `createfolder`, `deletetag`...).
+- A plan refusal: `apitest.Plan(t, ctx, tx, "base")`, last in the test.
+- A command that writes: check the write by reading it back through another command or a process.
+- Run: `make test ARGS="./cli/... ./cmd/... ./config/..."` (the stack up). Shared code changed: `./cli/cmd-mcp/` too.
 
-## 6b. Flags + interactive input (reference: `add note`)
+## 6. By hand, then the README
 
-- Many-valued flag: `type: "stringSlice"` in config (plum `Makeflags`) -> `--tag a,b --tag c`, read with `flags.GetStringSlice`.
-- Flags are resolved by a **mill** in `cli/cmd-<verb>-<noun>/services/mill/` (`Template{Ctx, Db, Flags}`, `Resolve()` returns the process `Input`), not by the process: the process stays UI-free.
-- Missing values -> one `charm.land/huh/v2` form with only the missing fields (`NewInput`, `NewText`, `NewMultiSelect[string]().Filterable(true)` for `--x-from-list`); no field, no form.
-- Mill test: build flags from `config.Current.Commands.<Cmd>.Flags` (catches renamed flags) and give every value, so no form/TTY is needed. Forms are checked by hand.
-- Writes over several tables: `p.db.RunInTx` (a savepoint when `db` is a test `bun.Tx`), steps return errors inside it.
-- `Returning("*")` fails on tables with DB-only columns (`items.parent_kind`): list the columns.
-
-## 7. Tests
-
-- **No-DB test**: blank input with `db = nil` -> `errors.Is(err, ErrNoValue)`. Also proves the `HasErr()` guard (a missing guard panics on nil).
-- **Integration test**: connect via `postgrey.NewEnvironment()`, run `createschema`, `BeginTx` + `defer tx.Rollback()`, unique values `fmt.Sprintf("test-%d", time.Now().UnixNano())`, seed with other processes (`createtag`).
-- A failed statement aborts the transaction: put the expected-DB-error case **last**.
-- Run: `make test ARGS="./core/services/process/..."` (needs Postgres; `colima start && docker compose up -d`).
-- Then run the real command: `set -a && . ./.env && set +a && CONFIG_FILE=$PWD/config/config.yaml go run ./cmd/tide <verb> <noun> ...`, and clean up what you created.
+- `tide whoami` first: the local CLI session may be the user's real server, not the dev stack. There, only reads and `--dry-run`; writes are proven by the tests.
+- `README.md`, "Use it from the terminal": one line of the tour for a new command or option. `MCP.md` (French) when a tool changes.

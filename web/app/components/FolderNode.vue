@@ -32,20 +32,17 @@ watch(isOver, (over) => (over ? start() : stop()));
           <UIcon :name="icons.folder" class="size-4 shrink-0" :class="isOver ? 'text-inverted' : 'text-primary'" />
           <span class="truncate">{{ folder.title }}</span>
         </NuxtLink>
-        <button
+        <UButton
           v-if="folder.has_folders"
-          type="button"
-          class="flex size-5 shrink-0 items-center justify-center rounded"
+          :icon="icons.chevronRight"
+          color="neutral"
+          variant="link"
+          class="size-5 shrink-0 justify-center p-0"
+          :ui="{ leadingIcon: `size-3.5 transition-transform duration-150 ${open ? 'rotate-90' : ''}` }"
           :aria-label="open ? $t('items.collapse') : $t('items.expand')"
           :aria-expanded="open"
           @click="open = !open"
-        >
-          <UIcon
-            :name="icons.chevronRight"
-            class="size-3.5 text-muted transition-transform duration-150"
-            :class="{ 'rotate-90': open }"
-          />
-        </button>
+        />
       </div>
     </UContextMenu>
     <FolderTree v-if="open" :parent-id="folder.id" />

@@ -135,18 +135,24 @@ async function fork() {
     </template>
     <template #content>
       <div class="pb-4">
-        <button
+        <UButton
           v-for="version in entries.slice(0, shown)"
           :key="version.id"
-          type="button"
-          class="block w-full truncate rounded py-1 text-left text-sm text-muted hover:text-default"
+          :label="label(version)"
+          color="neutral"
+          variant="link"
+          block
+          class="justify-start px-0 py-1 text-sm"
           @click="show(version)"
-        >
-          {{ label(version) }}
-        </button>
-        <button v-if="entries.length > shown" type="button" class="py-1 text-xs text-primary" @click="show()">
-          {{ $t('history.all', { count: entries.length }) }}
-        </button>
+        />
+        <UButton
+          v-if="entries.length > shown"
+          :label="$t('history.all', { count: entries.length })"
+          variant="link"
+          size="xs"
+          class="px-0 py-1"
+          @click="show()"
+        />
       </div>
     </template>
   </UCollapsible>

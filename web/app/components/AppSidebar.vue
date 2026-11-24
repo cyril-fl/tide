@@ -228,14 +228,14 @@ const isOverRoot = useDropFolder(rootLink, () => null);
               :class="{ 'row-active': route.params.id === folder.id }"
             >
               <UTooltip :text="$t('sidebar.removeFavorite')">
-                <button
-                  type="button"
-                  class="shrink-0 text-primary hover:text-primary/70"
+                <UButton
+                  :icon="icons.favorite"
+                  variant="link"
+                  size="sm"
+                  class="shrink-0 p-0"
                   :aria-label="$t('sidebar.removeFavorite')"
                   @click="pinItem(folder, false)"
-                >
-                  <UIcon :name="icons.favorite" class="block size-4" />
-                </button>
+                />
               </UTooltip>
               <NuxtLink :to="`/folders/${folder.id}`" class="flex-1 self-stretch truncate leading-7">{{
                 folder.title
@@ -253,14 +253,14 @@ const isOverRoot = useDropFolder(rootLink, () => null);
             >
               <div class="row" :class="{ 'row-active': route.params.id === note.id }">
                 <UTooltip :text="$t('sidebar.unpin')">
-                  <button
-                    type="button"
-                    class="shrink-0 text-primary hover:text-primary/70"
+                  <UButton
+                    :icon="icons.pin"
+                    variant="link"
+                    size="sm"
+                    class="shrink-0 p-0"
                     :aria-label="$t('sidebar.unpin')"
                     @click="pinItem(note, false)"
-                  >
-                    <UIcon :name="icons.pin" class="block size-4" />
-                  </button>
+                  />
                 </UTooltip>
                 <NuxtLink
                   :to="`/notes/${note.id}`"

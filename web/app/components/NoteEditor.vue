@@ -760,16 +760,17 @@ const status = computed(() => {
       <nav v-if="source === undefined" :aria-label="$t('note.outline')">
         <h2 class="mb-2 text-xs font-medium text-muted">{{ $t('note.outline') }}</h2>
         <p v-if="!outline.length" class="text-xs text-dimmed">{{ $t('note.noOutline') }}</p>
-        <button
+        <UButton
           v-for="heading in outline"
           :key="heading.pos"
-          type="button"
-          class="block w-full truncate rounded py-1 text-left text-sm text-muted hover:text-default"
+          :label="heading.text"
+          color="neutral"
+          variant="link"
+          block
+          class="justify-start py-1 pr-0 text-sm"
           :style="{ paddingLeft: `${(heading.level - 1) * 0.75}rem` }"
           @click="scrollTo(heading.pos)"
-        >
-          {{ heading.text }}
-        </button>
+        />
       </nav>
       <RelatedNotes v-if="id" :key="id" :note-id="id" panel />
       <NoteHistory

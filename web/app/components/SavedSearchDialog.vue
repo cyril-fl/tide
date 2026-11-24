@@ -35,12 +35,25 @@ const parentOptions = computed(() => {
     .map((s) => ({ label: s.name, value: s.id }));
   return groups.length ? [{ label: t('search.saved.root'), value: '' }, ...groups] : [];
 });
-// tag_ids are every tag in "all" mode, one of them in "any" (an older search): shown as the list they mean, saved as
-// tag_ids in "all" mode and any_tag_ids, which the API refuses beside tag_ids in "any" mode.
-const anyMode = props.value?.tag_mode !== 'all';
-const tagIds = ref(anyMode ? [] : (props.value?.tag_ids ?? []));
-const anyTagIds = ref([...(anyMode ? (props.value?.tag_ids ?? []) : []), ...(props.value?.any_tag_ids ?? [])]);
-const noTagIds = ref(props.value?.no_tag_ids ?? []);
+// One list of tags, each with or without (`not`), and one choice for the ones the note must have: all of them or one of
+// them. Saved as tag_ids (all), any_tag_ids (one of) and no_tag_ids (without); tag_ids are every tag in "all" mode, one
+// of them in "any" (an older search), and the API refuses any_tag_ids beside tag_ids in "any" mode.
+const savedAny = props.value?.tag_mode === 'any';
+const tagMatch = ref<'all' | 'any'>(savedAny || props.value?.any_tag_ids?.length ? 'any' : 'all');
+const tagChips = ref<{ id: string; not: boolean }[]>([
+  ...[...(props.value?.tag_ids ?? []), ...(props.value?.any_tag_ids ?? [])].map((id) => ({ id, not: false })),
+  ...(props.value?.no_tag_ids ?? []).map((id) => ({ id, not: true })),
+]);
+const withTags = computed(() => tagChips.value.filter((c) => !c.not).map((c) => c.id));
+const tagMatchOptions = [
+  { label: t('search.saved.tagsMatchAll'), value: 'all' },
+  { label: t('search.saved.tagsMatchAny'), value: 'any' },
+];
+const tagName = (id: string) => `#${tags.value.find((tag) => tag.id === id)?.value ?? ''}`;
+const pickableTags = computed(() => tagOptions.value.filter((o) => !tagChips.value.some((c) => c.id === o.value)));
+function addTags(ids: string[]) {
+  for (const id of ids) if (!tagChips.value.some((c) => c.id === id)) tagChips.value.push({ id, not: false });
+}
 const folderIds = ref(props.value?.folder_ids ?? []);
 const folderMode = ref(props.value?.folder_mode ?? 'include');
 const createdFrom = ref(toDay(props.value?.created_from));
@@ -51,15 +64,13 @@ const text = ref(props.value?.text ?? '');
 const notText = ref(props.value?.not_text ?? '');
 
 // Only the criteria in use are shown: those the search has, then those added from the menu.
-type Criterion = 'text' | 'notText' | 'tags' | 'anyTags' | 'noTags' | 'folders' | 'created' | 'edited';
+type Criterion = 'text' | 'notText' | 'tags' | 'folders' | 'created' | 'edited';
 const shown = ref<Criterion[]>(
   (
     [
       ['text', text.value],
       ['notText', notText.value],
-      ['tags', tagIds.value.length],
-      ['anyTags', anyTagIds.value.length],
-      ['noTags', noTagIds.value.length],
+      ['tags', tagChips.value.length],
       ['folders', folderIds.value.length],
       ['created', createdFrom.value || createdTo.value],
       ['edited', editedFrom.value || editedTo.value],
@@ -71,9 +82,7 @@ const shown = ref<Criterion[]>(
 const labels: Record<Criterion, string> = {
   text: t('search.saved.text'),
   notText: t('search.saved.notText'),
-  tags: t('search.saved.tagsAll'),
-  anyTags: t('search.saved.tagsAny'),
-  noTags: t('search.saved.tagsNone'),
+  tags: t('search.saved.tags'),
   folders: t('search.saved.folders'),
   created: t('search.saved.created'),
   edited: t('search.saved.edited'),
@@ -84,15 +93,11 @@ const addMenu = computed(() =>
     .map((criterion) => ({ label: labels[criterion], onSelect: () => shown.value.push(criterion) })),
 );
 
-const tagLists = { tags: tagIds, anyTags: anyTagIds, noTags: noTagIds };
-
 function remove(criterion: Criterion) {
   shown.value = shown.value.filter((c) => c !== criterion);
   if (criterion === 'text') text.value = '';
   if (criterion === 'notText') notText.value = '';
-  if (criterion === 'tags') tagIds.value = [];
-  if (criterion === 'anyTags') anyTagIds.value = [];
-  if (criterion === 'noTags') noTagIds.value = [];
+  if (criterion === 'tags') tagChips.value = [];
   if (criterion === 'folders') folderIds.value = [];
   if (criterion === 'created') createdFrom.value = createdTo.value = '';
   if (criterion === 'edited') editedFrom.value = editedTo.value = '';
@@ -103,10 +108,10 @@ const criteria = computed<SavedSearch>(() => ({
   name: name.value.trim(),
   group: props.value?.group || undefined,
   parent_id: parentId.value || undefined,
-  tag_ids: tagIds.value,
+  tag_ids: tagMatch.value === 'all' ? withTags.value : [],
   tag_mode: 'all',
-  any_tag_ids: anyTagIds.value,
-  no_tag_ids: noTagIds.value,
+  any_tag_ids: tagMatch.value === 'any' ? withTags.value : [],
+  no_tag_ids: tagChips.value.filter((c) => c.not).map((c) => c.id),
   folder_ids: folderIds.value,
   folder_mode: folderMode.value,
   created_from: fromDay(createdFrom.value, false),
@@ -210,18 +215,54 @@ function submit() {
                 :placeholder="$t('search.saved.notTextPlaceholder')"
                 :aria-label="labels.notText"
               />
-              <UInputMenu
-                v-else-if="criterion === 'tags' || criterion === 'anyTags' || criterion === 'noTags'"
-                v-model="tagLists[criterion].value"
-                multiple
-                open-on-click
-                :items="tagOptions"
-                value-key="value"
-                class="w-full"
-                :placeholder="$t('search.saved.pickTags')"
-                :aria-label="labels[criterion]"
-                :ui="{ tagsItem: 'max-w-full' }"
-              />
+              <!-- A tag is picked once, then a click on it flips it between with (✓) and without (✕). -->
+              <div v-else-if="criterion === 'tags'" class="flex flex-col gap-2">
+                <div v-if="tagChips.length" class="flex flex-wrap gap-1.5">
+                  <UFieldGroup v-for="chip in tagChips" :key="chip.id">
+                    <UButton
+                      :icon="chip.not ? icons.without : icons.current"
+                      :label="tagName(chip.id)"
+                      :color="chip.not ? 'error' : 'primary'"
+                      variant="soft"
+                      size="xs"
+                      :aria-label="
+                        $t(chip.not ? 'search.saved.tagWithout' : 'search.saved.tagWith', { tag: tagName(chip.id) })
+                      "
+                      @click="chip.not = !chip.not"
+                    />
+                    <UButton
+                      :icon="icons.close"
+                      :color="chip.not ? 'error' : 'primary'"
+                      variant="soft"
+                      size="xs"
+                      :aria-label="$t('search.saved.tagRemove', { tag: tagName(chip.id) })"
+                      @click="tagChips = tagChips.filter((c) => c.id !== chip.id)"
+                    />
+                  </UFieldGroup>
+                </div>
+                <UInputMenu
+                  :model-value="[]"
+                  multiple
+                  open-on-click
+                  :items="pickableTags"
+                  value-key="value"
+                  class="w-full"
+                  :placeholder="$t('search.saved.pickTags')"
+                  :aria-label="labels.tags"
+                  @update:model-value="addTags"
+                />
+                <USelectMenu
+                  v-if="withTags.length > 1"
+                  v-model="tagMatch"
+                  :items="tagMatchOptions"
+                  value-key="value"
+                  :search-input="false"
+                  size="xs"
+                  variant="ghost"
+                  class="-ms-2 self-start text-muted"
+                  :aria-label="$t('search.saved.tagsMatch')"
+                />
+              </div>
               <UInputMenu
                 v-else-if="criterion === 'folders'"
                 v-model="folderIds"

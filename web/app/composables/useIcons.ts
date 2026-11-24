@@ -65,6 +65,7 @@ export function useIcons() {
     snippet: 'i-reicon-text-block',
     appearance: 'i-reicon-palette',
     current: 'i-reicon-check',
+    without: 'i-lucide-ban',
     save: 'i-reicon-floppy',
     data: 'i-reicon-database',
     storage: 'i-reicon-hard-drive',

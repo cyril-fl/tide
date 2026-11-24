@@ -10,7 +10,6 @@ const toast = useToast();
 const logout = useLogout();
 const { confirm } = useDialogs();
 const baseURL = useRuntimeConfig().public.apiBase;
-const input = useTemplateRef('input');
 
 const { data: me } = useMe();
 // The advanced mode's settings nav leads back on its own: the plain settings page needs the footer's.
@@ -46,8 +45,9 @@ async function square(file: File, size: number): Promise<Blob> {
   );
 }
 
-async function changeAvatar(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0];
+// Emptied after each upload, which empties UFileUpload's input: the same file can be picked again.
+const avatarFile = ref<File | null>(null);
+async function changeAvatar(file: File | null | undefined) {
   if (!file) return;
   uploading.value = true;
   try {
@@ -62,7 +62,7 @@ async function changeAvatar(event: Event) {
     me.value = await api<User>('/api/me', { method: 'PATCH', body: { avatar: saved.id } });
   } finally {
     uploading.value = false;
-    if (input.value) input.value.value = ''; // The same file can be picked again; the page may be gone.
+    avatarFile.value = null;
   }
 }
 
@@ -172,13 +172,6 @@ function day(at: string) {
             <p class="text-sm">{{ $t('account.avatar') }}</p>
             <p class="text-xs text-muted">{{ $t('account.avatarDescription') }}</p>
           </div>
-          <input
-            ref="input"
-            type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp"
-            class="hidden"
-            @change="changeAvatar"
-          />
           <UButton
             v-if="me?.avatar"
             :label="$t('account.removeAvatar')"
@@ -188,15 +181,23 @@ function day(at: string) {
             variant="ghost"
             @click="removeAvatar"
           />
-          <UButton
-            :label="$t('account.chooseAvatar')"
-            :ui="{ label: 'max-sm:sr-only' }"
-            :icon="icons.avatar"
-            color="neutral"
-            variant="outline"
-            :loading="uploading"
-            @click="input?.click()"
-          />
+          <UFileUpload
+            v-slot="{ open }"
+            v-model="avatarFile"
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            :dropzone="false"
+            @update:model-value="changeAvatar"
+          >
+            <UButton
+              :label="$t('account.chooseAvatar')"
+              :ui="{ label: 'max-sm:sr-only' }"
+              :icon="icons.avatar"
+              color="neutral"
+              variant="outline"
+              :loading="uploading"
+              @click="open()"
+            />
+          </UFileUpload>
         </li>
         <li class="py-3">
           <form class="flex flex-wrap items-center gap-4" @submit.prevent="rename">

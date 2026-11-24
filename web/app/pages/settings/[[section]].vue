@@ -135,7 +135,23 @@ const { data: plans } = useLazyAsyncData('plans', () => api<Plan[]>('/api/plans'
 const planItems = computed(() =>
   plans.value.map(({ id }) => ({ label: t(`settings.plans.${id}`), value: id, disabled: !me.value })),
 );
-const comparedFeatures = computed(() => listedFeatures(plans.value.flatMap((p) => p.features)));
+const planTiers = computed(() =>
+  plans.value.map(({ id }) => ({
+    id,
+    title: t(`settings.plans.${id}`),
+    highlight: !!me.value && plan.value === id,
+    badge: me.value && plan.value === id ? t('settings.currentPlan') : undefined,
+  })),
+);
+const planSections = computed(() =>
+  listedFeatures(plans.value.flatMap((p) => p.features)).map(({ group, features }) => ({
+    title: t(`settings.featureGroups.${group}`),
+    features: features.map((feature) => ({
+      title: t(`features.${feature}`),
+      tiers: Object.fromEntries(plans.value.map((p) => [p.id, p.features.includes(feature)])),
+    })),
+  })),
+);
 
 // The settings switch between one page and a page per section: with the nav, the choice stays in view on its own page.
 async function changePlan(next: string) {
@@ -364,58 +380,42 @@ async function deleteData() {
               @update:model-value="changePlan(String($event))"
             />
           </div>
-          <!-- Scrolls sideways only on a screen narrower than its plan names (iPhone SE). -->
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="border-b border-default">
-                  <th class="px-3 py-2 text-left text-xs font-normal text-muted sm:px-4">
-                    {{ $t('settings.feature') }}
-                  </th>
-                  <th
-                    v-for="{ id: column } in plans"
-                    :key="column"
-                    class="w-24 px-1 py-2 text-xs font-medium sm:px-2 sm:text-sm"
-                    :class="{ 'bg-primary/10 text-primary': me && plan === column }"
-                  >
-                    <span class="inline-flex items-center gap-1"
-                      ><UIcon v-if="column !== 'base'" :name="icons.pro" />{{ $t(`settings.plans.${column}`) }}</span
-                    >
-                    <span v-if="me && plan === column" class="sr-only">{{ $t('settings.currentPlan') }}</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody v-for="{ group, features: listed } in comparedFeatures" :key="group">
-                <tr class="border-b border-default bg-elevated/50">
-                  <th :colspan="plans.length + 1" class="px-3 py-1.5 sm:px-4 text-left text-xs font-medium text-muted">
-                    {{ $t(`settings.featureGroups.${group}`) }}
-                  </th>
-                </tr>
-                <tr v-for="feature in listed" :key="feature" class="border-b border-default last:border-b-0">
-                  <td class="px-3 py-2 text-xs sm:px-4">{{ $t(`features.${feature}`) }}</td>
-                  <td
-                    v-for="column in plans"
-                    :key="column.id"
-                    class="px-2 text-center"
-                    :class="{ 'bg-primary/10': me && plan === column.id }"
-                  >
-                    <UIcon
-                      v-if="column.features.includes(feature)"
-                      :name="icons.current"
-                      :aria-label="$t('settings.included')"
-                      class="size-4 text-primary"
-                    />
-                    <UIcon
-                      v-else
-                      :name="icons.divider"
-                      :aria-label="$t('settings.notIncluded')"
-                      class="size-4 text-dimmed"
-                    />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <!-- A table at every width (UPricingTable lists each plan apart on a phone); scrolls sideways only on a screen narrower than its plan names (iPhone SE). -->
+          <UPricingTable
+            :tiers="planTiers"
+            :sections="planSections"
+            :caption="$t('settings.plan')"
+            :ui="{
+              root: 'overflow-x-auto',
+              table: 'table table-auto',
+              th: 'px-3 py-2 sm:px-4',
+              td: 'px-2 py-2',
+              tier: 'w-24 px-1 py-2 text-center sm:px-2',
+              tierTitleWrapper: 'justify-center',
+              tierTitle: 'text-xs font-medium whitespace-nowrap sm:text-sm',
+              tierBadge: 'sr-only',
+              tierDescription: 'hidden',
+              tierPriceWrapper: 'hidden',
+              sectionTitle: 'text-xs font-medium text-muted',
+              featureTitle: 'text-xs',
+              list: 'hidden',
+            }"
+          >
+            <template #tier-title="{ tier }">
+              <span class="inline-flex items-center gap-1"
+                ><UIcon v-if="tier.id !== 'base'" :name="icons.pro" />{{ tier.title }}</span
+              >
+            </template>
+            <template #feature-value="{ feature, tier }">
+              <UIcon
+                v-if="feature.tiers?.[tier.id]"
+                :name="icons.current"
+                :aria-label="$t('settings.included')"
+                class="size-4 text-primary"
+              />
+              <UIcon v-else :name="icons.divider" :aria-label="$t('settings.notIncluded')" class="size-4 text-dimmed" />
+            </template>
+          </UPricingTable>
         </div>
       </section>
 

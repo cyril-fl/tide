@@ -65,6 +65,8 @@ cat ideas.md | tide edit note /Projects/Ideas --content -
 tide edit note /Projects/Ideas --replace teh --with the   # or --title, --section <heading> --with
 tide show note /Projects/Ideas --json                     # by path or by UUID; tags, dates and lock
 tide show note /Projects/Ideas --history                  # its versions; --version <uuid> shows one, edit note --restore-version brings it back
+tide show note /Inbox/A /Inbox/B --max-chars 300 --json   # several notes in one request, only the start of each
+tide show folder /Inbox --tags --length --preview 80 --limit 100 --json   # a page of a folder, the root without one
 tide move /Projects/Ideas --parent /Archives
 tide search recipe --json | jq -r '.[].id'
 tide search --tag idea --any-tag cooking --not draft   # tags, --folder, --untagged, --empty-sections, --max-length, --updated-before
@@ -72,6 +74,10 @@ tide search --duplicates                               # notes sharing a title, 
 tide tag notes --folder /Archives --add old --remove todo --dry-run   # notes by path or the filters of search; --summary: counts and failures only
 tide show tag --similar    # tags a typo, case, accent or plural apart, grouped with their note counts
 tide show links           # the broken links: [[links]] to no note, trashed notes, missing files
+tide show links /Projects/Plan --json   # a note's links, backlinks and the notes sharing its tags
+tide add file photo.jpg                  # prints the markdown that cites it; show file <uuid> --output copy.jpg gets it back
+tide add snippet Recipe --content -      # snippets: show snippet, remove snippet
+tide add search Cooking --tag idea --folder /Recipes   # saved searches (Pro): show search [<name>], edit search, remove search
 tide edit tag draft wip --merge --dry-run --summary   # how many notes the merge rewrites, without their diff
 tide remove tag inbox --dry-run --keep-empty   # the notes it changes; --keep-empty trashes none, --summary lists none
 tide replace teh the --folder /Projects --dry-run   # every note's occurrences, then without --dry-run replaces them all (Ultra)
@@ -95,7 +101,7 @@ tide add token "backup script" --expires 30d   # an API token for a script
 tide mcp    # an MCP server on stdin/stdout, acting for your `tide login` session
 ```
 
-It gives an agent (Claude Code, Codex…) 31 tools to read, write, tag, move and trash your notes, edit your snippets and your saved searches. For the Claude app on a phone or ChatGPT, the server can also serve them over HTTP with an OAuth sign-in. Setup and precautions: **[MCP.md](./MCP.md)** (in French).
+It gives an agent (Claude Code, Codex…) 24 tools to read, write, tag, move and trash your notes, edit your snippets and your saved searches. An agent with a shell can script the CLI instead: every command that reads takes `--json`, and the CLI does all the MCP does, so a loop over hundreds of notes costs one script rather than hundreds of tool calls. For the Claude app on a phone or ChatGPT, the server can also serve them over HTTP with an OAuth sign-in. Setup and precautions: **[MCP.md](./MCP.md)** (in French).
 
 ## The API
 

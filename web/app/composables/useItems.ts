@@ -11,6 +11,13 @@ type Step = { undo: () => Promise<unknown>; redo: () => Promise<unknown> };
 // The moves and deletions of this tab, for ⌘Z and ⌘Y: a new one forgets what was undone.
 const done: Step[] = [];
 let undone: Step[] = [];
+// They run one after the other: a ⌘Z pressed once the list changed, but before its step is recorded, waits for it.
+let queue: Promise<unknown> = Promise.resolve();
+function inTurn<T>(change: () => Promise<T>): Promise<T> {
+  const next = queue.then(change);
+  queue = next.catch(() => {});
+  return next;
+}
 
 /** Every change to the items: the views read again what they show afterwards. */
 export function useItems() {
@@ -69,14 +76,18 @@ export function useItems() {
   }
 
   /** Takes back the last move or deletion; a failed one is dropped, the toast told why. */
-  async function undo() {
-    const step = done.pop();
-    if (step && (await step.undo()) !== undefined) undone.push(step);
+  function undo() {
+    return inTurn(async () => {
+      const step = done.pop();
+      if (step && (await step.undo()) !== undefined) undone.push(step);
+    });
   }
 
-  async function redo() {
-    const step = undone.pop();
-    if (step && (await step.redo()) !== undefined) done.push(step);
+  function redo() {
+    return inTurn(async () => {
+      const step = undone.pop();
+      if (step && (await step.redo()) !== undefined) done.push(step);
+    });
   }
 
   function removeItem(item: Pick<Item, 'id' | 'kind'>) {
@@ -97,9 +108,9 @@ export function useItems() {
     });
   }
 
-  async function removeItems(items: Pick<Item, 'id' | 'kind'>[]) {
+  function removeItems(items: Pick<Item, 'id' | 'kind'>[]) {
     const ids = items.map((item) => item.id);
-    return record(await remove(items), { undo: () => restore(ids), redo: () => remove(items) });
+    return inTurn(async () => record(await remove(items), { undo: () => restore(ids), redo: () => remove(items) }));
   }
 
   function move(ids: string[], parentId: string | null) {
@@ -114,9 +125,11 @@ export function useItems() {
   }
 
   /** One id or several, all from the folder from; a null parent is the root. */
-  async function moveItem(ids: string | string[], parentId: string | null, from: string | null) {
+  function moveItem(ids: string | string[], parentId: string | null, from: string | null) {
     const list = [ids].flat();
-    return record(await move(list, parentId), { undo: () => move(list, from), redo: () => move(list, parentId) });
+    return inTurn(async () =>
+      record(await move(list, parentId), { undo: () => move(list, from), redo: () => move(list, parentId) }),
+    );
   }
 
   function restore(ids: string[]) {

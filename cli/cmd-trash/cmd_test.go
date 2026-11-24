@@ -23,11 +23,12 @@ func TestPurge(t *testing.T) {
 		retention int
 		want      string
 	}{
-		"today":      {now, 30, "purged in 30 days"},
-		"last day":   {now.AddDate(0, 0, -29), 30, "purged in 1 day"},
-		"overdue":    {now.AddDate(0, 0, -31), 30, "purged at next start"},
-		"never":      {now.AddDate(0, 0, -400), 0, "kept"},
-		"some hours": {now.Add(-5 * time.Hour), 2, "purged in 2 days"},
+		"today":        {now, 30, "purged in 30 days"},
+		"last day":     {now.AddDate(0, 0, -29), 30, "purged in 1 day"},
+		"overdue":      {now.AddDate(0, 0, -31), 30, "purged at next start"},
+		"never":        {now.AddDate(0, 0, -400), 0, "kept"},
+		"some hours":   {now.Add(-5 * time.Hour), 2, "purged in 2 days"},
+		"server ahead": {now.Add(3 * time.Millisecond), 30, "purged in 30 days"}, // its clock a little ahead of the CLI's
 	}
 
 	for name, test := range tests {

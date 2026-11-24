@@ -92,7 +92,8 @@ func purge(deletedAt time.Time, retention int, now time.Time) string {
 	if retention <= 0 {
 		return "kept"
 	}
-	days := int(math.Ceil(deletedAt.AddDate(0, 0, retention).Sub(now).Hours() / 24))
+	// At most retention: the server writing deleted_at with a clock ahead of the CLI's would round it up to one more.
+	days := min(int(math.Ceil(deletedAt.AddDate(0, 0, retention).Sub(now).Hours()/24)), retention)
 	switch {
 	case days <= 0:
 		return "purged at next start"

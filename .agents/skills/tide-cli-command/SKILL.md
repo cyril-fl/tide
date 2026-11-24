@@ -1,5 +1,5 @@
 ---
-name: notes-cli-command
+name: tide-cli-command
 description: Add or change a Tide CLI command (add/show/edit/remove on a noun, or a verb of its own) end to end - config.yaml entry and config.go key, cobra wiring, the command as a client of the API through apiclient, the same capability on the MCP, --json output, tests against the test server, README.
 ---
 

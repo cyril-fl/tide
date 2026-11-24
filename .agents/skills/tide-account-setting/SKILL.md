@@ -1,5 +1,5 @@
 ---
-name: notes-account-setting
+name: tide-account-setting
 description: Add or change a setting stored on the account (users table) end to end - domain column (createschema adds it to existing bases), edituser validation, PATCH /api/me, OpenAPI and app types, the settings page, the layout sync, i18n and tests. Also use for any new column on an existing table.
 ---
 
@@ -42,4 +42,4 @@ A column left in the base but gone from the model is harmless: queries read the 
 
 ## 5. Finish
 
-The `notes-release` skill: README (Réglages section of `web/README.md`), commits, tag.
+The `tide-release` skill: README (Réglages section of `web/README.md`), commits, tag.

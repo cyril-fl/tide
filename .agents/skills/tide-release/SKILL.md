@@ -1,11 +1,11 @@
 ---
-name: notes-release
-description: Close a piece of work or a version of Notes - one commit per change with the house message style, READMEs, then the checks, the annotated tag, the GitHub issues and the handoff delegated to the notes-release-checker subagent (Sonnet). Use when a feature or fix is done, or when the user says "tag", "release", "version", "close the issue".
+name: tide-release
+description: Close a piece of work or a version of Notes - one commit per change with the house message style, READMEs, then the checks, the annotated tag, the GitHub issues and the handoff delegated to the tide-release-checker subagent (Sonnet). Use when a feature or fix is done, or when the user says "tag", "release", "version", "close the issue".
 ---
 
 # Release a version of Notes
 
-Two halves: you make the commits and the READMEs (they need judgment), then the `notes-release-checker` subagent, on Sonnet, runs the checks, tags, handles the issues and writes the handoff. Never hand the commits to a subagent.
+Two halves: you make the commits and the READMEs (they need judgment), then the `tide-release-checker` subagent, on Sonnet, runs the checks, tags, handles the issues and writes the handoff. Never hand the commits to a subagent.
 
 ## 1. Commits (you)
 
@@ -17,9 +17,9 @@ Two halves: you make the commits and the READMEs (they need judgment), then the 
 - lefthook runs gofmt, Prettier and actionlint on staged files, and checks the prefix.
 - READMEs in English, in their own `docs:` commit or with the change: `README.md` (CLI, API, server), `web/README.md` (the app).
 
-## 2. Checks, tag, issues, handoff (notes-release-checker)
+## 2. Checks, tag, issues, handoff (tide-release-checker)
 
-Once every commit is made, launch the `notes-release-checker` subagent with:
+Once every commit is made, launch the `tide-release-checker` subagent with:
 
 - the short shas of the release's commits;
 - minor (a `feat:` in the release) or patch, and the tag message, in English: what the user gets;

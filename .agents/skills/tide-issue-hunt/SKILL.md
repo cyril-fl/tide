@@ -1,5 +1,5 @@
 ---
-name: notes-issue-hunt
+name: tide-issue-hunt
 description: Find the GitHub issues Notes is missing - a full audit of the Go code and web/ (bugs, security, data loss, timeouts, untested risky code), checked against the open issues and the `TODO:` comments, then the new issues created in French. Use when the user says "cherche les issues manquantes", "analyse le code pour ajouter les issues", "audit", "qu'est-ce qui manque".
 ---
 
@@ -18,7 +18,7 @@ An open issue or a `TODO:` comment that names its limit is already known: skip i
 
 ## 2. Audit
 
-Delegate the reading to the `notes-auditor` subagent (`.claude/agents/notes-auditor.md`): it reads a lot and returns only the findings. Give it the list from step 1. Without subagents, follow its checklist yourself.
+Delegate the reading to the `tide-auditor` subagent (`.claude/agents/tide-auditor.md`): it reads a lot and returns only the findings. Give it the list from step 1. Without subagents, follow its checklist yourself.
 
 ## 3. Check each finding
 

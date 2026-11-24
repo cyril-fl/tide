@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tide account setting"
+  short_description: "Add a setting of the account end to end"
+  default_prompt: "Use $tide-account-setting to add this setting to the account, from the users column to the settings page."

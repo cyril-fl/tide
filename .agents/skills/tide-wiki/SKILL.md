@@ -1,5 +1,5 @@
 ---
-name: notes-wiki
+name: tide-wiki
 description: Bring the GitHub wiki of Notes (../notes.wiki) up to the latest tag, catching up every version since the last one it knows - a Versions.md section, the current version on Home.md, the pages the change touches (Web-app, Titles-and-tags, Theme, Data), screenshots of a new screen, then commit and push the wiki. Use only when the user asks for it, never on your own after a fix or a tag: when the user says "wiki", "mets à jour le wiki", "doc utilisateur".
 context: fork
 model: sonnet
@@ -48,7 +48,7 @@ Say in the report which changes of the diff moved which pages, and what was left
 
 ## Screenshots
 
-A new screen or a visible change gets a PNG in `images/` (`app-<topic>.png`), linked from its page with an alt text in English. Use the `notes-app-screenshot` skill. For a shot that needs content or a click:
+A new screen or a visible change gets a PNG in `images/` (`app-<topic>.png`), linked from its page with an alt text in English. Use the `tide-app-screenshot` skill. For a shot that needs content or a click:
 
 - write a throwaway Playwright script in the session scratchpad, run from `web/` with `NODE_PATH=$PWD/node_modules` (CommonJS `require`);
 - create demo notes in a folder of the e2e account (`POST /api/folders`, `POST /api/notes` with `parent_id` and `content`), set the settings the shot needs (`PATCH /api/me`, e.g. `pro`), then in `finally` delete the folder (`DELETE /api/folders/{id}`, then `DELETE /api/trash/{id}`) and put back only the settings changed;

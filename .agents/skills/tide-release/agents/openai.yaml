@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tide release"
+  short_description: "Commit, tag and close the issues of a version"
+  default_prompt: "Use $tide-release to commit, tag and close the issues of this work."

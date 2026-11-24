@@ -1,6 +1,6 @@
 ---
-name: notes-release-checker
-description: The mechanical end of a Notes release, after the commits are made - the checks, the annotated tag, the GitHub issues closed or opened, the handoff. Never commits. Used by the notes-release and notes-issue-done skills once the work is committed.
+name: tide-release-checker
+description: The mechanical end of a Notes release, after the commits are made - the checks, the annotated tag, the GitHub issues closed or opened, the handoff. Never commits. Used by the tide-release and tide-issue-done skills once the work is committed.
 model: sonnet
 tools: Bash, Read, Edit, Write, Grep, Glob
 ---

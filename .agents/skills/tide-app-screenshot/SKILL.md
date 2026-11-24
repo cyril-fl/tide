@@ -1,5 +1,5 @@
 ---
-name: notes-app-screenshot
+name: tide-app-screenshot
 description: Look at a page of the running Notes web app as the e2e account, optionally with settings of the account changed for the shot (theme, color mode, language), restored afterwards. Use to check a UI change, a theme's contrast, light and dark mode, or before/after visuals.
 ---
 

@@ -1,6 +1,6 @@
 # CLI
 
-- Commands, help and flags are declared in `config/config.yaml` (`commands.<verb>-<noun>`), wired in `cmd/<verb>.go`, run by `cli/cmd-<verb>-<noun>/cmd.go`. New command: the `notes-cli-command` skill.
+- Commands, help and flags are declared in `config/config.yaml` (`commands.<verb>-<noun>`), wired in `cmd/<verb>.go`, run by `cli/cmd-<verb>-<noun>/cmd.go`. New command: the `tide-cli-command` skill.
 - `cmd/resolve.go` `apiResolved(kind, run)` turns paths (`/Projets/Idées`) into uuids in the args and `--parent` through `GET /api/resolve`, and `--content -` into stdin: commands only see uuids.
 - Flags are read by a mill (`services/mill/`) that opens a huh form for what is missing; `noFlags()` drives the interactive path, and its test checks every flag of the config is declared.
 - Edit commands change only what a flag asks for: `--pin` alone must not rewrite a note or a folder (see `cmd-edit-note`, `cmd-edit-folder`).

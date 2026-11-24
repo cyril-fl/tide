@@ -1,69 +1,79 @@
-/** The Ultra split view: a second note beside the open one, out of the focus mode; below the one under it (the note page). */
+/** The Ultra panels of the editor side by side (#253): how many the screen holds, and opening a note in another one. */
 export function useSplit() {
   const { has } = usePro();
   const { icons } = useIcons();
   const { t } = useI18n();
-  const { tabs, beside, besidePanel, openInTab, showBeside } = useTabs();
+  const tabs = useTabs();
   const route = useRoute();
   const focus = useState('focus', () => false);
   const can = computed(() => has('splitView') && !(focus.value && has('focusMode')));
-  const shown = computed(() => can.value && !!beside.value && route.path.startsWith('/notes/'));
+  // Two stacked on a phone or a tablet held upright, then one more panel per wider screen.
+  const breakpoints = useBreakpoints({ wide: 1700, wider: 2500 });
+  const fits = computed(() =>
+    breakpoints.greaterOrEqual('wider').value ? 4 : breakpoints.greaterOrEqual('wide').value ? 3 : 2,
+  );
+  const max = computed(() => (can.value ? fits.value : 1));
+  // The panels drawn: the current one alone without the plan or in the focus mode, the others kept for later.
+  const panels = computed(() => (can.value ? tabs.layout.value.panels : [tabs.current.value]));
+  const shown = computed(() => panels.value.length > 1 && route.path.startsWith('/notes/'));
+  const isShown = (id: string) => panels.value.some((panel) => panel.active === id);
 
-  // ⌘ + click on a link: the note opens in the other panel. One already on screen only takes the focus: two editors
-  // of the same note would refuse each other's saves (#62).
-  // Its tab moves with it (#62).
-  function openOther(id: string, fromBeside: boolean) {
-    if (focusShown(id)) return;
-    if (fromBeside) return navigateTo(`/notes/${id}`);
-    return showBeside(id);
-  }
   function focusShown(id: string) {
     const open = document.querySelector<HTMLElement>(`[data-note-id="${id}"] .ProseMirror`);
     open?.focus();
     return !!open;
   }
 
-  // A plain click on a link of the second panel opens the note there, one already on screen only takes the focus: the
-  // note of the first panel would leave it, the whole split view with it when it is its last tab.
+  // ⌘ + click on a link, "Open beside": the note in the panel after the one asked from, a new one when the screen has
+  // room. One already on screen only takes the focus: two editors of the same note would refuse each other's saves (#62).
   // TODO: a [[Note#Heading]] opened beside does not scroll to its heading (read from the route), add it if it is missed.
-  function openBeside(id: string) {
-    if (!focusShown(id)) return showBeside(id);
+  function openOther(id: string, from = tabs.current.value.id) {
+    if (focusShown(id)) return;
+    const where = route.path.startsWith('/notes/') && besideOf(tabs.layout.value, from, max.value);
+    if (!where) return navigateTo(`/notes/${id}`);
+    return 'panel' in where ? tabs.openIn(where.panel, id) : tabs.openAt(where.at, id);
   }
 
-  // ⌘ + click or "Open beside": the note in the other panel, not one already on screen. Away from a note, there is
-  // nothing to open it beside: it opens. fromBeside: a link of the second panel, whose other panel is the first.
-  function besideEntry(id: string, fromBeside = false) {
-    if (!can.value || id === route.params.id || id === beside.value) return;
-    const open = () => (route.path.startsWith('/notes/') ? openOther(id, fromBeside) : navigateTo(`/notes/${id}`));
-    return { label: t('note.openBeside'), icon: icons.beside, onSelect: open };
+  // A plain click on a link of a panel opens the note there, which becomes the current one; a note shown in another
+  // panel takes the focus there instead.
+  function openHere(id: string, panelId: string, hash = '') {
+    const shown = panels.value.find((panel) => panel.active === id);
+    if (shown) return tabs.focus(shown.id);
+    tabs.focus(panelId, false);
+    return navigateTo(`/notes/${id}${hash}`);
+  }
+
+  function besideEntry(id: string, from?: string) {
+    if (!can.value || isShown(id) || max.value < 2) return;
+    return { label: t('note.openBeside'), icon: icons.beside, onSelect: () => openOther(id, from) };
   }
 
   // What right-clicking a note offers wherever it is listed (tabs, sidebar, folders, links): opening it beside, or in a
   // tab of its own in the panel it was asked from when it has none there.
-  function openMenu(id: string, fromBeside = false) {
-    const own = fromBeside ? besidePanel.value.tabs : tabs.value;
+  function openMenu(id: string, from?: string) {
+    const panel = tabs.layout.value.panels.find((other) => other.id === from) ?? tabs.current.value;
     const tab =
-      has('tabs') && !own.some((tab) => tab.id === id)
+      has('tabs') && !panel.tabs.some((tab) => tab.id === id)
         ? {
             label: t('note.openInTab'),
             icon: icons.newTab,
-            onSelect: () => (fromBeside ? showBeside(id, true) : openInTab(id)),
+            onSelect: () => (panel.id === tabs.current.value.id ? tabs.openInTab(id) : tabs.openIn(panel.id, id, true)),
           }
         : undefined;
-    const items = [besideEntry(id, fromBeside), tab].filter((item) => !!item);
+    const items = [besideEntry(id, from), tab].filter((item) => !!item);
     return items.length ? [items] : [];
   }
 
   // ⌘ + click on a link to a note (tab, sidebar) opens it beside, not in a new tab of the browser. Not in the lists,
   // where ⌘ + click selects.
-  function besideClick(id: string, fromBeside = false) {
+  function besideClick(id: string, from?: string) {
     return (event: MouseEvent) => {
-      const entry = besideEntry(id, fromBeside);
+      const entry = besideEntry(id, from);
       if (!entry || !(event.metaKey || event.ctrlKey)) return;
       event.preventDefault();
       entry.onSelect();
     };
   }
 
-  return { can, shown, openOther, openBeside, openMenu, besideClick };
+  return { can, fits, max, panels, shown, openOther, openHere, openMenu, besideClick };
 }

@@ -4,66 +4,42 @@ import type { Tab } from '~/composables/useTabs';
 const { icons } = useIcons();
 const { has } = usePro();
 const { t } = useI18n();
-const route = useRoute();
-const { tabs, besidePanel, dragged, setBeside, closeTab, showBeside, openInTab } = useTabs();
-const { openMenu, besideClick } = useSplit();
-// The focus mode leaves only the note on screen: the tabs go with the sidebar.
-const focus = useState('focus', () => false);
+const tabs = useTabs();
+const { dragged } = tabs;
+const { openMenu, besideClick, panels } = useSplit();
 
-// beside: the tabs of the second panel of the split view, which has no route (#242).
-const props = defineProps<{ beside?: boolean }>();
-const list = computed({
-  get: () => (props.beside ? besidePanel.value.tabs : tabs.value),
-  set: (next) => (props.beside ? (besidePanel.value = { ...besidePanel.value, tabs: next }) : (tabs.value = next)),
-});
-const open = computed(() => (props.beside ? besidePanel.value.active : (route.params.id as string)));
+// The tabs of one panel of the editor (#253); the current panel's open tab is underlined in the accent, the others' in grey.
+const props = defineProps<{ panel: string }>();
+const own = computed(() => tabs.layout.value.panels.find((panel) => panel.id === props.panel)!);
+const isCurrent = computed(() => tabs.layout.value.current === props.panel);
 const label = (tab: Tab) => displayTitle(tab.title, t('untitled'));
 
-// A tab of the second panel opens there, ⌘ + click in the first one. Capture: the link's own click navigates first.
+// ⌘ + click opens the tab beside. Capture: the link's own click navigates first. The panel becomes the current one.
 function click(id: string, event: MouseEvent) {
-  besideClick(id, props.beside)(event);
-  if (!props.beside || event.defaultPrevented) return;
+  besideClick(id, props.panel)(event);
+  if (event.defaultPrevented) return;
   event.preventDefault();
-  setBeside({ ...besidePanel.value, active: id });
+  tabs.select(props.panel, id);
 }
 
-// The open note's tab closed opens its neighbour; a leave refused (a note not saved) keeps the tab.
-async function close(id: string) {
-  return props.beside ? setBeside(withoutTab(besidePanel.value, id)) : closeTab(id);
-}
-
-// Every other tab closed opens the one kept; all of them closed leaves the notes for the home page.
-async function closeOthers(id: string) {
-  if (props.beside) return setBeside({ tabs: list.value.filter((tab) => tab.id === id), active: id });
-  if (id !== open.value && (await navigateTo(`/notes/${id}`)) !== undefined) return;
-  tabs.value = tabs.value.filter((tab) => tab.id === id);
-}
-async function closeAll() {
-  if (props.beside) return setBeside({ tabs: [], active: '' });
-  if ((await navigateTo('/')) === undefined) tabs.value = [];
-}
-
-// A tab dragged onto another takes its place; from the other panel's bar, it moves to this panel, after the open tab.
+// A tab dragged onto another takes its place; from another panel's bar, it moves to this panel, after the open tab.
 function drop(index?: number) {
   const from = dragged.value;
   dragged.value = undefined;
   if (!from) return;
-  if (from.beside !== props.beside) return props.beside ? showBeside(from.id, true) : openInTab(from.id);
-  const at = list.value.findIndex((tab) => tab.id === from.id);
-  if (index !== undefined) list.value = moveTab(list.value, at, index);
+  if (from.panel !== props.panel) return tabs.openIn(props.panel, from.id, true);
+  const at = own.value.tabs.findIndex((tab) => tab.id === from.id);
+  if (index !== undefined) tabs.reorder(props.panel, moveTab(own.value.tabs, at, index));
 }
-const other = computed(() => !!dragged.value && dragged.value.beside !== props.beside);
 
-// One note open is no tab: the bar shows from the second one.
-const shown = computed(
-  () => has('tabs') && (list.value.length > 1 || other.value) && !(focus.value && has('focusMode')),
-);
+// A single note in a single panel is no tab: the bar shows from a second tab or a second panel.
+const shown = computed(() => has('tabs') && (own.value.tabs.length > 1 || panels.value.length > 1 || !!dragged.value));
 </script>
 
 <template>
   <nav
     v-if="shown"
-    :aria-label="beside ? $t('note.besideTabs') : $t('note.tabs')"
+    :aria-label="$t('note.tabs')"
     class="flex shrink-0 border-b border-default px-2"
     @dragover.prevent
     @drop.prevent="drop()"
@@ -72,13 +48,21 @@ const shown = computed(
       <!-- A middle click closes the tab, as in a browser, instead of opening the note in a new one. The close button of
            the other tabs shows on hover, on a wide screen only: a touch screen has no hover. -->
       <UContextMenu
-        v-for="(tab, index) in list"
+        v-for="(tab, index) in own.tabs"
         :key="tab.id"
         :items="[
-          ...openMenu(tab.id, beside),
+          ...openMenu(tab.id, panel),
           [
-            { label: $t('note.closeTab', { title: label(tab) }), icon: icons.close, onSelect: () => close(tab.id) },
-            { label: $t('note.closeOthers'), icon: icons.closeOthers, onSelect: () => closeOthers(tab.id) },
+            {
+              label: $t('note.closeTab', { title: label(tab) }),
+              icon: icons.close,
+              onSelect: () => tabs.closeTab(tab.id),
+            },
+            {
+              label: $t('note.closeOthers'),
+              icon: icons.closeOthers,
+              onSelect: () => tabs.closeOthers(panel, tab.id),
+            },
           ],
         ]"
       >
@@ -86,18 +70,22 @@ const shown = computed(
           draggable="true"
           class="group -mb-px flex max-w-48 shrink-0 items-center border-b-2"
           :class="[
-            tab.id === open ? 'border-primary text-default' : 'border-transparent text-muted hover:text-default',
+            tab.id !== own.active
+              ? 'border-transparent text-muted hover:text-default'
+              : isCurrent
+                ? 'border-primary text-default'
+                : 'border-accented text-default',
             { 'opacity-50': dragged?.id === tab.id },
           ]"
-          @auxclick.middle.prevent="close(tab.id)"
-          @dragstart="dragged = { id: tab.id, beside }"
+          @auxclick.middle.prevent="tabs.closeTab(tab.id)"
+          @dragstart="dragged = { id: tab.id, panel }"
           @dragend="dragged = undefined"
           @dragover.prevent
           @drop.prevent.stop="drop(index)"
         >
           <NuxtLink
             :to="`/notes/${tab.id}`"
-            :aria-current="tab.id === open ? (beside ? 'true' : 'page') : undefined"
+            :aria-current="tab.id === own.active ? (isCurrent ? 'page' : 'true') : undefined"
             draggable="false"
             class="truncate py-2 pr-1 pl-3 text-sm"
             @click.capture="click(tab.id, $event)"
@@ -110,9 +98,9 @@ const shown = computed(
             variant="ghost"
             size="xs"
             class="lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
-            :class="{ 'lg:opacity-0': tab.id !== open }"
+            :class="{ 'lg:opacity-0': tab.id !== own.active }"
             :aria-label="$t('note.closeTab', { title: label(tab) })"
-            @click="close(tab.id)"
+            @click="tabs.closeTab(tab.id)"
           />
         </div>
       </UContextMenu>
@@ -125,7 +113,7 @@ const shown = computed(
         size="xs"
         class="my-auto ml-1 shrink-0"
         :aria-label="$t('note.closeAll')"
-        @click="closeAll"
+        @click="tabs.closeAll(panel)"
       />
     </UTooltip>
   </nav>

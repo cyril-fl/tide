@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/vue-3';
 import type { FetchError } from 'ofetch';
-import type { RouteLocationNormalized } from 'vue-router';
 import type { ForkOrigin, Item, ItemDetail, NotesGraph, User } from '~/types/items';
 import type { Changes } from '~/utils/saver';
 
@@ -12,20 +11,21 @@ const focus = useState('focus', () => false);
 const { locale, t } = useI18n();
 
 // start: the starting text of a new note, saved only once typed in. note: the note already read by the page, shown at once.
-// beside: the second panel of the split view, which leaves the page's title, the renaming and the tabs to the first.
+// panelId: the panel of the editor holding it (#253), current when the address shows it: it takes the renaming.
 const props = defineProps<{
   noteId?: string;
   parentId?: string;
   start?: string;
   note?: ItemDetail;
-  beside?: boolean;
+  panelId?: string;
+  current?: boolean;
 }>();
 const emit = defineEmits<{ created: [id: string] }>();
 
 const api = useApi();
 const { confirm, confirmMerge, prompt, resolveConflict } = useDialogs();
 const { removeItem } = useItems();
-const { tabs, besidePanel, leaving, forget, show, setBeside } = useTabs();
+const tabs = useTabs();
 const baseURL = useRuntimeConfig().public.apiBase;
 const toast = useToast();
 
@@ -33,9 +33,6 @@ const id = ref(props.noteId);
 const parent = ref(props.parentId);
 const path = ref('');
 const title = ref<string>();
-// One note beside has no tab bar (NoteTabs): a header of its own gives its title and closes it.
-const titled = computed(() => props.beside && !(has('tabs') && besidePanel.value.tabs.length > 1));
-if (!props.beside) useHead({ title: () => displayTitle(title.value, t('untitled')) });
 const tags = ref<string[]>([]);
 let links = '';
 const initialContent = ref(props.start ?? '');
@@ -199,24 +196,17 @@ async function load() {
     isEmpty.value = false;
   } catch {
     notFound.value = true;
-    forget([props.noteId]);
+    tabs.drop(props.noteId);
   } finally {
     loading.value = false;
   }
 }
 load();
 
-// The Ultra tabs follow the note shown: it takes the tab of the one before once loaded, renamed with it (#128).
-watch(
-  [id, title, loading, ready],
-  ([note, name]) => {
-    if (!note || loading.value || notFound.value || !ready.value) return;
-    const tab = (props.beside ? besidePanel.value.tabs : tabs.value).find((tab) => tab.id === note);
-    if (!props.beside && has('tabs')) show({ id: note, title: name });
-    else if (tab) tab.title = name;
-  },
-  { immediate: true },
-);
+// The note's tab takes its title once loaded, and follows it when renamed (#128). The page's title reads it too.
+watch([id, title, loading], ([note, name]) => note && !loading.value && !notFound.value && tabs.title(note, name), {
+  immediate: true,
+});
 
 function place(note: ItemDetail) {
   path.value = note.path.slice(0, note.path.lastIndexOf('/')) || '/';
@@ -450,7 +440,7 @@ async function rename() {
   else tr.insert(0, schema.nodes.heading!.create({ level: 1 }, schema.text(next)));
   editor.view.dispatch(tr);
 }
-if (!props.beside) renaming.value = rename;
+watchEffect(() => props.current && (renaming.value = rename));
 onBeforeUnmount(() => renaming.value === rename && (renaming.value = undefined));
 
 function closeBody(changes: Changes) {
@@ -533,14 +523,11 @@ async function leave() {
   });
   return confirmed === true;
 }
-// The new note getting its address. Not the note of the second panel opened in the first: it goes there saved.
-const beforeLeave = (to: RouteLocationNormalized) => (!props.beside && to.params.id === id.value) || leave();
-onBeforeRouteLeave(beforeLeave);
-onBeforeRouteUpdate(beforeLeave);
-
-// The second panel has no route: its editor is replaced by key once left, an edit unsent would be lost with it.
-if (props.beside) leaving.value = leave;
-onBeforeUnmount(() => leaving.value === leave && (leaving.value = undefined));
+// Leaving the note page. Within it, the panels call leave before another note replaces this one (useTabs), as the editor
+// is replaced by key: an edit unsent would be lost with it.
+onBeforeRouteLeave(leave);
+if (props.panelId) tabs.leaves.set(props.panelId, leave);
+onBeforeUnmount(() => props.panelId && tabs.leaves.get(props.panelId) === leave && tabs.leaves.delete(props.panelId));
 
 // A note left empty goes to the trash, with its last saved content. Not while typing: clearing it to rewrite it must not close it.
 onBeforeUnmount(async () => {
@@ -586,7 +573,8 @@ function scrollTo(pos: number, behavior: ScrollBehavior = 'smooth') {
 // A [[Note#Heading]] link opens /notes/<id>#<heading>: the text scrolls to it once read, a frame later, once in the page.
 const route = useRoute();
 const stopHeading = watch(outline, (headings) => {
-  const target = decodeURIComponent(route.hash.slice(1));
+  // Only the note of the address: another panel's note has no heading asked for.
+  const target = route.params.id === id.value ? decodeURIComponent(route.hash.slice(1)) : '';
   const heading = headings.find((other) => sameHeading(other.text, target));
   if (!target || heading) stopHeading();
   if (heading) requestAnimationFrame(() => scrollTo(heading.pos, 'instant'));
@@ -612,28 +600,12 @@ const status = computed(() => {
   <!-- Only the text scrolls: a sticky toolbar inside the scroll moves with Safari's elastic bounce. -->
   <article
     v-else-if="!loading && ready"
-    class="flex min-h-0 flex-1 flex-col"
-    :class="{ 'pt-4': !titled }"
+    class="flex min-h-0 flex-1 flex-col pt-4"
     :data-note-id="id"
-    :data-beside="beside || undefined"
+    :data-panel="panelId"
     @focusin="touched = true"
     @pointerdown.capture="touched = true"
   >
-    <header
-      v-if="titled"
-      class="mb-4 flex shrink-0 items-center gap-1 border-b border-default py-1.5 pr-2 pl-5 text-sm"
-    >
-      <h2 class="truncate">{{ displayTitle(title, $t('untitled')) }}</h2>
-      <UButton
-        :icon="icons.close"
-        color="neutral"
-        variant="ghost"
-        size="xs"
-        class="ml-auto"
-        :aria-label="$t('note.closeBeside')"
-        @click="setBeside({ tabs: [], active: '' })"
-      />
-    </header>
     <!-- Lazy: CodeMirror is loaded at the first use of the source mode, not with the page. -->
     <LazyNoteSource
       v-if="source !== undefined"

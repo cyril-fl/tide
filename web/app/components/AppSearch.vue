@@ -112,7 +112,7 @@ const toNote = (note: Match | Recent): CommandPaletteItem => ({
   label: displayTitle(note.title, t('untitled')),
   suffix: note.path,
   icon: icons.note,
-  ...(besideOnly.value ? { onSelect: () => split.openOther(note.id, false) } : { to: `/notes/${note.id}` }),
+  ...(besideOnly.value ? { onSelect: () => split.openOther(note.id) } : { to: `/notes/${note.id}` }),
   readonly: note.readonly,
   note: besideOnly.value ? undefined : note,
 });

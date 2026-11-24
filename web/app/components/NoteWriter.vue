@@ -201,7 +201,9 @@ function linkMenu(event: MouseEvent) {
     return;
   }
   const link = (event.target as HTMLElement).closest<HTMLElement>('[data-note]');
-  const items = link?.dataset.note ? openMenu(link.dataset.note, !!link.closest('[data-beside]')) : [];
+  const items = link?.dataset.note
+    ? openMenu(link.dataset.note, link.closest<HTMLElement>('[data-panel]')?.dataset.panel)
+    : [];
   if (!items.length) return;
   event.preventDefault();
   event.stopImmediatePropagation();

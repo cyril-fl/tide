@@ -1,97 +1,52 @@
 <script setup lang="ts">
-import type { ItemDetail } from '~/types/items';
-
-// Same page for every note: a new note getting its address must keep its editor, and the cursor in it.
+// Same page for every note: the panels keep their editors from one note to the next.
 definePageMeta({ key: 'note' });
 
 const route = useRoute();
-const api = useApi();
-const { data: me } = useMe();
-
-function editorFor() {
-  const id = route.params.id as string;
-  // TODO: a reload of /notes/new?snippet= before me is loaded starts empty, wait for me if that bites.
-  const tags = typeof route.query.tags === 'string' && route.query.tags ? route.query.tags.split(',') : [];
-  const start =
-    id !== 'new'
-      ? undefined
-      : (me.value?.snippets[Number(route.query.snippet)]?.content ??
-        // An empty first line above the tags takes the cursor and the title.
-        (tags.length ? `&nbsp;\n\n${tags.map((tag) => `#${tag}`).join(' ')}` : undefined));
-  return { noteId: id === 'new' ? undefined : id, parentId: route.query.parent as string | undefined, start };
-}
-
-const editor = ref<ReturnType<typeof editorFor> & { key: number; note?: ItemDetail }>({ key: 0, ...editorFor() });
-let createdId: string | undefined;
-let opening = 0;
-
-// The next note is read before its editor replaces the one shown, or the page blinks empty while it loads (#154).
-// Not read, it loads itself and says why. Only the last note asked for opens.
-watch(
-  () => route.fullPath,
-  async () => {
-    const created = route.params.id === createdId;
-    createdId = undefined;
-    if (created) return;
-    const turn = ++opening;
-    const next = editorFor();
-    const note = next.noteId
-      ? await api<ItemDetail>(`/api/notes/${next.noteId}`, { quiet: true }).catch(() => undefined)
-      : undefined;
-    if (turn === opening) editor.value = { ...next, key: editor.value.key + 1, note };
-  },
-);
-// A note opened in the first panel takes its tab from the second, saved by its route guard: one tab per note (#62).
-const { beside, besidePanel } = useTabs();
+const { t } = useI18n();
+const tabs = useTabs();
 const split = useSplit();
-watch(
-  () => route.params.id as string,
-  (id) => (besidePanel.value = withoutTab(besidePanel.value, id)),
-  { immediate: true },
+// Below lg the panels stack.
+const wide = useMediaQuery('(min-width: 1024px)');
+
+// The address opens its note in the panel showing it, else in the current one; a note not saved refuses (useTabs).
+tabs.route(route.params.id as string);
+onBeforeRouteUpdate((to) => tabs.route(to.params.id as string));
+onUnmounted(useRouter().afterEach((to, _from, failure) => tabs.settle(to.path, !!failure)));
+// A narrower screen folds the panels that no longer fit into the last one kept.
+watch(split.fits, (max) => tabs.fit(max), { immediate: true });
+
+useHead({
+  title: () =>
+    displayTitle(tabs.current.value.tabs.find((tab) => tab.id === tabs.current.value.active)?.title, t('untitled')),
+});
+
+// The panels' sizes, kept for each number of panels: a new panel takes an even share.
+const sizes = useLocalStorage<Record<number, number[]>>('note-panel-sizes', {});
+const items = computed(() =>
+  split.panels.value.map((panel, index, all) => ({
+    id: panel.id,
+    slot: 'panel' as const,
+    defaultSize: sizes.value[all.length]?.[index] ?? 100 / all.length,
+    minSize: 15,
+  })),
 );
+const keep = (layout: number[]) => layout.length > 1 && (sizes.value = { ...sizes.value, [layout.length]: layout });
 
 // The panel keeps the related notes and the graph from one note to the next, not for a note opened long after.
 onUnmounted(() => clearNuxtState(['related-shown', 'graph-shown']));
-
-function onCreated(id: string) {
-  createdId = id;
-  navigateTo(`/notes/${id}`, { replace: true });
-}
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-y-auto">
-    <!-- Below lg the two panels stack, half the height each; the page scrolls only when a half would get under 18rem. -->
-    <!-- Split, the first panel is resized like the sidebar, its width kept by the layout's UDashboardGroup. Alone, it
-         fills the page and hides its handle: the same panel either way, or opening a note beside would remount the editor. -->
-    <UDashboardPanel
-      id="note-main"
-      resizable
-      :min-size="20"
-      :default-size="40"
-      :ui="
-        split.shown.value
-          ? { root: 'min-h-0 border-0 max-lg:min-h-72 max-lg:flex-1', handle: 'border-x border-default' }
-          : { root: 'min-h-0 flex-1 border-0 lg:w-auto', handle: 'hidden' }
-      "
-    >
-      <NoteTabs />
-      <NoteEditor
-        :key="editor.key"
-        :note-id="editor.noteId"
-        :parent-id="editor.parentId"
-        :start="editor.start"
-        :note="editor.note"
-        @created="onCreated"
-      />
-    </UDashboardPanel>
-    <section
-      v-if="split.shown.value"
-      :aria-label="$t('note.beside')"
-      class="flex min-w-0 flex-1 flex-col max-lg:min-h-72 max-lg:border-t max-lg:border-default"
-    >
-      <NoteTabs beside />
-      <NoteEditor :key="beside" :note-id="beside" beside />
-    </section>
-  </div>
+  <USplitter
+    :items="items"
+    :orientation="wide ? 'horizontal' : 'vertical'"
+    class="min-h-0 flex-1"
+    :ui="{ handle: wide ? 'border-x border-default' : 'border-y border-default' }"
+    @layout="keep"
+  >
+    <template #panel="{ item, index }">
+      <NotePanel :panel="item.id" :index="index" :stacked="!wide" />
+    </template>
+  </USplitter>
 </template>

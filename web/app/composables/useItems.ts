@@ -489,18 +489,10 @@ export function useSavedSearches() {
     }
   }
 
-  /** Drops what useDragItem carried onto this saved search, moving the dragged one right before it, in its group. */
+  /** Drops what useDragItem carried onto this saved search, moving the dragged one right before it, in its group, or inside it when the target is a group. */
   async function reorderSavedSearch(draggedId: string, targetId: string) {
     if (draggedId === targetId) return;
-    await save((current) => {
-      const searches = [...current];
-      const from = searches.findIndex((s) => s.id === draggedId);
-      const to = searches.findIndex((s) => s.id === targetId);
-      if (from < 0 || to < 0 || isInside(searches, targetId, draggedId)) return searches;
-      const [moved] = searches.splice(from, 1);
-      searches.splice(to, 0, { ...moved!, parent_id: searches.find((s) => s.id === targetId)?.parent_id });
-      return searches;
-    });
+    await save((current) => reorderSearches(current, draggedId, targetId));
   }
 
   function savedSearchMenu(search: SavedSearch): ContextMenuItem[][] {

@@ -29,30 +29,38 @@ const canGoForward = computed(() => route.fullPath && !!window.history.state?.fo
 </script>
 
 <template>
-  <!-- Plain muted text like the other pages' subtitles: the path reads as before, its parts just link. -->
-  <nav class="flex min-w-0 items-center gap-1 text-xs text-muted" :aria-label="$t('path.breadcrumb')">
-    <button
-      type="button"
-      class="shrink-0 hover:text-default disabled:opacity-40 disabled:hover:text-muted"
+  <!-- Plain muted text like the other pages' subtitles: no crumb is styled active, the path reads as before, its parts just link. -->
+  <div class="flex min-w-0 items-center gap-1 text-xs text-muted">
+    <UButton
+      :icon="icons.back"
+      color="neutral"
+      variant="link"
+      size="xs"
+      class="shrink-0 p-0 text-muted"
       :aria-label="$t('path.back')"
       :disabled="!canGoBack"
       @click="router.back()"
-    >
-      <UIcon :name="icons.back" class="block size-3.5" />
-    </button>
-    <button
-      type="button"
-      class="mr-1 shrink-0 hover:text-default disabled:opacity-40 disabled:hover:text-muted"
+    />
+    <UButton
+      :icon="icons.forward"
+      color="neutral"
+      variant="link"
+      size="xs"
+      class="mr-1 shrink-0 p-0 text-muted"
       :aria-label="$t('path.forward')"
       :disabled="!canGoForward"
       @click="router.forward()"
+    />
+    <UBreadcrumb
+      :items="breadcrumb.map((crumb) => ({ ...crumb, active: false }))"
+      :aria-label="$t('path.breadcrumb')"
+      :ui="{
+        list: 'gap-1',
+        link: 'text-xs font-normal',
+        separator: 'text-muted',
+      }"
     >
-      <UIcon :name="icons.forward" class="block size-3.5" />
-    </button>
-    <template v-for="(part, index) in breadcrumb" :key="index">
-      <span v-if="index" aria-hidden="true">/</span>
-      <NuxtLink v-if="part.to" :to="part.to" class="truncate hover:text-default">{{ part.label }}</NuxtLink>
-      <span v-else class="truncate">{{ part.label }}</span>
-    </template>
-  </nav>
+      <template #separator><span>/</span></template>
+    </UBreadcrumb>
+  </div>
 </template>

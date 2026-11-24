@@ -172,8 +172,8 @@ test('a folder sorts by several choices, back to neutral', async ({ page }) => {
   await box.api.patch(`/api/notes/${older.id}`, { data: { content: '# Ancienne\n\nretouchée' } });
   await box.api.patch('/api/me', { data: { sort: '' } });
   await page.goto(`/folders/${box.folder.id}`);
-  // Not by role: the open menu hides the page from the roles.
-  const titles = page.locator('main li');
+  // Not by role: the open menu hides the page from the roles. ul: the breadcrumb's crumbs are li of an ol.
+  const titles = page.locator('main ul > li');
   const saved = () => expect.poll(async () => (await (await box.api.get('/api/me')).json()).sort);
 
   try {

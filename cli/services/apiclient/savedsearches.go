@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -159,10 +161,14 @@ func findSearch(list []DomainSavedSearch, ref string) (int, error) {
 // mode, folders into their uuid, a day into its first or last instant in UTC, as the app's dialog does.
 func searchOf(ctx context.Context, client *ClientWithResponses, view SavedSearch) (DomainSavedSearch, error) {
 	search := DomainSavedSearch{Name: strings.TrimSpace(view.Name), FolderMode: &view.FolderMode, Text: &view.Text, NotText: &view.NotText}
+	allNames, allIDs := staleIDs(view.TagsAll)
+	anyNames, anyIDs := staleIDs(view.TagsAny)
+	noneNames, noneIDs := staleIDs(view.TagsNone)
 	var err error
-	if search.TagIds, search.AnyTagIds, search.NoTagIds, err = TagIDs(ctx, client, view.TagsAll, view.TagsAny, view.TagsNone); err != nil {
+	if search.TagIds, search.AnyTagIds, search.NoTagIds, err = TagIDs(ctx, client, allNames, anyNames, noneNames); err != nil {
 		return search, err
 	}
+	search.TagIds, search.AnyTagIds, search.NoTagIds = withIDs(search.TagIds, allIDs), withIDs(search.AnyTagIds, anyIDs), withIDs(search.NoTagIds, noneIDs)
 	if search.TagIds != nil {
 		all := "all"
 		search.TagMode = &all
@@ -190,6 +196,28 @@ func searchOf(ctx context.Context, client *ClientWithResponses, view SavedSearch
 		*date.to = instant
 	}
 	return search, nil
+}
+
+// staleIDs splits off the tags a view left as ids, the tag deleted since: saved again as they are, not refused as
+// unknown names (a tag id is a uuid, a name of that form is not worth the doubt).
+func staleIDs(tags []string) (names, ids []string) {
+	for _, tag := range tags {
+		if _, err := uuid.Parse(tag); err == nil {
+			ids = append(ids, tag)
+		} else {
+			names = append(names, tag)
+		}
+	}
+	return names, ids
+}
+
+// withIDs adds ids to the tag ids TagIDs gave, nil when both are empty.
+func withIDs(list *[]string, ids []string) *[]string {
+	if len(ids) == 0 {
+		return list
+	}
+	out := append(Deref(list), ids...)
+	return &out
 }
 
 // instantOf reads a day (its first instant, or its last when end) or an RFC 3339 instant; nil when empty.

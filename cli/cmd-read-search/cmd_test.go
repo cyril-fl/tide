@@ -17,6 +17,7 @@ import (
 	"github.com/cyril-fl/tide/config"
 	"github.com/cyril-fl/tide/core/services/process/createfolder"
 	"github.com/cyril-fl/tide/core/services/process/createnote"
+	"github.com/cyril-fl/tide/core/services/process/deletetag"
 	"github.com/spf13/cobra"
 )
 
@@ -88,5 +89,43 @@ func TestSearches(t *testing.T) {
 	apitest.Plan(t, ctx, tx, "base")
 	if _, err := exec(commands.ReadSearch.Flags, Read, nil); !errors.Is(err, apiclient.ErrNoPro) {
 		t.Errorf("base plan: err = %v, want ErrNoPro", err)
+	}
+}
+
+// A saved search keeps the id of a tag deleted since; edit search saves it again as it is instead of refusing it as an
+// unknown tag name.
+func TestEditDeletedTag(t *testing.T) {
+	ctx, tx := apitest.Serve(t)
+	note := createnote.Process(ctx, tx, createnote.Input{Content: "# Old\n#gone #kept"})
+	if note.Run(); note.HasErr() {
+		t.Fatal(note.GetErr())
+	}
+	exec := func(flags []plumcliconfig.Cmdflags, do func(*cobra.Command, []string) error, args []string, parse ...string) (string, error) {
+		t.Helper()
+		command := &cobra.Command{}
+		plumcliutilsargs.Makeflags(command, flags)
+		if err := command.ParseFlags(parse); err != nil {
+			t.Fatal(err)
+		}
+		command.SetContext(ctx)
+		return apitest.Stdout(t, func() error { return do(command, args) })
+	}
+	commands := config.Current.Commands
+	if _, err := exec(commands.CreateSearch.Flags, cmdcreatesearch.Create, []string{"Mixed"}, "--tag", "gone,kept"); err != nil {
+		t.Fatal(err)
+	}
+	gone := deletetag.Process(ctx, tx, []string{"gone"})
+	if gone.Run(); gone.HasErr() {
+		t.Fatal(gone.GetErr())
+	}
+
+	printed, err := exec(commands.EditSearch.Flags, cmdeditsearch.Edit, []string{"Mixed"}, "--name", "Renamed", "--json")
+	var edited apiclient.SavedSearch
+	if err == nil {
+		err = json.Unmarshal([]byte(printed), &edited)
+	}
+	if err != nil || edited.Name != "Renamed" || len(edited.TagsAll) != 2 || !slices.Contains(edited.TagsAll, "kept") ||
+		!slices.Contains(edited.TagsAll, gone.GetResult().Tags[0].ID) {
+		t.Errorf("edit = %s, %v; want the name changed, kept by name and the deleted tag by its id", printed, err)
 	}
 }

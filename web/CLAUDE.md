@@ -21,6 +21,3 @@ Nuxt 4, Nuxt UI 4 (Tailwind 4), `@nuxtjs/i18n`, VueUse; client only, the Go API 
 - `sandbox()` of `helpers.ts` gives a test its own folder, deleted afterwards.
 - `throwaway()` gives a test its own account (made in the `note-api` container, deleted with its data afterwards), for what would break the shared e2e account: a purge, a password change.
 - A test that changes the account (settings) sets it back in a `finally`: every run shares that account.
-- A new or changed test is done when it passes `bunx playwright test <spec> -g "<name>" --repeat-each 10`, not once. A CI failure is reproduced that way first; no `retries`, they hide the real races (the ⌘Z one was a bug of the app).
-- A test waits for what the app shows of the state its next step needs (the url, a toast, `waitForResponse`), not for a change that comes first: a list redrawn is not the work finished. Never a fixed timeout.
-- In the app, what a later action reads (the undo stack, a created id) is written before the UI shows the change, or that action waits for it: not after `await refreshNuxtData()`, which the list beats.

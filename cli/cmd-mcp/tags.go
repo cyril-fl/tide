@@ -185,7 +185,7 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 		// The API's answer carries the diff of each note. Hundreds of notes take longer than Timeout.
 		ctx, cancel := apiclient.Long(ctx)
 		defer cancel()
-		out, err := decode[[]tagged](client.PatchApiNotesTags(ctx, apiclient.TagnotesInput{Notes: args.Notes, Add: &args.Add, Remove: &args.Remove, Ops: &ops, DryRun: &args.DryRun}))
+		out, err := apiclient.Decode[[]tagged](client.PatchApiNotesTags(ctx, apiclient.TagnotesInput{Notes: args.Notes, Add: &args.Add, Remove: &args.Remove, Ops: &ops, DryRun: &args.DryRun}))
 		for i := range out {
 			if out[i].Error == "" {
 				out[i].Note = "" // the id says which note
@@ -204,7 +204,7 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 		Description: "Tags are #words in note text, case-insensitive. List a tag's notes and total; without one, all tags, most used first.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args tagsArgs) (*mcp.CallToolResult, tags, error) {
 		if args.Tag == "" {
-			counts, err := decode[[]apiclient.CounttagsTagCount](client.GetApiGraph(ctx))
+			counts, err := apiclient.Decode[[]apiclient.CounttagsTagCount](client.GetApiGraph(ctx))
 			prefix := strings.ToLower(strings.TrimPrefix(args.Prefix, "#"))
 			counts = slices.DeleteFunc(counts, func(count apiclient.CounttagsTagCount) bool {
 				return count.Notes < args.MinNotes || !strings.HasPrefix(strings.ToLower(count.Value), prefix)
@@ -216,7 +216,7 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 			return nil, tags{Tags: counts}, err
 		}
 		limit, offset := limitOf(args.Limit), max(args.Offset, 0)
-		result, total, err := paged[apiclient.ReadtagResult](client.GetApiTagsValue(ctx, args.Tag, &apiclient.GetApiTagsValueParams{Limit: &limit, Offset: &offset}))
+		result, total, err := apiclient.Paged[apiclient.ReadtagResult](client.GetApiTagsValue(ctx, args.Tag, &apiclient.GetApiTagsValueParams{Limit: &limit, Offset: &offset}))
 		if err != nil {
 			return nil, tags{}, err
 		}
@@ -238,7 +238,7 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args renameTagArgs) (*mcp.CallToolResult, renamedTags, error) {
 		ctx, cancel := apiclient.Long(ctx) // many notes take longer than Timeout, like delete_tag
 		defer cancel()
-		renamed, err := decode[[]renamedTag](client.PatchApiTags(ctx, apiclient.EdittagManyBody{Values: args.Tags, Value: args.To, Merge: &args.Merge, DryRun: &args.DryRun}))
+		renamed, err := apiclient.Decode[[]renamedTag](client.PatchApiTags(ctx, apiclient.EdittagManyBody{Values: args.Tags, Value: args.To, Merge: &args.Merge, DryRun: &args.DryRun}))
 		for i := range renamed {
 			if args.DryRun {
 				changed := len(renamed[i].Notes)
@@ -259,7 +259,7 @@ func addTagTools(server *mcp.Server, client *apiclient.ClientWithResponses, read
 		// Many notes take longer than Timeout, like tag_notes.
 		ctx, cancel := apiclient.Long(ctx)
 		defer cancel()
-		deleted, err := decode[apiclient.DeletetagResult](client.DeleteApiTags(ctx, apiclient.DeletetagBody{Values: args.Tags, DryRun: &args.DryRun, KeepEmpty: &args.KeepEmpty}))
+		deleted, err := apiclient.Decode[apiclient.DeletetagResult](client.DeleteApiTags(ctx, apiclient.DeletetagBody{Values: args.Tags, DryRun: &args.DryRun, KeepEmpty: &args.KeepEmpty}))
 		out := deletedTag{Tags: deleted.Tags, Changed: deleted.Changed, Trashed: len(deleted.Trashed), Notes: deleted.Trashed}
 		if args.Summary {
 			out.Notes = nil

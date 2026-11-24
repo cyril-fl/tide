@@ -2,11 +2,7 @@ package cmdmcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/cyril-fl/tide/cli/services/apiclient"
@@ -26,29 +22,6 @@ func limitOf(asked *int) int {
 		return pageSize
 	}
 	return max(*asked, 0)
-}
-
-// errAccountStale is the text of edituser.ErrStale the API answers: the account changed since it was read.
-const errAccountStale = "account settings changed elsewhere since they were read"
-
-// editMe reads the account, has edit build the whole lists to save from it, and saves them through PATCH /api/me with
-// the updated_at read: a write of the app or another agent in between is read again and edit run over it, once.
-func editMe(ctx context.Context, client *apiclient.ClientWithResponses, edit func(apiclient.DomainUser) (apiclient.EdituserInput, error)) (apiclient.DomainUser, error) {
-	for try := 0; ; try++ {
-		me, err := decode[apiclient.DomainUser](client.GetApiMe(ctx))
-		if err != nil {
-			return me, err
-		}
-		input, err := edit(me)
-		if err != nil {
-			return me, err
-		}
-		input.UpdatedAt = &me.UpdatedAt
-		me, err = decode[apiclient.DomainUser](client.PatchApiMe(ctx, input))
-		if err == nil || err.Error() != errAccountStale || try > 0 {
-			return me, err
-		}
-	}
 }
 
 // addTool adds tool to server, unless readOnly and the tool changes something: its annotations tell it.
@@ -85,33 +58,6 @@ func reads() *mcp.ToolAnnotations {
 // the trash and the history keep what it took), idempotent when calling it again with the same arguments changes nothing more.
 func writes(destructive, idempotent bool) *mcp.ToolAnnotations {
 	return &mcp.ToolAnnotations{DestructiveHint: &destructive, IdempotentHint: idempotent, OpenWorldHint: new(false)}
-}
-
-// decode reads a JSON answer into the generated type of the route; any status but 2xx is the API's error.
-func decode[T any](response *http.Response, err error) (T, error) {
-	var out T
-	if err != nil {
-		return out, err
-	}
-	defer response.Body.Close()
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return out, err
-	}
-	if response.StatusCode/100 != 2 {
-		return out, apiclient.Fail(response, body)
-	}
-	return out, json.Unmarshal(body, &out)
-}
-
-// paged decodes a page of a list, and the X-Total-Count of the whole list.
-func paged[T any](response *http.Response, err error) (T, int, error) {
-	out, err := decode[T](response, err)
-	if err != nil {
-		return out, 0, err
-	}
-	total, err := strconv.Atoi(response.Header.Get("X-Total-Count"))
-	return out, total, err
 }
 
 // page is domain.Page, which the CLI cannot import: limit items from offset, all of them from offset when limit is 0.

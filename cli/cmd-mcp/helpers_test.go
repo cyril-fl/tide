@@ -96,12 +96,12 @@ func TestEditMeRetries(t *testing.T) {
 	}
 
 	runs := 0
-	me, err := editMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {
+	me, err := apiclient.EditMe(ctx, client, func(me apiclient.DomainUser) (apiclient.EdituserInput, error) {
 		runs++
 		if runs == 1 {
 			// The app saves a snippet after the read: the first save must be refused, not overwrite it.
 			app := []apiclient.DomainSnippet{{Name: "App"}}
-			if _, err := decode[apiclient.DomainUser](client.PatchApiMe(ctx, apiclient.EdituserInput{Snippets: &app})); err != nil {
+			if _, err := apiclient.Decode[apiclient.DomainUser](client.PatchApiMe(ctx, apiclient.EdituserInput{Snippets: &app})); err != nil {
 				t.Fatal(err)
 			}
 		}

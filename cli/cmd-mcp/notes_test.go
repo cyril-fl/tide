@@ -188,7 +188,7 @@ func TestNotes(t *testing.T) {
 		t.Fatal(err)
 	}
 	lock := func(on bool) {
-		if _, err := decode[apiclient.ReaditemResult](client.PatchApiNotesId(context.Background(), created.ID, apiclient.EditnoteBody{Readonly: &on})); err != nil {
+		if _, err := apiclient.Decode[apiclient.ReaditemResult](client.PatchApiNotesId(context.Background(), created.ID, apiclient.EditnoteBody{Readonly: &on})); err != nil {
 			t.Fatal(err)
 		}
 	}

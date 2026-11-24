@@ -93,7 +93,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 			if args.Folder != "" {
 				return nil, folderPage{}, errTrashAlone
 			}
-			trash, err := decode[[]apiclient.ListtrashTrashed](client.GetApiTrash(ctx))
+			trash, err := apiclient.Decode[[]apiclient.ListtrashTrashed](client.GetApiTrash(ctx))
 			return nil, folderPage{Trash: trash, Total: len(trash)}, err
 		}
 		parentID, err := resolveFolder(ctx, client, args.Folder)
@@ -101,7 +101,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 			return nil, folderPage{}, err
 		}
 		limit, offset := limitOf(args.Limit), max(args.Offset, 0)
-		found, total, err := paged[[]apiclient.DomainItem](client.GetApiItems(ctx, &apiclient.GetApiItemsParams{Parent: &parentID, Limit: &limit, Offset: &offset}))
+		found, total, err := apiclient.Paged[[]apiclient.DomainItem](client.GetApiItems(ctx, &apiclient.GetApiItemsParams{Parent: &parentID, Limit: &limit, Offset: &offset}))
 		_, page, err := made(found, err)
 		items := page.Items
 		if !args.Dates {
@@ -132,7 +132,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 			return nil, nil, err
 		}
 		if args.Title != "" {
-			created, err := decode[apiclient.DomainItem](client.PostApiFolders(ctx, apiclient.CreatefolderInput{Title: args.Title, ParentId: &parentID}))
+			created, err := apiclient.Decode[apiclient.DomainItem](client.PostApiFolders(ctx, apiclient.CreatefolderInput{Title: args.Title, ParentId: &parentID}))
 			if err != nil {
 				return nil, nil, err
 			}
@@ -140,11 +140,11 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 		}
 		read := make([]note, 0, len(args.Notes))
 		for _, content := range args.Notes {
-			created, err := decode[apiclient.DomainItem](client.PostApiNotes(ctx, apiclient.CreatenoteInput{Content: content, ParentId: &parentID, Tags: &args.Tags}))
+			created, err := apiclient.Decode[apiclient.DomainItem](client.PostApiNotes(ctx, apiclient.CreatenoteInput{Content: content, ParentId: &parentID, Tags: &args.Tags}))
 			if err == nil {
 				// Read back: the API answers the item alone, without the path nor the tags it parsed.
 				var got note
-				if got, err = readNote(decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, created.Id))); err == nil {
+				if got, err = readNote(apiclient.Decode[apiclient.ReaditemResult](client.GetApiNotesId(ctx, created.Id))); err == nil {
 					read = append(read, got)
 					continue
 				}
@@ -171,7 +171,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 		if err != nil {
 			return nil, item{}, err
 		}
-		renamed, err := decode[apiclient.DomainItem](client.PatchApiFoldersId(ctx, id, apiclient.EditfolderBody{Title: &args.Title}))
+		renamed, err := apiclient.Decode[apiclient.DomainItem](client.PatchApiFoldersId(ctx, id, apiclient.EditfolderBody{Title: &args.Title}))
 		return nil, one(renamed), err
 	})
 
@@ -192,7 +192,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 		if err != nil {
 			return nil, changed{}, err
 		}
-		return made(decode[[]apiclient.DomainItem](client.PostApiMove(ctx, apiclient.MoveitemsInput{Ids: ids, ParentId: &parentID})))
+		return made(apiclient.Decode[[]apiclient.DomainItem](client.PostApiMove(ctx, apiclient.MoveitemsInput{Ids: ids, ParentId: &parentID})))
 	})
 
 	// A folder needs recursive: a folder's path given for a note must not send a whole subtree to the trash.
@@ -217,9 +217,9 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 			ids[i] = id
 		}
 		if args.Recursive {
-			return made(decode[[]apiclient.DomainItem](client.DeleteApiFolders(ctx, apiclient.DeleteApiFoldersJSONRequestBody{Ids: ids})))
+			return made(apiclient.Decode[[]apiclient.DomainItem](client.DeleteApiFolders(ctx, apiclient.DeleteApiFoldersJSONRequestBody{Ids: ids})))
 		}
-		return made(decode[[]apiclient.DomainItem](client.DeleteApiNotes(ctx, apiclient.DeleteApiNotesJSONRequestBody{Ids: ids})))
+		return made(apiclient.Decode[[]apiclient.DomainItem](client.DeleteApiNotes(ctx, apiclient.DeleteApiNotesJSONRequestBody{Ids: ids})))
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -228,7 +228,7 @@ func addFolderTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 		Description: "Take notes or folders out of the trash, with what was trashed with them.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args trashedArgs) (*mcp.CallToolResult, changed, error) {
 		// No resolve: a trashed item has no path to look up.
-		return made(decode[[]apiclient.DomainItem](client.PostApiRestore(ctx, apiclient.RestoreBody{Ids: args.Items})))
+		return made(apiclient.Decode[[]apiclient.DomainItem](client.PostApiRestore(ctx, apiclient.RestoreBody{Ids: args.Items})))
 	})
 }
 
@@ -250,7 +250,7 @@ func describe(ctx context.Context, client *apiclient.ClientWithResponses, items 
 	maxChars := max(args.Preview, 1) // 0 would send the whole content
 	for from := 0; from < len(ids); from += readBatch {
 		to := min(from+readBatch, len(ids))
-		read, err := decode[[]apiclient.ReadnotesNote](client.PostApiNotesRead(ctx, apiclient.ReadnotesBody{Notes: ids[from:to], MaxChars: &maxChars}))
+		read, err := apiclient.Decode[[]apiclient.ReadnotesNote](client.PostApiNotesRead(ctx, apiclient.ReadnotesBody{Notes: ids[from:to], MaxChars: &maxChars}))
 		if err != nil {
 			return err
 		}

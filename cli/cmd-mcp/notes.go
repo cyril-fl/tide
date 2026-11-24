@@ -156,7 +156,7 @@ func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 		Description: "Read notes in the order asked, with tags and length, what they share said once.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args notesArgs) (*mcp.CallToolResult, batch, error) {
 		// One request for the batch, the preview cut on the server: the agent may be far over Tailscale (#210).
-		found, err := decode[[]apiclient.ReadnotesNote](client.PostApiNotesRead(ctx, apiclient.ReadnotesBody{Notes: args.Notes, MaxChars: &args.MaxChars}))
+		found, err := apiclient.Decode[[]apiclient.ReadnotesNote](client.PostApiNotesRead(ctx, apiclient.ReadnotesBody{Notes: args.Notes, MaxChars: &args.MaxChars}))
 		if err != nil {
 			return nil, batch{}, err
 		}
@@ -205,7 +205,7 @@ func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 			tags := append(hashtag.Parse(args.Content), args.Tags...)
 			input.Tags = &tags
 		}
-		edited, err := readNote(decode[apiclient.ReaditemResult](client.PatchApiNotesId(ctx, id, input)))
+		edited, err := readNote(apiclient.Decode[apiclient.ReaditemResult](client.PatchApiNotesId(ctx, id, input)))
 		edited.Content = "" // the agent has just sent it
 		return nil, partEdit{note: edited}, err
 	})
@@ -223,7 +223,7 @@ func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 			}
 			body.Folder = &id
 		}
-		result, err := decode[apiclient.ReplacenotesResult](client.PostApiReplace(ctx, body))
+		result, err := apiclient.Decode[apiclient.ReplacenotesResult](client.PostApiReplace(ctx, body))
 		result.Matches = nil // the excerpts are for the app's list: the counts are enough here
 		return nil, result, err
 	})
@@ -238,10 +238,10 @@ func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 			return nil, history{}, err
 		}
 		if args.Version == "" {
-			versions, err := decode[[]apiclient.DomainNoteVersion](client.GetApiNotesIdVersions(ctx, id))
+			versions, err := apiclient.Decode[[]apiclient.DomainNoteVersion](client.GetApiNotesIdVersions(ctx, id))
 			return nil, history{Versions: versions}, err
 		}
-		version, err := decode[apiclient.DomainNoteVersion](client.GetApiNotesIdVersionsVersion(ctx, id, args.Version))
+		version, err := apiclient.Decode[apiclient.DomainNoteVersion](client.GetApiNotesIdVersionsVersion(ctx, id, args.Version))
 		if err != nil {
 			return nil, history{}, err
 		}
@@ -254,14 +254,14 @@ func addNoteTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 		Description: "List a note's links, backlinks and the notes sharing its tags; without a note, the broken links.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args linksArgs) (*mcp.CallToolResult, links, error) {
 		if args.Note == "" {
-			broken, err := decode[[]apiclient.ListbrokenlinksLink](client.GetApiLinksBroken(ctx))
+			broken, err := apiclient.Decode[[]apiclient.ListbrokenlinksLink](client.GetApiLinksBroken(ctx))
 			return nil, links{Broken: broken}, err
 		}
 		id, err := apiclient.Resolve(ctx, client, apiclient.NOTE, args.Note)
 		if err != nil {
 			return nil, links{}, err
 		}
-		result, err := decode[apiclient.ReadneighborsResult](client.GetApiNotesIdNeighbors(ctx, id))
+		result, err := apiclient.Decode[apiclient.ReadneighborsResult](client.GetApiNotesIdNeighbors(ctx, id))
 		if err != nil {
 			return nil, links{}, err
 		}
@@ -275,7 +275,7 @@ func editText(ctx context.Context, client *apiclient.ClientWithResponses, ref st
 	if err != nil {
 		return partEdit{}, err
 	}
-	result, err := decode[apiclient.EditnotetextResult](client.PatchApiNotesIdText(ctx, id, input))
+	result, err := apiclient.Decode[apiclient.EditnotetextResult](client.PatchApiNotesIdText(ctx, id, input))
 	if err != nil {
 		return partEdit{}, err
 	}

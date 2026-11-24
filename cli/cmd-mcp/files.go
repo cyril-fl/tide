@@ -24,11 +24,6 @@ var errBadPath = errors.New("not the relative path of a .md file")
 // filesDir is exportnotes.FilesDir, where an export puts the images and attachments.
 const filesDir = "_files"
 
-// fileURL is domain.FileURL, how a note cites a file.
-func fileURL(id string) string {
-	return "/api/files/" + id
-}
-
 type fileArgs struct {
 	File string `json:"file,omitempty" jsonschema:"a file's uuid (/api/files/<uuid>); the list when empty"`
 }
@@ -84,7 +79,7 @@ func addFileTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 		Description: "Read an image or attachment a note cites; without a file, list the files, largest first.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args fileArgs) (*mcp.CallToolResult, any, error) {
 		if args.File == "" {
-			files, err := decode[[]apiclient.DomainFile](client.GetApiFiles(ctx))
+			files, err := apiclient.Decode[[]apiclient.DomainFile](client.GetApiFiles(ctx))
 			return nil, struct {
 				Files []apiclient.DomainFile `json:"files"`
 			}{files}, err
@@ -111,14 +106,11 @@ func addFileTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 		if err != nil {
 			return nil, attached{}, fmt.Errorf("data is not base64: %w", err)
 		}
-		ctx, cancel := apiclient.Long(ctx)
-		defer cancel()
-		// The server reads the type from the bytes, not from this header.
-		file, err := decode[apiclient.DomainFile](client.PostApiFilesWithBody(ctx, &apiclient.PostApiFilesParams{Name: &args.Name}, "application/octet-stream", bytes.NewReader(data)))
+		file, err := apiclient.Attach(ctx, client, args.Name, bytes.NewReader(data))
 		if err != nil {
 			return nil, attached{}, err
 		}
-		return nil, attached{ID: file.Id, Markdown: citation(file, args.Name)}, nil
+		return nil, attached{ID: file.Id, Markdown: apiclient.Citation(file, args.Name)}, nil
 	})
 
 	addTool(server, readOnly, &mcp.Tool{
@@ -186,7 +178,7 @@ func addFileTools(server *mcp.Server, client *apiclient.ClientWithResponses, rea
 		}
 		ctx, cancel := apiclient.Long(ctx)
 		defer cancel()
-		result, err := decode[apiclient.ImportnotesResult](client.PostApiImportWithBody(ctx, &apiclient.PostApiImportParams{Parent: &parentID}, "application/zip", &body))
+		result, err := apiclient.Decode[apiclient.ImportnotesResult](client.PostApiImportWithBody(ctx, &apiclient.PostApiImportParams{Parent: &parentID}, "application/zip", &body))
 		return nil, result, err
 	})
 }
@@ -199,16 +191,7 @@ func fileContent(id, contentType string, data []byte) mcp.Content {
 	case strings.HasPrefix(contentType, "audio/"):
 		return &mcp.AudioContent{Data: data, MIMEType: contentType}
 	}
-	return &mcp.EmbeddedResource{Resource: &mcp.ResourceContents{URI: fileURL(id), MIMEType: contentType, Blob: data}}
-}
-
-// citation is the markdown of a file in a note, under the name given (the stored one is sealed): an image shown, anything else linked.
-func citation(file apiclient.DomainFile, name string) string {
-	link := "[" + name + "](" + fileURL(file.Id) + ")"
-	if strings.HasPrefix(file.ContentType, "image/") {
-		return "!" + link
-	}
-	return link
+	return &mcp.EmbeddedResource{Resource: &mcp.ResourceContents{URI: apiclient.FileURL(id), MIMEType: contentType, Blob: data}}
 }
 
 // exportedFiles reads the zip of GET /api/export: the directories left out, implied by the paths of what they hold,

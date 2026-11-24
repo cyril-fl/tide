@@ -58,7 +58,7 @@ func addSearchTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 		switch args.List {
 		case "":
 		case "recent":
-			recent, err := decode[[]apiclient.ListrecentRecent](client.GetApiRecent(ctx))
+			recent, err := apiclient.Decode[[]apiclient.ListrecentRecent](client.GetApiRecent(ctx))
 			return nil, searchPage{Recent: recent, Total: len(recent)}, err
 		case "duplicates", "same_path":
 			groups, err := apiclient.Duplicates(ctx, client, args.List == "same_path")
@@ -70,7 +70,7 @@ func addSearchTools(server *mcp.Server, client *apiclient.ClientWithResponses, r
 		if err != nil {
 			return nil, searchPage{}, err
 		}
-		matches, total, err := paged[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, params))
+		matches, total, err := apiclient.Paged[[]apiclient.SearchnotesMatch](client.GetApiSearch(ctx, params))
 		return nil, searchPage{Matches: matches, Total: total}, err
 	})
 }

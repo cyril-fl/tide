@@ -38,7 +38,7 @@ func TestSavedSearches(t *testing.T) {
 		}
 	}
 
-	var saved savedSearch
+	var saved apiclient.SavedSearch
 	call(t, agent, "save_search", map[string]any{"name": "Italian", "tags_all": []string{"cuisine", "#Italie"}}, &saved)
 	if saved.ID == "" || !slices.Equal(saved.TagsAll, []string{"cuisine", "italie"}) || len(saved.TagsAny) != 0 {
 		t.Errorf("save_search = %+v", saved)
@@ -67,7 +67,7 @@ func TestSavedSearches(t *testing.T) {
 	}
 
 	// cuisine AND (italie OR …), without the tag none nor the text left out, stored and replayed.
-	var precise savedSearch
+	var precise apiclient.SavedSearch
 	call(t, agent, "save_search", map[string]any{"name": "Precise", "tags_all": []string{"cuisine"}, "tags_any": []string{"italie"}, "tags_none": []string{"cuisine"}, "not_text": "x"}, &precise)
 	if !slices.Equal(precise.TagsAll, []string{"cuisine"}) || !slices.Equal(precise.TagsAny, []string{"italie"}) || !slices.Equal(precise.TagsNone, []string{"cuisine"}) || precise.NotText != "x" {
 		t.Errorf("save_search Precise = %+v", precise)
@@ -80,7 +80,7 @@ func TestSavedSearches(t *testing.T) {
 	}
 	call(t, agent, "save_search", map[string]any{"search": "Precise", "delete": true}, nil)
 
-	var removed savedSearch
+	var removed apiclient.SavedSearch
 	call(t, agent, "save_search", map[string]any{"search": "Italian", "delete": true}, &removed)
 	var listed searches
 	call(t, agent, "saved_searches", map[string]any{}, &listed)
@@ -112,7 +112,7 @@ func TestSavedSearches(t *testing.T) {
 		t.Fatal(err)
 	}
 	base := domain.Plans[0]
-	if _, err := decode[apiclient.DomainUser](client.PatchApiMe(context.Background(), apiclient.EdituserInput{Plan: &base})); err != nil {
+	if _, err := apiclient.Decode[apiclient.DomainUser](client.PatchApiMe(context.Background(), apiclient.EdituserInput{Plan: &base})); err != nil {
 		t.Fatal(err)
 	}
 	for _, try := range []attempt{{"saved_searches", map[string]any{}}, {"save_search", map[string]any{"name": "x"}}, {"save_search", map[string]any{"search": "Cooking", "delete": true}}} {

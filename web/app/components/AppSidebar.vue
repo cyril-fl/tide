@@ -188,21 +188,20 @@ const isOverRoot = useDropFolder(rootLink, () => null);
     </div>
 
     <div v-if="settingsNav" class="min-h-0 flex-1 overflow-y-auto">
-      <NuxtLink to="/" class="row font-medium">
-        <UIcon :name="icons.back" class="size-4 shrink-0" />
-        {{ $t('common.backToNotes') }}
-      </NuxtLink>
-      <h2 class="px-2 pt-4 pb-1 text-xs font-medium text-muted">{{ $t('common.settings') }}</h2>
-      <NuxtLink
-        v-for="link in settingsLinks"
-        :key="link.to"
-        :to="link.to"
-        class="row"
-        :class="{ 'row-active': route.path === link.to }"
-      >
-        <UIcon :name="link.icon" class="size-4 shrink-0" />
-        {{ link.label }}
-      </NuxtLink>
+      <!-- Sized like the rows of the notes' sidebar it replaces. -->
+      <UNavigationMenu
+        :items="[
+          [{ label: $t('common.backToNotes'), icon: icons.back, to: '/', active: false, class: 'font-medium' }],
+          [{ label: $t('common.settings'), type: 'label' }, ...settingsLinks],
+        ]"
+        orientation="vertical"
+        :ui="{
+          link: 'h-7 px-2',
+          linkLeadingIcon: 'size-4',
+          label: 'px-2 pt-4 pb-1 text-xs font-medium text-muted',
+          separator: 'hidden',
+        }"
+      />
     </div>
     <template v-else>
       <!-- Above the scrolling area, so a long folder tree never hides it. -->

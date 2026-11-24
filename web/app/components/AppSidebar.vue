@@ -3,7 +3,7 @@ import type { Recent, TagCount, User } from '~/types/items';
 
 const { icons } = useIcons();
 const { shortcuts } = useShortcuts();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 defineProps<{ collapsed?: boolean }>();
 
@@ -57,9 +57,11 @@ const { data: recent } = useLazyAsyncData('recent', () => api<Recent[]>('/api/re
 const recentNotes = computed(() =>
   recent.value.filter((note) => !pinnedNotes.value.some((pinned) => pinned.id === note.id)).slice(0, 5),
 );
-const { data: tags } = useLazyAsyncData('tags', () => api<TagCount[]>('/api/graph'), {
+const { data: tagCounts } = useLazyAsyncData('tags', () => api<TagCount[]>('/api/graph'), {
   default: () => [] as TagCount[],
 });
+// The API gives the most used first (the editor's suggestions want that), the sidebar reads them by name.
+const tags = computed(() => tagCounts.value.toSorted((a, b) => a.value.localeCompare(b.value, locale.value)));
 // On a tag page, a click on a tag includes it, excludes it, then leaves it (utils/tagFilter.ts).
 const tagFilter = computed(() => readTagFilter(route));
 

@@ -6,6 +6,7 @@ const { icons } = useIcons();
 const route = useRoute();
 const api = useApi();
 const view = useView();
+const { active: previewing } = usePreview();
 
 const q = computed(() => (typeof route.query.q === 'string' ? route.query.q : ''));
 
@@ -21,18 +22,20 @@ const {
 </script>
 
 <template>
-  <div class="p-8">
-    <UPageHeader :title="$t('search.title')" :headline="q">
-      <template #links>
-        <ViewToggle />
-      </template>
-    </UPageHeader>
-    <NoteList v-if="matches.length" :notes="matches" :grid="view === 'grid'" dated :load="load" />
-    <UEmpty
-      v-else-if="status !== 'pending'"
-      :icon="icons.searchEmpty"
-      :title="q.trim() ? $t('search.noResult') : $t('search.empty')"
-      :description="q.trim() ? $t('search.noResultDescription', { q }) : $t('search.emptyDescription')"
-    />
-  </div>
+  <ListPreview>
+    <div class="flex flex-1 flex-col p-8">
+      <UPageHeader :title="$t('search.title')" :headline="q">
+        <template #links>
+          <ViewToggle />
+        </template>
+      </UPageHeader>
+      <NoteList v-if="matches.length" :notes="matches" :grid="view === 'grid' && !previewing" dated :load="load" />
+      <UEmpty
+        v-else-if="status !== 'pending'"
+        :icon="icons.searchEmpty"
+        :title="q.trim() ? $t('search.noResult') : $t('search.empty')"
+        :description="q.trim() ? $t('search.noResultDescription', { q }) : $t('search.emptyDescription')"
+      />
+    </div>
+  </ListPreview>
 </template>

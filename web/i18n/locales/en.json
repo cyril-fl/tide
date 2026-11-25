@@ -150,7 +150,10 @@
     "sortPinned": "Pinned",
     "sortPinnedFirst": "Pinned first",
     "sortPinnedLast": "Pinned last",
-    "sortReset": "Reset the sort"
+    "sortReset": "Reset the sort",
+    "preview": "Preview",
+    "previewEmpty": "Click a note to read it here",
+    "open": "Open"
   },
   "path": {
     "breadcrumb": "Breadcrumb",
@@ -582,6 +585,7 @@
     "hideFolders": "Hide the folders of the sidebar",
     "snippetSort": "Sort the snippets of the settings by name or date",
     "notePreviews": "A preview of the notes' text in the grid view",
+    "listPreview": "The preview beside the lists of notes (folder, tag, search): a click shows the note read only, from 1024px",
     "replaceEverywhere": "Replace a text in every note, from the Cmd K palette",
     "search": "Search and the Cmd K palette",
     "themes": "Color themes, in light and dark mode",

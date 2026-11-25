@@ -7,6 +7,9 @@ const props = defineProps<{ folderId?: string; title: string; subtitle?: string 
 
 const { createFolder, moveItem, removeItems, exportItems } = useItems();
 const view = useView();
+const preview = usePreview();
+// The preview lists the items in rows.
+const grid = computed(() => view.value === 'grid' && !preview.active.value);
 const { items, status, load } = useFolderPages(props.folderId);
 
 // ⌘-click (Ctrl elsewhere) adds or takes out an item, ⇧-click selects a range from the last one; a plain click opens it.
@@ -79,7 +82,7 @@ const lasso = useLasso(list);
 const rows = useVirtualRows(
   list,
   () => items.value.length,
-  () => view.value === 'grid',
+  () => grid.value,
   { row: 36, caption: 32 },
 );
 const visible = computed(() => ({ ...rows.value, items: items.value.slice(rows.value.start, rows.value.end) }));
@@ -88,122 +91,135 @@ watchEffect(() => load(visible.value.start, visible.value.start + visible.value.
 </script>
 
 <template>
-  <div
-    ref="panel"
-    class="flex min-h-full flex-col p-8 transition-shadow duration-150"
-    :class="{ 'ring-2 ring-inset ring-primary/40': isOver }"
-  >
-    <UPageHeader :title="title">
-      <template #links>
-        <SortMenu />
-        <ViewToggle />
-        <UTooltip :text="$t('common.newFolder')">
-          <UButton
-            :icon="icons.folderAdd"
-            color="neutral"
-            variant="ghost"
-            :aria-label="$t('common.newFolder')"
-            @click="createFolder(folderId)"
-          />
-        </UTooltip>
-        <UTooltip :text="$t('common.newNote')">
-          <UButton
-            :icon="icons.noteAdd"
-            color="neutral"
-            variant="ghost"
-            :aria-label="$t('common.newNote')"
-            :to="newNotePath(folderId)"
-          />
-        </UTooltip>
-      </template>
-    </UPageHeader>
-    <div v-if="lasso" class="pointer-events-none fixed z-50 border border-primary/60 bg-primary/10" :style="lasso" />
-    <ul
-      v-if="items.length"
-      ref="list"
-      :class="{ mosaic: view === 'grid' }"
-      :style="{ paddingTop: `${visible.before}px`, paddingBottom: `${visible.after}px` }"
+  <ListPreview>
+    <div
+      ref="panel"
+      class="flex flex-1 flex-col p-8 transition-shadow duration-150"
+      :class="{ 'ring-2 ring-inset ring-primary/40': isOver }"
     >
-      <li
-        v-for="(item, index) in visible.items"
-        :key="item?.id ?? visible.start + index"
-        :data-id="item?.id"
-        @click.capture="select($event, visible.start + index)"
-      >
-        <ItemRow v-if="item" :item="item" :grid="view === 'grid'" :selected="selectedIds.has(item.id)" />
-        <!-- A tile is a square, then gap-2 and its two lines of text. -->
-        <USkeleton v-else :class="view === 'grid' ? 'mb-10 aspect-square' : 'h-9'" />
-      </li>
-    </ul>
-    <UEmpty
-      v-else-if="status === 'success'"
-      :icon="icons.folderEmpty"
-      :title="$t('folder.empty')"
-      :description="$t('folder.emptyDescription')"
-      :actions="[
-        { label: $t('common.newNote'), icon: icons.noteAdd, to: newNotePath(folderId) },
-        {
-          label: $t('common.newFolder'),
-          icon: icons.folderAdd,
-          color: 'neutral',
-          variant: 'subtle',
-          onClick: () => createFolder(folderId),
-        },
-      ]"
-    />
-    <!-- Like a note's footer, the selection's actions with the navigation. The subtitle is the folder's own path: the breadcrumb leads to its parents. -->
-    <footer
-      v-if="subtitle || selected.length"
-      class="sticky bottom-0 z-10 -mx-8 -mb-8 mt-auto border-t border-default bg-default px-8"
-    >
-      <div class="flex h-9 items-center gap-2 text-xs text-muted">
-        <PathNav v-if="subtitle" :path="subtitle.slice(0, subtitle.lastIndexOf('/'))" />
-        <template v-if="selected.length">
-          <span class="ml-auto shrink-0">{{ $t('folder.selected', selected.length) }}</span>
-          <UPopover v-model:open="moving">
-            <UTooltip :text="$t('folder.moveTo')">
-              <UButton :icon="icons.move" color="neutral" variant="ghost" size="xs" :aria-label="$t('folder.moveTo')" />
-            </UTooltip>
-            <template #content>
-              <UCommandPalette
-                :groups="[{ id: 'folders', items: folders }]"
-                :placeholder="$t('folder.moveToPlaceholder')"
-                class="max-h-72 w-72"
-              />
-            </template>
-          </UPopover>
-          <UTooltip :text="$t('settings.export')">
+      <UPageHeader :title="title">
+        <template #links>
+          <SortMenu />
+          <ViewToggle />
+          <UTooltip :text="$t('common.newFolder')">
             <UButton
-              :icon="icons.export"
+              :icon="icons.folderAdd"
               color="neutral"
               variant="ghost"
-              size="xs"
-              :aria-label="$t('settings.export')"
-              @click="exportItems(selection)"
+              :aria-label="$t('common.newFolder')"
+              @click="createFolder(folderId)"
             />
           </UTooltip>
-          <UTooltip :text="$t('common.delete')">
+          <UTooltip :text="$t('common.newNote')">
             <UButton
-              :icon="icons.delete"
-              color="error"
-              variant="ghost"
-              size="xs"
-              :aria-label="$t('common.delete')"
-              @click="removeSelection"
-            />
-          </UTooltip>
-          <UTooltip :text="$t('folder.clearSelection')" :kbds="['esc']">
-            <UButton
-              :icon="icons.close"
+              :icon="icons.noteAdd"
               color="neutral"
               variant="ghost"
-              size="xs"
-              :aria-label="$t('folder.clearSelection')"
-              @click="selection = []"
+              :aria-label="$t('common.newNote')"
+              :to="newNotePath(folderId)"
             />
           </UTooltip>
         </template>
-      </div>
-    </footer>
-  </div>
+      </UPageHeader>
+      <div v-if="lasso" class="pointer-events-none fixed z-50 border border-primary/60 bg-primary/10" :style="lasso" />
+      <ul
+        v-if="items.length"
+        ref="list"
+        :class="{ mosaic: grid }"
+        :style="{ paddingTop: `${visible.before}px`, paddingBottom: `${visible.after}px` }"
+      >
+        <li
+          v-for="(item, index) in visible.items"
+          :key="item?.id ?? visible.start + index"
+          :data-id="item?.id"
+          @click.capture="select($event, visible.start + index)"
+        >
+          <ItemRow
+            v-if="item"
+            :item="item"
+            :grid="grid"
+            :selected="selectedIds.has(item.id) || (preview.active.value && item.id === preview.shown.value)"
+          />
+          <!-- A tile is a square, then gap-2 and its two lines of text. -->
+          <USkeleton v-else :class="grid ? 'mb-10 aspect-square' : 'h-9'" />
+        </li>
+      </ul>
+      <UEmpty
+        v-else-if="status === 'success'"
+        :icon="icons.folderEmpty"
+        :title="$t('folder.empty')"
+        :description="$t('folder.emptyDescription')"
+        :actions="[
+          { label: $t('common.newNote'), icon: icons.noteAdd, to: newNotePath(folderId) },
+          {
+            label: $t('common.newFolder'),
+            icon: icons.folderAdd,
+            color: 'neutral',
+            variant: 'subtle',
+            onClick: () => createFolder(folderId),
+          },
+        ]"
+      />
+      <!-- Like a note's footer, the selection's actions with the navigation. The subtitle is the folder's own path: the breadcrumb leads to its parents. -->
+      <footer
+        v-if="subtitle || selected.length"
+        class="sticky bottom-0 z-10 -mx-8 -mb-8 mt-auto border-t border-default bg-default px-8"
+      >
+        <div class="flex h-9 items-center gap-2 text-xs text-muted">
+          <PathNav v-if="subtitle" :path="subtitle.slice(0, subtitle.lastIndexOf('/'))" />
+          <template v-if="selected.length">
+            <span class="ml-auto shrink-0">{{ $t('folder.selected', selected.length) }}</span>
+            <UPopover v-model:open="moving">
+              <UTooltip :text="$t('folder.moveTo')">
+                <UButton
+                  :icon="icons.move"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :aria-label="$t('folder.moveTo')"
+                />
+              </UTooltip>
+              <template #content>
+                <UCommandPalette
+                  :groups="[{ id: 'folders', items: folders }]"
+                  :placeholder="$t('folder.moveToPlaceholder')"
+                  class="max-h-72 w-72"
+                />
+              </template>
+            </UPopover>
+            <UTooltip :text="$t('settings.export')">
+              <UButton
+                :icon="icons.export"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :aria-label="$t('settings.export')"
+                @click="exportItems(selection)"
+              />
+            </UTooltip>
+            <UTooltip :text="$t('common.delete')">
+              <UButton
+                :icon="icons.delete"
+                color="error"
+                variant="ghost"
+                size="xs"
+                :aria-label="$t('common.delete')"
+                @click="removeSelection"
+              />
+            </UTooltip>
+            <UTooltip :text="$t('folder.clearSelection')" :kbds="['esc']">
+              <UButton
+                :icon="icons.close"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :aria-label="$t('folder.clearSelection')"
+                @click="selection = []"
+              />
+            </UTooltip>
+          </template>
+        </div>
+      </footer>
+    </div>
+  </ListPreview>
 </template>

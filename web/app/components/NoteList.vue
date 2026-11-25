@@ -24,7 +24,11 @@ const props = defineProps<{
 }>();
 
 const selection = useSelection();
-const selectedIds = computed(() => new Set(selection.value));
+const preview = usePreview();
+// The note shown in the preview looks selected too.
+const selectedIds = computed(
+  () => new Set([...selection.value, ...(preview.active.value && preview.shown.value ? [preview.shown.value] : [])]),
+);
 let anchor = -1;
 
 function select(event: MouseEvent, index: number) {

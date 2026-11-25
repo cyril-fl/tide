@@ -150,7 +150,10 @@
     "sortPinned": "Épinglés",
     "sortPinnedFirst": "Épinglés en premier",
     "sortPinnedLast": "Épinglés en dernier",
-    "sortReset": "Réinitialiser le tri"
+    "sortReset": "Réinitialiser le tri",
+    "preview": "Aperçu",
+    "previewEmpty": "Cliquez sur une note pour la lire ici",
+    "open": "Ouvrir"
   },
   "path": {
     "breadcrumb": "Fil d'Ariane",
@@ -582,6 +585,7 @@
     "hideFolders": "Masquer les dossiers de la barre latérale",
     "snippetSort": "Trier les snippets des réglages par nom ou par date",
     "notePreviews": "Aperçu du texte des notes dans la vue en mosaïque",
+    "listPreview": "L'aperçu à côté des listes de notes (dossier, tag, recherche) : un clic montre la note en lecture seule, à partir de 1024 px",
     "replaceEverywhere": "Remplacer un texte dans toutes les notes, depuis la palette Cmd K",
     "search": "La recherche et la palette Cmd K",
     "themes": "Les thèmes de couleurs, en mode clair et sombre",

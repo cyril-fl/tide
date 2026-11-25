@@ -179,6 +179,7 @@ var Features = map[string]string{
 	"hideFolders":       "ultra",
 	"replaceEverywhere": "ultra",
 	"notePreviews":      "ultra",
+	"listPreview":       "pro",
 	"search":            "base",
 	"favorites":         "base",
 	"backlinks":         "base",

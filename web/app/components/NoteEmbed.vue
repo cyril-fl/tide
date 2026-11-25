@@ -5,29 +5,11 @@ import type { ItemDetail } from '~/types/items';
 const props = defineProps(nodeViewProps);
 const { icons } = useIcons();
 const api = useApi();
-const baseURL = useRuntimeConfig().public.apiBase;
 
 const id = computed<string | null>(() => props.node.attrs.id);
 const target = computed<string>(() => props.node.attrs.target);
 const heading = computed<string | null>(() => props.node.attrs.heading);
-// The tables, callouts and diagrams every editor reads, without their menus: this one is read only.
-const [tables] = useNoteTables();
-const [callouts] = useNoteCallouts();
-const code = useNoteCode();
-const starterKit = { ...callouts!.starterKit, ...code.starterKit };
-// Its embeds stay links: a note that includes itself, or one that includes it back, stops there.
-const extensions = [
-  WikiLink,
-  noteEmbed(),
-  noteImage(baseURL, async () => null),
-  ...tables!.extensions!,
-  ...callouts!.extensions!,
-  ...code.extensions!,
-  InlineMath,
-  BlockMath,
-  InlineComment,
-  BlockComment,
-];
+const { starterKit, extensions } = useNoteReader();
 
 const text = ref<string>();
 const missing = ref(false);

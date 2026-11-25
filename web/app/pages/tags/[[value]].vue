@@ -11,6 +11,7 @@ const { renameTag, removeTag, removeItems, exportItems } = useItems();
 const { addSavedSearch } = useSavedSearches();
 const { has } = usePro();
 const view = useView();
+const { active: previewing } = usePreview();
 const { data: tags } = useTags();
 
 // The sidebar's tags build the filter; one tag alone keeps the tag's own page, with rename and delete.
@@ -105,86 +106,95 @@ useHead({ title });
 </script>
 
 <template>
-  <div class="flex min-h-full flex-col p-8">
-    <UPageHeader
-      :title="title"
-      :headline="notes.length || status === 'success' ? $t('tag.count', notes.length) : undefined"
-    >
-      <template #links>
-        <ViewToggle />
-        <UDropdownMenu :items="menu" :content="{ align: 'end' }">
-          <UTooltip :text="$t('tag.actions')">
-            <UButton :icon="icons.more" color="neutral" variant="ghost" :aria-label="$t('tag.actions')" />
+  <ListPreview>
+    <div class="flex flex-1 flex-col p-8">
+      <UPageHeader
+        :title="title"
+        :headline="notes.length || status === 'success' ? $t('tag.count', notes.length) : undefined"
+      >
+        <template #links>
+          <ViewToggle />
+          <UDropdownMenu :items="menu" :content="{ align: 'end' }">
+            <UTooltip :text="$t('tag.actions')">
+              <UButton :icon="icons.more" color="neutral" variant="ghost" :aria-label="$t('tag.actions')" />
+            </UTooltip>
+          </UDropdownMenu>
+          <UTooltip :text="$t('tag.newNote')">
+            <UButton
+              :icon="icons.noteAdd"
+              color="neutral"
+              variant="ghost"
+              :aria-label="$t('tag.newNote')"
+              :to="newNotePath(undefined, undefined, filter.and)"
+            />
           </UTooltip>
-        </UDropdownMenu>
-        <UTooltip :text="$t('tag.newNote')">
-          <UButton
-            :icon="icons.noteAdd"
-            color="neutral"
-            variant="ghost"
-            :aria-label="$t('tag.newNote')"
-            :to="newNotePath(undefined, undefined, filter.and)"
-          />
-        </UTooltip>
-      </template>
-    </UPageHeader>
-    <NoteList v-if="notes.length" :notes="notes" :grid="view === 'grid'" dated selectable :load="load" />
-    <UEmpty
-      v-else-if="error"
-      :icon="icons.tag"
-      :title="$t('tag.notFound')"
-      :description="$t('tag.notFoundDescription')"
-      :actions="[{ label: $t('common.backToNotes'), icon: icons.home, color: 'neutral', variant: 'subtle', to: '/' }]"
-    />
-    <UEmpty
-      v-else-if="status === 'success' && single"
-      :icon="icons.tag"
-      :title="$t('tag.empty')"
-      :description="$t('tag.emptyDescription', { value: single })"
-    />
-    <UEmpty
-      v-else-if="status === 'success'"
-      :icon="icons.tag"
-      :title="$t('tag.filterEmpty')"
-      :description="$t('tag.filterEmptyDescription')"
-    />
-    <footer
-      v-if="selection.length"
-      class="sticky bottom-0 z-10 -mx-8 -mb-8 mt-auto border-t border-default bg-default px-8"
-    >
-      <div class="flex h-9 items-center gap-2 text-xs text-muted">
-        <span class="ml-auto shrink-0">{{ $t('folder.selected', selection.length) }}</span>
-        <UTooltip :text="$t('settings.export')">
-          <UButton
-            :icon="icons.export"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            :aria-label="$t('settings.export')"
-            @click="exportItems(selection)"
-          />
-        </UTooltip>
-        <UTooltip :text="$t('common.delete')">
-          <UButton
-            :icon="icons.delete"
-            color="error"
-            variant="ghost"
-            size="xs"
-            :aria-label="$t('common.delete')"
-            @click="removeSelection"
-          />
-        </UTooltip>
-        <UTooltip :text="$t('folder.clearSelection')" :kbds="['esc']">
-          <UButton
-            :icon="icons.close"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            :aria-label="$t('folder.clearSelection')"
-            @click="selection = []"
-          />
-        </UTooltip>
-      </div>
-    </footer>
-  </div>
+        </template>
+      </UPageHeader>
+      <NoteList
+        v-if="notes.length"
+        :notes="notes"
+        :grid="view === 'grid' && !previewing"
+        dated
+        selectable
+        :load="load"
+      />
+      <UEmpty
+        v-else-if="error"
+        :icon="icons.tag"
+        :title="$t('tag.notFound')"
+        :description="$t('tag.notFoundDescription')"
+        :actions="[{ label: $t('common.backToNotes'), icon: icons.home, color: 'neutral', variant: 'subtle', to: '/' }]"
+      />
+      <UEmpty
+        v-else-if="status === 'success' && single"
+        :icon="icons.tag"
+        :title="$t('tag.empty')"
+        :description="$t('tag.emptyDescription', { value: single })"
+      />
+      <UEmpty
+        v-else-if="status === 'success'"
+        :icon="icons.tag"
+        :title="$t('tag.filterEmpty')"
+        :description="$t('tag.filterEmptyDescription')"
+      />
+      <footer
+        v-if="selection.length"
+        class="sticky bottom-0 z-10 -mx-8 -mb-8 mt-auto border-t border-default bg-default px-8"
+      >
+        <div class="flex h-9 items-center gap-2 text-xs text-muted">
+          <span class="ml-auto shrink-0">{{ $t('folder.selected', selection.length) }}</span>
+          <UTooltip :text="$t('settings.export')">
+            <UButton
+              :icon="icons.export"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :aria-label="$t('settings.export')"
+              @click="exportItems(selection)"
+            />
+          </UTooltip>
+          <UTooltip :text="$t('common.delete')">
+            <UButton
+              :icon="icons.delete"
+              color="error"
+              variant="ghost"
+              size="xs"
+              :aria-label="$t('common.delete')"
+              @click="removeSelection"
+            />
+          </UTooltip>
+          <UTooltip :text="$t('folder.clearSelection')" :kbds="['esc']">
+            <UButton
+              :icon="icons.close"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :aria-label="$t('folder.clearSelection')"
+              @click="selection = []"
+            />
+          </UTooltip>
+        </div>
+      </footer>
+    </div>
+  </ListPreview>
 </template>

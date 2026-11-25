@@ -40,6 +40,7 @@ const groups = {
   backlinks: 'implied',
   themes: 'display',
   notePreviews: 'display',
+  listPreview: 'display',
   importExport: 'data',
   trash: 'data',
   storageUsage: 'implied',

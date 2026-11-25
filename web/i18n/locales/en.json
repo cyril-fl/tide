@@ -84,11 +84,11 @@
       "name": "Name",
       "pickTags": "Pick tags…",
       "tags": "Tags",
-      "tagsMatchAll": "All the tags with ✓",
-      "tagsMatchAny": "At least one tag with ✓",
-      "tagsMatch": "The tags with ✓",
-      "tagWith": "With {tag}: click to exclude it",
-      "tagWithout": "Without {tag}: click to include it",
+      "tagState": {
+        "all": "Must have {tag}: click for one of the tags",
+        "any": "One of the tags, {tag}: click to exclude it",
+        "not": "Without {tag}: click to require it"
+      },
       "tagRemove": "Remove {tag}",
       "folders": "Folders",
       "pickFolders": "Pick folders…",

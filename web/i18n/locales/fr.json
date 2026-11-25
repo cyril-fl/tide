@@ -84,11 +84,11 @@
       "name": "Nom",
       "pickTags": "Choisir des tags…",
       "tags": "Tags",
-      "tagsMatchAll": "Tous les tags avec ✓",
-      "tagsMatchAny": "Au moins un tag avec ✓",
-      "tagsMatch": "Les tags avec ✓",
-      "tagWith": "Avec {tag} : cliquer pour l'exclure",
-      "tagWithout": "Sans {tag} : cliquer pour l'inclure",
+      "tagState": {
+        "all": "Doit avoir {tag} : cliquer pour l'un des tags",
+        "any": "L'un des tags, {tag} : cliquer pour l'exclure",
+        "not": "Sans {tag} : cliquer pour l'exiger"
+      },
       "tagRemove": "Retirer {tag}",
       "folders": "Dossiers",
       "pickFolders": "Choisir des dossiers…",

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SavedSearch, User } from '~/types/items';
+import type { TagChip } from '~/utils/savedSearches';
 
 const props = defineProps<{ title: string; value?: SavedSearch }>();
 const emit = defineEmits<{ close: [value?: SavedSearch] }>();
@@ -35,24 +36,17 @@ const parentOptions = computed(() => {
     .map((s) => ({ label: s.name, value: s.id }));
   return groups.length ? [{ label: t('search.saved.root'), value: '' }, ...groups] : [];
 });
-// One list of tags, each with or without (`not`), and one choice for the ones the note must have: all of them or one of
-// them. Saved as tag_ids (all), any_tag_ids (one of) and no_tag_ids (without); tag_ids are every tag in "all" mode, one
-// of them in "any" (an older search), and the API refuses any_tag_ids beside tag_ids in "any" mode.
-const savedAny = props.value?.tag_mode === 'any';
-const tagMatch = ref<'all' | 'any'>(savedAny || props.value?.any_tag_ids?.length ? 'any' : 'all');
-const tagChips = ref<{ id: string; not: boolean }[]>([
-  ...[...(props.value?.tag_ids ?? []), ...(props.value?.any_tag_ids ?? [])].map((id) => ({ id, not: false })),
-  ...(props.value?.no_tag_ids ?? []).map((id) => ({ id, not: true })),
-]);
-const withTags = computed(() => tagChips.value.filter((c) => !c.not).map((c) => c.id));
-const tagMatchOptions = [
-  { label: t('search.saved.tagsMatchAll'), value: 'all' },
-  { label: t('search.saved.tagsMatchAny'), value: 'any' },
-];
+// One list of tags, each must have, one of or without, flipped by a click (utils/savedSearches).
+const tagChips = ref<TagChip[]>(toTagChips(props.value));
+const tagLook = {
+  all: { icon: icons.current, color: 'primary' },
+  any: { icon: icons.oneOf, color: 'neutral' },
+  not: { icon: icons.without, color: 'error' },
+} as const;
 const tagName = (id: string) => `#${tags.value.find((tag) => tag.id === id)?.value ?? ''}`;
 const pickableTags = computed(() => tagOptions.value.filter((o) => !tagChips.value.some((c) => c.id === o.value)));
 function addTags(ids: string[]) {
-  for (const id of ids) if (!tagChips.value.some((c) => c.id === id)) tagChips.value.push({ id, not: false });
+  for (const id of ids) if (!tagChips.value.some((c) => c.id === id)) tagChips.value.push({ id, state: 'all' });
 }
 const folderIds = ref(props.value?.folder_ids ?? []);
 const folderMode = ref(props.value?.folder_mode ?? 'include');
@@ -108,10 +102,7 @@ const criteria = computed<SavedSearch>(() => ({
   name: name.value.trim(),
   group: props.value?.group || undefined,
   parent_id: parentId.value || undefined,
-  tag_ids: tagMatch.value === 'all' ? withTags.value : [],
-  tag_mode: 'all',
-  any_tag_ids: tagMatch.value === 'any' ? withTags.value : [],
-  no_tag_ids: tagChips.value.filter((c) => c.not).map((c) => c.id),
+  ...tagCriteria(tagChips.value),
   folder_ids: folderIds.value,
   folder_mode: folderMode.value,
   created_from: fromDay(createdFrom.value, false),
@@ -215,24 +206,22 @@ function submit() {
                 :placeholder="$t('search.saved.notTextPlaceholder')"
                 :aria-label="labels.notText"
               />
-              <!-- A tag is picked once, then a click on it flips it between with (✓) and without (✕). -->
+              <!-- A tag is picked once, then a click on it goes through must have, one of and without. -->
               <div v-else-if="criterion === 'tags'" class="flex flex-col gap-2">
                 <div v-if="tagChips.length" class="flex flex-wrap gap-1.5">
                   <UFieldGroup v-for="chip in tagChips" :key="chip.id">
                     <UButton
-                      :icon="chip.not ? icons.without : icons.current"
+                      :icon="tagLook[chip.state].icon"
                       :label="tagName(chip.id)"
-                      :color="chip.not ? 'error' : 'primary'"
+                      :color="tagLook[chip.state].color"
                       variant="soft"
                       size="xs"
-                      :aria-label="
-                        $t(chip.not ? 'search.saved.tagWithout' : 'search.saved.tagWith', { tag: tagName(chip.id) })
-                      "
-                      @click="chip.not = !chip.not"
+                      :aria-label="$t(`search.saved.tagState.${chip.state}`, { tag: tagName(chip.id) })"
+                      @click="chip.state = nextTagState[chip.state]"
                     />
                     <UButton
                       :icon="icons.close"
-                      :color="chip.not ? 'error' : 'primary'"
+                      :color="tagLook[chip.state].color"
                       variant="soft"
                       size="xs"
                       :aria-label="$t('search.saved.tagRemove', { tag: tagName(chip.id) })"
@@ -250,17 +239,6 @@ function submit() {
                   :placeholder="$t('search.saved.pickTags')"
                   :aria-label="labels.tags"
                   @update:model-value="addTags"
-                />
-                <USelectMenu
-                  v-if="withTags.length > 1"
-                  v-model="tagMatch"
-                  :items="tagMatchOptions"
-                  value-key="value"
-                  :search-input="false"
-                  size="xs"
-                  variant="ghost"
-                  class="-ms-2 self-start text-muted"
-                  :aria-label="$t('search.saved.tagsMatch')"
                 />
               </div>
               <UInputMenu

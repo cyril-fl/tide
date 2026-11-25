@@ -23,3 +23,26 @@ export function reorderSearches(searches: SavedSearch[], draggedId: string, targ
   rest.splice(rest.indexOf(target), 0, { ...moved!, parent_id: target.parent_id });
   return rest;
 }
+
+/** How a smart folder keeps a tag: the notes carry it, carry one of the "any" tags, or do not carry it. */
+export type TagState = 'all' | 'any' | 'not';
+export type TagChip = { id: string; state: TagState };
+
+/** A click on a tag of a smart folder: must have, then one of, then without, then must have again. */
+export const nextTagState: Record<TagState, TagState> = { all: 'any', any: 'not', not: 'all' };
+
+/** The tags of a saved search; tag_ids are one of them unless tag_mode is "all" (the API's default is "any"). */
+export function toTagChips(search?: Partial<SavedSearch>): TagChip[] {
+  const state: TagState = search?.tag_mode === 'all' ? 'all' : 'any';
+  return [
+    ...(search?.tag_ids ?? []).map((id) => ({ id, state })),
+    ...(search?.any_tag_ids ?? []).map((id) => ({ id, state: 'any' as const })),
+    ...(search?.no_tag_ids ?? []).map((id) => ({ id, state: 'not' as const })),
+  ];
+}
+
+/** The tags as the API saves them: a AND (b OR c) without d is tag_ids [a], any_tag_ids [b, c], no_tag_ids [d]. */
+export function tagCriteria(chips: TagChip[]) {
+  const ids = (state: TagState) => chips.filter((c) => c.state === state).map((c) => c.id);
+  return { tag_ids: ids('all'), tag_mode: 'all', any_tag_ids: ids('any'), no_tag_ids: ids('not') };
+}

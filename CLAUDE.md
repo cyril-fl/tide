@@ -14,7 +14,7 @@ Two binaries. `tide-server` (`cmd/tide-server/`, `core/server/`) is the only one
 ## Run
 
 - `make up` / `make down`: Postgres, Silo and the API in Docker (Colima, `compose.yaml`, project `tide`), the web app on :3000 (log in `.build/web.log`).
-- `make e2e`: the browser tests against that stack.
+- `make e2e`: the browser tests against that stack. Run it whole before committing a change to `web/` (with or without the checker): CI runs every spec, and a component deleted by mistake broke six of them.
 - `make test` (`ARGS=./core/...` to narrow): each run gets a base `<POSTGRES_DB>_test_<pid>` and a Silo bucket of its own, removed after it, never the dev ones: agents can run it at once. Needs the stack up. A plain `go test` uses `<POSTGRES_DB>_test`, one package at a time across runs (a lock in `postgrey`). When the host port 5432 is not the stack's (a tunnel to another base), run them in the `note-app` container, the repo in `/app`: `docker exec -w /app -e POSTGRES_HOST=note-postgres -e POSTGRES_DB=notes_test -e CONFIG_FILE=/app/config/config.yaml note-app go test -p 1 ./...` (the `_test` base made once by `make test` or `createdb`).
 - `make api`: rebuilds and restarts the API container (`Dockerfile`, `--target server`: no web app). The app talks to the old binary until then.
 - `make openapi` after an API change (swag comments), then `bun run types` in `web/`.

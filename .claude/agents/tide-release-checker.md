@@ -22,7 +22,7 @@ The caller gives you: the commits of the release (short shas), the kind of versi
 2. **Checks**, on the code as committed: the working tree may hold work of other agents, so report a failure in a file the release did not touch as such, not as a failure of the release.
    - `make test`
    - `cd web && bun run test && bun run typecheck && bun run lint`
-   - `bun run e2e` only when the caller asks for it (it needs `make up`).
+   - `make e2e` whenever a commit of the release touches `web/` (CI runs every spec on each push: a deleted component broke six of them in 61a872e).
    Stop at the first failure and report its output.
 3. **Tag**: the next number after `git tag --sort=-v:refname | head -1` (another agent may already have used one), then `git tag -a vX.Y.Z -m "vX.Y.Z: <message of the caller>"` on `HEAD`. A tag not yet in `origin/develop` may be moved with `git tag -fa`; a pushed one never.
 4. **Issues** (`-R cyril-fl/tide`), by hand: `develop` is not the default branch, so `Fixes #n` closes nothing.

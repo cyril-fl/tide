@@ -24,7 +24,7 @@ Once every commit is made, launch the `tide-release-checker` subagent with:
 - the short shas of the release's commits;
 - minor (a `feat:` in the release) or patch, and the tag message, in English: what the user gets;
 - the issues to close, each with what was done, and the issues to open for what is left (title, label, **À faire**);
-- whether to run the e2e (`make up` must be running);
+- whether a commit touches `web/`: then the checker runs the whole e2e (`make e2e`);
 - what the handoff must say.
 
 It never commits nor pushes. If it reports a failing check, fix it with a new commit (part 1), then launch it again.

@@ -363,6 +363,8 @@ test('the Pro mode adds the tables to the editor', async ({ page }) => {
     await page.keyboard.press('Enter');
     await page.keyboard.type('/');
     await page.getByRole('menuitem', { name: 'Tableau' }).click();
+    // Tiptap's focus() waits for the next frame: a key typed before goes to the closing menu.
+    await expect(editor).toBeFocused();
     await page.keyboard.type('Nom');
     await page.keyboard.press('Tab');
     await page.keyboard.type('Âge');
@@ -502,6 +504,8 @@ test('the Pro mode adds the callouts to the editor', async ({ page }) => {
     await page.keyboard.type('/');
     await page.getByRole('menuitem', { name: 'Encadrés' }).hover();
     await page.getByRole('menuitem', { name: 'Attention' }).click();
+    // Tiptap's focus() waits for the next frame: a key typed before goes to the closing menu.
+    await expect(editor).toBeFocused();
     await page.keyboard.type('Prudence');
     await expect.poll(() => box.content(note.id), { timeout: 5000 }).toContain('> [!warning]\n> Prudence');
     expect(await box.content(note.id)).toContain('> [!tip] Astuce\n> Lire la suite');
@@ -593,12 +597,16 @@ test('a block formula keeps its lines; the / menu inserts a formula and a diagra
     await page.keyboard.press('Enter');
     await page.keyboard.type('/');
     await page.getByRole('menuitem', { name: 'Formule LaTeX' }).click();
+    // Tiptap's focus() waits for the next frame: a key typed before goes to the closing menu.
+    await expect(editor).toBeFocused();
     await page.keyboard.type('x^2');
 
     await cursorAtEnd(editor, `Formules ${box.prefix}`);
     await page.keyboard.press('Enter');
     await page.keyboard.type('/');
     await page.getByRole('menuitem', { name: 'Diagramme Mermaid' }).click();
+    // Tiptap's focus() waits for the next frame: a key typed before goes to the closing menu.
+    await expect(editor).toBeFocused();
     await page.keyboard.type('graph TD\nA --> B');
     await expect.poll(() => box.content(note.id), { timeout: 5000 }).toContain('```mermaid\ngraph TD\nA --> B\n```');
     expect(await box.content(note.id)).toContain('$$\nx^2\n$$');

@@ -186,6 +186,8 @@ function sizeMenu(event: MouseEvent) {
   if (!atom && !(web && isCardLink(web.getAttribute('href')))) return false;
   // An image or a card is selected whole, a web link at the cursor.
   sizedAt.value = atom ? at.inside : at.pos;
+  // The menu looks again only when the selection moves: one already there (a card a click selected) moves off first.
+  if (editor.state.selection.from === sizedAt.value) editor.commands.setTextSelection(0);
   if (atom) editor.chain().focus().setNodeSelection(at.inside).run();
   else editor.chain().focus().setTextSelection(at.pos).run();
   return true;

@@ -8,8 +8,7 @@ const props = defineProps<{ folderId?: string; title: string; subtitle?: string 
 const { createFolder, moveItem, removeItems, exportItems } = useItems();
 const view = useView();
 const preview = usePreview();
-// The preview lists the items in rows.
-const grid = computed(() => view.value === 'grid' && !preview.active.value);
+const grid = computed(() => view.value === 'grid');
 const { items, status, load } = useFolderPages(props.folderId);
 
 // ⌘-click (Ctrl elsewhere) adds or takes out an item, ⇧-click selects a range from the last one; a plain click opens it.

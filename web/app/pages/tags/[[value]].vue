@@ -11,7 +11,6 @@ const { renameTag, removeTag, removeItems, exportItems } = useItems();
 const { addSavedSearch } = useSavedSearches();
 const { has } = usePro();
 const view = useView();
-const { active: previewing } = usePreview();
 const { data: tags } = useTags();
 
 // The sidebar's tags build the filter; one tag alone keeps the tag's own page, with rename and delete.
@@ -130,14 +129,7 @@ useHead({ title });
           </UTooltip>
         </template>
       </UPageHeader>
-      <NoteList
-        v-if="notes.length"
-        :notes="notes"
-        :grid="view === 'grid' && !previewing"
-        dated
-        selectable
-        :load="load"
-      />
+      <NoteList v-if="notes.length" :notes="notes" :grid="view === 'grid'" dated selectable :load="load" />
       <UEmpty
         v-else-if="error"
         :icon="icons.tag"

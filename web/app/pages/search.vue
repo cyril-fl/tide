@@ -6,7 +6,6 @@ const { icons } = useIcons();
 const route = useRoute();
 const api = useApi();
 const view = useView();
-const { active: previewing } = usePreview();
 
 const q = computed(() => (typeof route.query.q === 'string' ? route.query.q : ''));
 
@@ -29,7 +28,7 @@ const {
           <ViewToggle />
         </template>
       </UPageHeader>
-      <NoteList v-if="matches.length" :notes="matches" :grid="view === 'grid' && !previewing" dated :load="load" />
+      <NoteList v-if="matches.length" :notes="matches" :grid="view === 'grid'" dated :load="load" />
       <UEmpty
         v-else-if="status !== 'pending'"
         :icon="icons.searchEmpty"

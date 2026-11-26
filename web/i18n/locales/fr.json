@@ -153,7 +153,8 @@
     "sortReset": "Réinitialiser le tri",
     "preview": "Aperçu",
     "previewEmpty": "Cliquez sur une note pour la lire ici",
-    "open": "Ouvrir"
+    "previewEdit": "Modifier ici",
+    "previewRead": "Revenir à la lecture"
   },
   "path": {
     "breadcrumb": "Fil d'Ariane",

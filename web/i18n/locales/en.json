@@ -153,7 +153,8 @@
     "sortReset": "Reset the sort",
     "preview": "Preview",
     "previewEmpty": "Click a note to read it here",
-    "open": "Open"
+    "previewEdit": "Edit here",
+    "previewRead": "Back to reading"
   },
   "path": {
     "breadcrumb": "Breadcrumb",

@@ -9,7 +9,6 @@ const route = useRoute();
 const id = route.params.id as string;
 const api = useApi();
 const view = useView();
-const { active: previewing } = usePreview();
 const { editSavedSearch, removeSavedSearch } = useSavedSearches();
 
 const {
@@ -53,7 +52,7 @@ useHead({ title: () => search.value?.name ?? '' });
           </UTooltip>
         </template>
       </UPageHeader>
-      <NoteList v-if="results.length" :notes="results" :grid="view === 'grid' && !previewing" :load="load" />
+      <NoteList v-if="results.length" :notes="results" :grid="view === 'grid'" :load="load" />
       <UEmpty
         v-else-if="error"
         :icon="icons.search"

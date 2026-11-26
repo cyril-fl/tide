@@ -6,7 +6,7 @@ test.beforeEach(async () => (box = await sandbox()));
 test.afterEach(async () => box.dispose());
 
 // The Pro preview of the lists (#256): a click on a note shows it read only beside the folder, a [[link]] in it shows
-// its note, ⌘-click still selects, "Open" and a double click open the note in the editor; the choice survives a
+// its note, ⌘-click still selects, a double click opens the note in the editor; the choice survives a
 // reload, the search's list has it too, and below 1024px a click opens the note as before.
 test('the Pro preview shows a note read only beside its list', async ({ page }) => {
   const other = await box.note(`# Other ${box.prefix}\n\nAilleurs`);
@@ -34,7 +34,7 @@ test('the Pro preview shows a note read only beside its list', async ({ page }) 
     await expect(preview.getByText('Ailleurs')).toBeVisible();
     await page.keyboard.press('Escape');
 
-    await preview.getByRole('link', { name: 'Ouvrir' }).click();
+    await page.locator(`[data-id="${other.id}"] a`).dblclick();
     await expect(page).toHaveURL(`/notes/${other.id}`);
     await expect(page.getByRole('textbox').getByText('Ailleurs')).toBeVisible();
 
@@ -54,6 +54,44 @@ test('the Pro preview shows a note read only beside its list', async ({ page }) 
     await expect(page.getByRole('button', { name: 'Aperçu' })).toHaveCount(0);
     await row('First').click();
     await expect(page).toHaveURL(`/notes/${first.id}`);
+  } finally {
+    await box.api.patch('/api/me', { data: { plan: 'base' } });
+  }
+});
+
+// Unlocked, the preview writes in place (the grid stays offered beside it); locked again or at the next note, it
+// reads; a note locked has no padlock to open.
+test('the Pro preview unlocks a note to edit it in place', async ({ page }) => {
+  const note = await box.note(`# Quick ${box.prefix}\n\nAvant`);
+  const locked = await box.note(`# Locked ${box.prefix}\n\nFigé`);
+  await box.api.patch(`/api/notes/${locked.id}`, { data: { readonly: true } });
+  const preview = page.getByRole('region', { name: 'Aperçu' });
+  const row = (title: string) => page.locator('[data-id]').getByRole('link', { name: `${title} ${box.prefix}` });
+  try {
+    await box.api.patch('/api/me', { data: { plan: 'pro' } });
+    await page.goto(`/folders/${box.folder.id}`);
+    const toggle = page.getByRole('button', { name: 'Aperçu' });
+    if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
+    await expect(page.getByRole('button', { name: /Vue (mosaïque|liste)/ })).toBeVisible();
+
+    await row('Quick').click();
+    await expect(preview.locator('[contenteditable="true"]')).toHaveCount(0);
+    await preview.getByRole('button', { name: 'Modifier ici' }).click();
+    const editor = preview.locator('[contenteditable="true"]');
+    await editor.getByText('Avant').click();
+    const saved = page.waitForResponse(
+      (r) => r.url().endsWith(`/api/notes/${note.id}`) && r.request().method() === 'PATCH',
+    );
+    await page.keyboard.press('End');
+    await page.keyboard.type(' Après');
+    await saved;
+    await preview.getByRole('button', { name: 'Revenir à la lecture' }).click();
+    await expect(preview.locator('[contenteditable="true"]')).toHaveCount(0);
+    await expect(preview.getByText('Avant Après')).toBeVisible();
+
+    await row('Locked').click();
+    await expect(preview.getByText('Figé')).toBeVisible();
+    await expect(preview.getByRole('button', { name: 'Modifier ici' })).toHaveCount(0);
   } finally {
     await box.api.patch('/api/me', { data: { plan: 'base' } });
   }

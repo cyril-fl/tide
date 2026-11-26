@@ -6,7 +6,7 @@ const { on, available, active } = usePreview();
 </script>
 
 <template>
-  <UTooltip v-if="!active" :text="view === 'grid' ? $t('folder.listView') : $t('folder.gridView')">
+  <UTooltip :text="view === 'grid' ? $t('folder.listView') : $t('folder.gridView')">
     <UButton
       :icon="view === 'grid' ? icons.list : icons.grid"
       color="neutral"

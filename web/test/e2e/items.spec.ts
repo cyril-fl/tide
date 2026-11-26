@@ -179,7 +179,7 @@ test('a folder sorts by several choices, back to neutral', async ({ page }) => {
   try {
     await expect(titles).toHaveText([/Ancienne/, /Brouillon/, /Zénith/]);
     // A choice goes ascending, then descending, then off; the menu stays open between clicks.
-    await page.getByRole('button', { name: 'Trier par' }).click();
+    await page.getByRole('button', { name: 'Trier par', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Épinglés' }).click();
     await expect(titles).toHaveText([/Zénith/, /Ancienne/, /Brouillon/]);
     const modified = page.getByRole('menuitem', { name: 'Date de modification' });
@@ -194,6 +194,34 @@ test('a folder sorts by several choices, back to neutral', async ({ page }) => {
     await page.getByRole('menuitem', { name: 'Réinitialiser le tri' }).click();
     await expect(titles).toHaveText([/Ancienne/, /Brouillon/, /Zénith/]);
     await saved().toBe('');
+  } finally {
+    await box.api.patch('/api/me', { data: { sort: '' } });
+  }
+});
+
+// The list's headers sort like the menu, and the name's keeps folders or notes only.
+test('the list headers sort and filter by kind', async ({ page }) => {
+  await box.api.post('/api/folders', { data: { title: 'Classeur', parent_id: box.folder.id } });
+  await box.note('# Alpha');
+  await box.note('# Bêta');
+  await box.api.patch('/api/me', { data: { sort: '' } });
+  await page.goto(`/folders/${box.folder.id}`);
+  const titles = page.locator('main ul > li');
+
+  try {
+    await expect(titles).toHaveText([/Classeur/, /Alpha/, /Bêta/]);
+    const byName = page.getByRole('button', { name: 'Trier par Nom' });
+    await byName.click();
+    await byName.click(); // ascending, then descending; folders stay first
+    await expect(titles).toHaveText([/Classeur/, /Bêta/, /Alpha/]);
+    await expect.poll(async () => (await (await box.api.get('/api/me')).json()).sort).toBe('-title');
+
+    await page.getByRole('button', { name: 'Nom', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name: 'Notes' }).click();
+    await expect(titles).toHaveText([/Bêta/, /Alpha/]);
+    await page.getByRole('button', { name: 'Notes', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name: 'Dossiers' }).click();
+    await expect(titles).toHaveText([/Classeur/]);
   } finally {
     await box.api.patch('/api/me', { data: { sort: '' } });
   }

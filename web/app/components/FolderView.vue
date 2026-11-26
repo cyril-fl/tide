@@ -9,7 +9,21 @@ const { createFolder, moveItem, removeItems, exportItems } = useItems();
 const view = useView();
 const preview = usePreview();
 const grid = computed(() => view.value === 'grid');
-const { items, status, load } = useFolderPages(props.folderId);
+// The list's headers keep folders or notes only; the mosaic has no headers, so it shows both again.
+const kind = ref<Item['kind']>();
+watch(grid, () => (kind.value = undefined));
+const { items, status, load } = useFolderPages(props.folderId, kind);
+
+const { t } = useI18n();
+const sort = useSort();
+const kindMenu = computed(() => [
+  [undefined, 'folder', 'note'].map((k) => ({
+    label: t(k ? `folder.only.${k}` : 'folder.only.all'),
+    type: 'checkbox' as const,
+    checked: kind.value === k,
+    onSelect: () => (kind.value = k as Item['kind'] | undefined),
+  })),
+]);
 
 // ⌘-click (Ctrl elsewhere) adds or takes out an item, ⇧-click selects a range from the last one; a plain click opens it.
 const selection = useSelection();
@@ -121,6 +135,33 @@ watchEffect(() => load(visible.value.start, visible.value.start + visible.value.
         </template>
       </UPageHeader>
       <div v-if="lasso" class="pointer-events-none fixed z-50 border border-primary/60 bg-primary/10" :style="lasso" />
+      <div
+        v-if="!grid && (items.length || kind)"
+        class="flex h-9 items-center gap-2 border-b border-default px-2 text-xs"
+      >
+        <ColumnHeader
+          class="flex-1"
+          :label="kind ? $t(`folder.only.${kind}`) : $t('folder.sortTitle')"
+          :sorted="sortOf(sort, 'title')"
+          :active="!!kind"
+          :menu="kindMenu"
+          @sort="sort = cycleSort(sort, 'title')"
+        />
+        <div class="date-column flex justify-end max-sm:hidden">
+          <ColumnHeader
+            :label="$t('folder.created')"
+            :sorted="sortOf(sort, 'created')"
+            @sort="sort = cycleSort(sort, 'created')"
+          />
+        </div>
+        <div class="date-column flex justify-end">
+          <ColumnHeader
+            :label="$t('folder.updated')"
+            :sorted="sortOf(sort, 'updated')"
+            @sort="sort = cycleSort(sort, 'updated')"
+          />
+        </div>
+      </div>
       <ul
         v-if="items.length"
         ref="list"
@@ -137,12 +178,16 @@ watchEffect(() => load(visible.value.start, visible.value.start + visible.value.
             v-if="item"
             :item="item"
             :grid="grid"
+            :columns="!grid"
             :selected="selectedIds.has(item.id) || (preview.active.value && item.id === preview.shown.value)"
           />
           <!-- A tile is a square, then gap-2 and its two lines of text. -->
           <USkeleton v-else :class="grid ? 'mb-10 aspect-square' : 'h-9'" />
         </li>
       </ul>
+      <p v-else-if="kind && status === 'success'" class="py-6 text-center text-sm text-muted">
+        {{ $t('folder.noMatch') }}
+      </p>
       <UEmpty
         v-else-if="status === 'success'"
         :icon="icons.folderEmpty"

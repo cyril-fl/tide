@@ -5,7 +5,8 @@ const { icons } = useIcons();
 const { locale } = useI18n();
 
 // text: what a tile shows of a note (a search's snippet); the start of the note when none, or only the title line.
-const props = defineProps<{ item: Item; grid?: boolean; selected?: boolean; text?: string }>();
+// columns: a row shows its creation and its last change apart, under the headers of FolderView.
+const props = defineProps<{ item: Item; grid?: boolean; selected?: boolean; text?: string; columns?: boolean }>();
 
 const { itemMenu } = useItems();
 const { has } = usePro();
@@ -30,13 +31,9 @@ const preview = useNotePreview(() =>
     : undefined,
 );
 const shown = computed(() => given.value || preview.value);
-const date = computed(() =>
-  new Date(props.item.updated_at ?? props.item.created_at).toLocaleDateString(locale.value, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }),
-);
+const format = (at?: string) =>
+  at ? new Date(at).toLocaleDateString(locale.value, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+const date = computed(() => format(props.item.updated_at ?? props.item.created_at));
 </script>
 
 <template>
@@ -80,7 +77,15 @@ const date = computed(() =>
         class="size-3.5 shrink-0"
         :class="isOver ? 'text-inverted' : 'text-muted'"
       />
-      <span class="ml-auto shrink-0 pl-4 text-xs" :class="isOver ? 'text-inverted' : 'text-muted'">{{ date }}</span>
+      <template v-if="columns">
+        <span class="date-column ml-auto max-sm:hidden" :class="isOver ? 'text-inverted' : 'text-muted'">
+          {{ format(item.created_at) }}
+        </span>
+        <span class="date-column max-sm:ml-auto" :class="isOver ? 'text-inverted' : 'text-muted'">{{ date }}</span>
+      </template>
+      <span v-else class="ml-auto shrink-0 pl-4 text-xs" :class="isOver ? 'text-inverted' : 'text-muted'">{{
+        date
+      }}</span>
     </NuxtLink>
   </UContextMenu>
 </template>

@@ -419,14 +419,17 @@ export function usePages<T>(
   return { items: data, status, error, load };
 }
 
-/** Items a folder holds by pages, the root without an id, in the order of useSort. */
-export function useFolderPages(parentId?: string) {
+/** Items a folder holds by pages, the root without an id, in the order of useSort; kind keeps folders or notes only. */
+export function useFolderPages(parentId?: string, kind?: MaybeRefOrGetter<Item['kind'] | undefined>) {
   const api = useApi();
   const sort = useSort();
   return usePages(
-    () => `items:${parentId ?? 'root'}:${sort.value}:pages`,
+    () => `items:${parentId ?? 'root'}:${sort.value}:${toValue(kind) ?? ''}:pages`,
     (query, onResponse) =>
-      api<Item[]>('/api/items', { query: { parent: parentId, sort: sort.value, ...query }, onResponse }),
+      api<Item[]>('/api/items', {
+        query: { parent: parentId, sort: sort.value, kind: toValue(kind), ...query },
+        onResponse,
+      }),
   );
 }
 

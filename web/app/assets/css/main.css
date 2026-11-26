@@ -636,6 +636,11 @@
     @apply flex h-7 min-w-0 items-center gap-2 rounded-md px-2 text-sm transition-colors duration-150 hover:bg-accented/60;
   }
 
+  /* A date column of the folder list, its header the same width (FolderView). */
+  .date-column {
+    @apply w-32 shrink-0 text-right text-xs;
+  }
+
   .row-active {
     @apply bg-primary/10 text-primary;
   }

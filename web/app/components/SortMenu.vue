@@ -4,7 +4,7 @@ import type { DropdownMenuItem } from '@nuxt/ui';
 const { icons } = useIcons();
 const { t } = useI18n();
 
-// The sort is a list of keys, the first deciding first, "-" before one to reverse; "" is neutral (by name).
+// The sort is a list of keys (see cycleSort), the first deciding first, "-" before one to reverse; "" is neutral (by name).
 // Without a v-model, the folders' sort of the account; with one, a list of its own (choices, the keys it offers).
 type SortKey = 'title' | 'created' | 'updated' | 'pinned';
 const props = withDefaults(defineProps<{ modelValue?: string; choices?: readonly SortKey[] }>(), {
@@ -18,15 +18,6 @@ const sort = computed({
   set: (next) => (props.modelValue === undefined ? (folders.value = next) : emit('update:modelValue', next)),
 });
 const keys = computed(() => (sort.value ? sort.value.split(',') : []));
-
-// Each click on a choice: ascending (added last), then descending (same place), then off.
-function cycle(key: string) {
-  const list = keys.value;
-  const index = list.findIndex((k) => k.replace(/^-/, '') === key);
-  if (index < 0) sort.value = [...list, key].join(',');
-  else if (!list[index]!.startsWith('-')) sort.value = list.with(index, `-${key}`).join(',');
-  else sort.value = list.toSpliced(index, 1).join(',');
-}
 
 function label(key: SortKey, reversed: boolean | undefined) {
   if (key === 'pinned' && reversed !== undefined)
@@ -50,7 +41,7 @@ const menu = computed<DropdownMenuItem[][]>(() => [
         kbds: index >= 0 && keys.value.length > 1 ? [String(index + 1)] : undefined,
         onSelect: (event: Event) => {
           event.preventDefault(); // The menu stays open for the next click.
-          cycle(key);
+          sort.value = cycleSort(sort.value, key);
         },
       };
     }),

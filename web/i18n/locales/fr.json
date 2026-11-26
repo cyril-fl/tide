@@ -154,7 +154,16 @@
     "preview": "Aperçu",
     "previewEmpty": "Cliquez sur une note pour la lire ici",
     "previewEdit": "Modifier ici",
-    "previewRead": "Revenir à la lecture"
+    "previewRead": "Revenir à la lecture",
+    "sortBy": "Trier par",
+    "created": "Créé le",
+    "updated": "Modifié le",
+    "only": {
+      "all": "Tout",
+      "folder": "Dossiers",
+      "note": "Notes"
+    },
+    "noMatch": "Aucun élément de ce type dans ce dossier"
   },
   "path": {
     "breadcrumb": "Fil d'Ariane",

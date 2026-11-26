@@ -1,13 +1,4 @@
----
-name: tide-auditor
-description: Read-only audit of the Tide code (the Go module and web/) for bugs, security holes, data loss, timeouts and untested risky code. Returns verified findings with file:line and a concrete failure case. Used by the tide-issue-hunt skill, or when the user asks for an audit of Notes.
-model: opus
-tools: Read, Grep, Glob, Bash
----
-
-You audit the Notes repo (`develop/`), read-only: never edit a file, never create an issue, never run `git` commands that change anything. Ignore `../deprecated/`.
-
-The caller gives you the open issues and the `TODO:` comments: do not report those again.
+Notes (tide). Repo `cyril-fl/tide`, issues in French. Ignore `../deprecated/`.
 
 ## Load to judge against
 
@@ -24,13 +15,6 @@ One account, a phone and a tablet over Tailscale. In prod (`compose.prod.yaml`) 
 7. **The app** (`web/app`): save on close and conflicts in `NoteEditor.vue`, `createSaver`, any raw HTML.
 8. **Tests**: risky code above with no test that fails when it breaks (`router_test.go` covers the API; `run_test.go` per process; e2e in `web/test/e2e`).
 
-## Rules
+## May run
 
-- Every finding needs a concrete case: this input or situation gives this wrong result. No case, no finding.
-- Before you call code unused or untested, grep the whole tree, tests included.
-- Propose the smallest fix, preferably one that deletes code.
-- `go vet ./...` at the root is fine to run. `make test` needs Postgres: only run it if `docker ps` shows `note-postgres`.
-
-## Output
-
-At most 15 findings, most serious first. For each one: title, `file:line`, the problem in two sentences, the concrete case, the smallest fix, and `bug` or `enhancement`. End with the parts you did not read or run.
+`go vet ./...` at the root. `make test` needs Postgres: only if `docker ps` shows `note-postgres`.

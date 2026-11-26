@@ -35,7 +35,7 @@ Two binaries. `tide-server` (`cmd/tide-server/`, `core/server/`) is the only one
 ## Working with the user
 
 - Talk to the user in French. Code, comments, commit messages and tag messages in English (older tags in French are no model); READMEs and wiki in English.
-- One commit per change (`feat:`/`fix:`/`refactor:`/`test:`/`docs:`/`chore:`/`style:`, checked by the lefthook `commit-msg` hook: `make setup`), an annotated tag per version, the user pushes. Details and issue handling: the `tide-release` skill.
+- One commit per change (`feat:`/`fix:`/`refactor:`/`test:`/`docs:`/`chore:`/`style:`, checked by the lefthook `commit-msg` hook: `make setup`), an annotated tag per version, the user pushes. Details and issue handling: the `release` skill.
 - The wiki is updated only when the user asks (`tide-wiki` skill, which catches up every tag since the last one it knows), never as part of a fix, a tag or an issue; it is pushed in `../notes.wiki` (the only push the agent does).
 - Work left for later goes into GitHub issues (`gh issue list -R cyril-fl/tide`), and known limits into `TODO:` comments in the code (`TODO: <the limit>, <when to fix it>`), not `shortcut:`.
 - Several agents share this checkout: files left uncommitted by another one are not yours (stage only your own hunks, never a shared file whole), and the branch may have been switched under you (`git branch --show-current` before committing; work goes on `develop`, `main` follows it at releases).
@@ -43,6 +43,6 @@ Two binaries. `tide-server` (`cmd/tide-server/`, `core/server/`) is the only one
 
 ## Skills
 
-`tide-cli-command`, `tide-account-setting`, `tide-app-screenshot`, `tide-release`, `tide-wiki`, `tide-issue-done`, `tide-issue-hunt` (audit, then the missing issues), `plum-process`, `go-documentation`, `go-tests`, `primitive-first-review`.
+Global skills (`~/.claude/skills`), with this project's part of each in `.agents/overlays/<skill>.md`, injected into the skill (edit the overlay, not the skill): `cli-command`, `schema-column` (a setting on the account, any new column), `app-screenshot`, `commit`, `release` (also finishes an issue), `issue-hunt` (audit, then the missing issues), `plum-process`, `go-documentation`, `go-tests`, `primitive-first-review`, `plum-upgrade`. Their subagents are global too (`~/.claude/agents/`): `code-auditor`, `release-checker` (Sonnet).
 
-Subagents (`.claude/agents/`): `tide-auditor`, a read-only audit of the code used by `tide-issue-hunt`; `tide-release-checker` (Sonnet), the checks, tag, issues and handoff of `tide-release` once the commits are made.
+Project skill: `tide-wiki`.

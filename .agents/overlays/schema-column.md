@@ -1,9 +1,5 @@
----
-name: tide-account-setting
-description: Add or change a setting stored on the account (users table) end to end - domain column (createschema adds it to existing bases), edituser validation, PATCH /api/me, OpenAPI and app types, the settings page, the layout sync, i18n and tests. Also use for any new column on an existing table.
----
+Notes (tide): a setting lives on the account (`users`), Postgres. Details of the old `tide-account-setting` skill.
 
-# Setting of the account
 
 The settings live as columns of `users`, read by `GET /api/me` and changed by `PATCH /api/me`: no settings table.
 References: `locale`, `theme`, `color_mode`, `view`, `trash_retention_days`.
@@ -42,4 +38,4 @@ A column left in the base but gone from the model is harmless: queries read the 
 
 ## 5. Finish
 
-The `tide-release` skill: README (Réglages section of `web/README.md`), commits, tag.
+The `release` skill: README (Réglages section of `web/README.md`), commits, tag.

@@ -1,9 +1,5 @@
----
-name: tide-cli-command
-description: Add or change a Tide CLI command (add/show/edit/remove on a noun, or a verb of its own) end to end - config.yaml entry and config.go key, cobra wiring, the command as a client of the API through apiclient, the same capability on the MCP, --json output, tests against the test server, README.
----
+Notes (tide): these are the details of the old `tide-cli-command` skill.
 
-# Tide CLI command
 
 `tide` is a client of the API: a command never opens the base, it calls a route through `cli/services/apiclient`. Its MCP (`cli/cmd-mcp/`) is the other face of the same client, and the two move together (`cli/CLAUDE.md`). Reference implementations: `cli/cmd-read-search` (list, run, --json), `cli/cmd-create-search` + `cli/cmd-edit-search` (flags shared, only the given ones changed), `cli/cmd-read-note` (one or many args, --json object or array).
 

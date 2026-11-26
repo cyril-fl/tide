@@ -12,8 +12,8 @@ Nuxt 4, Nuxt UI 4 (Tailwind 4), `@nuxtjs/i18n`, VueUse; client only, the Go API 
 - Every text is in `i18n/locales/fr.json` **and** `en.json`; French is the default.
 - Icons are named once in `composables/useIcons.ts`.
 - Use Nuxt UI components and its tokens (`text-muted`, `bg-elevated`, `ring-primary`…), not raw colors: the themes change them.
-- The account drives the app: `layouts/default.vue` loads `me` and applies locale, theme, mode and view. Settings: the `tide-account-setting` skill.
-- Themes: palettes in `app/assets/css/main.css` (`@theme static`, an accent and a `-gray` scale, the greys serving light at 50 and dark at 900), the list in `app/utils/themes.ts`, the ids repeated in `domain.Themes` (Go, a test in `core/domain/users_test.go` compares both), the names in i18n `settings.themes`, WCAG AA contrast checked by `test/themes.test.ts`. Check both modes with the `tide-app-screenshot` skill.
+- The account drives the app: `layouts/default.vue` loads `me` and applies locale, theme, mode and view. Settings: the `schema-column` skill.
+- Themes: palettes in `app/assets/css/main.css` (`@theme static`, an accent and a `-gray` scale, the greys serving light at 50 and dark at 900), the list in `app/utils/themes.ts`, the ids repeated in `domain.Themes` (Go, a test in `core/domain/users_test.go` compares both), the names in i18n `settings.themes`, WCAG AA contrast checked by `test/themes.test.ts`. Check both modes with the `app-screenshot` skill.
 
 ## e2e
 

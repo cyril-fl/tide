@@ -1,5 +1,5 @@
 /**
- * What a read-only editor renders a note with: the tables, callouts and diagrams every editor reads, without their
+ * What a read-only editor renders a note with: the tables, callouts, diagrams and #tags every editor reads, without their
  * menus. Its embeds stay links: a note that includes itself, or one that includes it back, stops there.
  */
 export function useNoteReader() {
@@ -11,6 +11,7 @@ export function useNoteReader() {
     starterKit: { ...callouts!.starterKit, ...code.starterKit },
     extensions: [
       WikiLink,
+      Hashtag,
       noteEmbed(),
       noteImage(baseURL, async () => null),
       ...tables!.extensions!,

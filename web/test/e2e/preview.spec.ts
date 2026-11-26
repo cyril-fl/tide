@@ -96,3 +96,29 @@ test('the Pro preview unlocks a note to edit it in place', async ({ page }) => {
     await box.api.patch('/api/me', { data: { plan: 'base' } });
   }
 });
+
+// The line between the list and the preview resizes the list; a double click puts back its default width.
+test('the list beside the preview resizes', async ({ page }) => {
+  await box.note(`# Large ${box.prefix}`);
+  const handle = page.getByRole('separator', { name: 'Redimensionner la liste' });
+  const width = async () => (await page.locator('[data-slot="body"]').last().boundingBox())!.width;
+  try {
+    await box.api.patch('/api/me', { data: { plan: 'pro' } });
+    await page.goto(`/folders/${box.folder.id}`);
+    await page.getByRole('button', { name: 'Aperçu' }).click();
+    await expect(handle).toBeVisible();
+    const before = await width();
+    const handleBox = (await handle.boundingBox())!;
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + 50);
+    await page.mouse.down();
+    await page.mouse.move(handleBox.x + 120, handleBox.y + 50, { steps: 5 });
+    await page.mouse.up();
+    await expect.poll(width).toBeGreaterThan(before + 100);
+
+    await handle.dblclick();
+    await expect.poll(width).toBeCloseTo(before, 0);
+  } finally {
+    await box.api.patch('/api/me', { data: { plan: 'base' } });
+    await page.evaluate(() => localStorage.removeItem('list-preview-width'));
+  }
+});

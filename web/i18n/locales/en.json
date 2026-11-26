@@ -163,7 +163,8 @@
       "folder": "Folders",
       "note": "Notes"
     },
-    "noMatch": "Nothing of this kind in this folder"
+    "noMatch": "Nothing of this kind in this folder",
+    "resizePreview": "Resize the list"
   },
   "path": {
     "breadcrumb": "Breadcrumb",

@@ -78,10 +78,10 @@ const date = computed(() => format(props.item.updated_at ?? props.item.created_a
         :class="isOver ? 'text-inverted' : 'text-muted'"
       />
       <template v-if="columns">
-        <span class="date-column ml-auto max-sm:hidden" :class="isOver ? 'text-inverted' : 'text-muted'">
+        <span class="date-column ml-auto @max-lg:hidden" :class="isOver ? 'text-inverted' : 'text-muted'">
           {{ format(item.created_at) }}
         </span>
-        <span class="date-column max-sm:ml-auto" :class="isOver ? 'text-inverted' : 'text-muted'">{{ date }}</span>
+        <span class="date-column @max-lg:ml-auto" :class="isOver ? 'text-inverted' : 'text-muted'">{{ date }}</span>
       </template>
       <span v-else class="ml-auto shrink-0 pl-4 text-xs" :class="isOver ? 'text-inverted' : 'text-muted'">{{
         date

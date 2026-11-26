@@ -163,7 +163,8 @@
       "folder": "Dossiers",
       "note": "Notes"
     },
-    "noMatch": "Aucun élément de ce type dans ce dossier"
+    "noMatch": "Aucun élément de ce type dans ce dossier",
+    "resizePreview": "Redimensionner la liste"
   },
   "path": {
     "breadcrumb": "Fil d'Ariane",

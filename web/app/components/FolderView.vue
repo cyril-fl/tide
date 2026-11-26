@@ -147,7 +147,7 @@ watchEffect(() => load(visible.value.start, visible.value.start + visible.value.
           :menu="kindMenu"
           @sort="sort = cycleSort(sort, 'title')"
         />
-        <div class="date-column flex justify-end max-sm:hidden">
+        <div class="date-column flex justify-end @max-lg:hidden">
           <ColumnHeader
             :label="$t('folder.created')"
             :sorted="sortOf(sort, 'created')"
